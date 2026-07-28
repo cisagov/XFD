@@ -20,14 +20,7 @@ from pe_reports.data.db_query import (
 from .charts import Charts
 
 # Import Classes
-from .metrics import (
-    Core_Cyber_Six,
-    Credentials,
-    Cyber_Six,
-    Domains_Masqs,
-    Flare,
-    Malware_Vulns,
-)
+from .metrics import Credentials, Cyber_Six, Domains_Masqs, Flare, Malware_Vulns
 
 # Setup logging to central
 LOGGER = logging.getLogger(__name__)
@@ -457,7 +450,7 @@ def dark_web_flare(
     alerts_df.drop(columns=["related_identifiers_txt"], inplace=True)
     # Prep top 10 cves raw data
     top_cves_df = FlareObj.top_cves
-    top_cves_df.drop("summary_short", axis=1, inplace=True)
+    top_cves_df.drop(columns=["summary_short"], inplace=True, errors="ignore")
     # Create dark web JSON file
     mentions_dict = mentions_df.to_dict(orient="records")
     alerts_dict = alerts_df.to_dict(orient="records")
@@ -496,7 +489,6 @@ def init(
     grade,
     output_directory,
     soc_med_included=False,
-    flare=False,
 ):
     """Call each page of the report."""
     # Format start_date and end_date for the bi-monthly reporting period.
@@ -630,46 +622,19 @@ def init(
         org_code,
         output_directory,
     )
-    # Dark Web Data
-    if flare:
-        # Use Flare data, premium report
-        scorecard_dict, chevron_dict, mi_json, mi_xlsx = dark_web_flare(
-            scorecard_dict,
-            chevron_dict,
-            trending_start_date,
-            start_date,
-            end_date,
-            org_uid,
-            all_cves_df,
-            soc_med_included,
-            org_code,
-            output_directory,
-        )
-    elif premium:
-        # Use Cybersixgill data, premium report
-        scorecard_dict, chevron_dict, mi_json, mi_xlsx = dark_web(
-            scorecard_dict,
-            chevron_dict,
-            trending_start_date,
-            start_date,
-            end_date,
-            org_uid,
-            all_cves_df,
-            soc_med_included,
-            org_code,
-            output_directory,
-        )
-    else:
-        # Use Cybersixgill data, core report
-        Core_Cyber = Core_Cyber_Six(all_cves_df)
-        chevron_dict["top_cves"] = Core_Cyber.top_cve_table()
-        mi_json = None
-        mi_xlsx = None
-        scorecard_dict["threat_actor_count"] = None
-        scorecard_dict["dark_web_alerts_count"] = None
-        scorecard_dict["dark_web_mentions_count"] = None
-        scorecard_dict["dark_web_executive_alerts_count"] = None
-        scorecard_dict["dark_web_asset_alerts_count"] = None
+    # Dark Web Data (Flare)
+    scorecard_dict, chevron_dict, mi_json, mi_xlsx = dark_web_flare(
+        scorecard_dict,
+        chevron_dict,
+        trending_start_date,
+        start_date,
+        end_date,
+        org_uid,
+        all_cves_df,
+        soc_med_included,
+        org_code,
+        output_directory,
+    )
 
     # Save report summary stats for the current period to the PE DB
     execute_scorecard(

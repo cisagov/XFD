@@ -32,7 +32,6 @@ def main() -> int:
         metavar="N",
         help="Split resolved org list across N Fargate-style local containers.",
     )
-    parser.add_argument("--flare", action="store_true", help="Use Flare data sources.")
     parser.add_argument(
         "--soc-med",
         action="store_true",
@@ -50,7 +49,6 @@ def main() -> int:
         "reportDate": args.report_date,
         "orgs": orgs,
         "taskCount": args.count,
-        "flare": args.flare,
         "socMedIncluded": args.soc_med,
         "local": True,
     }

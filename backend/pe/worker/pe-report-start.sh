@@ -36,9 +36,6 @@ cd /app
 mkdir -p "${OUTPUT_DIR}"
 
 EXTRA_ARGS=()
-if [[ "${REPORT_FLARE:-false}" == "true" ]]; then
-  EXTRA_ARGS+=(--flare)
-fi
 if [[ "${REPORT_SOC_MED_INCLUDED:-false}" == "true" ]]; then
   EXTRA_ARGS+=(--soc_med_included)
 fi

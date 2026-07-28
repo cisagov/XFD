@@ -8,7 +8,6 @@ Event payload:
         "reportDate": "2026-07-15",
         "orgs": ["all"],
         "taskCount": 1,
-        "flare": false,
         "socMedIncluded": false,
         "local": false
     }
@@ -50,6 +49,21 @@ LOGGER.setLevel(logging.INFO)
 REPORT_BATCH_SHORTCUTS = frozenset({"all", "demo"})
 REPORT_EXPAND_SHORTCUTS = frozenset({"all-orgs", "demo-orgs"})
 LOCAL_REPORTS_OUTPUT_PATH = "/tmp/pe-reports"  # nosec B108
+
+
+def report_flare_environment() -> List[Dict[str, str]]:
+    """Flare API credentials for dark-web identifier resolution in pe-reports."""
+    env: List[Dict[str, str]] = []
+    api_key = os.environ.get("FLARE_API_KEY", "").strip()
+    if not api_key:
+        keys = os.environ.get("FLARE_API_KEYS", "")
+        api_key = next((part.strip() for part in keys.split(",") if part.strip()), "")
+    tenant_id = os.environ.get("FLARE_TENANT_ID", "").strip()
+    if api_key:
+        env.append({"name": "FLARE_API_KEY", "value": api_key})
+    if tenant_id:
+        env.append({"name": "FLARE_TENANT_ID", "value": tenant_id})
+    return env
 
 
 def resolve_report_orgs(orgs: List[str]) -> str:
@@ -99,7 +113,6 @@ def start_fargate_report_tasks(
     report_date: str,
     orgs_arg: str,
     *,
-    flare: bool,
     soc_med_included: bool,
 ) -> int:
     """Start one or more ECS Fargate report-generation tasks."""
@@ -113,7 +126,6 @@ def start_fargate_report_tasks(
     environment = [
         {"name": "REPORT_DATE", "value": report_date},
         {"name": "REPORT_ORGS", "value": orgs_arg},
-        {"name": "REPORT_FLARE", "value": "true" if flare else "false"},
         {
             "name": "REPORT_SOC_MED_INCLUDED",
             "value": "true" if soc_med_included else "false",
@@ -121,6 +133,7 @@ def start_fargate_report_tasks(
     ]
     if reports_bucket:
         environment.append({"name": "REPORTS_BUCKET_NAME", "value": reports_bucket})
+    environment.extend(report_flare_environment())
 
     LOGGER.info(
         "Starting Fargate report task for date=%s orgs=%s", report_date, orgs_arg
@@ -158,7 +171,6 @@ def start_local_docker_report_task(
     report_date: str,
     orgs_arg: str,
     *,
-    flare: bool,
     soc_med_included: bool,
 ) -> str:
     """Start a detached pe-worker container running pe-report-start.sh locally."""
@@ -174,7 +186,6 @@ def start_local_docker_report_task(
         "REPORT_DATE": report_date,
         "REPORT_ORGS": orgs_arg,
         "REPORT_OUTPUT_DIR": LOCAL_REPORTS_OUTPUT_PATH,
-        "REPORT_FLARE": "true" if flare else "false",
         "REPORT_SOC_MED_INCLUDED": "true" if soc_med_included else "false",
         "REPORTS_BUCKET_NAME": os.getenv("REPORTS_BUCKET_NAME", "local-reports"),
         "DB_HOST": os.getenv("PE_DB_HOST", os.getenv("DB_HOST", "db")),
@@ -184,6 +195,10 @@ def start_local_docker_report_task(
         "PE_API_URL": os.getenv("PE_API_URL", "http://127.0.0.1:8000"),
         "PE_API_KEY": os.getenv("PE_API_KEY", ""),
     }
+    for key, value in (
+        (item["name"], item["value"]) for item in report_flare_environment()
+    ):
+        environment[key] = value
 
     run_kwargs: Dict[str, Any] = {
         "image": "pe-worker",
@@ -208,7 +223,6 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
     report_date = event.get("reportDate")
     orgs = event.get("orgs")
     task_count = int(event.get("taskCount", 1))
-    flare = bool(event.get("flare", False))
     soc_med_included = bool(event.get("socMedIncluded", False))
     local = is_local_mode(event)
 
@@ -239,7 +253,6 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
                 start_local_docker_report_task(
                     report_date,
                     chunk,
-                    flare=flare,
                     soc_med_included=soc_med_included,
                 )
             )
@@ -248,7 +261,6 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
             started += start_fargate_report_tasks(
                 report_date,
                 chunk,
-                flare=flare,
                 soc_med_included=soc_med_included,
             )
 

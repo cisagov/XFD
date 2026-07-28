@@ -106,30 +106,6 @@ def _view_exists(cursor, view_name, create_sql):
     return _sql_view_exists(cursor, view_name)
 
 
-def _is_stub_definition(definition: str) -> bool:
-    lowered = definition.lower()
-    if "where false" in lowered:
-        return True
-    if "null::" in lowered and " from " not in lowered and " join " not in lowered:
-        return True
-    return False
-
-
-def _fetch_view_definition(cursor, view_name, materialized: bool) -> str | None:
-    if materialized:
-        cursor.execute(
-            "SELECT pg_get_viewdef(%s::regclass, true)",
-            [view_name],
-        )
-    else:
-        cursor.execute(
-            "SELECT pg_get_viewdef(%s::regclass, true)",
-            [view_name],
-        )
-    row = cursor.fetchone()
-    return row[0] if row else None
-
-
 def _drop_view(cursor, view_name, materialized: bool) -> None:
     kind = "MATERIALIZED VIEW" if materialized else "VIEW"
     cursor.execute(
@@ -141,20 +117,16 @@ def _drop_view(cursor, view_name, materialized: bool) -> None:
 
 
 def ensure_local_report_views(database=DATABASE, stdout=None):
-    """Create local report views when missing (``pesyncdb`` only)."""
+    """Create or refresh local report views from bundled SQL (``pesyncdb`` only)."""
     view_definitions = build_local_report_views()
 
     with connections[database].cursor() as cursor:
-        for view_name, create_sql in view_definitions:
+        for view_name, create_sql in reversed(view_definitions):
             materialized = create_sql.upper().startswith("CREATE MATERIALIZED VIEW")
-            exists = _view_exists(cursor, view_name, create_sql)
-            if exists:
-                definition = _fetch_view_definition(cursor, view_name, materialized)
-                if definition and _is_stub_definition(definition):
-                    _emit(f"Replacing local report view stub {view_name}...", stdout)
-                    _drop_view(cursor, view_name, materialized)
-                    exists = False
-            if exists:
-                continue
+            if _view_exists(cursor, view_name, create_sql):
+                _emit(f"Dropping local report view {view_name}...", stdout)
+                _drop_view(cursor, view_name, materialized)
+
+        for view_name, create_sql in view_definitions:
             _emit(f"Creating local report view {view_name}...", stdout)
             cursor.execute(create_sql)

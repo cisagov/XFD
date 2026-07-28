@@ -292,9 +292,19 @@ class GenerateReportsTests(unittest.TestCase):
         result = report_generator.generate_reports("DHS", "2026-07-15", self.tmp.name)
         self.assertEqual(result, 1)
 
+    @patch.object(report_generator, "connect")
+    def test_returns_error_when_no_orgs_match(self, connect_mock):
+        """Return error code when requested orgs are not in the database."""
+        connect_mock.return_value = MagicMock()
+        with patch.object(report_generator, "get_specific_orgs", return_value=[]):
+            result = report_generator.generate_reports(
+                "DHS", "2026-07-15", self.tmp.name
+            )
+        self.assertEqual(result, 1)
+
     @patch.object(report_generator, "upload_file_to_s3")
     @patch.object(report_generator, "embed")
-    @patch.object(report_generator, "core_report_gen")
+    @patch.object(report_generator, "report_gen")
     @patch.object(report_generator, "create_summary")
     @patch.object(report_generator, "init")
     @patch.object(report_generator, "refresh_asset_counts_vw")
@@ -307,11 +317,11 @@ class GenerateReportsTests(unittest.TestCase):
         refresh_mock,
         init_mock,
         create_summary_mock,
-        core_report_gen_mock,
+        report_gen_mock,
         embed_mock,
         upload_mock,
     ):
-        """Run core report path with view refresh, embed, and S3 uploads."""
+        """Run report path with view refresh, embed, and S3 uploads."""
         connect_mock.return_value = MagicMock()
         get_specific_orgs_mock.return_value = [_sample_org(premium=False)]
         init_mock.return_value = _init_return_values(
@@ -323,7 +333,7 @@ class GenerateReportsTests(unittest.TestCase):
         report_generator.generate_reports("DHS", "2026-07-15", self.tmp.name)
 
         refresh_mock.assert_called_once()
-        core_report_gen_mock.assert_called_once()
+        report_gen_mock.assert_called_once()
         embed_mock.assert_called_once()
         self.assertGreaterEqual(upload_mock.call_count, 5)
 
@@ -335,7 +345,7 @@ class GenerateReportsTests(unittest.TestCase):
     @patch.object(report_generator, "refresh_asset_counts_vw")
     @patch.object(report_generator, "get_specific_orgs")
     @patch.object(report_generator, "connect")
-    def test_premium_report_uses_report_gen(
+    def test_premium_report_uses_flare_generator(
         self,
         connect_mock,
         get_specific_orgs_mock,
@@ -346,7 +356,7 @@ class GenerateReportsTests(unittest.TestCase):
         embed_mock,
         upload_mock,
     ):
-        """Use premium report_gen for orgs with premium_report enabled."""
+        """Use report_gen for all orgs."""
         connect_mock.return_value = MagicMock()
         get_specific_orgs_mock.return_value = [_sample_org(premium=True)]
         init_mock.return_value = _init_return_values(
@@ -362,42 +372,7 @@ class GenerateReportsTests(unittest.TestCase):
 
     @patch.object(report_generator, "upload_file_to_s3")
     @patch.object(report_generator, "embed")
-    @patch.object(report_generator, "report_gen_flare")
-    @patch.object(report_generator, "create_summary")
-    @patch.object(report_generator, "init")
-    @patch.object(report_generator, "refresh_asset_counts_vw")
-    @patch.object(report_generator, "get_orgs")
-    @patch.object(report_generator, "connect")
-    def test_flare_flag_uses_flare_generator(
-        self,
-        connect_mock,
-        get_orgs_mock,
-        refresh_mock,
-        init_mock,
-        create_summary_mock,
-        report_gen_flare_mock,
-        embed_mock,
-        upload_mock,
-    ):
-        """Use report_gen_flare when the flare flag is set."""
-        connect_mock.return_value = MagicMock()
-        get_orgs_mock.return_value = [_sample_org()]
-        init_mock.return_value = _init_return_values(
-            self.tmp.name, "DHS", self.end_date
-        )
-        create_summary_mock.return_value = os.path.join(self.tmp.name, "asm.xlsx")
-        embed_mock.return_value = (1000, False, os.path.join(self.tmp.name, "out.pdf"))
-
-        report_generator.generate_reports(
-            "all", "2026-07-15", self.tmp.name, flare=True
-        )
-
-        get_orgs_mock.assert_called_once()
-        report_gen_flare_mock.assert_called_once()
-
-    @patch.object(report_generator, "upload_file_to_s3")
-    @patch.object(report_generator, "embed")
-    @patch.object(report_generator, "core_report_gen")
+    @patch.object(report_generator, "report_gen")
     @patch.object(report_generator, "create_summary")
     @patch.object(report_generator, "init")
     @patch.object(report_generator, "refresh_asset_counts_vw")
@@ -410,7 +385,7 @@ class GenerateReportsTests(unittest.TestCase):
         refresh_mock,
         init_mock,
         create_summary_mock,
-        core_report_gen_mock,
+        report_gen_mock,
         embed_mock,
         upload_mock,
     ):
@@ -440,7 +415,7 @@ class ReportGeneratorMainTests(unittest.TestCase):
 
     @patch.object(report_generator, "generate_reports")
     def test_main_passes_cli_args_to_generate_reports(self, generate_mock):
-        """Forward CLI org, flare, and logging flags to generate_reports."""
+        """Forward CLI org, soc_med, and logging flags to generate_reports."""
         out_dir = tempfile.mkdtemp()
         try:
             argv = [
@@ -448,7 +423,6 @@ class ReportGeneratorMainTests(unittest.TestCase):
                 "2026-07-15",
                 out_dir,
                 "--orgs=DHS",
-                "--flare",
                 "--soc_med_included",
                 "--log-level=warning",
             ]
@@ -458,7 +432,6 @@ class ReportGeneratorMainTests(unittest.TestCase):
                 "DHS",
                 "2026-07-15",
                 out_dir,
-                True,
                 True,
             )
         finally:

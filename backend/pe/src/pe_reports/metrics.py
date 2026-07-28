@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import datetime
 import logging
+import os
 import time
 
 # Third-Party Libraries
@@ -10,13 +11,10 @@ import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
 
-from .data.config import PE_API_REQUEST_TIMEOUT, config
+from .data.config import PE_API_REQUEST_TIMEOUT
 from .data.db_query import (
     connect,
     get_orgs,
-    query_breachdetails_view,
-    query_creds_view,
-    query_credsbyday_view,
     query_darkweb,
     query_darkweb_asset_alerts,
     query_darkweb_cves,
@@ -65,32 +63,16 @@ class Credentials:
         self.start_date = start_date
         self.end_date = end_date
         self.org_uid = org_uid
-        # Toggle between cred leak data sources
-        flare = True
-        if flare:
-            # Use credentials from Flare
-            self.trending_creds_view = query_flare_creds_view(
-                org_uid, trending_start_date, end_date
-            )
-            self.creds_view = query_flare_creds_view(org_uid, start_date, end_date)
-            self.creds_by_day = query_flare_credsbyday_view(
-                org_uid, trending_start_date, end_date
-            )
-            self.breach_details_view = query_flare_breachdetails_view(
-                org_uid, start_date, end_date
-            )
-        else:
-            # Use credentials from IntelX/C6G
-            self.trending_creds_view = query_creds_view(
-                org_uid, trending_start_date, end_date
-            )
-            self.creds_view = query_creds_view(org_uid, start_date, end_date)
-            self.creds_by_day = query_credsbyday_view(
-                org_uid, trending_start_date, end_date
-            )
-            self.breach_details_view = query_breachdetails_view(
-                org_uid, start_date, end_date
-            )
+        self.trending_creds_view = query_flare_creds_view(
+            org_uid, trending_start_date, end_date
+        )
+        self.creds_view = query_flare_creds_view(org_uid, start_date, end_date)
+        self.creds_by_day = query_flare_credsbyday_view(
+            org_uid, trending_start_date, end_date
+        )
+        self.breach_details_view = query_flare_breachdetails_view(
+            org_uid, start_date, end_date
+        )
 
     def by_days(self):
         """Return number of credentials by day."""
@@ -1106,36 +1088,73 @@ class Flare:
             else:
                 return ident_list
 
+    def _identifiers_from_stored_events(self):
+        """Build identifier id→label map from flare_events rows already in the DB."""
+        event_idents_dict = {}
+        if self.all_events is None or self.all_events.empty:
+            return event_idents_dict
+        for _, row in self.all_events.iterrows():
+            ids = row.get("related_identifiers") or []
+            txts = row.get("related_identifiers_txt") or []
+            if not isinstance(ids, (list, tuple)):
+                continue
+            if not isinstance(txts, (list, tuple)):
+                txts = []
+            for idx, ident_id in enumerate(ids):
+                label = txts[idx] if idx < len(txts) else ident_id
+                event_idents_dict[str(ident_id)] = str(label)
+        return event_idents_dict
+
     def get_flare_identifier_dicts(self, org_abbrv):
         """Format Flare identifiers into dictionaries for the specified org."""
-        # Retrieve Flare API credentials
-        flare_creds = config(section="flare")
-        flare_key = flare_creds.get("api_key_1")
-        flare_tenant_id = flare_creds.get("tenant_id")
-        flare_api_auth = HTTPBasicAuth("", flare_key)
-        # Get identifier group ID for this org
-        flare_token = self.get_flare_token(flare_api_auth, flare_tenant_id)
-        flare_org_info = self.get_ident_group_info(flare_token, org_abbrv)
-        # Get all identifiers for this organization
-        flare_org_identifiers = self.get_ident_by_group_id(
-            flare_token, flare_org_info.get("id")
-        )
-        # Parse identifiers into dicts
+        flare_key = os.environ.get("FLARE_API_KEY", "").strip()
+        flare_tenant_id = os.environ.get("FLARE_TENANT_ID", "").strip()
         flare_aliases = {}
         flare_domains = {}
         flare_ips = {}
         flare_execs = {}
-        for ident in flare_org_identifiers:
-            if ident.get("type") == "keyword":
-                flare_aliases[str(ident.get("id"))] = str(ident.get("value"))
-            elif ident.get("type") == "domain":
-                flare_domains[str(ident.get("id"))] = str(ident.get("value"))
-            elif ident.get("type") == "ip":
-                flare_ips[str(ident.get("id"))] = str(ident.get("value"))
-            elif ident.get("type") == "identity":
-                flare_execs[str(ident.get("id"))] = str(ident.get("value"))
 
-        # Find any additional identifiers that are referenced in mentions/alerts data, but do not explicitly belong to this org
+        if flare_key and flare_tenant_id:
+            flare_api_auth = HTTPBasicAuth("", flare_key)
+            flare_token = self.get_flare_token(flare_api_auth, flare_tenant_id)
+            if flare_token:
+                flare_org_info = self.get_ident_group_info(flare_token, org_abbrv)
+                if flare_org_info and flare_org_info.get("id") is not None:
+                    flare_org_identifiers = self.get_ident_by_group_id(
+                        flare_token, flare_org_info.get("id")
+                    )
+                    if flare_org_identifiers:
+                        for ident in flare_org_identifiers:
+                            if ident.get("type") == "keyword":
+                                flare_aliases[str(ident.get("id"))] = str(
+                                    ident.get("value")
+                                )
+                            elif ident.get("type") == "domain":
+                                flare_domains[str(ident.get("id"))] = str(
+                                    ident.get("value")
+                                )
+                            elif ident.get("type") == "ip":
+                                flare_ips[str(ident.get("id"))] = str(
+                                    ident.get("value")
+                                )
+                            elif ident.get("type") == "identity":
+                                flare_execs[str(ident.get("id"))] = str(
+                                    ident.get("value")
+                                )
+            else:
+                LOGGER.warning(
+                    "Flare API token unavailable for %s; "
+                    "using identifier text from stored flare_events",
+                    org_abbrv,
+                )
+        else:
+            LOGGER.warning(
+                "FLARE_API_KEY or FLARE_TENANT_ID not set; "
+                "using identifier text from stored flare_events for %s",
+                org_abbrv,
+            )
+
+        # Identifiers referenced in events but not returned by the API (or when API is skipped)
         flare_extra_idents = {}
         event_idents_df = self.all_events[
             ["related_identifiers", "related_identifiers_txt"]
@@ -1148,19 +1167,16 @@ class Flare:
                 axis=1,
             )
             event_idents_dict = {}
-            for idx, row in event_idents_df.iterrows():
+            for _, row in event_idents_df.iterrows():
                 event_idents_dict.update(row["related_identifiers_dict"])
             group_idents_dict = flare_aliases | flare_domains | flare_ips | flare_execs
-            group_ident_keys = group_idents_dict.keys()
-            event_ident_keys = event_idents_dict.keys()
-            extra_ident_keys = list(event_ident_keys - group_ident_keys)
+            extra_ident_keys = list(event_idents_dict.keys() - group_idents_dict.keys())
             flare_extra_idents = {
                 key: event_idents_dict[key]
                 for key in extra_ident_keys
                 if key in event_idents_dict
             }
 
-        # Return results
         return [
             flare_aliases,
             flare_domains,
@@ -1503,8 +1519,12 @@ class Flare:
     def top_cve_table(self):
         """Get top 10 CVEs for this report period, formatted for table."""
         top_cves = self.top_cves
+        if top_cves is None or top_cves.empty:
+            return pd.DataFrame(
+                columns=["CVE", "Description", "EPSS Rating", "Identified By"]
+            )
         top_cves["summary_short"] = top_cves["summary"].str[:500]
-        top_cve_table = top_cves[["cve_id", "summary_short", "epss_score"]]
+        top_cve_table = top_cves[["cve_id", "summary_short", "epss_score"]].copy()
         top_cve_table = top_cve_table.rename(
             columns={
                 "cve_id": "CVE",

@@ -117,6 +117,6 @@ queue-status:
 run-reports:
 	@test -n "$(REPORT_DATE)" || (echo "REPORT_DATE is required (YYYY-MM-DD)" && exit 1)
 	REPORT_DATE="$(REPORT_DATE)" ORGS="$(or $(ORGS),all)" OUTPUT_DIR="$(OUTPUT_DIR)" \
-		COUNT="$(COUNT)" FLARE="$(or $(FLARE),false)" SOC_MED="$(or $(SOC_MED),false)" \
+		COUNT="$(COUNT)" SOC_MED="$(or $(SOC_MED),false)" \
 		REPORT_CONTAINER_PATH="$(REPORT_CONTAINER_PATH)" \
 		"$(PE_DIR)/tools/run_local_reports.sh"

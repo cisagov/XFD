@@ -8,20 +8,17 @@ FUNCTION="${PE_REPORT_LAMBDA_FUNCTION:-crossfeed-${STAGE}-peReportController}"
 REPORT_DATE="${REPORT_DATE:?REPORT_DATE required (YYYY-MM-DD)}"
 ORGS="${ORGS:-all}"
 TASK_COUNT="${TASK_COUNT:-1}"
-FLARE="${FLARE:-false}"
 SOC_MED="${SOC_MED:-false}"
 
 PAYLOAD=$(jq -n \
   --arg date "$REPORT_DATE" \
   --arg orgs "$ORGS" \
   --argjson count "$TASK_COUNT" \
-  --argjson flare "$([ "$FLARE" = true ] && echo true || echo false)" \
   --argjson soc "$([ "$SOC_MED" = true ] && echo true || echo false)" \
   '{
     reportDate: $date,
     orgs: ($orgs | split(",") | map(select(length > 0))),
     taskCount: $count,
-    flare: $flare,
     socMedIncluded: $soc
   }')
 

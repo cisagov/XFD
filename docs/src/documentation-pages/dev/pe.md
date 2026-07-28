@@ -128,7 +128,6 @@ Report generation uses the **`pe-reports`** CLI under `backend/pe/src/pe_reports
 | Orgs             | `ORGS=all`               | `orgs` (`all`, `demo`, `DHS,DHS_CISA`, `all-orgs`, …) |
 | Output directory | `OUTPUT_DIR=~/reports`   | —                                                     |
 | Parallel tasks   | `COUNT=2`                | `taskCount`                                           |
-| Flare data       | `FLARE=true`             | `flare: true`                                         |
 | Social media     | `SOC_MED=true`           | `socMedIncluded: true`                                |
 
 Local (same stack as scans — `start` + `build` + `syncdb-populate`; each report container starts its own PE API):

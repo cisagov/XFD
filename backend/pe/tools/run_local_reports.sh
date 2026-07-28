@@ -15,9 +15,6 @@ args=(--report-date "$REPORT_DATE" --orgs "$ORGS" --print-names)
 if [[ -n "${COUNT:-}" ]]; then
   args+=(--count "$COUNT")
 fi
-if [[ "${FLARE:-false}" == "true" ]]; then
-  args+=(--flare)
-fi
 if [[ "${SOC_MED:-false}" == "true" ]]; then
   args+=(--soc-med)
 fi

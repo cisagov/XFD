@@ -56,7 +56,8 @@ CREATE VIEW vw_breachcomp AS
     b.is_retired,
     b.is_spam_list
    FROM (credential_exposures creds
-     JOIN credential_breaches b ON ((creds.credential_breaches_uid = b.credential_breaches_uid)));
+     JOIN credential_breaches b ON ((creds.credential_breaches_uid = b.credential_breaches_uid)))
+  WHERE creds.data_source_uid = ANY (ARRAY['fa4e7454-8baa-11ed-b121-02c6a3fe975b'::uuid, '744fb0ec-981d-11ec-a0ff-02589a36c9d7'::uuid]);
 
 
 CREATE MATERIALIZED VIEW mat_vw_breachcomp_breachdetails AS
@@ -170,6 +171,7 @@ CREATE VIEW vw_darkweb_mostactposts AS
             WHEN (m.comments_count = 'NaN'::text) THEN 1
             WHEN (m.comments_count = '0.0'::text) THEN 1
             WHEN (m.comments_count IS NULL) THEN 1
+            WHEN (m.comments_count = ''::text) THEN 1
             ELSE ((m.comments_count)::numeric)::integer
         END AS "Comments Count"
    FROM mentions m
@@ -179,6 +181,7 @@ CREATE VIEW vw_darkweb_mostactposts AS
             WHEN (m.comments_count = 'NaN'::text) THEN 1
             WHEN (m.comments_count = '0.0'::text) THEN 1
             WHEN (m.comments_count IS NULL) THEN 1
+            WHEN (m.comments_count = ''::text) THEN 1
             ELSE ((m.comments_count)::numeric)::integer
         END DESC;
 
@@ -206,6 +209,7 @@ CREATE VIEW vw_darkweb_socmedia_mostactposts AS
         CASE
             WHEN (m.comments_count = 'NaN'::text) THEN 1
             WHEN (m.comments_count = '0.0'::text) THEN 1
+            WHEN (m.comments_count = ''::text) THEN 1
             ELSE ((m.comments_count)::numeric)::integer
         END AS "Comments Count"
    FROM mentions m
@@ -214,6 +218,7 @@ CREATE VIEW vw_darkweb_socmedia_mostactposts AS
         CASE
             WHEN (m.comments_count = 'NaN'::text) THEN 1
             WHEN (m.comments_count = '0.0'::text) THEN 1
+            WHEN (m.comments_count = ''::text) THEN 1
             ELSE ((m.comments_count)::numeric)::integer
         END DESC;
 
@@ -292,7 +297,10 @@ CREATE VIEW vw_shodanvulns_verified AS
     svv.hostnames,
     svv.isn,
     svv.asn,
-    ds.name AS data_source
+    ds.name AS data_source,
+    svv.banner,
+    svv.version,
+    svv.cpe
    FROM (shodan_vulns svv
      JOIN data_source ds ON ((ds.data_source_uid = svv.data_source_uid)))
   WHERE (svv.is_verified = true);
@@ -300,20 +308,29 @@ CREATE VIEW vw_shodanvulns_verified AS
 
 CREATE VIEW vw_flare_breachcomp AS
  SELECT creds.credential_exposures_uid,
-    creds.organizations_uid,
-    b.added_date,
-    timezone('UTC'::text, ((b.modified_date)::date)::timestamp with time zone) AS modified_date,
     creds.email,
-    creds.password,
-    creds.hash_type,
-    creds.login_id AS login_url,
+    creds.breach_name,
+    creds.organizations_uid,
     creds.root_domain,
     creds.sub_domain,
-    b.breach_date,
-    creds.breach_name,
+    creds.hash_type,
+    creds.name,
+    creds.login_id,
+    creds.password,
+    creds.phone,
+    creds.data_source_uid,
     b.description,
+    b.breach_date,
+    b.added_date,
+    creds.modified_date,
+    b.data_classes,
     b.password_included,
-    creds.data_source_uid
+    b.is_verified,
+    b.is_fabricated,
+    b.is_sensitive,
+    b.is_retired,
+    b.is_spam_list,
+    creds.login_url
    FROM credential_exposures creds
      JOIN credential_breaches b ON creds.credential_breaches_uid = b.credential_breaches_uid
   WHERE creds.data_source_uid = '751a4ff4-ac0c-11ef-8c7d-02527bfc647f'::uuid;
@@ -323,29 +340,28 @@ CREATE VIEW vw_flare_breachcomp_breachdetails AS
  SELECT vb.organizations_uid,
     vb.breach_name,
     date(vb.modified_date) AS mod_date,
+    vb.description,
     vb.breach_date,
     vb.password_included,
     count(vb.email) AS number_of_creds
-   FROM vw_breachcomp vb
-  WHERE vb.data_source_uid = '751a4ff4-ac0c-11ef-8c7d-02527bfc647f'::uuid
-  GROUP BY vb.organizations_uid, vb.breach_name, (date(vb.modified_date)), vb.breach_date, vb.password_included
+   FROM vw_flare_breachcomp vb
+  GROUP BY vb.organizations_uid, vb.breach_name, (date(vb.modified_date)), vb.description, vb.breach_date, vb.password_included
   ORDER BY (date(vb.modified_date)) DESC;
 
 
 CREATE VIEW vw_flare_breachcomp_credsbydate AS
- SELECT vw_breachcomp.organizations_uid,
-    date(vw_breachcomp.modified_date) AS mod_date,
+ SELECT vw_flare_breachcomp.organizations_uid,
+    date(vw_flare_breachcomp.modified_date) AS mod_date,
     sum(
-        CASE vw_breachcomp.password_included
+        CASE vw_flare_breachcomp.password_included
             WHEN false THEN 1
             ELSE 0
         END) AS no_password,
     sum(
-        CASE vw_breachcomp.password_included
+        CASE vw_flare_breachcomp.password_included
             WHEN true THEN 1
             ELSE 0
         END) AS password_included
-   FROM vw_breachcomp
-  WHERE vw_breachcomp.data_source_uid = '751a4ff4-ac0c-11ef-8c7d-02527bfc647f'::uuid
-  GROUP BY vw_breachcomp.organizations_uid, (date(vw_breachcomp.modified_date))
-  ORDER BY (date(vw_breachcomp.modified_date)) DESC;
+   FROM vw_flare_breachcomp
+  GROUP BY vw_flare_breachcomp.organizations_uid, (date(vw_flare_breachcomp.modified_date))
+  ORDER BY (date(vw_flare_breachcomp.modified_date)) DESC;

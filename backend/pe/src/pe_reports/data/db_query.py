@@ -1536,7 +1536,6 @@ def query_flare_event_type_defs():
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
-    # Return results
     return df
 
 
@@ -1574,7 +1573,7 @@ def query_flare_mentions_by_date(start_date, end_date, org_uid, mention_event_ty
 
 # TODO: Convert to API endpoint in CRASM-4061
 def query_shodan_top_cves():
-    """Retrieve the most recent top 10 CVEs in the top_cves_shodan table."""
+    """Retrieve the most recent top 10 CVEs from top_cves_shodan."""
     sql = """
     SELECT
         cve_id,
@@ -1586,13 +1585,12 @@ def query_shodan_top_cves():
     FROM
         top_cves_shodan
     ORDER BY
-        collection_date DESC
+        collection_date DESC NULLS LAST
     LIMIT 10
     """
     conn = connect()
     df = pd.read_sql(sql, conn)
     conn.close()
-    # Return results
     return df
 
 

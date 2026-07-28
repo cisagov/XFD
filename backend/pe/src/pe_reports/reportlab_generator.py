@@ -1,4 +1,5 @@
 """Generate a P&E report using a passed data dictionary."""
+
 # Standard Python Libraries
 from hashlib import sha256
 import logging
@@ -35,9 +36,14 @@ from reportlab.platypus.flowables import BalancedColumns
 from reportlab.platypus.frames import Frame
 from reportlab.platypus.tableofcontents import TableOfContents
 
+# Set document options
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 LOGGER = logging.getLogger(__name__)
+defaultPageSize = letter
+PAGE_HEIGHT = defaultPageSize[1]
+PAGE_WIDTH = defaultPageSize[0]
 
+# Register fonts
 pdfmetrics.registerFont(
     TTFont(
         "Franklin_Gothic_Book_Italic", BASE_DIR + "/fonts/FranklinGothicBookItalic.ttf"
@@ -65,23 +71,14 @@ pdfmetrics.registerFont(
     )
 )
 
-defaultPageSize = letter
-PAGE_HEIGHT = defaultPageSize[1]
-PAGE_WIDTH = defaultPageSize[0]
-
-
-def sha_hash(s: str):
-    """Hash a given string."""
-    return sha256(s.encode("utf-8")).hexdigest()
-
 
 # Extend Table of contents to create a List of Figures Class
 class ListOfFigures(TableOfContents):
-    """Class extention to build a Table of Figures."""
+    """Class extension to build a Table of Figures."""
 
     def notify(self, kind, stuff):
         """
-        Call he notification hook to register all kinds of events.
+        Call the notification hook to register all kinds of events.
 
         Here we are interested in 'Figure' events only.
         """
@@ -91,7 +88,7 @@ class ListOfFigures(TableOfContents):
 
 # Extend Table of contents to create a List of Tables Class
 class ListOfTables(TableOfContents):
-    """Class extention to build a Table of Tables."""
+    """Class extension to build a Table of Tables."""
 
     def notify(self, kind, stuff):
         """Call the notification hook to register all kinds of events.
@@ -139,12 +136,17 @@ class MyDocTemplate(BaseDocTemplate):
 
 
 class ConditionalSpacer(Spacer):
-    """Extend spacer to conditionaly shrink if near the end of the page."""
+    """Extend spacer to dynamically shrink if near the end of the page."""
 
     def wrap(self, availWidth, availHeight):
         """Change hight of spacer based on available height."""
         height = min(self.height, availHeight - 1e-8)
         return (availWidth, height)
+
+
+def sha_hash(s: str):
+    """Hash a given string."""
+    return sha256(s.encode("utf-8")).hexdigest()
 
 
 def get_image(path, width=1 * inch):
@@ -158,10 +160,12 @@ def get_image(path, width=1 * inch):
 def format_table(
     df, header_style, column_widths, column_style_list, remove_symbols=False
 ):
-    """Read in a dataframe and convert it to a table and format it with a provided style list."""
+    """Read in a dataframe and convert it to a table and format it using the provided style list."""
+    # Parse table header row from dataframe
     header_row = [
         [Paragraph(str(cell), header_style) for cell in row] for row in [df.columns]
     ]
+    # Iterate over each row of the dataframe
     data = []
     for row in np.array(df).tolist():
         current_cell = 0
@@ -178,16 +182,15 @@ def format_table(
                 try:
                     cell = Paragraph(clean_txt, column_style_list[current_cell])
                 except Exception as e:
+                    # Catch any formatting issues
                     LOGGER.warning(
                         "Issue encountered with format_table(): %s", e, exc_info=True
                     )
-
             current_row.append(cell)
             current_cell += 1
         data.append(current_row)
-
+    # Build table from dataframe data
     data = header_row + data
-
     table = Table(
         data,
         colWidths=column_widths,
@@ -201,7 +204,7 @@ def format_table(
         spaceAfter=None,
         cornerRadii=None,
     )
-
+    # Apply style to table
     style = TableStyle(
         [
             ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
@@ -221,7 +224,7 @@ def format_table(
         ]
     )
     table.setStyle(style)
-
+    # Handle edge case when dataframe is empty
     if len(df) == 0:
         label = Paragraph(
             "No Data to Report",
@@ -237,6 +240,7 @@ def format_table(
             ),
         )
         table = KeepTogether([table, label])
+    # Return table
     return table
 
 
@@ -244,9 +248,11 @@ def format_anchor_table(
     df, header_style, column_widths, column_style_list, remove_symbols=False
 ):
     """Read in a dataframe and convert/format it to a table, with link anchors."""
+    # Parse table header row from dataframe
     header_row = [
         [Paragraph(str(cell), header_style) for cell in row] for row in [df.columns]
     ]
+    # Iterate over each row of the dataframe
     data = []
     for row in np.array(df).tolist():
         current_cell = 0
@@ -262,16 +268,27 @@ def format_anchor_table(
                     anchor_str = f'<a name="{anchor_link}"/>{wrap_str}'
                     cell = Paragraph(anchor_str, column_style_list[current_cell])
                 else:
-                    # Remove emojis from content because the report generator can't display them
-                    cell = Paragraph(
-                        demoji.replace(str(cell), "").replace("&", "[and]"),
-                        column_style_list[current_cell],
-                    )
+                    # Remove emojis and escape special characters b/c the report generator can't display them
+                    clean_txt = demoji.replace(str(cell), "").replace("&", "&amp;")
+                    # Don't escape special characters if string is for cred breach table which contains valid links to appendix
+                    if "<link href=" not in str(cell):
+                        clean_txt = clean_txt.replace("<", "&lt;")
+                        clean_txt = clean_txt.replace(">", "&gt;")
+                    # Create paragraph cell
+                    try:
+                        cell = Paragraph(clean_txt, column_style_list[current_cell])
+                    except Exception as e:
+                        # Catch any formatting issues
+                        LOGGER.warning(
+                            "Issue encountered with format_anchor_table(): %s",
+                            e,
+                            exc_info=True,
+                        )
             current_row.append(cell)
             current_cell += 1
         data.append(current_row)
+    # Build table from dataframe data
     data = header_row + data
-
     table = Table(
         data,
         colWidths=column_widths,
@@ -285,7 +302,7 @@ def format_anchor_table(
         spaceAfter=None,
         cornerRadii=None,
     )
-
+    # Apply style to table
     style = TableStyle(
         [
             ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
@@ -305,7 +322,7 @@ def format_anchor_table(
         ]
     )
     table.setStyle(style)
-
+    # Handle edge case when dataframe is empty
     if len(df) == 0:
         label = Paragraph(
             "No Data to Report",
@@ -326,6 +343,7 @@ def format_anchor_table(
 
 def build_kpi(data, width):
     """Build a KPI element."""
+    # Create table object
     table = Table(
         [[data]],
         colWidths=[width * inch],
@@ -339,7 +357,7 @@ def build_kpi(data, width):
         spaceAfter=None,
         cornerRadii=[10, 10, 10, 10],
     )
-
+    # Apply style
     style = TableStyle(
         [
             ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
@@ -501,7 +519,8 @@ def report_gen(data_dict, soc_med_included=False):
         h._bookmarkName = bn
         return h
 
-    # ***Document Structures***#
+    # *** Document Structures ***
+
     """Build frames for different page structures."""
     doc = MyDocTemplate(data_dict["filename"])
     title_frame = Frame(45, 390, 530, 250, id=None, showBoundary=0)
@@ -521,6 +540,7 @@ def report_gen(data_dict, soc_med_included=False):
         ]
     )
     Story = []
+
     """Build table of contents."""
     toc = TableOfContents()
     tof = ListOfFigures()
@@ -528,7 +548,6 @@ def report_gen(data_dict, soc_med_included=False):
 
     """Create font and formatting styles."""
     PS = ParagraphStyle
-
     centered = PS(
         name="centered",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -538,7 +557,6 @@ def report_gen(data_dict, soc_med_included=False):
         spaceAfter=10,
         spaceBefore=10,
     )
-
     indented = PS(
         name="indented",
         fontName="Franklin_Gothic_Book",
@@ -547,7 +565,6 @@ def report_gen(data_dict, soc_med_included=False):
         leftIndent=30,
         spaceAfter=20,
     )
-
     h1 = PS(
         fontName="Franklin_Gothic_Medium_Regular",
         name="Heading1",
@@ -555,7 +572,6 @@ def report_gen(data_dict, soc_med_included=False):
         leading=18,
         textColor=HexColor("#003e67"),
     )
-
     h2 = PS(
         name="Heading2",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -564,7 +580,6 @@ def report_gen(data_dict, soc_med_included=False):
         textColor=HexColor("#003e67"),
         spaceAfter=12,
     )
-
     h3 = PS(
         name="Heading3",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -573,14 +588,19 @@ def report_gen(data_dict, soc_med_included=False):
         textColor=HexColor("#003e67"),
         spaceAfter=10,
     )
-
     body = PS(
         name="body",
         leading=14,
         fontName="Franklin_Gothic_Book",
         fontSize=12,
     )
-
+    body_centered = PS(
+        name="body",
+        leading=14,
+        fontName="Franklin_Gothic_Book",
+        fontSize=12,
+        alignment=1,
+    )
     kpi = PS(
         name="kpi",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -589,14 +609,12 @@ def report_gen(data_dict, soc_med_included=False):
         alignment=1,
         spaceAfter=20,
     )
-
     json_excel = PS(
         name="json_excel",
         fontName="Franklin_Gothic_Medium_Regular",
         fontSize=10,
         alignment=1,
     )
-
     figure = PS(
         name="figure",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -604,7 +622,6 @@ def report_gen(data_dict, soc_med_included=False):
         leading=16,
         alignment=1,
     )
-
     table = PS(
         name="table",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -613,7 +630,6 @@ def report_gen(data_dict, soc_med_included=False):
         alignment=1,
         spaceAfter=12,
     )
-
     table_header = PS(
         name="table_header",
         fontName="Franklin_Gothic_Medium_Regular",
@@ -623,14 +639,11 @@ def report_gen(data_dict, soc_med_included=False):
         spaceAfter=12,
         textColor=HexColor("#FFFFFF"),
     )
-
     title_data = PS(
         fontName="Franklin_Gothic_Medium_Regular", name="Title", fontSize=18, leading=20
     )
 
     """Stream all the dynamic content to the report."""
-
-    # *************************#
     # Create repeated elements
     point12_spacer = ConditionalSpacer(1, 12)
     horizontal_line = HRFlowable(
@@ -644,14 +657,15 @@ def report_gen(data_dict, soc_med_included=False):
         vAlign="TOP",
         dash=None,
     )
-    # ***Title Page***#
+
+    # *** Title Page ***
     Story.append(Paragraph("Prepared for: " + data_dict["department"], title_data))
     Story.append(point12_spacer)
     Story.append(Paragraph("Reporting Period: " + data_dict["dateRange"], title_data))
     Story.append(NextPageTemplate("ContentPage"))
     Story.append(PageBreak())
 
-    # ***Table of Contents***#
+    # *** Table of Contents ***
     Story.append(Paragraph("<b>Table of Contents</b>", centered))
     # Set styles for levels in Table of contents
     toc_styles = [
@@ -693,7 +707,7 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(toc)
     Story.append(PageBreak())
 
-    # ***Table of Figures and Table of Contents***#
+    # *** Table of Figures and Table of Contents ***
     tot.levelStyles = toc_styles
     tof.levelStyles = toc_styles
     Story.append(Paragraph("<b>Table of Figures</b>", centered))
@@ -702,8 +716,8 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(tot)
     Story.append(PageBreak())
 
-    # ***Content Pages***#
-    # ***Start Introduction Page***#
+    # *** Content Pages ***
+    # *** Start Introduction Page ***
     Story.append(doHeading("1. Introduction", h1))
     Story.append(horizontal_line)
     Story.append(point12_spacer)
@@ -713,14 +727,13 @@ def report_gen(data_dict, soc_med_included=False):
             """Posture and Exposure (P&amp;E) offers stakeholders an opportunity to view their organizational
                 risk from the viewpoint of the adversary. We utilize passive reconnaissance services,
                 dark web analysis, and open-source tools to identify spoofing in order to generate a risk
-                    profile report that is delivered on a regular basis.<br/><br/>
+                profile report that is delivered on a regular basis.<br/><br/>
                 As a customer of P&amp;E you are receiving our regularly scheduled report which contains a
                 summary of the activity we have been tracking on your behalf for the following services:
                 <br/><br/>""",
             body,
         )
     )
-
     Story.append(
         ListFlowable(
             [
@@ -755,23 +768,21 @@ def report_gen(data_dict, soc_med_included=False):
             leftIndent=10,
         )
     )
-
     Story.append(
         Paragraph(
             """<br/>It is important to note that these findings have not been verified; everything is
-                            gathered via passive analysis of publicly available sources. As such there may be false
-                            positive findings, however, these findings should be treated as information that your
-                            organization is leaking out to the internet for adversaries to notice.<br/><br/>""",
+            gathered via passive analysis of publicly available sources. As such there may be false
+            positive findings, however, these findings should be treated as information that your
+            organization is leaking out to the internet for adversaries to notice.<br/><br/>""",
             body,
         )
     )
-
     Story.append(doHeading("1.2 How to Use This Report", h2))
     Story.append(
         Paragraph(
             """While it is not our intent to prescribe to you a particular process for remediating
-                            vulnerabilities, we hope you will use this report to strengthen your security posture.
-                            Here is a recommended workflow:<br/><br/>""",
+            vulnerabilities, we hope you will use this report to strengthen your security posture.
+            Here is a recommended workflow:<br/><br/>""",
             body,
         )
     )
@@ -781,8 +792,8 @@ def report_gen(data_dict, soc_med_included=False):
                 ListItem(
                     Paragraph(
                         """Review the Summary of Findings on page 5. This section gives a quick overview of key
-                            results including the number of credential exposures, domain masquerading alerts, Shodan
-                            verified vulnerabilites, and dark web alerts.""",
+                        results including the number of credential exposures, domain masquerading alerts, Shodan
+                        verified vulnerabilites, and dark web alerts.""",
                         body,
                     ),
                     leftIndent=35,
@@ -790,23 +801,23 @@ def report_gen(data_dict, soc_med_included=False):
                 ListItem(
                     Paragraph(
                         """Dive deeper into those key findings by investigating the detailed results starting on
-                            page 6.""",
+                        page 6.""",
                         body,
                     ),
                     leftIndent=35,
                 ),
                 ListItem(
                     Paragraph(
-                        """View the raw data used to generate this report by navigating to page 5 where you can open the embedded Excel
-                            files. If you are having trouble opening these files, make sure to use Adobe Acrobat.""",
+                        """View the raw data used to generate this report by navigating to page 5 where you can open the embedded JSON and Excel
+                        files. If you are having trouble opening these files, make sure to use Adobe Acrobat.""",
                         body,
                     ),
                     leftIndent=35,
                 ),
                 ListItem(
                     Paragraph(
-                        """If you have any questions regarding your report, please refer to the Frequently Asked Questions found on page 19. Please
-                            feel free to contact us at vulnerability@cisa.gov with any further questions or concerns.<br/><br/>""",
+                        """If you have any questions regarding your report, please refer to the Frequently Asked Questions section found at the end of the report in Appendix B. Please
+                        feel free to contact us at vulnerability@cisa.gov with any further questions or concerns.<br/><br/>""",
                         body,
                     ),
                     leftIndent=35,
@@ -818,7 +829,6 @@ def report_gen(data_dict, soc_med_included=False):
             bulletFontSize=12,
         )
     )
-
     Story.append(doHeading("1.3 Contact Information", h2))
     Story.append(
         Paragraph("Posture and Exposure Team Email: vulnerability@cisa.dhs.gov", body)
@@ -827,7 +837,7 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(NextPageTemplate("SummaryPage"))
     Story.append(PageBreak())
 
-    # ***Start Generating Summary Page***#
+    # *** Start Generating Summary Page ***
     Story.append(doHeading("2. Summary of Findings", h1))
     Story.append(horizontal_line)
     Story.append(point12_spacer)
@@ -844,7 +854,11 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(NextPageTemplate("ContentPage"))
     Story.append(PageBreak())
 
-    # ***Start Generating Creds Page***#
+    # Keep track of table and figure numbers
+    table_num = 1
+    fig_num = 1
+
+    # *** Start Generating Creds Page ***
     Story.append(doHeading("3. Detailed Results", h1))
     Story.append(horizontal_line)
     Story.append(point12_spacer)
@@ -852,10 +866,10 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(
         Paragraph(
             """Credential leakage occurs when user credentials, often including passwords, are stolen via phishing
-        campaigns, network compromise, or database misconfigurations leading to public exposure. This leaked data is
-        then listed for sale on numerous forums and sites on the dark web which provides attackers easy access to a
-        stakeholder's networks. Detailed results are presented below.
-        """,
+            campaigns, network compromise, or database misconfigurations leading to public exposure. This leaked data is
+            then listed for sale on numerous forums and sites on the dark web which provides attackers easy access to a
+            stakeholder's networks. Detailed results are presented below.
+            """,
             body,
         )
     )
@@ -905,26 +919,24 @@ def report_gen(data_dict, soc_med_included=False):
             endSlack=0.1,  # height disparity allowance ie 10% of available height
         )
     )
-
     Story.append(
         Paragraph(
-            """
-            <font face="Franklin_Gothic_Medium_Regular">Figure 1</font> shows the number of credentials that were exposed each week for the past 4 weeks. Credentials that
-            were exposed with an accompanying password are shown in red. Exposed credentials that did not include a corresponding password
+            f"""
+            <font face="Franklin_Gothic_Medium_Regular">Figure {fig_num}</font> shows the number of credentials that were exposed each week for the past 4 weeks.
+            Credentials that were exposed with an accompanying password are shown in red. Exposed credentials that did not include a corresponding password
             are shown in blue.
             """,
             body,
         )
     )
     Story.append(point12_spacer)
-
     # Figure 1:
     Story.append(
         KeepTogether(
             [
                 doHeading(
-                    """
-                        Figure 1. Credentials Exposed.
+                    f"""
+                    Figure {fig_num}. Credentials Exposed.
                     """,
                     figure,
                 ),
@@ -933,7 +945,7 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
     Story.append(PageBreak())
-
+    fig_num += 1
     # Table 1:
     # add link to appendix to breach names
     data_dict["breach_table"]["Breach Name"] = (
@@ -947,15 +959,15 @@ def report_gen(data_dict, soc_med_included=False):
         KeepTogether(
             [
                 Paragraph(
-                    """
-                    <font face="Franklin_Gothic_Medium_Regular">Table 1</font>  provides breach details. Breach descriptions can be found in Appendix A.
+                    f"""
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font>  provides breach details. Breach descriptions can be found in Appendix A.
                     """,
                     body,
                 ),
                 point12_spacer,
                 doHeading(
-                    """
-                    Table 1. Breach Details.
+                    f"""
+                    Table {table_num}. Breach Details.
                     """,
                     table,
                 ),
@@ -970,24 +982,24 @@ def report_gen(data_dict, soc_med_included=False):
     )
     Story.append(point12_spacer)
     Story.append(PageBreak())
+    table_num += 1
 
-    # ***Start Generating Domain Masquerading Page***#
+    # *** Start Generating Domain Masquerading Page ***
     Story.append(
         KeepTogether(
             [
                 doHeading("3.2 Domain Alerts and Suspected Masquerading", h2),
                 Paragraph(
                     """Spoofed or typo-squatting domains can be used to host fake web pages for malicious purposes,
-            such as imitating landing pages for spear phishing campaigns. Below are alerts of domains that appear
-            to mimic a stakeholder's actual domain.
-            """,
+                    such as imitating landing pages for spear phishing campaigns. Below are alerts for DNS activity and domains that appear
+                    to mimic a stakeholder's actual domain.
+                    """,
                     body,
                 ),
                 point12_spacer,
             ]
         )
     )
-
     row = [
         build_kpi(
             Paragraph(
@@ -1006,7 +1018,6 @@ def report_gen(data_dict, soc_med_included=False):
             2,
         ),
     ]
-
     Story.append(
         BalancedColumns(
             row,  # the flowables we are balancing
@@ -1025,24 +1036,24 @@ def report_gen(data_dict, soc_med_included=False):
             endSlack=0.1,  # height disparity allowance ie 10% of available height
         )
     )
-
-    # Table 2
+    # Table 2:
     Story.append(Paragraph("3.2.1 Domain Monitoring Alerts", h3))
     Story.append(
         Paragraph(
-            """
-            <font face="Franklin_Gothic_Medium_Regular">Table 2</font> shows alerts of newly registered or updated
-            domains that appear to mimic a stakeholder's actual domain.
-        """,
+            f"""
+            <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> shows alerts for recent DNS activity detected for domains that
+            appear to mimic a stakeholder's actual domains. DNS activity that involves the addition or modification of DNS A/MX/NS/etc. records
+            will trigger alerts.
+            """,
             body,
         )
     )
     Story.append(point12_spacer)
     Story.append(
         doHeading(
-            """
-                    Table 2. Domain Monitoring Alerts Results.
-                """,
+            f"""
+            Table {table_num}. Domain Monitoring Alerts Results.
+            """,
             table,
         )
     )
@@ -1055,24 +1066,24 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
     Story.append(point12_spacer)
-
+    table_num += 1
     # Table 3:
     Story.append(
         KeepTogether(
             [
                 Paragraph("3.2.2 Suspected Domain Masquerading", h3),
                 Paragraph(
-                    """
-                    <font face="Franklin_Gothic_Medium_Regular">Table 3</font> shows registered or updated domains that were
-                    flagged by a blocklist service.
-                """,
+                    f"""
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num} </font> shows domains that appear to mimic a stakeholder's actual domains that have also
+                    been flagged as malicious by a blocklist service.
+                    """,
                     body,
                 ),
                 point12_spacer,
                 doHeading(
-                    """
-                    Table 3. Suspected Domain Masquerading Results.
-                """,
+                    f"""
+                    Table {table_num}. Suspected Domain Masquerading Results.
+                    """,
                     table,
                 ),
             ]
@@ -1088,16 +1099,17 @@ def report_gen(data_dict, soc_med_included=False):
     )
     Story.append(point12_spacer)
     Story.append(PageBreak())
+    table_num += 1
 
-    # ***Start Generating Vulnerabilities Page***#
+    # *** Start Generating Vulnerabilities Page ***
     Story.append(
         KeepTogether(
             [
                 doHeading("3.3 Insecure Devices & Suspected Vulnerabilities", h2),
                 Paragraph(
                     """This category includes insecure ports, protocols, and services; Shodan-verified vulnerabilities;
-                and suspected vulnerabilities. Detailed results are presented below and discussed in the sections that follow.
-                """,
+                    and suspected vulnerabilities. Detailed results are presented below and discussed in the sections that follow.
+                    """,
                     body,
                 ),
                 point12_spacer,
@@ -1148,29 +1160,27 @@ def report_gen(data_dict, soc_med_included=False):
             endSlack=0.1,  # height disparity allowance ie 10% of available height
         )
     )
-
     Story.append(Paragraph("3.3.1 Insecure Ports, Protocols, and Services", h3))
     Story.append(
         Paragraph(
-            """
-            Insecure protocols are those protocols which lack proper encryption allowing threat actors to access
-            data that is being transmitted and even to potentially, to control systems.
-            <font face="Franklin_Gothic_Medium_Regular">Figure 2</font> and
-            <font face="Franklin_Gothic_Medium_Regular">Table 4</font> provide detailed information for the Remote
+            f"""
+            Insecure protocols are those which lack proper encryption, allowing threat actors to access
+            data that is being transmitted and potentially even control systems.
+            <font face="Franklin_Gothic_Medium_Regular">Figure {fig_num}</font> and
+            <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> provide detailed information regarding Remote
             Desktop Protocol (RDP), Server Message Block (SMB) protocol, and the Telnet application protocol.
-        """,
+            """,
             body,
         )
     )
     Story.append(point12_spacer)
-
     # Figure 2:
     Story.append(
         KeepTogether(
             [
                 doHeading(
-                    """
-                        Figure 2. Insecure Protocols.
+                    f"""
+                    Figure {fig_num}. Insecure Protocols.
                     """,
                     figure,
                 ),
@@ -1178,11 +1188,12 @@ def report_gen(data_dict, soc_med_included=False):
             ]
         )
     )
+    Story.append(point12_spacer)
     # Table 4:
     Story.append(
         doHeading(
-            """
-                Table 4. Insecure Protocols.
+            f"""
+            Table {table_num}. Insecure Protocols.
             """,
             table,
         )
@@ -1196,7 +1207,8 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
     Story.append(point12_spacer)
-
+    fig_num += 1
+    table_num += 1
     # Table 5:
     # add link to appendix for CVE string
     data_dict["verif_vulns"]["CVE"] = (
@@ -1211,16 +1223,17 @@ def report_gen(data_dict, soc_med_included=False):
             [
                 Paragraph("3.3.2 Shodan-Verified Vulnerabilities", h3),
                 Paragraph(
-                    """
-                    Verified vulnerabilities, shown in <font face="Franklin_Gothic_Medium_Regular">Table 5</font>, are those that are flagged by P&amp;E vendors that have gone
-                    through extra checks to validate the finding. Refer to Appendix A for summary data.
-                """,
+                    f"""
+                    Verified vulnerabilities, shown in <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font>, are detected vulnerabilities that have undergone
+                    extra checks by P&amp;E vendors to validate the finding. Refer to Appendix A for additional summary data about these verified vulnerabilites.
+                    """,
                     body,
                 ),
+                point12_spacer,
                 doHeading(
-                    """
-                    Table 5. Shodan-Verified Vulnerabilities.
-                """,
+                    f"""
+                    Table {table_num}. Shodan-Verified Vulnerabilities.
+                    """,
                     table,
                 ),
                 format_table(
@@ -1233,24 +1246,24 @@ def report_gen(data_dict, soc_med_included=False):
         )
     )
     Story.append(point12_spacer)
-
+    table_num += 1
     # Figure 3:
     Story.append(
         KeepTogether(
             [
                 Paragraph("3.3.3 Suspected Vulnerabilities", h3),
                 Paragraph(
-                    """
-                        Suspected vulnerabilities are determined by the software and version an asset is running and can be used
-                        to understand what vulnerabilities an asset may be exposed to.
-                        <font face="Franklin_Gothic_Medium_Regular">Figure 3</font> identifies suspected vulnerabilities.
+                    f"""
+                    Suspected vulnerabilities are determined by the software and version an asset is running and can be used
+                    to understand what vulnerabilities an asset may be exposed to.
+                    <font face="Franklin_Gothic_Medium_Regular">Figure {fig_num}</font> identifies suspected vulnerabilities.
                     """,
                     body,
                 ),
                 point12_spacer,
                 doHeading(
                     """
-                        Figure 3. Suspected Vulnerabilities.
+                    Figure 3. Suspected Vulnerabilities.
                     """,
                     figure,
                 ),
@@ -1262,10 +1275,11 @@ def report_gen(data_dict, soc_med_included=False):
     )
     # Story.append(NextPageTemplate('ContentPage'))
     Story.append(PageBreak())
+    fig_num += 1
 
-    # ***Start Generating Dark Web Page***#
+    # *** Start Generating Dark Web Page ***
+    sub_section = 1
     Story.append(KeepTogether([doHeading("3.4 Dark Web Activity", h2), Spacer(1, 6)]))
-
     row = [
         build_kpi(
             Paragraph(
@@ -1284,7 +1298,6 @@ def report_gen(data_dict, soc_med_included=False):
             2,
         ),
     ]
-
     Story.append(
         BalancedColumns(
             row,  # the flowables we are balancing
@@ -1303,26 +1316,25 @@ def report_gen(data_dict, soc_med_included=False):
             endSlack=0.1,  # height disparity allowance ie 10% of available height
         )
     )
-
-    Story.append(
-        Paragraph(
-            """Stakeholders and vulnerabilities are often discussed in various ways on the Dark Web. P&amp;E monitors this
-                activity, as well as the source (forums, websites, tutorials), and threat actors involved. A spike in activity can
-                indicate a greater likelihood of an attack, vulnerability, or data leakage. This information along with a list of the
-                most active CVEs on the Dark Web may assist in prioritizing remediation activities.""",
-            style=body,
-        )
-    )
-
-    Story.append(point12_spacer)
-
-    Story.append(Paragraph("3.4.1 Dark Web Mentions", h3))
     Story.append(
         Paragraph(
             """
-            <font face="Franklin_Gothic_Medium_Regular">Figure 4</font> provides details on the number of mentions on the
-            dark web during the reporting period.
-        """,
+            Stakeholders and vulnerabilities are often discussed in various ways on the Dark Web. P&amp;E monitors this
+            activity, the source it originates from (forums, websites, tutorials), and threat actors involved. A spike in activity can
+            indicate a greater likelihood of an attack, vulnerability, or data leakage. This information, along with a list of the top
+            CVES for this report period that have the highest probability of being exploited, may assist in prioritizing remediation activities.""",
+            style=body,
+        )
+    )
+    Story.append(point12_spacer)
+    Story.append(Paragraph(f"3.4.{sub_section} Dark Web Mentions", h3))
+    sub_section += 1
+    Story.append(
+        Paragraph(
+            f"""
+            <font face="Franklin_Gothic_Medium_Regular">Figure {fig_num}</font> displays the number of mentions on the
+            dark web regarding your organization and/or its assets over the past 4 weeks.
+            """,
             body,
         )
     )
@@ -1332,7 +1344,7 @@ def report_gen(data_dict, soc_med_included=False):
             [
                 doHeading(
                     """
-                        Figure 4. Dark Web Mentions.
+                    Figure 4. Dark Web Mentions.
                     """,
                     figure,
                 ),
@@ -1340,237 +1352,214 @@ def report_gen(data_dict, soc_med_included=False):
             ]
         )
     )
-    sub_section = 2
-    table_num = 6
+    fig_num += 1
     if soc_med_included:
         Story.append(
             KeepTogether(
                 [
-                    Paragraph("3.4.2 Most Active Social Media Posts", h3),
+                    Paragraph(f"3.4.{sub_section} Highest Risk Chats", h3),
                     Paragraph(
-                        """
-                        This result includes a list of the most active social media posts associated with a stakeholder, and tallies
-                        the count of “post” or “reply” actions on sites such as Telegram, Twitter, and Github.
-                        <font face="Franklin_Gothic_Medium_Regular">Table 6</font> identifies the social media comments count
-                        by organization.
-                    """,
+                        f"""
+                        This section lists the highest risk online chats associated with a stakeholder. The level of risk an online chat presents is
+                        indicated by the risk score assigned to it by P&amp;E's dark web data sources. The higher the risk score, the greater the risk the chat poses.
+                        <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> identifies the online chats for this organization and their
+                        associated risk scores.
+                        """,
                         body,
                     ),
                     point12_spacer,
                     doHeading(
-                        """
-                        Table 6. Social Media Comments Count.
-                    """,
+                        f"""
+                        Table {table_num}. Chats and Risk Scores.
+                        """,
                         table,
                     ),
                 ]
             )
         )
-
         Story.append(
             format_table(
                 data_dict["social_med_act"],
                 table_header,
-                [5 * inch, 1.5 * inch],
+                [4 * inch, 1.5 * inch, 1 * inch],
                 [
                     body,
+                    body_centered,
                     None,
                 ],
             )
         )
-
         Story.append(point12_spacer)
-        sub_section = 3
-        table_num = 7
-
+        sub_section += 1
+        table_num += 1
     Story.append(
         KeepTogether(
             [
+                Paragraph(f"3.4.{sub_section} Highest Risk Dark Web Posts", h3),
                 Paragraph(
-                    "3.4." + str(sub_section) + " Most Active Dark Web Posts", h3
-                ),
-                Paragraph(
-                    """
-                    This result includes a list of the most active posts associated with a stakeholder found on the dark web,
-                    and includes forum sites and invite-only marketplaces. <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font>
-                    identifies the dark web comments count by organization.
-                """,
+                    f"""
+                    This section lists the highest risk posts on found on dark web forums and blogs associated with a stakeholder.
+                    The level of risk a dark web post presents is indicated by the risk score assigned to it by P&amp;E's dark web data sources.
+                    The higher the risk score, the greater the risk the dark web post poses.
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font>
+                    identifies the dark web posts for this organization and their
+                    associated risk scores.
+                    """,
                     body,
                 ),
                 point12_spacer,
                 doHeading(
-                    "Table " + str(table_num) + ". Dark Web Comments Count.", table
+                    "Table " + str(table_num) + ". Dark Web Posts and Risk Scores.",
+                    table,
                 ),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["dark_web_act"],
             table_header,
-            [5 * inch, 1.5 * inch],
+            [4 * inch, 1.5 * inch, 1 * inch],
             [
                 body,
+                body_centered,
                 None,
             ],
         )
     )
     Story.append(point12_spacer)
-
+    sub_section += 1
+    table_num += 1
     Story.append(
         KeepTogether(
             [
-                Paragraph("3.4." + str(sub_section) + " Asset Alerts", h3),
+                Paragraph(f"3.4.{sub_section} Asset Alerts", h3),
                 Paragraph(
-                    """
-                    <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font> includes discussions involving stakeholder
-                    assets such as domain names and IP's.
-                """,
+                    f"""
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> includes discussions detected on the dark web involving
+                    assets that belong to the stakeholder such as domain names and IP addresses.
+                    """,
                     body,
                 ),
                 point12_spacer,
-                doHeading("Table " + str(table_num) + ". Asset Alerts.", table),
+                doHeading(f"Table {table_num}. Asset Alerts.", table),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["asset_alerts"],
             table_header,
-            [2 * inch, 3.5 * inch, 1 * inch],
-            [None, body, None],
-        )
-    )
-
-    Story.append(point12_spacer)
-    Story.append(
-        KeepTogether(
-            [
-                Paragraph("3.4." + str(sub_section) + " Executive Alerts", h3),
-                Paragraph(
-                    """
-                    <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font> includes discussions involving stakeholder
-                    executives and upper management.
-                """,
-                    body,
-                ),
-                point12_spacer,
-                doHeading("Table " + str(table_num) + ". Executive Alerts.", table),
-            ]
+            [1.5 * inch, 3.5 * inch, 1.5 * inch],
+            [body_centered, body, body_centered],
         )
     )
     sub_section += 1
     table_num += 1
+    Story.append(point12_spacer)
+    Story.append(
+        KeepTogether(
+            [
+                Paragraph(f"3.4.{sub_section} Executive Alerts", h3),
+                Paragraph(
+                    f"""
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> includes discussions detected on the dark web involving
+                    individuals that are part of the stakeholder's executive leadership
+                    or upper management.
+                    """,
+                    body,
+                ),
+                point12_spacer,
+                doHeading(f"Table {table_num}. Executive Alerts.", table),
+            ]
+        )
+    )
     Story.append(
         format_table(
             data_dict["alerts_exec"],
             table_header,
-            [2 * inch, 3.5 * inch, 1 * inch],
-            [None, body, None],
+            [1.5 * inch, 3.5 * inch, 1.5 * inch],
+            [body_centered, body, body_centered],
         )
     )
-
     Story.append(point12_spacer)
-
+    sub_section += 1
+    table_num += 1
     Story.append(
         KeepTogether(
             [
-                Paragraph("3.4." + str(sub_section) + " Threat Actors", h3),
+                Paragraph(f"3.4.{sub_section} Threat Actors", h3),
                 Paragraph(
-                    """
-                    A threat actor's score is based on the amount of activity that person has on the dark web, the types of
-                    content posted, how prominent their account is on a forum, and if there is a larger circle of connections to
-                    other bad actors. Threat Actors are ranked 1 to 10, with 10 being the most severe.
-                    <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font>
-                    identifies the top actors that have mentioned stakeholder assets.
-                """,
+                    f"""
+                    The amount of activity a user conducts on the dark web related to a stakeholder can indicate how
+                    much of a threat that individual poses. All dark web findings for this report period have been grouped by
+                    author to highlight which threat actors are producing the most dark web findings for the stakeholder.
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font>
+                    identifies the top actors that have contributed the most dark web findings related to the stakeholder.
+                    """,
                     body,
                 ),
                 point12_spacer,
-                doHeading("Table " + str(table_num) + ". Threat Actors.", table),
+                doHeading(f"Table {table_num}. Threat Actors.", table),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["dark_web_actors"],
             table_header,
-            [5.5 * inch, 1 * inch],
+            [5 * inch, 1.5 * inch],
             [body, None],
         )
     )
-
     Story.append(point12_spacer)
-
+    sub_section += 1
+    table_num += 1
     Story.append(
         KeepTogether(
             [
+                Paragraph(f"3.4.{sub_section} Alerts of Potential Threats", h3),
                 Paragraph(
-                    "3.4." + str(sub_section) + " Alerts of Potential Threats", h3
-                ),
-                Paragraph(
-                    """
-                    Threats are derived by scanning suspicious chatter on the dark web that may have terms related to
-                    vulnerabilities. <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font> identifies the most
-                    common threats.
-                """,
+                    f"""
+                    These findings are derived from scanning various dark web sources for indicators of potential threats to the stakeholder organization.
+                    Potential threats include publicly exposed services and cloud buckets, typo-squatting domains, and infected devices that may have become
+                    part of a botnet.
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> identifies the potential threats detected for this report period.
+                    """,
                     body,
                 ),
                 point12_spacer,
-                doHeading(
-                    "Table " + str(table_num) + ". Alerts of Potential Threats.", table
-                ),
+                doHeading(f"Table {table_num}. Alerts of Potential Threats.", table),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["alerts_threats"],
             table_header,
             [2 * inch, 3.5 * inch, 1 * inch],
-            [None, body, None],
+            [body_centered, body, None],
         )
     )
-
     Story.append(point12_spacer)
-
+    sub_section += 1
+    table_num += 1
     Story.append(
         KeepTogether(
             [
-                Paragraph("3.4." + str(sub_section) + " Most Active Sites", h3),
+                Paragraph(f"3.4.{sub_section} Most Active Sites", h3),
                 Paragraph(
-                    """
-                    <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font> includes the most active discussion forums where the organization is the topic of discussion.
-                """,
+                    f"""
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> includes the dark web sources that are producing the
+                    most discussions where the stakeholder is the topic of interest.
+                    """,
                     body,
                 ),
                 point12_spacer,
-                doHeading("Table " + str(table_num) + ". Most Active Sites.", table),
+                doHeading(f"Table {table_num}. Most Active Sites.", table),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["dark_web_sites"],
@@ -1579,82 +1568,76 @@ def report_gen(data_dict, soc_med_included=False):
             [body, None],
         )
     )
-
     Story.append(point12_spacer)
-
+    sub_section += 1
+    table_num += 1
     Story.append(
         KeepTogether(
             [
-                Paragraph("3.4." + str(sub_section) + " Invite-Only Market Alerts", h3),
+                Paragraph(f"3.4.{sub_section} Market Alerts", h3),
                 Paragraph(
-                    """
-                    <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font> includes the number of alerts on each invite-only
-                    market where compromised credentials were offered for sale.
-                """,
+                    f"""
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> includes the number of alerts for each dark web
+                    market site where stakeholder data was listed for sale. This section also includes any stealer logs that may be related
+                    to the stakeholder. Stealer logs are often sold on the dark web because they contain sensitive information stolen off of
+                    infected devices such as cookies, saved passwords, and session tokens.
+                    """,
                     body,
                 ),
                 point12_spacer,
-                doHeading(
-                    "Table " + str(table_num) + ". Invite-Only Market Alerts.", table
-                ),
+                doHeading(f"Table {table_num}. Market Alerts.", table),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["markets_table"],
             table_header,
             [4 * inch, 2.5 * inch],
-            [None, None],
+            [body, None],
         )
     )
-
     Story.append(point12_spacer)
+    sub_section += 1
+    table_num += 1
     Story.append(
         KeepTogether(
             [
+                Paragraph(f"3.4.{sub_section} Most Exploitable CVEs", h3),
                 Paragraph(
-                    "3.4." + str(sub_section) + " Most Active CVEs on the Dark Web", h3
-                ),
-                Paragraph(
-                    """
-                    Rated by CyberSixGill's Dynamic Vulnerability Exploit (DVE) Score, this state-of-the-art machine
-                    learning model automatically predicts the probability of a CVE being exploited.
-                    <font face="Franklin_Gothic_Medium_Regular">Table """
-                    + str(table_num)
-                    + """</font> identifies the top 10 CVEs this report period.
-                """,
+                    f"""
+                    Rated by the Exploit Prediction Scoring System (EPSS) score developed by
+                    The Forum of Incident Response and Security Teams (FIRST), this section displays
+                    the top 10 CVEs for this report period across all P&amp;E  stakeholders. The EPSS score
+                    ranges from 0 to 100, and indicates the probability that a CVE will be exploited in the next 30 days.
+                    The higher the EPSS score, the higher the probability the vulnerability will be exploited.
+                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> identifies the top 10 CVEs this report period by EPSS score.
+                    """,
                     body,
                 ),
                 point12_spacer,
                 doHeading(
-                    "Table " + str(table_num) + ". Most Active CVEs on the Dark Web.",
+                    f"Table {table_num}. Most Exploitable CVEs this Report Period.",
                     table,
                 ),
             ]
         )
     )
-    sub_section += 1
-    table_num += 1
     Story.append(
         format_table(
             data_dict["top_cves"],
             table_header,
             [1.5 * inch, 3.5 * inch, 0.75 * inch, 1.25 * inch],  # col widths
-            [None, body, None, None],  # col styles
+            [body_centered, body, None, None],  # col styles
         )
     )
-
     Story.append(point12_spacer)
-
+    sub_section += 1
+    table_num += 1
     Story.append(NextPageTemplate("ContentPage"))
     Story.append(PageBreak())
 
-    # ***Start Generating Methodology Page***#
+    # *** Start Generating Methodology Page ***
     Story.append(doHeading("4. Methodology", h1))
     Story.append(horizontal_line)
     Story.append(point12_spacer)
@@ -1705,7 +1688,6 @@ def report_gen(data_dict, soc_med_included=False):
     if len(data_dict["breach_appendix"]) > 0:
         Story.append(Paragraph("Credential Breach Details: ", h2))
         Story.append(Spacer(1, 6))
-
         # Table ver. of Appendix A
         breach_appendix_df = data_dict["breach_appendix"]
         breach_appendix_df.sort_values(by=["breach_name"], ascending=True, inplace=True)
@@ -1721,11 +1703,9 @@ def report_gen(data_dict, soc_med_included=False):
             )
         )
         Story.append(point12_spacer)
-
     # If there are verified vulns print summary info table
     if len(data_dict["verif_vulns_summary"]) > 0:
         Story.append(Paragraph("Verified Vulnerability Summaries:", h2))
-
         Story.append(
             Paragraph(
                 """Verified vulnerabilities are determined by the Shodan scanner and identify assets with active, known vulnerabilities. More information
@@ -1756,7 +1736,6 @@ def report_gen(data_dict, soc_med_included=False):
             )
         )
         Story.append(point12_spacer)
-
     Story.append(
         KeepTogether(
             [
@@ -1765,13 +1744,13 @@ def report_gen(data_dict, soc_med_included=False):
                 point12_spacer,
                 Paragraph(
                     """<font face="Franklin_Gothic_Medium_Regular">How are P&amp;E data and reports different from other reports I receive from CISA?</font><br/>
-            The Cybersecurity and Infrastructure Security Agency's (CISA) Cyber Hygiene Posture and Exposure (P&amp;E)
-            analysis is a cost-free service that helps stakeholders monitor and evaluate their cyber posture for
-            weaknesses found in public source information, which is readily available to an attacker to view.
-            P&amp;E utilizes passive reconnaissance services, dark web analysis, and other public information
-            sources to identify suspected domain masquerading, credentials that have been leaked or exposed,
-            insecure devices, suspected vulnerabilities, and increased dark web activity related to their organization.
-            """,
+                    The Cybersecurity and Infrastructure Security Agency's (CISA) Cyber Hygiene Posture and Exposure (P&amp;E)
+                    analysis is a cost-free service that helps stakeholders monitor and evaluate their cyber posture for
+                    weaknesses found in public source information, which is readily available to an attacker to view.
+                    P&amp;E utilizes passive reconnaissance services, dark web analysis, and other public information
+                    sources to identify suspected domain masquerading, credentials that have been leaked or exposed,
+                    insecure devices, suspected vulnerabilities, and increased dark web activity related to their organization.
+                    """,
                     body,
                 ),
             ]
@@ -1784,12 +1763,11 @@ def report_gen(data_dict, soc_med_included=False):
             The Posture and Exposure team uses numerous tools and open-source intelligence (OSINT) gathering tactics to
             identify the potential weaknesses listed below. The data is then analyzed and complied into a Posture and
             Exposure Report which provides both executive level information and detailed information for analysts that
-            includes the raw findings.""",
+            includes the raw data files.""",
             body,
         )
     )
     Story.append(point12_spacer)
-
     Story.append(
         Paragraph(
             """
@@ -1800,7 +1778,6 @@ def report_gen(data_dict, soc_med_included=False):
             indented,
         )
     )
-
     Story.append(
         Paragraph(
             """
@@ -1809,11 +1786,10 @@ def report_gen(data_dict, soc_med_included=False):
             network compromise or misconfiguration of databases leading to public exposure. This leaked data is then listed
             for sale on numerous forums and sites on the dark web, which provides attackers easy access to a stakeholders'
             networks.
-        """,
+            """,
             indented,
         )
     )
-
     Story.append(
         Paragraph(
             """
@@ -1823,55 +1799,51 @@ def report_gen(data_dict, soc_med_included=False):
             protocols associated with these assets are likely to have vulnerabilities, based on the OS or application
             version information reported when queried. When possible, our analysis also reports on potential malware
             infections for stakeholders.
-        """,
+            """,
             indented,
         )
     )
-
     Story.append(
         KeepTogether(
             Paragraph(
                 """
                     <font face="Franklin_Gothic_Medium_Regular">Increased Dark Web Activity:</font><br/>
                     Stakeholders and vulnerabilities are often discussed in various ways on the dark web. P&amp;E monitors this
-                    activity, as well as the source (forums, websites, tutorials), and threat actors involved. A spike in
+                    activity, the source it originates from (forums, websites, tutorials), and threat actors involved. A spike in
                     activity can indicate a greater likelihood of an attack, vulnerability, or data leakage. Additionally,
                     the urgency of the threat can be evaluated based on the threat actors involved along with other thresholds.
                     Evaluating this content may also indicate if a stakeholder has been involved in a hacking incident as that data
-                    will often be published or offered 'for sale'. This information along with a list of the most active CVE's on the
-                    Dark Web may assist in prioritizing remediation activities.
+                    will often be published or offered 'for sale'. This information along with a list of the CVE's with the highest
+                    probability of exploitation may assist in prioritizing remediation activities.
 
                 """,
                 indented,
             )
         )
     )
-
     Story.append(
         Paragraph(
             """<font face="Franklin_Gothic_Medium_Regular">Do you perform scans of our networks?</font><br/>
             P&amp;E does not perform active scanning. The information we gather is through passive collection from numerous
             public and vendor data sources. As such, we collect data on a continual basis, and provide summary reports
             twice a month.
-        """,
+            """,
             body,
         )
     )
     Story.append(point12_spacer)
-
     Story.append(
         Paragraph(
             """<font face="Franklin_Gothic_Medium_Regular">How will the results be provided to me?</font><br/>
             P&amp;E will provide twice monthly P&amp;E reports as password-protected attachments to emails from
             vulnerability@cisa.dhs.gov. The attachments will contain a PDF—providing a summary of the findings,
-            tables, graphs, as charts—as well as a JSON file containing the raw data used to generate the PDF
+            tables, graphs, as charts—as well as JSON/Excel files containing the raw data used to generate the PDF
             report to facilitate your agencies own analysis.
-        """,
+            """,
             body,
         )
     )
     Story.append(point12_spacer)
-
     Story.append(
         Paragraph(
             """<font face="Franklin_Gothic_Medium_Regular">Do you offer ad-hoc analysis of source data?</font><br/>
@@ -1880,19 +1852,18 @@ def report_gen(data_dict, soc_med_included=False):
             organization continues to show that vulnerability. In many cases, the issue can be tracked back to
             the fact that the mitigation has made it impossible for the reconnaissance service or tool to identify
             the configuration, and as such they may default to displaying the last collected information.
-        """,
+            """,
             body,
         )
     )
     Story.append(point12_spacer)
-
     Story.append(
         Paragraph(
             """<font face="Franklin_Gothic_Medium_Regular">Who do I contact if there are any issues or updates that need to be addressed for my reports?</font><br/>
             The general notification process is the same as all of the CyHy components. Simply send an email to
             vulnerability@cisa.dhs.gov identifying the requested changes. In this instance, make sure to identify
             “P&amp;E Report Delivery” in the subject to ensure the issue is routed to our team.
-        """,
+            """,
             body,
         )
     )
