@@ -102,6 +102,8 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn,
           data.aws_ssm_parameter.ssm_dnsmonitor_client_id.arn,
           data.aws_ssm_parameter.ssm_dnsmonitor_client_secret.arn,
+          data.aws_ssm_parameter.ssm_flare_tenant_id.arn,
+          data.aws_ssm_parameter.ssm_flare_api_keys.arn,
           data.aws_ssm_parameter.ssm_latest_port_scan_cutoff.arn,
           data.aws_ssm_parameter.ssm_mdl_name.arn,
           data.aws_ssm_parameter.ssm_mdl_password.arn,
@@ -118,6 +120,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.worker_signature_public_key.arn,
           data.aws_ssm_parameter.xpanse_api_key.arn,
           data.aws_ssm_parameter.xpanse_auth_id.arn,
+          data.aws_ssm_parameter.ssm_shodan_org_exception.arn,
         ]
       },
       ], var.is_dmz ? [] : [
@@ -129,6 +132,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         Resource = [
           data.aws_ssm_parameter.wiz_registry_secret_arn[0].value,
           data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value,
+          data.aws_ssm_parameter.wiz_http_proxy_cert_secret_arn[0].value,
         ]
       },
       ], [
@@ -479,6 +483,10 @@ resource "aws_ecs_task_definition" "worker" {
         "name": "WIZ_API_CLIENT_SECRET",
         "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}:WIZ_API_CLIENT_SECRET::"
       },
+      {
+        "name": "WIZ_HTTP_PROXY_CERT",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_http_proxy_cert_secret_arn[0].value}"
+      },
 %{endif~}
       {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
@@ -558,6 +566,11 @@ data "aws_ssm_parameter" "wiz_service_account_secret_arn" {
   name  = var.ssm_wiz_service_account_secret_arn
 }
 
+data "aws_ssm_parameter" "wiz_http_proxy_cert_secret_arn" {
+  count = var.is_dmz ? 0 : 1
+  name  = var.ssm_wiz_http_proxy_cert_secret_arn
+}
+
 data "aws_ssm_parameter" "sixgill_client_id" { name = var.ssm_sixgill_client_id }
 
 data "aws_ssm_parameter" "intelx_api_key" { name = var.ssm_intelx_api_key }
@@ -625,6 +638,11 @@ data "aws_ssm_parameter" "ssm_nist_api_key" { name = var.ssm_nist_api_key }
 data "aws_ssm_parameter" "ssm_dnsmonitor_client_id" { name = var.ssm_dnsmonitor_client_id }
 
 data "aws_ssm_parameter" "ssm_dnsmonitor_client_secret" { name = var.ssm_dnsmonitor_client_secret }
+
+data "aws_ssm_parameter" "ssm_flare_tenant_id" { name = var.ssm_flare_tenant_id }
+
+data "aws_ssm_parameter" "ssm_flare_api_keys" { name = var.ssm_flare_api_keys }
+data "aws_ssm_parameter" "ssm_shodan_org_exception" { name = var.ssm_shodan_org_exception }
 
 resource "aws_s3_bucket" "export_bucket" {
   bucket = var.export_bucket_name

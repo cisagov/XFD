@@ -7,7 +7,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 
 // External libraries
 import { FaSyncAlt } from 'react-icons/fa';
-import { LazyLog } from 'react-lazylog';
+import { LazyLog as MellowareLazyLog } from '@melloware/react-logviewer';
 import { Button } from '@trussworks/react-uswds';
 
 // MUI Components
@@ -78,7 +78,7 @@ const Log = ({ url, token }: { url: string; token: string }) => {
   const [logKey, setLogKey] = useState(0);
   return (
     <div className={classes.logContainer}>
-      <LazyLog
+      <MellowareLazyLog
         aria-label="Log readout"
         key={'lazylog-' + logKey}
         follow={true}

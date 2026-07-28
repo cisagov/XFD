@@ -286,6 +286,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.ssm_dnsmonitor_client_secret.arn}"
       },
       {
+        "name": "FLARE_TENANT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_flare_tenant_id.arn}"
+      },
+      {
         "name": "ELASTICSEARCH_ENDPOINT",
         "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
       },
@@ -336,6 +340,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
       {
         "name": "SHODAN_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
+      },
+      {
+        "name": "SHODAN_ORG_EXCEPTION",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}"
       },
       {
         "name": "WHOIS_XML_KEY",

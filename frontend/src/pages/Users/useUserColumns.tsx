@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { textFilterOperators } from '@/utils/transformTableData';
 
 type UseUserColumnsProps = {
-  user: { user_type?: string } | null | undefined;
+  loggedInUser: { user_type?: string } | null | undefined;
   setSelectedRow: (row: any) => void;
   setFormValues: (values: any) => void;
   setEditUserDialogOpen: (open: boolean) => void;
@@ -17,7 +17,7 @@ type UseUserColumnsProps = {
 };
 
 export const useUserColumns = ({
-  user,
+  loggedInUser,
   setSelectedRow,
   setFormValues,
   setEditUserDialogOpen,
@@ -115,6 +115,21 @@ export const useUserColumns = ({
       )
     },
     {
+      field: 'invite_pending',
+      headerName: 'Invite Pending',
+      minWidth: 100,
+      flex: 1,
+      filterOperators: textFilterOperators,
+      renderCell: ({ row }: GridRenderCellParams) => (
+        <Box
+          component="span"
+          aria-label={`Invite Pending for User ${row.full_name}: ${row.invite_pending}`}
+        >
+          {row.invite_pending ? 'Yes' : 'No'}
+        </Box>
+      )
+    },
+    {
       field: 'date_approved',
       headerName: 'Approval Date',
       minWidth: 100,
@@ -203,7 +218,8 @@ export const useUserColumns = ({
               org_name: row.roles[0]?.organization?.name || '',
               org_id: row.roles[0]?.organization?.id || '',
               originalOrgId: row.roles[0]?.organization?.id || '',
-              originalRoleId: row.roles[0]?.id || ''
+              originalRoleId: row.roles[0]?.id || '',
+              invite_pending: row.invite_pending || false
             });
             setEditUserDialogOpen(true);
           }}
@@ -214,7 +230,7 @@ export const useUserColumns = ({
     }
   ];
 
-  if (user?.user_type === 'globalAdmin') {
+  if (loggedInUser?.user_type === 'globalAdmin') {
     columns.push({
       field: 'delete',
       headerName: 'Delete',
