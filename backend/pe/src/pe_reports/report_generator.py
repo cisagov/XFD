@@ -389,6 +389,7 @@ def generate_reports(orgs_list, datestring, output_directory, soc_med_included=F
     LOGGER.info(
         f"Generated reports have been output to the directory: {output_directory}"
     )
+    return 0
 
 
 def main():
@@ -429,12 +430,14 @@ def main():
     if not os.path.exists(validated_args["OUTPUT_DIRECTORY"]):
         os.mkdir(validated_args["OUTPUT_DIRECTORY"])
     # Generate reports
-    generate_reports(
+    result = generate_reports(
         validated_args["--orgs"],
         validated_args["REPORT_DATE"],
         validated_args["OUTPUT_DIRECTORY"],
         validated_args["--soc_med_included"],
     )
+    if result:
+        sys.exit(result)
     # log end message
     report_gen_end_time = time.time()
     report_gen_exe_time = str(

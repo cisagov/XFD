@@ -416,6 +416,7 @@ class ReportGeneratorMainTests(unittest.TestCase):
     @patch.object(report_generator, "generate_reports")
     def test_main_passes_cli_args_to_generate_reports(self, generate_mock):
         """Forward CLI org, soc_med, and logging flags to generate_reports."""
+        generate_mock.return_value = 0
         out_dir = tempfile.mkdtemp()
         try:
             argv = [
@@ -434,6 +435,20 @@ class ReportGeneratorMainTests(unittest.TestCase):
                 out_dir,
                 True,
             )
+        finally:
+            os.rmdir(out_dir)
+
+    @patch.object(report_generator, "generate_reports", return_value=1)
+    def test_main_exits_when_generate_reports_fails(self, generate_mock):
+        """Propagate nonzero generate_reports status to the CLI exit code."""
+        out_dir = tempfile.mkdtemp()
+        try:
+            argv = ["pe-reports", "2026-07-15", out_dir, "--orgs=DHS"]
+            with patch.object(sys, "argv", argv):
+                with self.assertRaises(SystemExit) as ctx:
+                    report_generator.main()
+            self.assertEqual(ctx.exception.code, 1)
+            generate_mock.assert_called_once()
         finally:
             os.rmdir(out_dir)
 
