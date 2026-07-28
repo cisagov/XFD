@@ -173,7 +173,7 @@ def get_application() -> FastAPI:
                 user = request.scope.get("user")
 
             # 3. Get the ID safely
-            user_id = getattr(user, "id", "Unknown")
+            
 
             LOGGER.warning(
                 f"UserID: User attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
