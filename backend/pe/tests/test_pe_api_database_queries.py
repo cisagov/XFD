@@ -18,6 +18,17 @@ os.environ.setdefault("PE_API_KEY", "test-key")
 from dataAPI import schemas, views
 from django.core.exceptions import ObjectDoesNotExist
 
+# Preserve the real Django model exception classes before patching the
+# model names in dataAPI.views with MagicMock objects.
+DOMAIN_PERMUTATIONS_DOES_NOT_EXIST = views.DomainPermutations.DoesNotExist
+DOMAIN_ALERTS_DOES_NOT_EXIST = views.DomainAlerts.DoesNotExist
+
+
+def call_without_transaction(function, *args, **kwargs):
+    """Call a transaction-decorated view without opening a real DB connection."""
+    undecorated_function = getattr(function, "__wrapped__", function)
+    return undecorated_function(*args, **kwargs)
+
 
 class OrganizationQueryTests(unittest.TestCase):
     """Verify organization and related lookup queries."""
@@ -123,7 +134,8 @@ class SubdomainPersistenceTests(unittest.TestCase):
         root_instance = MagicMock()
         roots_mock.objects.get.return_value = root_instance
 
-        result = views.sub_domains_single_insert(
+        result = call_without_transaction(
+            views.sub_domains_single_insert,
             schemas.SubDomainsSingleInsertInput(
                 domain="example.gov", pe_org_uid="org-uid", root=True
             ),
@@ -166,7 +178,8 @@ class SubdomainPersistenceTests(unittest.TestCase):
         query.exists.return_value = True
         subdomains_mock.objects.filter.return_value = query
 
-        result = views.sub_domains_single_insert(
+        result = call_without_transaction(
+            views.sub_domains_single_insert,
             schemas.SubDomainsSingleInsertInput(
                 domain="www.example.gov", pe_org_uid="org-uid", root=False
             ),
@@ -197,7 +210,8 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
         organizations_mock.objects.get.return_value = org_instance
         source_mock.objects.get.return_value = source_instance
         subdomain_mock.objects.get.return_value = subdomain_instance
-        permutations_mock.objects.get.side_effect = permutations_mock.DoesNotExist
+        permutations_mock.DoesNotExist = DOMAIN_PERMUTATIONS_DOES_NOT_EXIST
+        permutations_mock.objects.get.side_effect = DOMAIN_PERMUTATIONS_DOES_NOT_EXIST
         data = schemas.DomainPermuInsertInput(
             insert_data=[
                 schemas.DomainPermuInsert(
@@ -211,7 +225,9 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
             ]
         )
 
-        result = views.domain_permu_insert(data, tokens="test-key")
+        result = call_without_transaction(
+            views.domain_permu_insert, data, tokens="test-key"
+        )
 
         permutations_mock.objects.create.assert_called_once()
         self.assertIn("1 created, 0 updated", result)
@@ -242,7 +258,9 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
             ]
         )
 
-        result = views.domain_permu_insert(data, tokens="test-key")
+        result = call_without_transaction(
+            views.domain_permu_insert, data, tokens="test-key"
+        )
 
         query.update.assert_called_once()
         self.assertIn("0 created, 1 updated", result)
@@ -263,7 +281,9 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
             ]
         )
 
-        result = views.domain_permu_insert(data, tokens="test-key")
+        result = call_without_transaction(
+            views.domain_permu_insert, data, tokens="test-key"
+        )
 
         permutations_mock.objects.create.assert_not_called()
         self.assertIn("0 created, 0 updated", result)
@@ -285,7 +305,8 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
         organizations_mock.objects.get.return_value = MagicMock()
         source_mock.objects.get.return_value = MagicMock()
         subdomain_mock.objects.get.return_value = MagicMock()
-        alerts_mock.objects.get.side_effect = alerts_mock.DoesNotExist
+        alerts_mock.DoesNotExist = DOMAIN_ALERTS_DOES_NOT_EXIST
+        alerts_mock.objects.get.side_effect = DOMAIN_ALERTS_DOES_NOT_EXIST
         data = schemas.DomainAlertsInsertInput(
             insert_data=[
                 schemas.DomainAlertsInsert(
@@ -301,7 +322,9 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
             ]
         )
 
-        result = views.domain_alerts_insert(data, tokens="test-key")
+        result = call_without_transaction(
+            views.domain_alerts_insert, data, tokens="test-key"
+        )
 
         alerts_mock.objects.create.assert_called_once()
         self.assertIn("1 created", result)
@@ -331,7 +354,9 @@ class DNSMonitorPersistenceTests(unittest.TestCase):
             ]
         )
 
-        result = views.domain_alerts_insert(data, tokens="test-key")
+        result = call_without_transaction(
+            views.domain_alerts_insert, data, tokens="test-key"
+        )
 
         alerts_mock.objects.create.assert_not_called()
         self.assertIn("0 created", result)

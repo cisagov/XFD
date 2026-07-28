@@ -4,15 +4,26 @@
 from datetime import datetime
 from decimal import Decimal
 import json
+import os
 import unittest
 from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 import pandas as pd
+from requests.exceptions import ConnectionError
 
+# Configure values required when db_query_source is imported. The production
+# module resolves its connection dictionary at import time.
+os.environ.setdefault("PE_DB_NAME", "test_pe")
+os.environ.setdefault("PE_DB_USERNAME", "test_user")
+os.environ.setdefault("PE_DB_PASSWORD", "test_password")
+os.environ.setdefault("DB_HOST", "localhost")
+os.environ.setdefault("PE_DB_PORT", "5432")
+os.environ.setdefault("PE_API_KEY", "test-key")
+
+# Third-Party Libraries
 # First-Party Libraries
 from pe_source.data import db_query_source
-from requests.exceptions import ConnectionError
 
 
 class ConnectTests(unittest.TestCase):
