@@ -176,7 +176,7 @@ def get_application() -> FastAPI:
             user_id = getattr(user, "id", "Unknown")
 
             LOGGER.warning(
-                f"UserID: {user_id} attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
+                f"UserID: User attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
             )
             error_detail = (
                 exc.detail
