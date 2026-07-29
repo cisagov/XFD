@@ -127,9 +127,4 @@ def test_get_call_all_was_findings_forbidden_no_user_type():
         params={"page": 1, "per_page": 100},
     )
     assert response.status_code == 403
-    # Optional: confirm it's the role gate, not auth
-    body = response.json()
-    assert body.get("detail") in {
-        "You do not have permission to perform this action.",
-        "Insufficient permissions.",
-    }
+    assert response.json() == {"detail": "Unauthorized access."}

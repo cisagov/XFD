@@ -173,23 +173,18 @@ def get_application() -> FastAPI:
                 user = request.scope.get("user")
 
             # 3. Get the ID safely
-            user_id = getattr(user, "id", "Unknown")
 
             LOGGER.warning(
-                f"UserID: {user_id} attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
+                f"UserID: User attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
             )
-            # TODO: CRASM-4044 Update to include the non-overridden error details in the response. Update Backend tests.
-            # error_detail = (
-            #     exc.detail
-            #     if exc.detail
-            #     else "You do not have permission to perform this action."
-            # )
+            error_detail = (
+                exc.detail
+                if exc.detail
+                else "You do not have permission to perform this action."
+            )
             return JSONResponse(
                 status_code=403,
-                # content={"detail": error_detail},
-                content={
-                    "detail": "You do not have permission to perform this action."
-                },
+                content={"detail": error_detail},
             )
 
         return JSONResponse(
