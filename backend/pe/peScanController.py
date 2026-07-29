@@ -223,6 +223,7 @@ def pe_db_connection_params() -> Dict[str, str]:
     }
 
 
+# TODO: Convert to API endpoint in CRASM-4061
 def fetch_orgs_from_db(*, report_on: bool = False, demo: bool = False) -> List[str]:
     """Load cyhy_db_name values from the PE organizations table."""
     # Third-Party Libraries
