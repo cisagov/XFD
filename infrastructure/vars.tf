@@ -1073,3 +1073,21 @@ variable "ssm_dnsmonitor_client_secret" {
   type        = string
   default     = "/crossfeed/staging/DNSMONITOR_CLIENT_SECRET"
 }
+
+variable "ssm_flare_tenant_id" {
+  description = "ssm_flare_tenant_id"
+  type        = string
+  default     = "/crossfeed/staging/FLARE_TENANT_ID"
+}
+
+variable "ssm_flare_api_keys" {
+  description = "Comma-separated Flare API keys (SSM parameter path)"
+  type        = string
+  default     = "/crossfeed/staging/FLARE_API_KEYS"
+}
+
+variable "ssm_shodan_org_exception" {
+  description = "ssm_shodan_org_exception"
+  type        = string
+  default     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
+}
