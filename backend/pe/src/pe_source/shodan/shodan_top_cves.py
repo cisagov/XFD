@@ -12,7 +12,8 @@ import requests
 # cisagov Libraries
 from pe_source.data.db_query_source import (
     insert_shodan_top_cves,
-    query_all_shodan_cves,
+    get_all_shodan_cves,
+    get_data_source_uid,
 )
 
 # Set up logging
@@ -45,22 +46,23 @@ def get_shodan_cve_info(cve):
 def get_cve_details(cve_list):
     """Retrieve details for the specified list of CVEs."""
     cve_detail_list = []
+    source_uid = get_data_source_uid("Shodan")
     for idx, cve in enumerate(cve_list):
         # Call shodan API to get CVE info
         LOGGER.info(f"Retrieving CVE details for {cve} ({idx+1} of {len(cve_list)})")
         cve_details = get_shodan_cve_info(cve)
-        epss = round(cve_details.get("epss") * 100, 2)
+        dynamic_rating = round(cve_details.get("epss") * 100, 2)
         cvss_v2 = cve_details.get("cvss_v2")
         cvss_v3 = cve_details.get("cvss_v3")
         summary = cve_details.get("summary")
         # Parse relevant details
         cve_detail_dict = {
             "cve_id": cve,
-            "epss": epss,
+            "dynamic_rating": str(dynamic_rating),
             "nvd_base_score": f"{{'v2': {cvss_v2}, 'v3': {cvss_v3}}}",
             "date": TODAY.strftime("%Y-%m-%d"),
             "summary": summary,
-            "data_source_uid": "8cca4335-a64e-4c33-bd92-5ab9e74a6f99",
+            "data_source_uid": source_uid,
         }
         # Append CVE details
         cve_detail_list.append(cve_detail_dict)
@@ -74,19 +76,23 @@ def run_top_cves_shodan():
     end_date = TODAY.strftime("%Y-%m-%d")
     report_period_back = datetime.timedelta(days=16)
     start_date = (TODAY - report_period_back).strftime("%Y-%m-%d")
-    all_cves = query_all_shodan_cves(start_date, end_date)
+    all_cves = get_all_shodan_cves(start_date, end_date)
     LOGGER.info(
         "Retrieved list of all distinct CVEs detected by Shodan across all stakeholders for the past report period"
     )
     # Get further details for each CVE using shodan's API
     all_cve_details = get_cve_details(list(all_cves["cve"]))
-    LOGGER.info("Retrieved details for all distinct CVEs")
+    LOGGER.info(
+        "Retrieved details for all distinct CVEs"
+    )
     # Sort CVEs by EPSS score
     all_cve_details = all_cve_details.sort_values(
-        by="epss", ascending=False
+        by="dynamic_rating", ascending=False
     ).reset_index(drop=True)
     # Grab the top 10 CVEs with the highest EPSS score
     top_epss_cves = all_cve_details[:10]
+    failed = []
+    top_epss_cves_dict = top_epss_cves.to_dict(orient="records")
     # Insert top 10 CVEs into the P&E database
-    insert_shodan_top_cves(top_epss_cves)
+    failed = insert_shodan_top_cves(top_epss_cves_dict, failed)
     LOGGER.info("Recorded top 10 CVEs with the highest EPSS score in the P&E database")

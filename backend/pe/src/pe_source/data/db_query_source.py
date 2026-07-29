@@ -13,6 +13,7 @@ import pandas as pd
 from pe_reports.data.config import config, staging_config
 import psycopg2
 from psycopg2 import OperationalError
+from psycopg2.extras import execute_values
 import requests
 
 LOGGER = logging.getLogger(__name__)
@@ -464,68 +465,97 @@ def insert_shodan_vulns(vuln_data, failed):
     return failed
 
 
-def query_all_shodan_cves(start_date, end_date):
-    """Retrieve a list of all distinct CVEs across all stakeholders for the specified report period."""
-    # Build query
-    sql = f"""
-    SELECT DISTINCT cve
-    FROM
-        (
-            SELECT
-                o.organizations_uid,
-                o.cyhy_db_name,
-                sv.timestamp,
-                sv.type,
-                UNNEST(sv.potential_vulns) as cve
-            FROM
-                shodan_vulns sv JOIN
-                organizations o ON
-                sv.organizations_uid = o.organizations_uid
-            WHERE
-                o.report_on = True AND
-                sv.timestamp BETWEEN '{start_date}' AND '{end_date}' AND
-                sv.type != 'Insecure Protocol'
-        ) q1
-    ORDER BY
-        cve DESC
-    """
-    # Execute query
-    conn = connect()
-    df = pd.read_sql(sql, conn)
-    conn.close()
-    # Return result
-    return df
+def get_all_shodan_cves(start_date, end_date):
+    """Get list of shodan vulnerabilities for current report period."""
+    if not start_date or not end_date:
+        return
 
-def insert_shodan_top_cves(top_cves):
-    """Take dataframe of top 10 Shodan CVEs and insert into the top_cves table."""
-    # Build query
-    cve_list = top_cves.to_dict(orient="records")
-    insert_vals = ""
-    for record in cve_list:
-        top_cves_uid = str(uuid.uuid4())
-        cve_id = record.get("cve_id")
-        dynamic_rating = record.get("epss")
-        nvd = record.get("nvd_base_score").replace("'", "''")
-        date = record.get("date")
-        summary = record.get("summary").replace("'", "''")
-        data_source_uid = record.get("data_source_uid")
-        insert_vals += f"('{top_cves_uid}', '{cve_id}', '{dynamic_rating}', '{nvd}', '{date}', '{summary}', '{data_source_uid}'),\n"
-    insert_vals = insert_vals[:-2]
-    sql = f"""
-    INSERT INTO top_cves(top_cves_uid, cve_id, dynamic_rating, nvd_base_score, date, summary, data_source_uid)
-    VALUES
-    {insert_vals}
-    ON CONFLICT (cve_id, date)
-    DO UPDATE SET
-    dynamic_rating = EXCLUDED.dynamic_rating,
-    nvd_base_score = EXCLUDED.nvd_base_score,
-    summary = EXCLUDED.summary,
-    data_source_uid = EXCLUDED.data_source_uid
+    query = """
+        SELECT DISTINCT cve
+        FROM
+            (
+                SELECT
+                    o.organizations_uid,
+                    o.cyhy_db_name,
+                    sv.timestamp,
+                    sv.type,
+                    UNNEST(sv.potential_vulns) as cve
+                FROM
+                    shodan_vulns sv JOIN
+                    organizations o ON
+                    sv.organizations_uid = o.organizations_uid
+                WHERE
+                    o.report_on = True AND
+                    sv.timestamp BETWEEN %(start_date)s AND %(end_date)s AND
+                    sv.type != 'Insecure Protocol'
+            ) q1
+        ORDER BY
+            cve DESC
     """
-    # Execute query
+
     conn = connect()
-    cursor = conn.cursor()
-    cursor.execute(sql)
-    conn.commit()
-    cursor.close()
-    conn.close()
+    if conn is None:
+        LOGGER.error("get_all_shodan_cves: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    shodan_cves_result = pd.DataFrame()
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("get_all_shodan_cves: querying shodan_vulns")
+        shodan_cves_result = cursor.execute(query, {
+            'start_date': start_date, 
+            'end_date': end_date
+        })
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        
+        shodan_cves_result = pd.DataFrame(rows, columns=columns)
+        return shodan_cves_result
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_all_shodan_cves: could not get shodan_vulns")
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
+
+    
+def insert_shodan_top_cves(top_epss_cves_dict, failed):
+    """
+    Query API to insert Shodan Top CVEs data into the top_cves table.
+
+    Args:
+        data: Dataframe of the cves data to be inserted into top_cves.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_top_cves_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"top_epss_cves_dict": top_epss_cves_dict})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed

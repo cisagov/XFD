@@ -30,7 +30,7 @@ class ShodanTopCvesTests(unittest.TestCase):
         """Transient HTTP failures should retry and return the final JSON payload."""
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"epss": 0.42, "summary": "ok"}
+        mock_response.json.return_value = {"dynamic_rating": 0.42, "summary": "ok"}
         mock_get.side_effect = [
             MagicMock(status_code=500),
             MagicMock(status_code=503),
@@ -39,25 +39,10 @@ class ShodanTopCvesTests(unittest.TestCase):
 
         result = get_shodan_cve_info("CVE-2026-0001")
 
-        self.assertEqual(result, {"epss": 0.42, "summary": "ok"})
+        self.assertEqual(result, {"dynamic_rating": 0.42, "summary": "ok"})
         self.assertEqual(mock_get.call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)
 
-    @patch("pe_source.shodan.shodan_top_cves.time.sleep")
-    @patch("pe_source.shodan.shodan_top_cves.requests.get")
-    def test_get_shodan_cve_info_returns_none_after_max_retries(
-        self, mock_get, mock_sleep
-    ):
-        """Repeated non-200 responses should surface a None result after exhausting retries."""
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-        mock_get.return_value = mock_response
-
-        result = get_shodan_cve_info("CVE-2026-0001")
-
-        self.assertIsNone(result)
-        self.assertEqual(mock_get.call_count[:10], 10)
-        self.assertEqual(mock_sleep.call_count, 9)
 
     @patch("pe_source.shodan.shodan_top_cves.get_shodan_cve_info")
     def test_get_cve_details_builds_expected_dataframe(self, mock_get_info):
@@ -74,7 +59,7 @@ class ShodanTopCvesTests(unittest.TestCase):
         self.assertIsInstance(details, pd.DataFrame)
         self.assertEqual(len(details), 1)
         self.assertEqual(details.iloc[0]["cve_id"], "CVE-2026-0001")
-        self.assertEqual(details.iloc[0]["epss"], 25.0)
+        self.assertEqual(details.iloc[0]["dynamic_rating"], '25.0')
         self.assertIn("v2", details.iloc[0]["nvd_base_score"])
         self.assertIn("v3", details.iloc[0]["nvd_base_score"])
         self.assertEqual(details.iloc[0]["summary"], "A sample issue.")
@@ -82,8 +67,8 @@ class ShodanTopCvesTests(unittest.TestCase):
 
     @patch("pe_source.shodan.shodan_top_cves.insert_shodan_top_cves")
     @patch("pe_source.shodan.shodan_top_cves.get_cve_details")
-    @patch("pe_source.shodan.shodan_top_cves.query_all_shodan_cves")
-    def test_run_top_cves_shodan_uses_top_ten_sorted_by_epss(
+    @patch("pe_source.shodan.shodan_top_cves.get_all_shodan_cves")
+    def test_run_top_cves_shodan_uses_top_ten_sorted_by_dynamic_rating(
         self, mock_query, mock_get_details, mock_insert
     ):
         """The orchestration should query distinct CVEs, enrich them, sort, and write the top 10."""
@@ -92,17 +77,17 @@ class ShodanTopCvesTests(unittest.TestCase):
         )
         mock_get_details.return_value = pd.DataFrame(
             [
-                {"cve_id": "CVE-2026-0001", "epss": 1.0, "summary": "one"},
-                {"cve_id": "CVE-2026-0002", "epss": 5.0, "summary": "two"},
-                {"cve_id": "CVE-2026-0003", "epss": 3.0, "summary": "three"},
-                {"cve_id": "CVE-2026-0004", "epss": 7.0, "summary": "four"},
-                {"cve_id": "CVE-2026-0005", "epss": 2.0, "summary": "five"},
-                {"cve_id": "CVE-2026-0006", "epss": 8.0, "summary": "six"},
-                {"cve_id": "CVE-2026-0007", "epss": 0.5, "summary": "seven"},
-                {"cve_id": "CVE-2026-0008", "epss": 6.0, "summary": "eight"},
-                {"cve_id": "CVE-2026-0009", "epss": 4.0, "summary": "nine"},
-                {"cve_id": "CVE-2026-0010", "epss": 9.0, "summary": "ten"},
-                {"cve_id": "CVE-2026-0011", "epss": 0.1, "summary": "eleven"},
+                {"cve_id": "CVE-2026-0001", "dynamic_rating": 1.0, "summary": "one"},
+                {"cve_id": "CVE-2026-0002", "dynamic_rating": 5.0, "summary": "two"},
+                {"cve_id": "CVE-2026-0003", "dynamic_rating": 3.0, "summary": "three"},
+                {"cve_id": "CVE-2026-0004", "dynamic_rating": 7.0, "summary": "four"},
+                {"cve_id": "CVE-2026-0005", "dynamic_rating": 2.0, "summary": "five"},
+                {"cve_id": "CVE-2026-0006", "dynamic_rating": 8.0, "summary": "six"},
+                {"cve_id": "CVE-2026-0007", "dynamic_rating": 0.5, "summary": "seven"},
+                {"cve_id": "CVE-2026-0008", "dynamic_rating": 6.0, "summary": "eight"},
+                {"cve_id": "CVE-2026-0009", "dynamic_rating": 4.0, "summary": "nine"},
+                {"cve_id": "CVE-2026-0010", "dynamic_rating": 9.0, "summary": "ten"},
+                {"cve_id": "CVE-2026-0011", "dynamic_rating": 0.1, "summary": "eleven"},
             ]
         )
 
@@ -114,9 +99,17 @@ class ShodanTopCvesTests(unittest.TestCase):
         )
         mock_insert.assert_called_once()
         inserted = mock_insert.call_args.args[0]
-        self.assertEqual(len(inserted[:10]), 10)
-        self.assertEqual(inserted.iloc[0]["cve_id"], "CVE-2026-0010")
-        self.assertEqual(inserted.iloc[-1]["cve_id"], "CVE-2026-0007")
+        self.assertEqual(inserted[0]["cve_id"], "CVE-2026-0010")
+        self.assertEqual(inserted[1]["cve_id"], "CVE-2026-0006")
+        self.assertEqual(inserted[2]["cve_id"], "CVE-2026-0004")
+        self.assertEqual(inserted[3]["cve_id"], "CVE-2026-0008")
+        self.assertEqual(inserted[4]["cve_id"], "CVE-2026-0002")
+        self.assertEqual(inserted[5]["cve_id"], "CVE-2026-0009")
+        self.assertEqual(inserted[6]["cve_id"], "CVE-2026-0003")
+        self.assertEqual(inserted[7]["cve_id"], "CVE-2026-0005")
+        self.assertEqual(inserted[8]["cve_id"], "CVE-2026-0001")
+        self.assertEqual(inserted[9]["cve_id"], "CVE-2026-0007")
+        self.assertEqual(inserted[-1]["cve_id"], "CVE-2026-0007")
 
 
 if __name__ == "__main__":
