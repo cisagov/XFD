@@ -44,6 +44,7 @@ import {
   SearchParams,
   VulnerabilityRow
 } from 'types/vulnerabilities';
+import type { Theme } from '@mui/material/styles';
 
 // Context
 import { useAuthContext } from 'context';
@@ -780,6 +781,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                     : showOpenVulnsButton,
                   exportTitle: 'Vulnerabilities',
                   hasActiveFilters: hasActiveFilters
+                } as any,
+                panel: {
+                  sx: {
+                    zIndex: (theme: Theme) => theme.zIndex.appBar - 1
+                  }
                 } as any,
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {

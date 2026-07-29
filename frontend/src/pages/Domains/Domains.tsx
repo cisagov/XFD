@@ -35,6 +35,7 @@ import {
 // Types
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
+import type { Theme } from '@mui/material/styles';
 
 // Context
 import { useAuthContext } from 'context';
@@ -614,6 +615,11 @@ export const Domains: React.FC = () => {
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
                 toolbar: { exportTitle: 'Domains' } as any,
+                panel: {
+                  sx: {
+                    zIndex: (theme: Theme) => theme.zIndex.appBar - 1
+                  }
+                } as any,
                 basePopper: {
                   placement: 'bottom-start'
                 },
