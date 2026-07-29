@@ -314,6 +314,7 @@ class CredentialExposures(models.Model):
     password = models.TextField(blank=True, null=True)
     hash_type = models.TextField(blank=True, null=True)
     intelx_system_id = models.TextField(blank=True, null=True)
+    login_url = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set CredentialExposures model metadata."""
@@ -725,6 +726,21 @@ class FlareEvents(models.Model):
         unique_together = (("organizations_uid", "flare_uid"),)
 
 
+class FlareEventTypes(models.Model):
+    """Flare event type definitions used in dark-web report exports."""
+
+    flare_event_type_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    event_type = models.TextField(unique=True)
+    definition = models.TextField()
+    used_in_report = models.BooleanField()
+
+    class Meta:
+        """Set FlareEventTypes model metadata."""
+
+        managed = True
+        db_table = "flare_event_types"
+
+
 class DotgovDomains(models.Model):
     """Define DotgovDomains model."""
 
@@ -907,18 +923,23 @@ class Organizations(models.Model):
     is_parent = models.BooleanField(blank=True, null=True)
     ignore_roll_up = models.BooleanField(blank=True, null=True)
     retired = models.BooleanField(blank=True, null=True)
-    cyhy_period_start = models.DateField(blank=True, null=True)
+    cyhy_period_start = models.DateTimeField(blank=True, null=True)
     fceb_child = models.BooleanField(blank=True, null=True)
     election = models.BooleanField(blank=True, null=True)
     scorecard_child = models.BooleanField(blank=True, null=True)
     location_name = models.TextField(blank=True, null=True)
     county = models.TextField(blank=True, null=True)
-    county_fips = models.IntegerField(blank=True, null=True)
+    county_fips = models.DecimalField(
+        max_digits=10, decimal_places=0, blank=True, null=True
+    )
     state_abbreviation = models.TextField(blank=True, null=True)
-    state_fips = models.IntegerField(blank=True, null=True)
+    state_fips = models.DecimalField(
+        max_digits=10, decimal_places=0, blank=True, null=True
+    )
     state_name = models.TextField(blank=True, null=True)
     country = models.TextField(blank=True, null=True)
     country_name = models.TextField(blank=True, null=True)
+    exec_url = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set Organizations model metadata."""
@@ -1073,7 +1094,7 @@ class ReportSummaryStats(models.Model):
     class Meta:
         """Set ReportSummaryStats model metadata."""
 
-        managed = False
+        managed = True
         db_table = "report_summary_stats"
         unique_together = (("organizations_uid", "start_date"),)
 
@@ -1169,16 +1190,18 @@ class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
     protocol = models.TextField(blank=True, null=True)
     type = models.TextField(blank=True, null=True)
     name = models.TextField(blank=True, null=True)
-    potential_vulns = models.TextField(
-        blank=True, null=True
-    )  # This field type is a guess.
+    potential_vulns = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
     mitigation = models.TextField(blank=True, null=True)
     timestamp = models.DateTimeField(blank=True, null=True)
     product = models.TextField(blank=True, null=True)
     server = models.TextField(blank=True, null=True)
-    tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-    domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-    hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
+    tags = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
+    domains = ArrayField(models.TextField(blank=True, null=True), blank=True, null=True)
+    hostnames = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
     data_source_uid = models.ForeignKey(
@@ -1189,7 +1212,7 @@ class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
         """Set ShodanInsecureProtocolsUnverifiedVulns model metadata."""
 
         managed = False
-        db_table = "shodan_insecure_protocols_unverified_vulns"
+        db_table = "old_shodan_insecure_protocols_unverified_vulns"
         unique_together = (
             ("organizations_uid", "ip", "port", "protocol", "timestamp"),
         )
@@ -1308,6 +1331,29 @@ class TopCves(models.Model):
         managed = False
         db_table = "top_cves"
         unique_together = (("cve_id", "date"),)
+
+
+class TopCvesShodan(models.Model):
+    """Shodan EPSS-ranked CVEs used by Flare dark-web report tables."""
+
+    top_cves_shodan_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    cve_id = models.TextField()
+    epss_score = models.DecimalField(
+        max_digits=10, decimal_places=6, null=True, blank=True
+    )
+    nvd_base_score = models.TextField(blank=True, null=True)
+    collection_date = models.DateField()
+    summary = models.TextField(blank=True, null=True)
+    data_source_uid = models.ForeignKey(
+        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
+    )
+
+    class Meta:
+        """Set TopCvesShodan model metadata."""
+
+        managed = True
+        db_table = "top_cves_shodan"
+        unique_together = (("cve_id", "collection_date"),)
 
 
 class TopicTotals(models.Model):
@@ -2592,6 +2638,12 @@ class WasFindings(models.Model):
         models.IntegerField(blank=True, null=True), blank=True, null=True
     )
     wasc_list = models.JSONField(blank=True, null=True)
+    last_tested = models.DateField(blank=True, null=True)
+    fixed_date = models.DateField(blank=True, null=True)
+    is_ignored = models.BooleanField(blank=True, null=True)
+    url = models.TextField(blank=True, null=True)
+    qid = models.IntegerField(blank=True, null=True)
+    response = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set WasFindings model metadata."""
@@ -2603,6 +2655,7 @@ class WasFindings(models.Model):
 class WasReport(models.Model):
     """Define WasReport model."""
 
+    id = models.AutoField(primary_key=True)
     org_name = models.TextField(blank=True, null=True)
     date_pulled = models.DateTimeField(blank=True, null=True)
     last_scan_date = models.DateTimeField(blank=True, null=True)
@@ -2651,3 +2704,10 @@ class WasReport(models.Model):
     severities = ArrayField(models.IntegerField(), blank=True, null=True, default=list)
     ages = ArrayField(models.IntegerField(), blank=True, null=True, default=list)
     pdf_obj = models.BinaryField(blank=True, null=True)
+
+    class Meta:
+        """Set WasReport model metadata."""
+
+        managed = False
+        db_table = "was_report"
+        unique_together = (("last_scan_date", "org_was_acronym"),)
