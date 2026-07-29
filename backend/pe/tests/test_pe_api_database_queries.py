@@ -128,7 +128,9 @@ class SubdomainPersistenceTests(unittest.TestCase):
         org_instance = MagicMock()
         organizations_mock.objects.get.return_value = org_instance
         source_instance = MagicMock()
-        data_source_mock.objects.get.return_value = source_instance
+        data_source_mock.objects.filter.return_value.order_by.return_value.first.return_value = (
+            source_instance
+        )
         subdomains_mock.objects.filter.return_value.exists.return_value = False
         roots_mock.objects.filter.return_value.exists.return_value = False
         root_instance = MagicMock()
