@@ -423,10 +423,10 @@ def cred_breaches_by_uid(
 ):
     """Look up credential breaches by UID."""
     del tokens
-    rows = list(CredentialBreaches.objects.filter(name=data.name).values())
+    rows = list(CredentialBreaches.objects.filter(name=data.breach_name).values())
     today = dt.today().strftime("%Y-%m-%d")
-    CredentialBreaches.objects.filter(name=data.name).update(last_run=today)
+    CredentialBreaches.objects.filter(name=data.breach_name).update(last_run=today)
     for row in rows:
         row["credential_breaches_uid"] = convert_uuid_to_string(row["credential_breaches_uid"])
-        row["breach_name"] = convert_date_to_string(row.get("breach_name"))
+        # row["breach_name"] = row.get("breach_name")
     return rows

@@ -6,6 +6,7 @@ import logging
 import os
 import time
 import traceback
+import uuid
 
 # Third-Party Libraries
 import numpy as np
@@ -52,7 +53,7 @@ def get_ident_creds_chunk(token, ident_id, payload):
         url = f"https://api.flare.io/firework/v3/identifiers/{ident_id}/feed/credentials?size={size}"
     resp = requests.get(url, headers=headers, timeout=60)
     # Retry clause in case API falters
-    retry_count, max_retries, time_delay = 1, 5, 3
+    retry_count, max_retries, time_delay = 1, 5, 10
     while resp.status_code != 200 and retry_count <= max_retries:
         LOGGER.warning(
             f"\tRetrying Flare leaked cred retrieval API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
@@ -86,7 +87,7 @@ def get_ident_creds(ident_id, start_date, end_date):
     results_list = []
     more_data = False
     curr_next = ""
-    chunk_size = 100  # default 20
+    chunk_size = 20  # default 20
     # Make initial data feed call
     LOGGER.info("Working on data feed chunk 1")
     ini_payload = {
@@ -442,6 +443,7 @@ def format_creds_for_db(all_creds_df, org_uid):
     all_creds_df = all_creds_df[
         all_creds_df["email"].str.contains("@", na=False)
     ].reset_index(drop=True)
+    all_creds_df = all_creds_df.loc[all_creds_df["breach_name"] != ""]
     all_creds_df = all_creds_df.drop_duplicates(
         subset=["email", "breach_name"], keep="first"
     )
@@ -451,13 +453,21 @@ def format_creds_for_db(all_creds_df, org_uid):
         (pd.isna(all_creds_df["password"])) | (all_creds_df["password"] == ""), 0, 1
     )
     all_creds_df["sub_domain"] = all_creds_df["email"].str.split("@").str[1]
-    # all_creds_df["sub_domain"].fillna("None", inplace=True)
     all_creds_df.fillna({"sub_domain": "None"}, inplace=True)
     all_creds_df["organizations_uid"] = org_uid
     all_creds_df["intelx_system_id"] = "None"
+    all_creds_df["credential_breaches_uid"] = all_creds_df.get(
+        "credential_breaches_uid", None
+    )
+    all_creds_df["data_source_uid"] = all_creds_df.get("data_source_uid", None)
+    all_creds_df["name"] = all_creds_df.get("name", None)
+    all_creds_df["login_id"] = all_creds_df.get("login_id", None)
+    all_creds_df["phone"] = all_creds_df.get("phone", None)
+    all_creds_df["hash_type"] = all_creds_df.get("hash_type", None)
     # Assemble credential exposures dataframe
     creds_df = all_creds_df[
         [
+            "credential_breaches_uid",
             "email",
             "organizations_uid",
             "root_domain",
@@ -466,37 +476,47 @@ def format_creds_for_db(all_creds_df, org_uid):
             "modified_date",
             "credential_breaches_uid",
             "data_source_uid",
+            "name",
+            "login_id",
+            "phone",
             "password",
             "hash_type",
             "intelx_system_id",
-            "url",
         ]
     ].reset_index(drop=True)
     # Assemble credential breaches dataframe
-    breaches_df = all_creds_df.groupby(
-        [
-            "breach_name",
-            "breach_description",
-            "modified_date",
-            # "bucket",
-            "data_source_uid",
-        ]
-    ).aggregate({"email": "count", "password_included": "sum"})
+    breaches_df = (
+        all_creds_df.groupby(
+            [
+                "breach_name",  
+                "breach_description",
+                "modified_date",
+                "data_source_uid",
+            ]
+        )
+        .agg(
+            exposed_cred_count=("email", "size"),
+            password_included=("password_included", "sum"),
+        )
+        .reset_index()
+    )
+    
     breaches_df = breaches_df.reset_index()
     breaches_df["password_included"] = breaches_df["password_included"] > 0
     breaches_df.rename(
         columns={
             "breach_description": "description",
-            "email": "exposed_cred_count",
         },
         inplace=True,
     )
     breaches_df["breach_date"] = breaches_df["modified_date"]
     breaches_df["added_date"] = END_DATE
+    breaches_df = breaches_df.drop_duplicates(subset=["breach_name"], keep="first").reset_index(drop=True)
     breaches_df = breaches_df[
         [
             "breach_name",
             "description",
+            "exposed_cred_count",
             "breach_date",
             "added_date",
             "modified_date",
@@ -540,8 +560,6 @@ def run_flare_creds(orgs_list):
     failed = 0
     failed_list = []
     for org_idx, org in enumerate(pe_orgs_final):
-        # Start exe time for this org
-        time_start = time.time()
         try:
             # Run Flare on this organization
             org_abbrv = org["cyhy_db_name"]
@@ -655,21 +673,31 @@ def run_flare_creds(orgs_list):
                 LOGGER.info("Formatting credentials for insertion into P&E database")
                 exposures_df, breaches_df = format_creds_for_db(all_creds_df, org_uid)
                 LOGGER.info(
-                    f"Found {len(exposures_df)} viable Flare creds after formatting"
+                    f"Found {len(exposures_df)} viable Flare creds after formatting!"
                 )
-                if len(exposures_df) == 0 or len(breaches_df) == 0:
+                LOGGER.info(
+                    f"Found {len(breaches_df)} viable breaches Flare creds after formatting!"
+                )
+                if exposures_df.empty | breaches_df.empty:
                     LOGGER.info(
                         "No viable Flare creds found for DB insertion, continuing..."
                     )
                     success += 1
                     continue
+
+                breaches_df = breaches_df.astype(object).where(pd.notnull(breaches_df), None)
+                breaches_df = breaches_df.to_dict(orient="records")
+
                 # Insert Flare breach data into PE DB
+
                 insert_flare_breaches(breaches_df)
                 LOGGER.info(
                     f"Flare breaches for {org_abbrv} successfully inserted into PE database"
                 )
                 # Retrieve UIDs for the breaches that were just inserted
+                LOGGER.info("Get credentials uuids")
                 breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"]))
+                LOGGER.info("Convert breach name and uuid to dict")
                 breach_dict = dict(
                     zip(
                         breach_uid_df["breach_name"],
@@ -677,10 +705,16 @@ def run_flare_creds(orgs_list):
                     )
                 )
                 # Add breach UIDs to credential records
+                LOGGER.info("Adding breach id to credential records")
                 for idx, row in exposures_df.iterrows():
                     breach_uid = breach_dict.get(row["breach_name"])
                     exposures_df.at[idx, "credential_breaches_uid"] = breach_uid
+
+                LOGGER.info("Convert exposures df to dict")
+                exposures_df = exposures_df.to_dict(orient="records")
+
                 # Insert Flare credential data into PE DB
+                LOGGER.info("Trying to insert credentials to db")
                 insert_flare_credentials(exposures_df)
                 LOGGER.info(
                     f"Flare credentials for {org_abbrv} successfully inserted into PE database"

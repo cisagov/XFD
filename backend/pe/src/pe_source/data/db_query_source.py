@@ -6,7 +6,6 @@ from decimal import Decimal
 import json
 import logging
 import sys
-from tkinter import INSERT
 import uuid
 
 # Third-Party Libraries
@@ -451,12 +450,19 @@ def get_cred_breach_uids(breach_name_list):
             endpoint_url, headers=headers, data=data, timeout=60
         ).json()
         # Process data and return
-        tup_result = [tuple(row.values()) for row in result]
+        # tup_result = [tuple(row.values()) for row in result]
+        # Process data and return
+        for row in result:
+            if row.get("credential_breaches_uid") is not None:
+                row["credential_breaches_uid"] = str(row.get("credential_breaches_uid"))
+            if row.get("breach_name") is not None:
+                row["breach_name"] = str(row.get("breach_name"))
+        return result
         # Catch deleted subdomain error
-        try:
-            return tup_result[0][0]
-        except Exception:
-            return -1
+        # try:
+        #     return tup_result[0][0]
+        # except Exception:
+        #     return -1
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
@@ -475,7 +481,7 @@ def insert_flare_breaches(breach_list):
 
     rows = [
         (
-            event.get("credential_breaches_uid") or str(uuid.uuid1()),
+            str(uuid.uuid1()),
             event.get("breach_name"),
             event.get("description"),
             event.get("exposed_cred_count"),
@@ -494,7 +500,7 @@ def insert_flare_breaches(breach_list):
         for event in breach_list
     ]
 
-    query = """""
+    query = """
         INSERT INTO credential_breaches(
             credential_breaches_uid, breach_name, description, exposed_cred_count, breach_date, added_date, 
             modified_date, data_classes, password_included, is_verified, is_fabricated, is_sensitive, 
@@ -532,7 +538,7 @@ def insert_flare_credentials(cred_list):
 
     rows = [
         (
-            event.get("credential_exposures_uid") or str(uuid.uuid1()),
+            str(uuid.uuid1()),
             event.get("email"),
             event.get("organizations_uid"),
             event.get("root_domain"),
@@ -551,7 +557,7 @@ def insert_flare_credentials(cred_list):
         for event in cred_list
     ]
 
-    query = """""
+    query = """
         INSERT INTO credential_exposures(
             credential_exposures_uid, email, organizations_uid, root_domain, sub_domain, breach_name, 
             modified_date, credential_breaches_uid, data_source_uid, name, login_id, phone, password, hash_type, intelx_system_id) 
@@ -563,18 +569,18 @@ def insert_flare_credentials(cred_list):
 
     conn = connect()
     if conn is None:
-        LOGGER.error("insert_flare_breaches: PE database connection failed")
+        LOGGER.error("insert_flare_credentials: PE database connection failed")
         raise RuntimeError("PE database connection failed")
 
     cursor = None
     try:
         cursor = conn.cursor()
-        LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
+        LOGGER.info("insert_flare_credentials: upserting %d row(s)", len(rows))
         execute_values(cursor, query, rows)
         conn.commit()
     except Exception:
         conn.rollback()
-        LOGGER.exception("insert_flare_breaches: upsert failed for %d row(s)", len(rows))
+        LOGGER.exception("insert_flare_credentials: upsert failed for %d row(s)", len(rows))
         raise
     finally:
         if cursor is not None:

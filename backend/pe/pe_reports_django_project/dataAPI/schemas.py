@@ -152,4 +152,4 @@ class DomainAlertsInsertInput(BaseModel):
 class CredBreachesByID(BaseModel):
     """Request body for cred_breaches_by_uid."""
 
-    credential_breaches_uid: str
+    breach_name_list: list
