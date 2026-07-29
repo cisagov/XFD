@@ -1,4 +1,4 @@
-"""Sample PE data for local dnstwist / Shodan development."""
+"""Sample PE data for local dnstwist, Shodan, and report development."""
 
 # Standard Python Libraries
 from datetime import date
@@ -6,15 +6,18 @@ import hashlib
 import uuid
 
 # Third-Party Libraries
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from home.models import (
     Cidrs,
     DataSource,
+    FlareEventTypes,
     Ips,
     IpsSubs,
     Organizations,
     RootDomains,
     SubDomains,
+    TopCves,
+    TopCvesShodan,
 )
 
 # Public hosts that Shodan crawls constantly, so they reliably return banners
@@ -71,6 +74,69 @@ SAMPLE_ORGS = (
 def _ip_hash(ip_str: str) -> str:
     """Return a SHA-256 hash for an IP address string."""
     return hashlib.sha256(ip_str.encode()).hexdigest()
+
+
+def _ensure_top_cve_sample(shodan_source, today, cve_spec):
+    """Insert or refresh a sample top_cves row (idempotent on cve_id + date)."""
+    lookup = {"cve_id": cve_spec["cve_id"], "date": today}
+    updates = {
+        "dynamic_rating": cve_spec["dynamic_rating"],
+        "nvd_base_score": cve_spec["nvd_base_score"],
+        "summary": cve_spec["summary"],
+        "data_source_uid": shodan_source,
+    }
+    row = TopCves.objects.filter(**lookup).first()
+    if row is None:
+        try:
+            TopCves.objects.create(
+                top_cves_uid=uuid.uuid4(),
+                **lookup,
+                **updates,
+            )
+        except IntegrityError:
+            TopCves.objects.filter(**lookup).update(**updates)
+        return
+    TopCves.objects.filter(pk=row.pk).update(**updates)
+
+
+def _ensure_top_cves_shodan_sample(shodan_source, today, cve_spec):
+    """Insert or refresh a sample top_cves_shodan row (idempotent on cve_id + date)."""
+    lookup = {"cve_id": cve_spec["cve_id"], "collection_date": today}
+    updates = {
+        "epss_score": cve_spec["epss_score"],
+        "nvd_base_score": cve_spec["nvd_base_score"],
+        "summary": cve_spec["summary"],
+        "data_source_uid": shodan_source,
+    }
+    row = TopCvesShodan.objects.filter(**lookup).first()
+    if row is None:
+        try:
+            TopCvesShodan.objects.create(
+                top_cves_shodan_uid=uuid.uuid4(),
+                **lookup,
+                **updates,
+            )
+        except IntegrityError:
+            TopCvesShodan.objects.filter(**lookup).update(**updates)
+        return
+    TopCvesShodan.objects.filter(pk=row.pk).update(**updates)
+
+
+def _ensure_flare_event_type(event_type, definition):
+    """Insert or refresh a flare_event_types row."""
+    row = FlareEventTypes.objects.filter(event_type=event_type).first()
+    if row is None:
+        FlareEventTypes.objects.create(
+            flare_event_type_uid=uuid.uuid4(),
+            event_type=event_type,
+            definition=definition,
+            used_in_report=True,
+        )
+        return
+    FlareEventTypes.objects.filter(pk=row.pk).update(
+        definition=definition,
+        used_in_report=True,
+    )
 
 
 def _ensure_shodan_sample(org, shodan_source, today, host_spec):
@@ -165,7 +231,7 @@ def _ensure_shodan_sample(org, shodan_source, today, host_spec):
 
 @transaction.atomic
 def populate_sample_data():
-    """Insert data sources, orgs, domains, and Shodan test IPs for local scans."""
+    """Insert data sources, orgs, domains, and Shodan test IPs for local dev."""
     today = date.today()
 
     dnsmonitor_source, created = DataSource.objects.get_or_create(
@@ -237,6 +303,36 @@ def populate_sample_data():
             description="Shodan internet-facing asset scan",
             last_run=today,
         )
+
+    for cve_spec in (
+        {
+            "cve_id": "CVE-2024-3400",
+            "epss_score": "0.91",
+            "dynamic_rating": "0.91",
+            "nvd_base_score": "10.0",
+            "summary": "Sample high-EPSS CVE for local dark-web report tables.",
+        },
+        {
+            "cve_id": "CVE-2023-4966",
+            "epss_score": "0.72",
+            "dynamic_rating": "0.72",
+            "nvd_base_score": "9.4",
+            "summary": "Sample CVE row for top_cves_shodan local report data.",
+        },
+    ):
+        _ensure_top_cve_sample(shodan_source, today, cve_spec)
+        _ensure_top_cves_shodan_sample(shodan_source, today, cve_spec)
+
+    for event_type, definition in (
+        ("chat_message", "Dark web or forum chat message mentioning the organization."),
+        ("forum_post", "Forum post discussing the organization or its assets."),
+        ("listing", "Marketplace or dark-web listing related to the organization."),
+        ("stealer_log", "Stealer log offering credentials or access."),
+        ("leaked_credential", "Leaked credential associated with the organization."),
+        ("domain", "Domain-related alert for an organizational asset."),
+        ("bot", "Botnet or automated activity involving organizational assets."),
+    ):
+        _ensure_flare_event_type(event_type, definition)
 
     org_names = []
     shodan_samples = []
