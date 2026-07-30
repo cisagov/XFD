@@ -3,6 +3,7 @@
 # Standard Python Libraries
 from datetime import date
 import hashlib
+import ipaddress
 import uuid
 
 # Third-Party Libraries
@@ -10,6 +11,7 @@ from django.db import IntegrityError, transaction
 from home.models import (
     Cidrs,
     DataSource,
+    Executives,
     FlareEventTypes,
     Ips,
     IpsSubs,
@@ -304,6 +306,19 @@ def populate_sample_data():
             last_run=today,
         )
 
+    whoisxml_source, created = DataSource.objects.get_or_create(
+        name="WhoisXML",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "WhoisXML IP and subdomain asset enumeration",
+            "last_run": today,
+        },
+    )
+    if not created:
+        DataSource.objects.filter(pk=shodan_source.pk).update(
+            description="WhoisXML IP and subdomain asset enumeration",
+            last_run=today,
+        )
     for cve_spec in (
         {
             "cve_id": "CVE-2024-3400",
@@ -335,6 +350,7 @@ def populate_sample_data():
         _ensure_flare_event_type(event_type, definition)
 
     org_names = []
+    org_objs = {}
     shodan_samples = []
 
     for org_spec in SAMPLE_ORGS:
@@ -353,6 +369,7 @@ def populate_sample_data():
                 report_on=org_spec["report_on"],
             )
         org_names.append(org_spec["cyhy_db_name"])
+        org_objs[org_spec["cyhy_db_name"]] = org
 
         root, created = RootDomains.objects.get_or_create(
             organizations_uid=org,
@@ -374,6 +391,92 @@ def populate_sample_data():
                 _ensure_shodan_sample(org, shodan_source, today, host_spec)
             )
 
+    # Create CIDRs/IPs
+    cidr_list = [
+        ("DHS_CISA", "8.8.8.8/32"),
+        ("DHS_CISA", "192.168.1.31/32"),
+        ("DHS", "192.0.2.1/32"),
+        ("DHS", "9.9.9.9/32"),
+    ]
+    # For each CIDR
+    for cidr_tup in cidr_list:
+        # Create CIDR
+        curr_org = org_objs.get(cidr_tup[0])
+        curr_cidr = cidr_tup[1]
+        cidr_obj, created = Cidrs.objects.get_or_create(
+            organizations_uid=curr_org,
+            network=curr_cidr,
+            defaults={
+                "cidr_uid": uuid.uuid4,
+                "data_source_uid": whoisxml_source,
+                "first_seen": today,
+                "last_seen": today,
+                "current": True,
+            },
+        )
+        if not created:
+            Cidrs.objects.filter(pk=cidr_obj.pk).update(
+                data_source_uid=whoisxml_source,
+                last_seen=today,
+                current=True,
+            )
+        # Create IPs for CIDR
+        network = ipaddress.ip_network(curr_cidr)
+        ips_list = [str(ip) for ip in network]
+        for curr_ip in ips_list:
+            ip_obj, _ = Ips.objects.update_or_create(
+                ip_hash=_ip_hash(curr_ip),
+                defaults={
+                    "ip": curr_ip,
+                    "origin_cidr": cidr_obj,
+                    "organizations_uid": curr_org.organizations_uid,
+                    "shodan_results": True,
+                    "live": True,
+                    "current": True,
+                    "from_cidr": True,
+                    "first_seen": today,
+                    "last_seen": today,
+                },
+            )
+
+    # Create executives
+    exec_list = [
+        {
+            "org_abbrv": "DHS_CISA",
+            "org_uid": org_objs.get("DHS_CISA"),
+            "prefix": "Mr.",
+            "first_name": "John",
+            "middle_initial": "A.",
+            "last_name": "Smith",
+            "suffix": "ii",
+            "last_modified": today,
+        },
+        {
+            "org_abbrv": "DHS",
+            "org_uid": org_objs.get("DHS"),
+            "prefix": "Ms.",
+            "first_name": "Jane",
+            "middle_initial": "B.",
+            "last_name": "Doe",
+            "suffix": "iii",
+            "last_modified": today,
+        },
+    ]
+    for exec in exec_list:
+        exec_obj, created = Executives.objects.update_or_create(
+            organizations_uid=exec.get("org_uid"),
+            first_name=exec.get("first_name"),
+            last_name=exec.get("last_name"),
+            defaults={
+                "executives_uid": uuid.uuid4,
+                "prefix": exec.get("prefix"),
+                "middle_initial": exec.get("middle_initial"),
+                "suffix": exec.get("suffix"),
+                "last_modified": exec.get("last_modified"),
+                "sixgill_id": "",
+            },
+        )
+
     return {
         "data_sources": [
             dnsmonitor_source.name,
@@ -381,6 +484,7 @@ def populate_sample_data():
             findomain_source.name,
             flare_source.name,
             shodan_source.name,
+            whoisxml_source.name,
         ],
         "organizations": org_names,
         "shodan_samples": shodan_samples,
