@@ -440,25 +440,24 @@ def get_cred_breach_uids(breach_name_list):
     """
     # Endpoint info
     endpoint_url = pe_api_url + "cred_breaches_by_name"
+
+def get_ips(org_uid):
+    """
+    Query API to get all ips for an org to run through Shodan.
+
+    Return:
+        All ips to run through Shodan
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
     try:
-        result = requests.post(
-            endpoint_url, 
-            headers=headers, 
-            json={"breach_name_list": [{"breach_name": name} for name in breach_name_list]}, 
-            timeout=60
-        ).json()
-
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
-        for row in result:
-            if row.get("credential_breaches_uid") is not None:
-                row["credential_breaches_uid"] = str(row.get("credential_breaches_uid"))
-            if row.get("breach_name") is not None:
-                row["breach_name"] = str(row.get("breach_name"))
-        return result
+        return result if isinstance(result, list) else []
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
@@ -469,8 +468,156 @@ def get_cred_breach_uids(breach_name_list):
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+    return []
 
-def insert_flare_breaches(breach_list):
+
+def insert_shodan_assets(asset_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_assets table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_assets.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_assets_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"asset_data": asset_data})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result.get("message"))
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
+
+
+def insert_shodan_vulns(vuln_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_vulns table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_vulns.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_vulns_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"vuln_data": vuln_data})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
+
+
+def get_current_ips_by_org(org_abbrv):
+    """
+    Get all IPs that are marked as current for the specified org.
+
+    Return:
+        All current IPs for org as dataframe
+    """
+    query = """
+    SELECT
+        o.organizations_uid,
+        o.cyhy_db_name,
+        i.ip
+    FROM
+        ips i join
+        organizations o
+        on i.organizations_uid = o.organizations_uid
+    WHERE
+        o.cyhy_db_name = %s AND
+        i.current=True
+    ORDER BY
+        cyhy_db_name
+    """
+    result = None
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_current_ips_by_org: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_current_ips_by_org: Querying current IPs for customer")
+        result = pd.read_sql(query, conn, params=(org_abbrv,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_current_ips_by_org: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+    return result
+
+
+def get_execs_by_org_uid(org_uid):
+    """Get executives for the specified organization_uid."""
+    # Build query
+    sql = """
+    SELECT *
+    FROM executives
+    WHERE organizations_uid = %s
+    """
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_execs_by_org_uid: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_execs_by_org_uid: Querying executives for customer")
+        result = pd.read_sql(sql, conn, params=(org_uid,))
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_execs_by_org_uid: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+        
+ def insert_flare_breaches(breach_list):
     """Insert list of flare breaches into the PE DB."""
     if not breach_list:
         return
@@ -581,4 +728,4 @@ def insert_flare_credentials(cred_list):
     finally:
         if cursor is not None:
             cursor.close()
-        conn.close()   
+        conn.close()

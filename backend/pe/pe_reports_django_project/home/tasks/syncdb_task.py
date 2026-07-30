@@ -54,6 +54,63 @@ def table_exists_in_db(table_name, database):
         return cursor.fetchone()[0]
 
 
+def _relation_kind(name, database):
+    """Return pg_class relkind for a public object name, or None if missing."""
+    with connections[database].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT c.relkind
+            FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+              AND c.relname = %s
+            """,
+            [name],
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+
+def _column_exists(table_name, column_name, database):
+    with connections[database].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = %s
+            """,
+            [table_name, column_name],
+        )
+        return cursor.fetchone() is not None
+
+
+def prepare_local_schema_upgrades(database):
+    """Drop local-only objects that block production-aligned table sync."""
+    if _relation_kind("top_cves_shodan", database) == "v":
+        LOGGER.info("Dropping local shim view top_cves_shodan before table sync")
+        with connections[database].cursor() as cursor:
+            cursor.execute(
+                "DROP VIEW IF EXISTS {} CASCADE;".format(
+                    connections[database].ops.quote_name("top_cves_shodan")
+                )
+            )
+
+    if table_exists_in_db("flare_event_types", database) and not _column_exists(
+        "flare_event_types", "flare_event_type_uid", database
+    ):
+        LOGGER.info(
+            "Dropping legacy flare_event_types table (PK shape changed); will recreate"
+        )
+        with connections[database].cursor() as cursor:
+            cursor.execute(
+                "DROP TABLE IF EXISTS {} CASCADE;".format(
+                    connections[database].ops.quote_name("flare_event_types")
+                )
+            )
+
+
 def synchronize(target_app_label=APP_LABEL, using=None):
     """Synchronize PE database schema with all home table models."""
     if target_app_label != APP_LABEL:
@@ -65,6 +122,8 @@ def synchronize(target_app_label=APP_LABEL, using=None):
         target_app_label,
         database,
     )
+
+    prepare_local_schema_upgrades(database)
 
     with connections[database].schema_editor() as schema_editor:
         ordered_models = get_ordered_models(target_app_label)

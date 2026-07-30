@@ -134,7 +134,7 @@ def parse_org(message: dict) -> str | None:
 def build_command(service_type: str, org: str) -> list[str]:
     """Build the pe-source command line for the given scan type and org."""
     if "shodan" in service_type:
-        return ["pe-source", "shodan", "--soc_med_included", "--org={}".format(org)]
+        return ["pe-source", "shodan", "--orgs={}".format(org)]
     if "dnsmonitor" in service_type:
         return ["pe-source", "dnsmonitor", "--orgs={}".format(org)]
     if "dnstwist" in service_type:
@@ -143,6 +143,10 @@ def build_command(service_type: str, org: str) -> list[str]:
         return ["pe-source", "flare_events", "--orgs={}".format(org)]
     if "flare_creds" in service_type:
         return ["pe-source", "flare_creds", "--orgs={}".format(org)]
+    if "flare_ident_prune" in service_type:
+        return ["pe-source", "flare_ident_prune", "--orgs={}".format(org)]
+    if "flare_ident_refresh" in service_type:
+        return ["pe-source", "flare_ident_refresh", "--orgs={}".format(org)]
     if "intelx" in service_type:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
     if "xpanse" in service_type:

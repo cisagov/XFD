@@ -244,6 +244,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "value": "postgres"
       },
       {
+        "name": "REPORTS_BUCKET_NAME",
+        "value": "${var.reports_bucket_name}"
+      },
+      {
         "name": "DB_PORT",
         "value": "${var.db_port}"
       }
@@ -342,6 +346,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
+        "name": "SHODAN_ORG_EXCEPTION",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}"
+      },
+      {
         "name": "WHOIS_XML_KEY",
         "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
       },
@@ -437,6 +445,15 @@ resource "aws_iam_policy" "pe_scan_operator" {
         "lambda:GetFunction"
       ],
       "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peScanController"
+    },
+    {
+      "Sid": "InvokePeReportController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peReportController"
     },
     {
       "Sid": "ReadPeWorkerLogs",

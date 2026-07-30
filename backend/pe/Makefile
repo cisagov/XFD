@@ -13,8 +13,9 @@ PE_STACK_SERVICES := db elasticmq backend
 # Queue local scans via peScanController (backend container must be running).
 PE_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app:/app/pe/src backend python /app/pe/tools/queue_local_scans.py
 
-.PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status
+.PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status run-reports
 
+REPORT_CONTAINER_PATH ?= /tmp/pe-reports
 PE_MANAGE = $(COMPOSE) exec -T -w /app/pe/pe_reports_django_project \
 	-e DJANGO_SETTINGS_MODULE=pe_reports_django.settings \
 	-e PYTHONPATH=/app/pe/pe_reports_django_project:/app/pe/src \
@@ -37,6 +38,7 @@ help:
 	@echo "  scans-orgs       Alias for run with explicit ORGS="
 	@echo "  watch-queues     Poll AWS queues until empty (SCANS= INTERVAL=)"
 	@echo "  queue-status     One-shot queue depth (SCANS=)"
+	@echo "  run-reports      Start report container; OUTPUT_DIR= copies PDFs when done"
 	@echo ""
 	@echo "ORGS is comma-separated (e.g. ORGS=DHS,DHS_CISA). Shortcuts must be used alone:"
 	@echo "  all / DEMO       batch: 1 queue message -> one worker scans all orgs in one job"
@@ -107,3 +109,13 @@ watch-queues:
 queue-status:
 	@test -n "$(SCANS)" || (echo "SCANS is required, e.g. make queue-status SCANS=dnstwist" && exit 1)
 	$(PE_DIR)/tools/watch_queues.sh --scans "$(SCANS)" --once
+
+# Invoke peReportController locally (self-contained pe-worker container, like scans).
+#   make -C backend/pe start build
+#   make -C backend/pe run-reports REPORT_DATE=2026-07-15 ORGS=DHS OUTPUT_DIR=~/reports
+run-reports:
+	@test -n "$(REPORT_DATE)" || (echo "REPORT_DATE is required (YYYY-MM-DD)" && exit 1)
+	REPORT_DATE="$(REPORT_DATE)" ORGS="$(or $(ORGS),all)" OUTPUT_DIR="$(OUTPUT_DIR)" \
+		COUNT="$(COUNT)" SOC_MED="$(or $(SOC_MED),false)" \
+		REPORT_CONTAINER_PATH="$(REPORT_CONTAINER_PATH)" \
+		"$(PE_DIR)/tools/run_local_reports.sh"

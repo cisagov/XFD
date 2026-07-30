@@ -71,6 +71,8 @@ SCAN_CATALOG = {
     # Default high so unspecified COUNT uses all valid Flare keys (clamped later).
     "flare_events": {"scan": "flare_events", "count": 50},
     "flare_creds": {"scan": "flare_creds", "count": 50},
+    "flare_ident_prune": {"scan": "flare_ident_prune", "count": 1},
+    "flare_ident_refresh": {"scan": "flare_ident_refresh", "count": 1},
     "intelx": {"scan": "intelx", "count": 10},
     "shodan": {"scan": "shodan", "count": 3},
 }
@@ -223,6 +225,7 @@ def pe_db_connection_params() -> Dict[str, str]:
     }
 
 
+# TODO: Convert to API endpoint in CRASM-4061
 def fetch_orgs_from_db(*, report_on: bool = False, demo: bool = False) -> List[str]:
     """Load cyhy_db_name values from the PE organizations table."""
     # Third-Party Libraries
@@ -502,6 +505,7 @@ def start_local_docker_workers(
                 "DNSMONITOR_CLIENT_ID": os.getenv("DNSMONITOR_CLIENT_ID", None),
                 "DNSMONITOR_CLIENT_SECRET": os.getenv("DNSMONITOR_CLIENT_SECRET", None),
                 "FLARE_TENANT_ID": os.getenv("FLARE_TENANT_ID", ""),
+                "SHODAN_ORG_EXCEPTION": os.getenv("SHODAN_ORG_EXCEPTION", None),
             }
             if worker_api_key is not None:
                 environment.update(worker_key_env(scan_name, worker_api_key))

@@ -132,3 +132,4 @@ ssm_dnsmonitor_client_id                     = "/crossfeed/staging/DNSMONITOR_CL
 ssm_dnsmonitor_client_secret                 = "/crossfeed/staging/DNSMONITOR_CLIENT_SECRET"
 ssm_flare_tenant_id                          = "/crossfeed/staging/FLARE_TENANT_ID"
 ssm_flare_api_keys                           = "/crossfeed/staging/FLARE_API_KEYS"
+ssm_shodan_org_exception                     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
