@@ -1,20 +1,25 @@
-"""Sample PE data for local dnstwist / Shodan development."""
+"""Sample PE data for local dnstwist, Shodan, and report development."""
 
 # Standard Python Libraries
 from datetime import date
 import hashlib
+import ipaddress
 import uuid
 
 # Third-Party Libraries
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from home.models import (
     Cidrs,
     DataSource,
+    Executives,
+    FlareEventTypes,
     Ips,
     IpsSubs,
     Organizations,
     RootDomains,
     SubDomains,
+    TopCves,
+    TopCvesShodan,
 )
 
 # Public hosts that Shodan crawls constantly, so they reliably return banners
@@ -71,6 +76,69 @@ SAMPLE_ORGS = (
 def _ip_hash(ip_str: str) -> str:
     """Return a SHA-256 hash for an IP address string."""
     return hashlib.sha256(ip_str.encode()).hexdigest()
+
+
+def _ensure_top_cve_sample(shodan_source, today, cve_spec):
+    """Insert or refresh a sample top_cves row (idempotent on cve_id + date)."""
+    lookup = {"cve_id": cve_spec["cve_id"], "date": today}
+    updates = {
+        "dynamic_rating": cve_spec["dynamic_rating"],
+        "nvd_base_score": cve_spec["nvd_base_score"],
+        "summary": cve_spec["summary"],
+        "data_source_uid": shodan_source,
+    }
+    row = TopCves.objects.filter(**lookup).first()
+    if row is None:
+        try:
+            TopCves.objects.create(
+                top_cves_uid=uuid.uuid4(),
+                **lookup,
+                **updates,
+            )
+        except IntegrityError:
+            TopCves.objects.filter(**lookup).update(**updates)
+        return
+    TopCves.objects.filter(pk=row.pk).update(**updates)
+
+
+def _ensure_top_cves_shodan_sample(shodan_source, today, cve_spec):
+    """Insert or refresh a sample top_cves_shodan row (idempotent on cve_id + date)."""
+    lookup = {"cve_id": cve_spec["cve_id"], "collection_date": today}
+    updates = {
+        "epss_score": cve_spec["epss_score"],
+        "nvd_base_score": cve_spec["nvd_base_score"],
+        "summary": cve_spec["summary"],
+        "data_source_uid": shodan_source,
+    }
+    row = TopCvesShodan.objects.filter(**lookup).first()
+    if row is None:
+        try:
+            TopCvesShodan.objects.create(
+                top_cves_shodan_uid=uuid.uuid4(),
+                **lookup,
+                **updates,
+            )
+        except IntegrityError:
+            TopCvesShodan.objects.filter(**lookup).update(**updates)
+        return
+    TopCvesShodan.objects.filter(pk=row.pk).update(**updates)
+
+
+def _ensure_flare_event_type(event_type, definition):
+    """Insert or refresh a flare_event_types row."""
+    row = FlareEventTypes.objects.filter(event_type=event_type).first()
+    if row is None:
+        FlareEventTypes.objects.create(
+            flare_event_type_uid=uuid.uuid4(),
+            event_type=event_type,
+            definition=definition,
+            used_in_report=True,
+        )
+        return
+    FlareEventTypes.objects.filter(pk=row.pk).update(
+        definition=definition,
+        used_in_report=True,
+    )
 
 
 def _ensure_shodan_sample(org, shodan_source, today, host_spec):
@@ -165,7 +233,7 @@ def _ensure_shodan_sample(org, shodan_source, today, host_spec):
 
 @transaction.atomic
 def populate_sample_data():
-    """Insert data sources, orgs, domains, and Shodan test IPs for local scans."""
+    """Insert data sources, orgs, domains, and Shodan test IPs for local dev."""
     today = date.today()
 
     dnsmonitor_source, created = DataSource.objects.get_or_create(
@@ -193,6 +261,20 @@ def populate_sample_data():
     if not created:
         DataSource.objects.filter(pk=dnstwist_source.pk).update(
             description="DNSTwist domain permutation scan",
+            last_run=today,
+        )
+
+    flare_source, created = DataSource.objects.get_or_create(
+        name="Flare",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "Flare scan",
+            "last_run": today,
+        },
+    )
+    if not created:
+        DataSource.objects.filter(pk=flare_source.pk).update(
+            description="Flare scan",
             last_run=today,
         )
 
@@ -224,7 +306,51 @@ def populate_sample_data():
             last_run=today,
         )
 
+    whoisxml_source, created = DataSource.objects.get_or_create(
+        name="WhoisXML",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "WhoisXML IP and subdomain asset enumeration",
+            "last_run": today,
+        },
+    )
+    if not created:
+        DataSource.objects.filter(pk=shodan_source.pk).update(
+            description="WhoisXML IP and subdomain asset enumeration",
+            last_run=today,
+        )
+    for cve_spec in (
+        {
+            "cve_id": "CVE-2024-3400",
+            "epss_score": "0.91",
+            "dynamic_rating": "0.91",
+            "nvd_base_score": "10.0",
+            "summary": "Sample high-EPSS CVE for local dark-web report tables.",
+        },
+        {
+            "cve_id": "CVE-2023-4966",
+            "epss_score": "0.72",
+            "dynamic_rating": "0.72",
+            "nvd_base_score": "9.4",
+            "summary": "Sample CVE row for top_cves_shodan local report data.",
+        },
+    ):
+        _ensure_top_cve_sample(shodan_source, today, cve_spec)
+        _ensure_top_cves_shodan_sample(shodan_source, today, cve_spec)
+
+    for event_type, definition in (
+        ("chat_message", "Dark web or forum chat message mentioning the organization."),
+        ("forum_post", "Forum post discussing the organization or its assets."),
+        ("listing", "Marketplace or dark-web listing related to the organization."),
+        ("stealer_log", "Stealer log offering credentials or access."),
+        ("leaked_credential", "Leaked credential associated with the organization."),
+        ("domain", "Domain-related alert for an organizational asset."),
+        ("bot", "Botnet or automated activity involving organizational assets."),
+    ):
+        _ensure_flare_event_type(event_type, definition)
+
     org_names = []
+    org_objs = {}
     shodan_samples = []
 
     for org_spec in SAMPLE_ORGS:
@@ -243,6 +369,7 @@ def populate_sample_data():
                 report_on=org_spec["report_on"],
             )
         org_names.append(org_spec["cyhy_db_name"])
+        org_objs[org_spec["cyhy_db_name"]] = org
 
         root, created = RootDomains.objects.get_or_create(
             organizations_uid=org,
@@ -264,12 +391,100 @@ def populate_sample_data():
                 _ensure_shodan_sample(org, shodan_source, today, host_spec)
             )
 
+    # Create CIDRs/IPs
+    cidr_list = [
+        ("DHS_CISA", "8.8.8.8/32"),
+        ("DHS_CISA", "192.168.1.31/32"),
+        ("DHS", "192.0.2.1/32"),
+        ("DHS", "9.9.9.9/32"),
+    ]
+    # For each CIDR
+    for cidr_tup in cidr_list:
+        # Create CIDR
+        curr_org = org_objs.get(cidr_tup[0])
+        curr_cidr = cidr_tup[1]
+        cidr_obj, created = Cidrs.objects.get_or_create(
+            organizations_uid=curr_org,
+            network=curr_cidr,
+            defaults={
+                "cidr_uid": uuid.uuid4,
+                "data_source_uid": whoisxml_source,
+                "first_seen": today,
+                "last_seen": today,
+                "current": True,
+            },
+        )
+        if not created:
+            Cidrs.objects.filter(pk=cidr_obj.pk).update(
+                data_source_uid=whoisxml_source,
+                last_seen=today,
+                current=True,
+            )
+        # Create IPs for CIDR
+        network = ipaddress.ip_network(curr_cidr)
+        ips_list = [str(ip) for ip in network]
+        for curr_ip in ips_list:
+            ip_obj, _ = Ips.objects.update_or_create(
+                ip_hash=_ip_hash(curr_ip),
+                defaults={
+                    "ip": curr_ip,
+                    "origin_cidr": cidr_obj,
+                    "organizations_uid": curr_org.organizations_uid,
+                    "shodan_results": True,
+                    "live": True,
+                    "current": True,
+                    "from_cidr": True,
+                    "first_seen": today,
+                    "last_seen": today,
+                },
+            )
+
+    # Create executives
+    exec_list = [
+        {
+            "org_abbrv": "DHS_CISA",
+            "org_uid": org_objs.get("DHS_CISA"),
+            "prefix": "Mr.",
+            "first_name": "John",
+            "middle_initial": "A.",
+            "last_name": "Smith",
+            "suffix": "ii",
+            "last_modified": today,
+        },
+        {
+            "org_abbrv": "DHS",
+            "org_uid": org_objs.get("DHS"),
+            "prefix": "Ms.",
+            "first_name": "Jane",
+            "middle_initial": "B.",
+            "last_name": "Doe",
+            "suffix": "iii",
+            "last_modified": today,
+        },
+    ]
+    for exec in exec_list:
+        exec_obj, created = Executives.objects.update_or_create(
+            organizations_uid=exec.get("org_uid"),
+            first_name=exec.get("first_name"),
+            last_name=exec.get("last_name"),
+            defaults={
+                "executives_uid": uuid.uuid4,
+                "prefix": exec.get("prefix"),
+                "middle_initial": exec.get("middle_initial"),
+                "suffix": exec.get("suffix"),
+                "last_modified": exec.get("last_modified"),
+                "sixgill_id": "",
+            },
+        )
+
     return {
         "data_sources": [
             dnsmonitor_source.name,
             dnstwist_source.name,
             findomain_source.name,
+            flare_source.name,
             shodan_source.name,
+            whoisxml_source.name,
         ],
         "organizations": org_names,
         "shodan_samples": shodan_samples,

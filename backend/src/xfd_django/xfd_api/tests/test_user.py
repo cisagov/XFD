@@ -58,9 +58,7 @@ def test_invite_by_regular_user_should_not_work():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -147,9 +145,7 @@ def test_invite_by_global_view_should_not_work():
 
     LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -245,9 +241,7 @@ def test_invite_by_organization_admin_should_not_work_if_setting_user_type():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -529,9 +523,7 @@ def test_invite_existing_user_by_global_view_should_not_work():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -639,10 +631,7 @@ def test_register_approve_unauthorized_region():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized region access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -715,10 +704,7 @@ def test_register_deny_unauthorized_region():
 
     LOGGER.info(response.json())
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized region access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -847,10 +833,7 @@ def test_delete_user_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
     # Ensure the user still exists
     assert User.objects.filter(id=target_user.id).exists()
@@ -1441,10 +1424,7 @@ def test_update_user_v2_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1527,10 +1507,7 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
         },
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Only global admins can update userType."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1569,7 +1546,7 @@ def test_update_user_v2_from_management_screen_on_pending_user_fails():
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "You do not have permission to perform this action."
+        == "Modifying a pending user is not permitted from the manage users screen."
     )
 
 
@@ -1596,7 +1573,7 @@ def test_update_user_v2_standard_user_cannot_update_own_email():
 
     assert response.status_code == 403
     assert (
-        "You do not have permission to perform this action."
+        "Unauthorized to update the following fields: email"
         in response.json()["detail"]
     )
 
@@ -1626,10 +1603,11 @@ def test_update_user_v2_standard_user_cannot_approve_themselves():
     )
 
     assert response.status_code == 403
-    assert (
-        "You do not have permission to perform this action."
-        in response.json()["detail"]
-    )
+    detail = response.json()["detail"]
+    prefix, fields_str = detail.split(": ")
+
+    assert prefix == "Unauthorized to update the following fields"
+    assert set(fields_str.split(", ")) == {"date_approved", "approved_by"}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1662,10 +1640,7 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
     )
 
     assert response.status_code == 403
-    assert (
-        "You do not have permission to perform this action."
-        in response.json()["detail"]
-    )
+    assert "Only global admins can update userType." in response.json()["detail"]
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1745,7 +1720,7 @@ def test_standard_user_cannot_clear_invite_pending():
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "You do not have permission to perform this action."
+        == "Unauthorized to update the following fields: invite_pending"
     )
 
 
@@ -1771,7 +1746,7 @@ def test_standard_user_cannot_self_approve():
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "You do not have permission to perform this action."
+        == "Unauthorized to update the following fields: date_approved"
     )
 
 
@@ -1900,10 +1875,7 @@ def test_standard_user_updates_self_user_type_unauthenticated():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Only global admins can update userType."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1962,10 +1934,7 @@ def test_standard_user_updates_other_unauthenticated():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2117,7 +2086,7 @@ def test_global_user_updates_confirm_unauthorized_fields():
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "You do not have permission to perform this action."
+        == "Unauthorized to update the following fields: email"
     )
 
 

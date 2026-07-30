@@ -24,6 +24,7 @@ def get_application() -> FastAPI:
     """Get application."""
     # Import views after Django setup
     # Third-Party Libraries
+    from dataAPI.report_views import report_router  # pylint: disable=C0415
     from dataAPI.views import api_router  # pylint: disable=C0415
 
     app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
@@ -35,6 +36,7 @@ def get_application() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router, prefix="/apiv1")
+    app.include_router(report_router, prefix="/apiv1")
     app.mount("/", WSGIMiddleware(get_wsgi_application()))
     return app
 

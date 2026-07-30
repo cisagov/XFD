@@ -37,7 +37,7 @@ def run_dnsmonitor(orgs_list):
     all_orgs = get_orgs()
     if orgs_list == "all":
         orgs_list_final = [d for d in all_orgs if d.get("report_on")]
-    elif orgs_list == "demo":
+    elif orgs_list == "DEMO":
         orgs_list_final = [d for d in all_orgs if d.get("demo")]
     else:
         orgs_list = orgs_list.split(",")

@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import datetime
 import logging
+import os
 import time
 
 # Third-Party Libraries
@@ -289,7 +290,7 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
     all_vulns = vuln_data + risk_data
 
     # Special scenario to omit 80/http findings
-    if org_uid == "7d2dbd06-f247-11ec-bb6e-02c6a3fe975b":
+    if org_name == os.environ.get("SHODAN_ORG_EXCEPTION"):
         all_vuln_df = pd.DataFrame(all_vulns)
         all_vuln_df.drop(
             all_vuln_df[

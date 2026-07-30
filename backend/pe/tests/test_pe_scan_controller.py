@@ -11,6 +11,7 @@ from pe.peScanController import (
     queue_url_for_scan,
     resolve_orgs,
     resolve_scans,
+    run,
 )
 
 
@@ -75,6 +76,12 @@ class ResolveScansTests(unittest.TestCase):
         """The taskCount parameter should override inline scan config counts."""
         scans = resolve_scans([{"scan": "dnstwist", "count": 99}], task_count=2)
         self.assertEqual(scans[0]["count"], 2)
+
+    def test_catalog_includes_flare_events(self):
+        """flare_events should be available in the PE scan catalog."""
+        scans = resolve_scans(["flare_events"])
+        self.assertEqual(scans[0]["scan"], "flare_events")
+        self.assertGreaterEqual(scans[0]["count"], 1)
 
     def test_unknown_scan_raises(self):
         """Unknown scan names should raise ValueError."""
@@ -167,6 +174,52 @@ class ResolveOrgsTests(unittest.TestCase):
         """Expand shortcuts cannot be combined with named orgs."""
         with self.assertRaises(ValueError):
             resolve_orgs(["all-orgs", "NSF"])
+
+
+class RunKeyedScanPreflightTests(unittest.TestCase):
+    """Verify keyed-scan validation happens before SQS enqueue."""
+
+    @patch("pe.peScanController.queue_messages")
+    @patch("pe.peScanController.plan_worker_keys_for_scans")
+    def test_key_planning_failure_does_not_queue(self, plan_mock, queue_mock):
+        """Invalid keyed scans should fail before any messages are sent."""
+        plan_mock.side_effect = ValueError("FLARE_API_KEYS is empty")
+
+        with self.assertRaises(ValueError):
+            run(
+                {
+                    "scans": ["flare_events"],
+                    "orgs": ["DHS"],
+                    "queueOnly": False,
+                    "tasksOnly": False,
+                    "local": True,
+                }
+            )
+
+        queue_mock.assert_not_called()
+
+    @patch("pe.peScanController.start_workers", return_value={})
+    @patch("pe.peScanController.queue_messages", return_value={"flare_events": 1})
+    @patch(
+        "pe.peScanController.plan_worker_keys_for_scans",
+        return_value={"flare_events": ["k1"]},
+    )
+    def test_key_planning_before_queue(self, plan_mock, queue_mock, _start_mock):
+        """Keyed scans should be validated before messages are enqueued."""
+        result = run(
+            {
+                "scans": ["flare_events"],
+                "orgs": ["DHS"],
+                "queueOnly": False,
+                "tasksOnly": False,
+                "local": True,
+            }
+        )
+
+        self.assertEqual(result["statusCode"], 200)
+        plan_mock.assert_called_once()
+        queue_mock.assert_called_once()
+        self.assertLess(plan_mock.call_args, queue_mock.call_args)
 
 
 class FetchOrgsFromDbTests(unittest.TestCase):

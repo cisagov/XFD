@@ -42,8 +42,6 @@ api_router = APIRouter()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 ALGORITHM = "HS256"
-# PE_JWT_SECRET = config("PE_JWT_SECRET")  # should be kept secret
-# PE_JWT_REFRESH_SECRET = config("PE_JWT_REFRESH_SECRET")  # should be kept secret
 PE_JWT_SECRET = settings.PE_JWT_SECRET
 PE_JWT_REFRESH_SECRET = settings.PE_JWT_REFRESH_SECRET
 
@@ -221,7 +219,16 @@ def sub_domains_single_insert(
     )
     if not sub_domain_results.exists():
         # If it doesn't exist in subdomains table, check if root domain exists
-        findomain_inst = DataSource.objects.get(name="findomain")
+        findomain_inst = (
+            DataSource.objects.filter(name="findomain")
+            .order_by("data_source_uid")
+            .first()
+        )
+        if findomain_inst is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="findomain data source is not configured",
+            )
         root_results = RootDomains.objects.filter(
             organizations_uid=data.pe_org_uid, root_domain=curr_root
         )

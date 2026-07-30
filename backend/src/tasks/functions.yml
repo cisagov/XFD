@@ -215,6 +215,30 @@ peScanController:
       Resource:
         - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
+peReportController:
+  <<: *adot
+  timeout: 900
+  memorySize: 512
+  handler: pe.peReportController.handler
+  environment:
+    PYTHONPATH: .
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - ecs:RunTask
+        - ecs:DescribeTasks
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - iam:PassRole
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
+
 scanExecution:
   <<: *adot
   timeout: 900  # 15 minutes

@@ -14,6 +14,7 @@ from pe_reports.data.config import config, staging_config
 import psycopg2
 from psycopg2 import OperationalError
 from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values
 import requests
 
 LOGGER = logging.getLogger(__name__)
@@ -104,6 +105,11 @@ def get_data_source_uid(source):
         result = requests.post(
             endpoint_url, headers=headers, data=data, timeout=60
         ).json()
+        if not result:
+            raise ValueError(
+                "No PE data source named {!r}; run "
+                "'make -C backend/pe syncdb-populate' for local dev".format(source)
+            )
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         return tup_result[0][0]
@@ -327,6 +333,73 @@ def get_subdomain_uid(domain):
         LOGGER.error(err)
 
 
+def insert_flare_events(event_list):
+    """Insert list of flare event dictionaries into the PE DB."""
+    if not event_list:
+        return
+
+    rows = [
+        (
+            event.get("flare_events_uid") or str(uuid.uuid1()),
+            event.get("organizations_uid"),
+            event.get("flare_uid"),
+            event.get("event_type"),
+            event.get("event_date"),
+            event.get("collection_date"),
+            event.get("title"),
+            event.get("content"),
+            event.get("content_hash"),
+            event.get("actor"),
+            event.get("category"),
+            event.get("source"),
+            event.get("url"),
+            event.get("risk_scores"),
+            event.get("related_identifiers"),
+            event.get("data_source_uid"),
+            event.get("severity"),
+            event.get("related_identifiers_txt"),
+        )
+        for event in event_list
+    ]
+
+    query = """
+        INSERT INTO flare_events(
+            flare_events_uid, organizations_uid, flare_uid, event_type, event_date,
+            collection_date, title, content, content_hash, actor, category, source,
+            url, risk_scores, related_identifiers, data_source_uid, severity,
+            related_identifiers_txt
+        ) VALUES %s
+        ON CONFLICT (organizations_uid, flare_uid)
+        DO UPDATE SET
+            event_date = EXCLUDED.event_date,
+            collection_date = EXCLUDED.collection_date,
+            title = EXCLUDED.title,
+            content = EXCLUDED.content,
+            related_identifiers = EXCLUDED.related_identifiers,
+            related_identifiers_txt = EXCLUDED.related_identifiers_txt
+    """
+
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_events: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_events: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("insert_flare_events: upsert failed for %d row(s)", len(rows))
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
+
+
 def get_dnsmonitor_domain_mapping():
     """
     Query API to get the latest DNSMonitor domain to organization mapping.
@@ -463,6 +536,75 @@ def insert_shodan_vulns(vuln_data, failed):
         LOGGER.error(err)
         failed.append("Failed inserting shodan assets: {}".format(err))
     return failed
+
+
+def get_current_ips_by_org(org_abbrv):
+    """
+    Get all IPs that are marked as current for the specified org.
+
+    Return:
+        All current IPs for org as dataframe
+    """
+    query = """
+    SELECT
+        o.organizations_uid,
+        o.cyhy_db_name,
+        i.ip
+    FROM
+        ips i join
+        organizations o
+        on i.organizations_uid = o.organizations_uid
+    WHERE
+        o.cyhy_db_name = %s AND
+        i.current=True
+    ORDER BY
+        cyhy_db_name
+    """
+    result = None
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_current_ips_by_org: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_current_ips_by_org: Querying current IPs for customer")
+        result = pd.read_sql(query, conn, params=(org_abbrv,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_current_ips_by_org: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+    return result
+
+
+def get_execs_by_org_uid(org_uid):
+    """Get executives for the specified organization_uid."""
+    # Build query
+    sql = """
+    SELECT *
+    FROM executives
+    WHERE organizations_uid = %s
+    """
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_execs_by_org_uid: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_execs_by_org_uid: Querying executives for customer")
+        result = pd.read_sql(sql, conn, params=(org_uid,))
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_execs_by_org_uid: Data retieval failed")
+        raise
+    finally:
+        conn.close()
 
 
 def get_all_shodan_cves(start_date, end_date):
