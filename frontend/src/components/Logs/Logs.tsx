@@ -16,7 +16,6 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import {
-  DataGrid,
   GridColDef,
   GridFilterItem,
   GridRenderEditCellParams
@@ -32,6 +31,7 @@ import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
+import CustomDataGrid from '../DataGrid/CustomDataGrid';
 
 interface LogsProps {}
 
@@ -457,7 +457,7 @@ export const Logs: FC<LogsProps> = () => {
   return (
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rows={logs.result}
           columns={logCols}
           filterMode="server"
