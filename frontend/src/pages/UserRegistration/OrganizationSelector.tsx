@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
 
 // Material-UI Components
 import Alert from '@mui/material/Alert';
@@ -12,9 +11,8 @@ import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-// Types
-import { Organization as OrganizationType } from 'types';
-import { User } from 'types';
+// DataGrid Components
+import { GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
 
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
@@ -27,6 +25,10 @@ import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 
 // Context
 import { useAuthContext } from 'context';
+
+// Types
+import { Organization as OrganizationType } from 'types';
+import { User } from 'types';
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (organization: OrganizationType | null) => void;
