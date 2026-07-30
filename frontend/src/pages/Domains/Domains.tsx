@@ -42,7 +42,7 @@ import { useAuthContext } from 'context';
 import { useDomainApi } from 'hooks';
 
 // Components
-import AppDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
@@ -539,7 +539,7 @@ export const Domains: React.FC = () => {
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Domains Table"
           >
-            <AppDataGrid<DomainRow>
+            <CustomDataGrid<DomainRow>
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
