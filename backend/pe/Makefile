@@ -12,6 +12,7 @@ PE_STACK_SERVICES := db elasticmq backend
 
 # Queue local scans via peScanController (backend container must be running).
 PE_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app:/app/pe/src backend python /app/pe/tools/queue_local_scans.py
+PE_REPORT_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app backend python /app/pe/tools/queue_local_reports.py
 
 .PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status run-reports
 
