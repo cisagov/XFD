@@ -7,17 +7,6 @@ import ipaddress
 import uuid
 
 # Third-Party Libraries
-from django.db import transaction
-from home.models import DataSource, Organizations, RootDomains
-
-DNSMONITOR_SOURCE_UID = uuid.uuid4
-DNSTWIST_SOURCE_UID = uuid.uuid4
-FINDOMAIN_SOURCE_UID = uuid.uuid4
-FLARE_SOURCE_UID = uuid.uuid4
-DHS_ORG_UID = uuid.uuid4
-DHS_CISA_ORG_UID = uuid.uuid4
-DHS_ROOT_UID = uuid.uuid4
-CISA_ROOT_UID = uuid.uuid4
 from django.db import IntegrityError, transaction
 from home.models import (
     Cidrs,
@@ -84,19 +73,6 @@ SAMPLE_ORGS = (
 )
 
 
-def _new_uuid(uid_factory):
-    """Instantiate a UUID from a uuid.uuid4 factory."""
-    return uid_factory()
-
-
-def _ensure_data_source(name, source_uid_factory, description):
-    """Create or refresh a data source without changing an existing primary key."""
-    today = date.today()
-    source, created = DataSource.objects.get_or_create(
-        name=name,
-        defaults={
-            "data_source_uid": _new_uuid(source_uid_factory),
-            "description": description,
 def _ip_hash(ip_str: str) -> str:
     """Return a SHA-256 hash for an IP address string."""
     return hashlib.sha256(ip_str.encode()).hexdigest()
@@ -269,56 +245,6 @@ def populate_sample_data():
         },
     )
     if not created:
-        DataSource.objects.filter(name=name).update(
-            description=description,
-            last_run=today,
-        )
-        source = DataSource.objects.get(name=name)
-    return source
-
-
-def _ensure_org(org_spec):
-    """Create or refresh a sample org without changing an existing organizations_uid."""
-    cyhy_db_name = org_spec["cyhy_db_name"]
-    org, created = Organizations.objects.get_or_create(
-        cyhy_db_name=cyhy_db_name,
-        defaults={
-            "organizations_uid": _new_uuid(org_spec["organizations_uid"]),
-            "name": org_spec["name"],
-            "report_on": org_spec["report_on"],
-        },
-    )
-    if not created:
-        Organizations.objects.filter(cyhy_db_name=cyhy_db_name).update(
-            name=org_spec["name"],
-            report_on=org_spec["report_on"],
-        )
-        org = Organizations.objects.get(cyhy_db_name=cyhy_db_name)
-    return org
-
-
-@transaction.atomic
-def populate_sample_data():
-    """Insert data sources, orgs, and root domains for local PE scans (dnstwist, flare_events, ...)."""
-    dnsmonitor_source = _ensure_data_source(
-        "DNSMonitor",
-        DNSMONITOR_SOURCE_UID,
-        "DNSMonitor domain alerts scan",
-    )
-    dnstwist_source = _ensure_data_source(
-        "DNSTwist",
-        DNSTWIST_SOURCE_UID,
-        "DNSTwist domain permutation scan",
-    )
-    findomain_source = _ensure_data_source(
-        "findomain",
-        FINDOMAIN_SOURCE_UID,
-        "findomain subdomain enumeration",
-    )
-    flare_source = _ensure_data_source(
-        "Flare",
-        FLARE_SOURCE_UID,
-        "Flare dark web monitoring",
         DataSource.objects.filter(pk=dnsmonitor_source.pk).update(
             description="DNSMonitor domain alerts scan",
             last_run=today,
@@ -429,14 +355,6 @@ def populate_sample_data():
 
     for org_spec in SAMPLE_ORGS:
         root_domain = org_spec["root_domain"]
-        root_domain_uid = org_spec["root_domain_uid"]
-        org = _ensure_org(org_spec)
-        org_names.append(org_spec["cyhy_db_name"])
-        _, created = RootDomains.objects.get_or_create(
-            organizations_uid=org,
-            root_domain=root_domain,
-            defaults={
-                "root_domain_uid": _new_uuid(root_domain_uid),
         org, created = Organizations.objects.get_or_create(
             cyhy_db_name=org_spec["cyhy_db_name"],
             defaults={
@@ -463,13 +381,6 @@ def populate_sample_data():
             },
         )
         if not created:
-            RootDomains.objects.filter(
-                organizations_uid=org,
-                root_domain=root_domain,
-            ).update(
-                data_source_uid=findomain_source,
-                enumerate_subs=True,
-            )
             RootDomains.objects.filter(pk=root.pk).update(
                 data_source_uid=findomain_source,
                 enumerate_subs=True,
