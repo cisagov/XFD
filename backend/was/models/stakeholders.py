@@ -1,6 +1,7 @@
 """Stakeholder model for the WAS application."""
 
 # Standard Python Libraries
+import os
 from string import printable
 
 # Third-Party Libraries
@@ -18,7 +19,7 @@ for character in BANNED_CHARACTERS:
     PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET.replace(character, "")
 
 # TODO: Consider moving to SSM or environment variable for flexibility.
-PASSWORD_LENGTH = 24
+PASSWORD_LENGTH = os.environ.get("WAS_PASSWORD_LENGTH")
 
 
 def validate_report_password(value: str):
