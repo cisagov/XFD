@@ -51,7 +51,7 @@ import { useAuthContext } from 'context';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
-import AppDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 
 // Utils
@@ -709,7 +709,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Vulnerabilities Table"
           >
-            <AppDataGrid<VulnerabilityRow>
+            <CustomDataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
