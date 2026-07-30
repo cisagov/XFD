@@ -7,7 +7,10 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 
 // Context & Hooks
 import { useAuthContext } from 'context';
@@ -119,7 +122,7 @@ const QueueMonitorView: React.FC = () => {
         </Button>
       </Stack>
       <Paper elevation={2}>
-        <DataGrid
+        <CustomDataGrid
           rows={queues}
           columns={queueColumns}
           pageSizeOptions={[10, 25, 100]}
