@@ -428,18 +428,7 @@ def get_dnsmonitor_domain_mapping():
         LOGGER.error(err)
     return pd.DataFrame(columns=["domain", "organization"])
 
-def get_cred_breach_uids(breach_name_list):
-    """
-    Query API to get the uid for the specified crediential breaches.
 
-    Args:
-        breach_name_list: The list of names of the credential breaches
-
-    Return:
-        uid for the specified credential breaches
-    """
-    # Endpoint info
-    endpoint_url = pe_api_url + "cred_breaches_by_name"
 
 def get_ips(org_uid):
     """
@@ -616,8 +605,53 @@ def get_execs_by_org_uid(org_uid):
         raise
     finally:
         conn.close()
-        
- def insert_flare_breaches(breach_list):
+
+
+def get_cred_breach_uids(breach_name_list):
+    """
+    Query API to get the uid for the specified crediential breaches.
+
+    Args:
+        breach_name_list: The list of names of the credential breaches
+
+    Return:
+        uid for the specified credential breaches
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "cred_breaches_by_name"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.post(
+            endpoint_url, 
+            headers=headers, 
+            json={"breach_name_list": [{"breach_name": name} for name in breach_name_list]}, 
+            timeout=60
+        ).json()
+
+        # Process data and return
+        for row in result:
+            if row.get("credential_breaches_uid") is not None:
+                row["credential_breaches_uid"] = str(row.get("credential_breaches_uid"))
+            if row.get("breach_name") is not None:
+                row["breach_name"] = str(row.get("breach_name"))
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# TODO: Convert to API endpoint in CRASM-4061
+def insert_flare_breaches(breach_list):
     """Insert list of flare breaches into the PE DB."""
     if not breach_list:
         return
@@ -674,6 +708,7 @@ def get_execs_by_org_uid(org_uid):
             cursor.close()
         conn.close()    
 
+# TODO: Convert to API endpoint in CRASM-4061
 def insert_flare_credentials(cred_list):
     """Insert list of flare credentials into the PE DB."""
     if not cred_list:
@@ -728,4 +763,4 @@ def insert_flare_credentials(cred_list):
     finally:
         if cursor is not None:
             cursor.close()
-        conn.close()
+        conn.close()   

@@ -456,11 +456,11 @@ def domain_alerts_insert(
 @api_router.post(
     "/cred_breaches_by_name",
     dependencies=[Depends(verify_api_key)],
-    response_model=List[schemas.CredBreachesByIDInsert],
+    response_model=List[schemas.CredBreachesByNameInsert],
     tags=["flare"],
 )
 def cred_breaches_by_name(
-    payload: schemas.CredBreachesByIDInput,
+    payload: schemas.CredBreachesByNameInput,
 ):
     """List credential breaches and their associated IDs filtered by a list of breach names."""
     
@@ -472,7 +472,6 @@ def cred_breaches_by_name(
     )
     
     for row in rows:
-        LOGGER.info("DID I FAIL HERE")
         row["credential_breaches_uid"] = convert_uuid_to_string(row.get("credential_breaches_uid"))
         row["breach_name"] = row.get("breach_name")
         LOGGER.info(f"breach uid: {row.get('credential_breaches_uid')}, breach name: {row.get('breach_name')}")

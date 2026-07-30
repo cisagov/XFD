@@ -92,12 +92,6 @@ def get_ident_creds(ident_id, start_date, end_date):
     LOGGER.info("Working on data feed chunk 1")
     ini_payload = {
         "size": chunk_size,
-        # "filters": {
-        #     "estimated_created_at": {
-        #         "gte": start_date,
-        #         "lte": end_date,
-        #     }
-        # }
     }
     ini_resp = get_ident_creds_chunk(flare_token, ident_id, ini_payload)
     results_list += ini_resp.get("items")
@@ -117,12 +111,6 @@ def get_ident_creds(ident_id, start_date, end_date):
         curr_payload = {
             "size": chunk_size,
             "from": curr_next,
-            # "filters": {
-            #     "estimated_created_at": {
-            #         "gte": start_date,
-            #         "lte": end_date,
-            #     }
-            # }
         }
         curr_resp = get_ident_creds_chunk(flare_token, ident_id, curr_payload)
         # Handle edge case where no results found for this chunk
