@@ -607,6 +607,7 @@ def get_execs_by_org_uid(org_uid):
         conn.close()
 
 
+# TODO: Convert to API endpoint in CRASM-4061
 def get_all_shodan_cves(start_date, end_date):
     """Get list of shodan vulnerabilities for current report period."""
     if not start_date or not end_date:
