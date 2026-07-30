@@ -117,6 +117,9 @@ class PlanWorkerKeysTests(unittest.TestCase):
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": ""}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("shodan", 2)
+        with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": ""}, clear=False):
+                with self.assertRaises(ValueError):
+                    plan_worker_keys("shodan", 2)        
 
 
 class WorkerKeyEnvTests(unittest.TestCase):
