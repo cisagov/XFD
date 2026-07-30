@@ -429,7 +429,6 @@ def get_dnsmonitor_domain_mapping():
     return pd.DataFrame(columns=["domain", "organization"])
 
 
-
 def get_ips(org_uid):
     """
     Query API to get all ips for an org to run through Shodan.
@@ -625,10 +624,12 @@ def get_cred_breach_uids(breach_name_list):
     }
     try:
         result = requests.post(
-            endpoint_url, 
-            headers=headers, 
-            json={"breach_name_list": [{"breach_name": name} for name in breach_name_list]}, 
-            timeout=60
+            endpoint_url,
+            headers=headers,
+            json={
+                "breach_name_list": [{"breach_name": name} for name in breach_name_list]
+            },
+            timeout=60,
         ).json()
 
         # Process data and return
@@ -679,9 +680,9 @@ def insert_flare_breaches(breach_list):
 
     query = """
         INSERT INTO credential_breaches(
-            credential_breaches_uid, breach_name, description, exposed_cred_count, breach_date, added_date, 
-            modified_date, data_classes, password_included, is_verified, is_fabricated, is_sensitive, 
-            is_retired, is_spam_list, data_source_uid) 
+            credential_breaches_uid, breach_name, description, exposed_cred_count, breach_date, added_date,
+            modified_date, data_classes, password_included, is_verified, is_fabricated, is_sensitive,
+            is_retired, is_spam_list, data_source_uid)
         VALUES %s
         ON CONFLICT (breach_name)
         DO UPDATE SET
@@ -701,12 +702,15 @@ def insert_flare_breaches(breach_list):
         conn.commit()
     except Exception:
         conn.rollback()
-        LOGGER.exception("insert_flare_breaches: upsert failed for %d row(s)", len(rows))
+        LOGGER.exception(
+            "insert_flare_breaches: upsert failed for %d row(s)", len(rows)
+        )
         raise
     finally:
         if cursor is not None:
             cursor.close()
-        conn.close()    
+        conn.close()
+
 
 # TODO: Convert to API endpoint in CRASM-4061
 def insert_flare_credentials(cred_list):
@@ -737,10 +741,10 @@ def insert_flare_credentials(cred_list):
 
     query = """
         INSERT INTO credential_exposures(
-            credential_exposures_uid, email, organizations_uid, root_domain, sub_domain, breach_name, 
-            modified_date, credential_breaches_uid, data_source_uid, name, login_id, phone, password, hash_type, intelx_system_id) 
+            credential_exposures_uid, email, organizations_uid, root_domain, sub_domain, breach_name,
+            modified_date, credential_breaches_uid, data_source_uid, name, login_id, phone, password, hash_type, intelx_system_id)
         VALUES %s
-        ON CONFLICT (breach_name, email)
+        ON CONFLICT (email, breach_name)
         DO UPDATE SET
             modified_date = EXCLUDED.modified_date;
     """
@@ -758,9 +762,11 @@ def insert_flare_credentials(cred_list):
         conn.commit()
     except Exception:
         conn.rollback()
-        LOGGER.exception("insert_flare_credentials: upsert failed for %d row(s)", len(rows))
+        LOGGER.exception(
+            "insert_flare_credentials: upsert failed for %d row(s)", len(rows)
+        )
         raise
     finally:
         if cursor is not None:
             cursor.close()
-        conn.close()   
+        conn.close()

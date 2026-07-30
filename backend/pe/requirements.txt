@@ -7,7 +7,6 @@ dnstwist
 docopt
 dshield
 fastapi>=0.100
-openpyxl
 numpy
 pandas
 psycopg2-binary

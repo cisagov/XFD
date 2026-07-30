@@ -18,11 +18,13 @@ from django.db import transaction
 from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from fastapi import APIRouter, Depends, HTTPException, Security, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from fastapi.security.api_key import APIKeyHeader
 
 # Import api database models
 from home.models import (
+    CredentialBreaches,
+    CredentialExposures,
     DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
@@ -33,8 +35,6 @@ from home.models import (
     ShodanAssets,
     ShodanVulns,
     SubDomains,
-    CredentialBreaches,
-    CredentialExposures,
 )
 from starlette.status import HTTP_403_FORBIDDEN
 
@@ -463,20 +463,26 @@ def cred_breaches_by_name(
     payload: schemas.CredBreachesByNameInput,
 ):
     """List credential breaches and their associated IDs filtered by a list of breach names."""
-    
+
     breach_names = [item.breach_name for item in payload.breach_name_list]
-    
+
     rows = list(
-        CredentialBreaches.objects.filter(breach_name__in=breach_names)
-        .values("breach_name", "credential_breaches_uid")
+        CredentialBreaches.objects.filter(breach_name__in=breach_names).values(
+            "breach_name", "credential_breaches_uid"
+        )
     )
-    
+
     for row in rows:
-        row["credential_breaches_uid"] = convert_uuid_to_string(row.get("credential_breaches_uid"))
+        row["credential_breaches_uid"] = convert_uuid_to_string(
+            row.get("credential_breaches_uid")
+        )
         row["breach_name"] = row.get("breach_name")
-        LOGGER.info(f"breach uid: {row.get('credential_breaches_uid')}, breach name: {row.get('breach_name')}")
-        
+        LOGGER.info(
+            f"breach uid: {row.get('credential_breaches_uid')}, breach name: {row.get('breach_name')}"
+        )
+
     return rows
+
 
 # --- Shodan API endpoints --- #
 

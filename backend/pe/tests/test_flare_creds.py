@@ -2,11 +2,10 @@
 
 # Standard Python Libraries
 import os
+from pathlib import Path
 import sys
 import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-from venv import logger
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR / "src") not in sys.path:
@@ -21,7 +20,6 @@ os.environ.setdefault("FLARE_API_KEY", "test-flare-key")
 
 # Third-Party Libraries
 import pandas as pd
-
 from pe_source.flare_creds.flare_creds_script import (
     extract_stealer_log_creds,
     format_creds_for_db,
@@ -66,7 +64,11 @@ class FlareCredsChunkTests(unittest.TestCase):
                         "identity_name": "user@example.com",
                         "hash": "secret",
                         "domain": "example.com",
-                        "source": {"id": "breach-1", "description_en": "desc", "breached_at": "2024-01-10"},
+                        "source": {
+                            "id": "breach-1",
+                            "description_en": "desc",
+                            "breached_at": "2024-01-10",
+                        },
                     }
                 ],
                 "next": "cursor-2",
@@ -78,7 +80,11 @@ class FlareCredsChunkTests(unittest.TestCase):
                         "identity_name": "old@example.com",
                         "hash": "stale",
                         "domain": "example.com",
-                        "source": {"id": "breach-2", "description_en": "older", "breached_at": "2024-01-20"},
+                        "source": {
+                            "id": "breach-2",
+                            "description_en": "older",
+                            "breached_at": "2024-01-20",
+                        },
                     }
                 ],
                 "next": None,
@@ -176,7 +182,6 @@ class FlareCredsFormattingTests(unittest.TestCase):
                     "root_domain": "example.com",
                     "sub_domain": "example.com",
                     "data_source_uid": "flare-source-uid",
-
                 },
                 {
                     "email": "second@example.com",
@@ -187,13 +192,12 @@ class FlareCredsFormattingTests(unittest.TestCase):
                     "root_domain": "example.com",
                     "sub_domain": "example.com",
                     "data_source_uid": "flare-source-uid",
-
                 },
             ]
         )
 
         creds_df, breaches_df = format_creds_for_db(all_creds_df, "org-uid")
-      
+
         self.assertEqual(creds_df["email"].tolist(), ["user@example.com"])
         self.assertEqual(creds_df["sub_domain"].tolist(), ["example.com"])
         self.assertEqual(breaches_df["breach_name"].tolist(), ["Breach A"])

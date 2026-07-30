@@ -3,32 +3,25 @@
 # Standard Python Libraries
 import datetime
 import logging
-import os
 import time
-import traceback
-import uuid
 
 # Third-Party Libraries
 import numpy as np
-import openpyxl
-from openpyxl import load_workbook
 import pandas as pd
-import requests
-
-# cisagov Libraries
-from pe_source.flare_events.flare_helpers import (
-    get_event_details,
-    get_ident_group_info,
-    get_all_ident_by_group_id,
-    get_flare_token,
-)
 from pe_source.data.db_query_source import (
     get_cred_breach_uids,
+    get_data_source_uid,
     get_orgs,
     insert_flare_breaches,
     insert_flare_credentials,
-    get_data_source_uid,
 )
+from pe_source.flare_events.flare_helpers import (
+    get_all_ident_by_group_id,
+    get_event_details,
+    get_flare_token,
+    get_ident_group_info,
+)
+import requests
 
 # Set up logging
 LOGGER = logging.getLogger(__name__)
@@ -38,6 +31,7 @@ TODAY = datetime.date.today()
 DAYS_BACK = datetime.timedelta(days=20)  # 20 days back default
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d")
 END_DATE = TODAY.strftime("%Y-%m-%d")
+
 
 def get_ident_creds_chunk(token, ident_id, payload):
     """Retrieve chunk of leaked creds for the speicifed identifier ID."""
@@ -136,7 +130,7 @@ def get_ident_creds(ident_id, start_date, end_date):
             more_data = False
         retrieve_ct += 1
 
-    #Get Data Source UID for Flare
+    # Get Data Source UID for Flare
     flare_data_source_uid = get_data_source_uid("Flare")
 
     # Once all data has been retrieved, format and return results
@@ -185,11 +179,11 @@ def get_ident_group_stealer_logs_chunk(token, ident_group_id, payload):
     retry_count, max_retries, time_delay = 1, 5, 3
     while resp.status_code != 200 and retry_count <= max_retries:
         LOGGER.warning(
-                    "\tRetrying Flare event retrieval API endpoint (code %s), attempt %s of %s",
-                    resp.status_code,
-                    retry_count,
-                    max_retries,
-                )
+            "\tRetrying Flare event retrieval API endpoint (code %s), attempt %s of %s",
+            resp.status_code,
+            retry_count,
+            max_retries,
+        )
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, json=payload, timeout=60)
         retry_count += 1
@@ -305,7 +299,6 @@ def get_stealer_log_creds(event_list, org_idents):
     # Iterate over each event
     total_cred_list = []
     for idx, event in enumerate(event_list):
-
         # General event info
         event_uid = event.get("event_uid")
         event_type = event.get("event_type")
@@ -477,7 +470,7 @@ def format_creds_for_db(all_creds_df, org_uid):
     breaches_df = (
         all_creds_df.groupby(
             [
-                "breach_name",  
+                "breach_name",
                 "breach_description",
                 "modified_date",
                 "data_source_uid",
@@ -489,7 +482,7 @@ def format_creds_for_db(all_creds_df, org_uid):
         )
         .reset_index()
     )
-    
+
     breaches_df = breaches_df.reset_index()
     breaches_df["password_included"] = breaches_df["password_included"] > 0
     breaches_df.rename(
@@ -500,7 +493,9 @@ def format_creds_for_db(all_creds_df, org_uid):
     )
     breaches_df["breach_date"] = breaches_df["modified_date"]
     breaches_df["added_date"] = END_DATE
-    breaches_df = breaches_df.drop_duplicates(subset=["breach_name"], keep="first").reset_index(drop=True)
+    breaches_df = breaches_df.drop_duplicates(
+        subset=["breach_name"], keep="first"
+    ).reset_index(drop=True)
     breaches_df = breaches_df[
         [
             "breach_name",
@@ -681,7 +676,9 @@ def run_flare_creds(orgs_list):
                     success += 1
                     continue
 
-                breaches_df = breaches_df.astype(object).where(pd.notnull(breaches_df), None)
+                breaches_df = breaches_df.astype(object).where(
+                    pd.notnull(breaches_df), None
+                )
                 breaches_df = breaches_df.to_dict(orient="records")
 
                 # Insert Flare breach data into PE DB
@@ -692,11 +689,11 @@ def run_flare_creds(orgs_list):
                 )
                 # Retrieve UIDs for the breaches that were just inserted
                 LOGGER.info("Get credentials uuids")
-                breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"])) 
+                breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"]))
                 LOGGER.info("Convert breach name and uuid to dict")
                 breach_dict = {
-                    row["breach_name"]: row["credential_breaches_uid"] 
-                    for row in breach_uid_df 
+                    row["breach_name"]: row["credential_breaches_uid"]
+                    for row in breach_uid_df
                     if "breach_name" in row and "credential_breaches_uid" in row
                 }
                 # Add breach UIDs to credential records
@@ -726,7 +723,6 @@ def run_flare_creds(orgs_list):
             failed += 1
             failed_list.append(org_abbrv)
 
-
     # Log overall success/fail statistics
     LOGGER.info(
         f"{success}/{len(pe_orgs_final)} organizations successfully completed their Flare leaked creds data collection"
@@ -734,4 +730,3 @@ def run_flare_creds(orgs_list):
     LOGGER.info(
         f"{failed}/{len(pe_orgs_final)} organizations encountered an error during their Flare leaked creds data collection: {failed_list}"
     )
-

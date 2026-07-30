@@ -52,11 +52,19 @@ class PlanWorkerKeysTests(unittest.TestCase):
     )
     def test_count_higher_than_keys_caps(self):
         """Requested count above valid keys starts one container per key."""
-        with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2"}, clear=False):
-            self.assertEqual(plan_worker_keys("flare_events", 5), ["k1", "k2"])
-            self.assertEqual(plan_worker_keys("flare_creds", 5), ["k1", "k2"])
-        with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": "k1,k2"}, clear=False):
-            self.assertEqual(plan_worker_keys("shodan", 5), ["k1", "k2"])
+        with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2,k3,k4,k5"}, clear=False):
+            self.assertEqual(
+                plan_worker_keys("flare_events", 5), ["k1", "k2", "k3", "k4", "k5"]
+            )
+            self.assertEqual(
+                plan_worker_keys("flare_creds", 5), ["k1", "k2", "k3", "k4", "k5"]
+            )
+        with patch.dict(
+            os.environ, {"PE_SHODAN_API_KEYS": "k1,k2,k3,k4,k5"}, clear=False
+        ):
+            self.assertEqual(
+                plan_worker_keys("shodan", 5), ["k1", "k2", "k3", "k4", "k5"]
+            )
 
     @patch.dict(
         "pe.worker_key_planner.KEYED_SCANS",
