@@ -22,7 +22,6 @@ import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRound
 
 // DataGrid Components
 import {
-  DataGrid,
   getGridStringOperators,
   GridColDef,
   GridColumnVisibilityModel,
@@ -35,7 +34,6 @@ import {
 // Types
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
-import type { Theme } from '@mui/material/styles';
 
 // Context
 import { useAuthContext } from 'context';
@@ -44,6 +42,7 @@ import { useAuthContext } from 'context';
 import { useDomainApi } from 'hooks';
 
 // Components
+import AppDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
@@ -540,7 +539,7 @@ export const Domains: React.FC = () => {
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Domains Table"
           >
-            <DataGrid
+            <AppDataGrid<DomainRow>
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
@@ -615,11 +614,6 @@ export const Domains: React.FC = () => {
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
                 toolbar: { exportTitle: 'Domains' } as any,
-                panel: {
-                  sx: {
-                    zIndex: (theme: Theme) => theme.zIndex.appBar - 1
-                  }
-                } as any,
                 basePopper: {
                   placement: 'bottom-start'
                 },

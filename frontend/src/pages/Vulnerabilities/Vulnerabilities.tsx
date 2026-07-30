@@ -24,7 +24,6 @@ import OpenInNew from '@mui/icons-material/OpenInNew';
 
 // DataGrid Components
 import {
-  DataGrid,
   getGridSingleSelectOperators,
   getGridStringOperators,
   GridColDef,
@@ -44,7 +43,6 @@ import {
   SearchParams,
   VulnerabilityRow
 } from 'types/vulnerabilities';
-import type { Theme } from '@mui/material/styles';
 
 // Context
 import { useAuthContext } from 'context';
@@ -53,6 +51,7 @@ import { useAuthContext } from 'context';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
+import AppDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 
 // Utils
@@ -710,7 +709,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Vulnerabilities Table"
           >
-            <DataGrid<VulnerabilityRow>
+            <AppDataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
@@ -781,11 +780,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                     : showOpenVulnsButton,
                   exportTitle: 'Vulnerabilities',
                   hasActiveFilters: hasActiveFilters
-                } as any,
-                panel: {
-                  sx: {
-                    zIndex: (theme: Theme) => theme.zIndex.appBar - 1
-                  }
                 } as any,
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {

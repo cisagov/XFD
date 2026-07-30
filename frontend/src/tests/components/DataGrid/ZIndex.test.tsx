@@ -45,10 +45,10 @@ describe('Vulnerabilities DataGrid panel zIndex', () => {
 
     expect(captured.props).toBeDefined();
 
-    const zIndexFn = captured.props.slotProps?.panel?.sx?.zIndex;
-    expect(typeof zIndexFn).toBe('function');
+    const panelSx = captured.props.slotProps?.panel?.sx;
+    expect(typeof panelSx).toBe('function');
 
-    expect(zIndexFn({ zIndex: { appBar: 1100 } })).toBe(1099);
-    expect(zIndexFn({ zIndex: { appBar: 1300 } })).toBe(1299);
+    expect(panelSx({ zIndex: { appBar: 1100 } }).zIndex).toBe(1099);
+    expect(panelSx({ zIndex: { appBar: 1300 } }).zIndex).toBe(1299);
   });
 });
