@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 
 // DataGrid Components
-import { DataGrid, GridFilterModel, GridSortModel } from '@mui/x-data-grid';
+import { GridFilterModel, GridSortModel } from '@mui/x-data-grid';
 
 // Types
 import { Organization } from 'types';
@@ -25,10 +25,11 @@ import { Organization } from 'types';
 import { useAuthContext } from 'context';
 
 // Components
-import { OrganizationForm } from './OrganizationForm';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { OrganizationForm } from './OrganizationForm';
 import { useOrgsColumns } from './useOrgsColumns';
 
 // Utils
@@ -185,7 +186,7 @@ export const Organizations: React.FC = () => {
       )}
 
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rowHeight={52}
           rows={organizations}
           columns={orgCols}
