@@ -46,7 +46,7 @@ class FlareCredsChunkTests(unittest.TestCase):
 
         self.assertEqual(result["items"], [{"id": 1}])
         self.assertEqual(mock_get.call_count, 2)
-        mock_sleep.assert_called_once_with(3)
+        mock_sleep.assert_called_once_with(10)
 
     @patch("pe_source.flare_creds.flare_creds_script.get_data_source_uid")
     @patch("pe_source.flare_creds.flare_creds_script.get_flare_token")

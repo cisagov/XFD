@@ -439,18 +439,19 @@ def get_cred_breach_uids(breach_name_list):
         uid for the specified credential breaches
     """
     # Endpoint info
-    endpoint_url = pe_api_url + "cred_breaches_by_uid"
+    endpoint_url = pe_api_url + "cred_breaches_by_name"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    data = json.dumps({"breach_name": breach_name_list})
     try:
         result = requests.post(
-            endpoint_url, headers=headers, data=data, timeout=60
+            endpoint_url, 
+            headers=headers, 
+            json={"breach_name_list": [{"breach_name": name} for name in breach_name_list]}, 
+            timeout=60
         ).json()
-        # Process data and return
-        # tup_result = [tuple(row.values()) for row in result]
+
         # Process data and return
         for row in result:
             if row.get("credential_breaches_uid") is not None:
@@ -458,11 +459,6 @@ def get_cred_breach_uids(breach_name_list):
             if row.get("breach_name") is not None:
                 row["breach_name"] = str(row.get("breach_name"))
         return result
-        # Catch deleted subdomain error
-        # try:
-        #     return tup_result[0][0]
-        # except Exception:
-        #     return -1
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:

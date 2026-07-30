@@ -12,7 +12,7 @@ from dataAPI import schemas
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Max, Q
-from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Security, status, Query
 from fastapi.security.api_key import APIKeyHeader
 from home.models import (
     DataSource,
@@ -411,22 +411,46 @@ def domain_alerts_insert(
         LOGGER.error("Error inserting into domain_alerts table: %s", error)
         return f"Error inserting into domain_alerts table: {error}"
 
+# @api_router.get(
+#     "/cred_breaches_by_name",
+#     dependencies=[Depends(verify_api_key)],
+#     response_model=List[schemas.CredBreachesByIDInput],
+#     tags=["flare"],
+# )
+# def cred_breaches_by_name(
+#     names: List[str],
+#     tokens: str = Depends(verify_api_key),  # noqa: B008
+# ):
+#     """Look up credential breaches by UID."""
+#     del tokens
+#     rows = list(CredentialBreaches.objects.filter(name__in=names).values())
+
+#     for row in rows:
+#         row["credential_breaches_uid"] = convert_uuid_to_string(row["credential_breaches_uid"])
+#     return rows
+
 @api_router.post(
-    "/cred_breaches_by_uid",
+    "/cred_breaches_by_name",
     dependencies=[Depends(verify_api_key)],
-    response_model=List[schemas.CredBreachesByID],
+    response_model=List[schemas.CredBreachesByIDInsert],
     tags=["flare"],
 )
-def cred_breaches_by_uid(
-    data: schemas.CredBreachesByID,
-    tokens: str = Depends(verify_api_key),  # noqa: B008
+def cred_breaches_by_name(
+    payload: schemas.CredBreachesByIDInput,
 ):
-    """Look up credential breaches by UID."""
-    del tokens
-    rows = list(CredentialBreaches.objects.filter(name=data.breach_name).values())
-    today = dt.today().strftime("%Y-%m-%d")
-    CredentialBreaches.objects.filter(name=data.breach_name).update(last_run=today)
+    """List credential breaches and their associated IDs filtered by a list of breach names."""
+    
+    breach_names = [item.breach_name for item in payload.breach_name_list]
+    
+    rows = list(
+        CredentialBreaches.objects.filter(breach_name__in=breach_names)
+        .values("breach_name", "credential_breaches_uid")
+    )
+    
     for row in rows:
-        row["credential_breaches_uid"] = convert_uuid_to_string(row["credential_breaches_uid"])
-        # row["breach_name"] = row.get("breach_name")
+        LOGGER.info("DID I FAIL HERE")
+        row["credential_breaches_uid"] = convert_uuid_to_string(row.get("credential_breaches_uid"))
+        row["breach_name"] = row.get("breach_name")
+        LOGGER.info(f"breach uid: {row.get('credential_breaches_uid')}, breach name: {row.get('breach_name')}")
+        
     return rows

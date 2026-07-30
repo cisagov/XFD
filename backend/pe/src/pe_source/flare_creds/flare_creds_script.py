@@ -317,6 +317,7 @@ def get_stealer_log_creds(event_list, org_idents):
     # Iterate over each event
     total_cred_list = []
     for idx, event in enumerate(event_list):
+
         # General event info
         event_uid = event.get("event_uid")
         event_type = event.get("event_type")
@@ -673,10 +674,10 @@ def run_flare_creds(orgs_list):
                 LOGGER.info("Formatting credentials for insertion into P&E database")
                 exposures_df, breaches_df = format_creds_for_db(all_creds_df, org_uid)
                 LOGGER.info(
-                    f"Found {len(exposures_df)} viable Flare creds after formatting!"
+                    f"Found {len(exposures_df)} viable Flare creds after formatting"
                 )
                 LOGGER.info(
-                    f"Found {len(breaches_df)} viable breaches Flare creds after formatting!"
+                    f"Found {len(breaches_df)} viable breaches Flare creds after formatting"
                 )
                 if exposures_df.empty | breaches_df.empty:
                     LOGGER.info(
@@ -696,14 +697,13 @@ def run_flare_creds(orgs_list):
                 )
                 # Retrieve UIDs for the breaches that were just inserted
                 LOGGER.info("Get credentials uuids")
-                breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"]))
+                breach_uid_df = get_cred_breach_uids(list(exposures_df["breach_name"])) 
                 LOGGER.info("Convert breach name and uuid to dict")
-                breach_dict = dict(
-                    zip(
-                        breach_uid_df["breach_name"],
-                        breach_uid_df["credential_breaches_uid"],
-                    )
-                )
+                breach_dict = {
+                    row["breach_name"]: row["credential_breaches_uid"] 
+                    for row in breach_uid_df 
+                    if "breach_name" in row and "credential_breaches_uid" in row
+                }
                 # Add breach UIDs to credential records
                 LOGGER.info("Adding breach id to credential records")
                 for idx, row in exposures_df.iterrows():

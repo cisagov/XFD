@@ -149,7 +149,11 @@ class DomainAlertsInsertInput(BaseModel):
 
     insert_data: List[DomainAlertsInsert]
 
-class CredBreachesByID(BaseModel):
-    """Request body for cred_breaches_by_uid."""
+class CredBreachesByIDInsert(BaseModel):
+    """Individual row model."""
+    breach_name: str
+    credential_breaches_uid: Optional[str] = None
 
-    breach_name_list: list
+class CredBreachesByIDInput(BaseModel):
+    """Request body model."""
+    breach_name_list: List[CredBreachesByIDInsert]
