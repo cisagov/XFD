@@ -16,82 +16,35 @@ data "aws_ssm_parameter" "sctask_cidr_block" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_sctask_cidr_block
 }
-data "aws_ssm_parameter" "route_table_endpoints_id" {
-  count = var.is_dmz ? 0 : 1
-  name  = var.ssm_route_table_endpoints_id
-}
-data "aws_ssm_parameter" "route_table_private_A_id" {
-  count = var.is_dmz ? 0 : 1
-  name  = var.ssm_route_table_private_A_id
-}
-data "aws_ssm_parameter" "route_table_private_B_id" {
-  count = var.is_dmz ? 0 : 1
-  name  = var.ssm_route_table_private_B_id
-}
-data "aws_ssm_parameter" "route_table_private_C_id" {
-  count = var.is_dmz ? 0 : 1
-  name  = var.ssm_route_table_private_C_id
-}
+
 data "aws_ssm_parameter" "subnet_backend_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_subnet_backend_id
 }
+
 data "aws_ssm_parameter" "subnet_worker_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_subnet_worker_id
 }
+
 data "aws_ssm_parameter" "subnet_matomo_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_subnet_matomo_id
 }
+
 data "aws_ssm_parameter" "subnet_db_1_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_subnet_db_1_id
 }
+
 data "aws_ssm_parameter" "subnet_db_2_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_subnet_db_2_id
 }
+
 data "aws_ssm_parameter" "subnet_es_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_subnet_es_id
-}
-
-
-resource "aws_route_table_association" "r_assoc_backend_lz" {
-  count          = var.is_dmz ? 0 : 1
-  route_table_id = data.aws_ssm_parameter.route_table_endpoints_id[0].value
-  subnet_id      = data.aws_ssm_parameter.subnet_backend_id[0].value
-}
-
-resource "aws_route_table_association" "r_assoc_worker_lz" {
-  count          = var.is_dmz ? 0 : 1
-  route_table_id = data.aws_ssm_parameter.route_table_endpoints_id[0].value
-  subnet_id      = data.aws_ssm_parameter.subnet_worker_id[0].value
-}
-
-resource "aws_route_table_association" "r_assoc_matomo_lz" {
-  count          = var.is_dmz ? 0 : 1
-  route_table_id = data.aws_ssm_parameter.route_table_endpoints_id[0].value
-  subnet_id      = data.aws_ssm_parameter.subnet_matomo_id[0].value
-}
-
-resource "aws_route_table_association" "r_assoc_db1" {
-  count          = var.is_dmz ? 0 : 1
-  route_table_id = data.aws_ssm_parameter.route_table_private_A_id[0].value
-  subnet_id      = data.aws_ssm_parameter.subnet_db_1_id[0].value
-}
-
-resource "aws_route_table_association" "r_assoc_db2" {
-  count          = var.is_dmz ? 0 : 1
-  route_table_id = data.aws_ssm_parameter.route_table_private_B_id[0].value
-  subnet_id      = data.aws_ssm_parameter.subnet_db_2_id[0].value
-}
-
-resource "aws_route_table_association" "r_assoc_es_1" {
-  count          = var.is_dmz ? 0 : 1
-  route_table_id = data.aws_ssm_parameter.route_table_private_C_id[0].value
-  subnet_id      = data.aws_ssm_parameter.subnet_es_id[0].value
 }
 
 resource "aws_security_group" "allow_internal_lz" {
