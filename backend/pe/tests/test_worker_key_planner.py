@@ -37,6 +37,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
                 "worker_env": "FLARE_API_KEY",
                 "validate": lambda keys: keys,
             },
+            "flare_creds": {
+                "keys_env": "FLARE_API_KEYS",
+                "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys: keys,
+            },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
@@ -49,6 +54,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
         """Requested count above valid keys starts one container per key."""
         with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2"}, clear=False):
             self.assertEqual(plan_worker_keys("flare_events", 5), ["k1", "k2"])
+            self.assertEqual(plan_worker_keys("flare_creds", 5), ["k1", "k2"])
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": "k1,k2"}, clear=False):
             self.assertEqual(plan_worker_keys("shodan", 5), ["k1", "k2"])
 
@@ -76,6 +82,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
                 "worker_env": "FLARE_API_KEY",
                 "validate": lambda keys: [],
             },
+            "flare_creds": {
+                "keys_env": "FLARE_API_KEYS",
+                "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys: [],
+            },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
@@ -89,6 +100,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
         with patch.dict(os.environ, {"FLARE_API_KEYS": "bad"}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("flare_events", 1)
+                plan_worker_keys("flare_creds", 1)
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": "bad"}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("shodan", 1)
@@ -97,6 +109,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
         "pe.worker_key_planner.KEYED_SCANS",
         {
             "flare_events": {
+                "keys_env": "FLARE_API_KEYS",
+                "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys: keys[:3],
+            },
+            "flare_creds": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
                 "validate": lambda keys: keys[:3],
@@ -114,6 +131,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
         with patch.dict(os.environ, {"FLARE_API_KEYS": ""}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("flare_events", 2)
+                plan_worker_keys("flare_creds", 2)
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": ""}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("shodan", 2)
@@ -141,6 +159,7 @@ class RegistryTests(unittest.TestCase):
     def test_flare_and_shodan_registered(self):
         """Flare and Shodan scans should be in KEYED_SCANS."""
         self.assertIn("flare_events", KEYED_SCANS)
+        self.assertIn("flare_creds", KEYED_SCANS)
 
     def test_shodan_scans_registered(self):
         """Shodan scans should be in KEYED_SCANS."""

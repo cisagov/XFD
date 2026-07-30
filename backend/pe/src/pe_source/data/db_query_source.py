@@ -699,7 +699,6 @@ def insert_flare_breaches(breach_list):
         LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
         execute_values(cursor, query, rows)
         conn.commit()
-        return
     except Exception:
         conn.rollback()
         LOGGER.exception("insert_flare_breaches: upsert failed for %d row(s)", len(rows))
@@ -757,7 +756,6 @@ def insert_flare_credentials(cred_list):
         LOGGER.info("insert_flare_credentials: upserting %d row(s)", len(rows))
         execute_values(cursor, query, rows)
         conn.commit()
-        return
     except Exception:
         conn.rollback()
         LOGGER.exception("insert_flare_credentials: upsert failed for %d row(s)", len(rows))
