@@ -86,9 +86,15 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   }, [cookies, cookieOpts, setToken, token]);
 
   const handleError = useCallback(
-    async (in_error: Error) => {
+    async (
+      in_error: Error & { statusCode?: number; response?: { status?: number } }
+    ) => {
       logger.error(in_error);
-      if (in_error.message.includes('401')) {
+      const status =
+        in_error.statusCode ??
+        in_error.response?.status ??
+        (in_error.message.includes('401') ? 401 : undefined);
+      if (status === 401) {
         await logout();
         const next = encodeURIComponent(window.location.pathname || '/');
         window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
