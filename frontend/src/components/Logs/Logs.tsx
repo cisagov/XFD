@@ -22,6 +22,7 @@ import {
 } from '@mui/x-data-grid';
 
 // Components
+import CustomDataGrid from '../DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 // Context
@@ -31,7 +32,6 @@ import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
-import CustomDataGrid from '../DataGrid/CustomDataGrid';
 
 interface LogsProps {}
 
