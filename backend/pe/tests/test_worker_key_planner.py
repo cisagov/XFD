@@ -8,6 +8,9 @@ from unittest.mock import patch
 # Third-Party Libraries
 from pe.worker_key_planner import (
     KEYED_SCANS,
+    ShodanRateLimitError,
+    _check_shodan_api_key,
+    _validate_shodan,
     api_key_label,
     plan_worker_keys,
     worker_key_env,
@@ -35,12 +38,12 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
-                "validate": lambda keys: keys,
+                "validate": lambda keys, max_valid=None: keys,
             },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
-                "validate": lambda keys: keys,
+                "validate": lambda keys, max_valid=None: keys,
             },
         },
         clear=False,
@@ -58,7 +61,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
-                "validate": lambda keys: keys,
+                "validate": lambda keys, max_valid=None: keys,
             }
         },
         clear=False,
@@ -74,12 +77,12 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
-                "validate": lambda keys: [],
+                "validate": lambda keys, max_valid=None: [],
             },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
-                "validate": lambda keys: [],
+                "validate": lambda keys, max_valid=None: [],
             },
         },
         clear=False,
@@ -99,12 +102,12 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
-                "validate": lambda keys: keys[:3],
+                "validate": lambda keys, max_valid=None: keys[:3],
             },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
-                "validate": lambda keys: keys[:3],
+                "validate": lambda keys, max_valid=None: keys[:3],
             },
         },
         clear=False,
@@ -133,6 +136,58 @@ class WorkerKeyEnvTests(unittest.TestCase):
         """Shodan workers get PE_SHODAN_API_KEY only."""
         env = worker_key_env("shodan", "secret")
         self.assertEqual(env, {"PE_SHODAN_API_KEY": "secret"})
+
+
+class ShodanValidationTests(unittest.TestCase):
+    """Verify Shodan key validation and rate-limit retries."""
+
+    @patch("pe.worker_key_planner._check_shodan_api_key")
+    def test_validate_shodan_stops_at_max_valid(self, mock_check):
+        """Validation should stop once max_valid keys are found."""
+        mock_check.return_value = None
+        keys = ["k1", "k2", "k3", "k4"]
+
+        result = _validate_shodan(keys, max_valid=2)
+
+        self.assertEqual(result, ["k1", "k2"])
+        self.assertEqual(mock_check.call_count, 2)
+
+    @patch("shodan.Shodan")
+    def test_check_shodan_api_key_retries_on_rate_limit(self, mock_shodan):
+        """Rate-limit errors should be retried before failing."""
+        client = mock_shodan.return_value
+        client.info.side_effect = [
+            Exception("Rate limit reached"),
+            Exception("Rate limit reached"),
+            None,
+        ]
+
+        _check_shodan_api_key("secret-key")
+
+        self.assertEqual(client.info.call_count, 3)
+
+    @patch("shodan.Shodan")
+    def test_check_shodan_api_key_raises_after_retries_exhausted(self, mock_shodan):
+        """Rate-limit errors should fail after max retries."""
+        client = mock_shodan.return_value
+        client.info.side_effect = Exception("Rate limit reached")
+
+        with self.assertRaises(ShodanRateLimitError):
+            _check_shodan_api_key("secret-key")
+
+        self.assertEqual(client.info.call_count, 4)
+
+    @patch("shodan.Shodan")
+    def test_check_shodan_api_key_does_not_retry_other_errors(self, mock_shodan):
+        """Non-rate-limit errors should fail immediately."""
+        client = mock_shodan.return_value
+        client.info.side_effect = Exception("Invalid API key")
+
+        with self.assertRaises(Exception) as ctx:
+            _check_shodan_api_key("bad-key")
+
+        self.assertNotIsInstance(ctx.exception, ShodanRateLimitError)
+        client.info.assert_called_once()
 
 
 class RegistryTests(unittest.TestCase):

@@ -13,11 +13,20 @@ To add a scan: write a validator and add an entry to KEYED_SCANS.
 """
 
 # Standard Python Libraries
+import importlib.util
 import logging
 import os
+import time
 from typing import Any, Dict, List
 
+# Third-Party Libraries
+from retry import retry
+
 LOGGER = logging.getLogger(__name__)
+
+
+class ShodanRateLimitError(Exception):
+    """Shodan API rate limit hit during key validation."""
 
 
 def _split_keys(raw: str) -> List[str]:
@@ -34,7 +43,8 @@ def api_key_label(api_key: str) -> str:
     return "...{}".format(key[-4:])
 
 
-def _validate_flare(keys: List[str]) -> List[str]:
+def _validate_flare(keys: List[str], max_valid=None) -> List[str]:
+    del max_valid  # Flare validation unchanged; accepts kwarg for plan_worker_keys.
     # Third-Party Libraries
     from pe_source.flare_events.flare_helpers import validate_flare_api_key
 
@@ -70,18 +80,35 @@ def _validate_flare(keys: List[str]) -> List[str]:
     return valid
 
 
-def _validate_shodan(keys: List[str]) -> List[str]:
-    try:
-        # Third-Party Libraries
-        import shodan
-    except ImportError:
-        LOGGER.warning("shodan package not installed; skipping key validation")
-        return list(keys)
+@retry(ShodanRateLimitError, tries=4, delay=1, backoff=1)
+def _check_shodan_api_key(api_key: str) -> None:
+    """Validate one Shodan API key; retries on rate-limit responses."""
+    # Third-Party Libraries
+    import shodan
 
-    valid = []
+    try:
+        shodan.Shodan(api_key).info()
+    except Exception as exc:
+        if "rate limit" in str(exc).lower():
+            raise ShodanRateLimitError(str(exc)) from exc
+        raise
+
+
+def _validate_shodan(keys: List[str], max_valid=None) -> List[str]:
+    if importlib.util.find_spec("shodan") is None:
+        LOGGER.warning("shodan package not installed; skipping key validation")
+        if max_valid is None:
+            return list(keys)
+        return list(keys)[:max_valid]
+
+    valid: List[str] = []
     for i, key in enumerate(keys, start=1):
+        if max_valid is not None and len(valid) >= max_valid:
+            break
+        if i > 1:
+            time.sleep(1)
         try:
-            shodan.Shodan(key).info()
+            _check_shodan_api_key(key)
             valid.append(key)
             LOGGER.info(
                 "Shodan API key %d/%d is valid (%s)",
@@ -139,7 +166,7 @@ def plan_worker_keys(scan_name: str, count: int) -> List[str]:
         )
 
     LOGGER.info("Validating %d %s API key(s)", len(raw), scan_name)
-    valid = config["validate"](raw)
+    valid = config["validate"](raw, max_valid=count)
     if not valid:
         raise ValueError(
             "No valid API keys found in {}; cannot start {} workers".format(
