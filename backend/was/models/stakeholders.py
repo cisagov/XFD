@@ -17,7 +17,7 @@ PASSWORD_CHARACTER_SET = printable.strip()
 for character in BANNED_CHARACTERS:
     PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET.replace(character, "")
 
-PASSWORD_LENGTH = 24
+PASSWORD_LENGTH = <set length from SSM variable>
 
 
 def validate_report_password(value: str):
