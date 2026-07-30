@@ -120,10 +120,34 @@ export const useApi = (onError?: OnError) => {
           const response = await method({ apiName: 'crossfeed', path, options })
             .response;
           const result = await response.body.json();
+
+          // Amplify v6 resolves .response for non-2xx; explicitly throw if >= 400
+          if (response.statusCode >= 400) {
+            if (response.statusCode === 401) {
+              localStorage.removeItem('token');
+            }
+            const error = new Error(
+              `Request failed with status code ${response.statusCode}`
+            );
+            throw Object.assign(error, {
+              statusCode: response.statusCode,
+              body: result,
+              response: {
+                status: response.statusCode,
+                headers: response.headers
+              }
+            });
+          }
+
           showLoading && setRequestCount((cnt) => cnt - 1);
           return result as T;
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
+
+          // Standard 401 cleanup fallback if thrown elsewhere
+          if (e?.statusCode === 401 || e?.response?.status === 401) {
+            localStorage.removeItem('token');
+          }
 
           if (!isLocal) {
             // Detection of blocks before API Gateway
