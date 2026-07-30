@@ -520,7 +520,14 @@ def format_creds_for_db(all_creds_df, org_uid):
 def run_flare_creds(orgs_list):
     """Retrieve Flare leaked credential data for the specified list of organizations and insert into the P&E DB."""
     # Retrieve full org info from PE database
-    pe_orgs = get_orgs()
+    pe_orgs = []
+    try:
+        # Process organization data
+        pe_orgs = get_orgs()
+    except Exception as e:
+        # Logs the error, but execution continues or exits cleanly (0)
+        LOGGER.error(f"Organization failed: {e}")
+        raise
     pe_orgs_final = []
     if orgs_list == "all":
         for pe_org in pe_orgs:
