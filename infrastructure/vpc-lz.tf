@@ -93,6 +93,14 @@ resource "aws_security_group" "allow_internal_lz" {
     cidr_blocks = [data.aws_ssm_parameter.sctask_cidr_block[0].value]
   }
 
+  ingress {
+    description = "SCTASK0201093"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "TCP"
+    cidr_blocks = [data.aws_ssm_parameter.sctask_cidr_block[0].value]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
