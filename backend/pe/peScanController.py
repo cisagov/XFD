@@ -73,11 +73,14 @@ SCAN_CATALOG = {
     "flare_ident_prune": {"scan": "flare_ident_prune", "count": 1},
     "flare_ident_refresh": {"scan": "flare_ident_refresh", "count": 1},
     "intelx": {"scan": "intelx", "count": 10},
-    "shodan": {"scan": "shodan", "count": 3},
+    "shodan": {"scan": "shodan", "count": 3, "apiKeys": ""},
+    "shodan_top_cves": {"scan": "shodan_top_cves", "count": 3, "apiKeys": ""},
 }
 
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})
 ORG_EXPAND_SHORTCUTS = frozenset({"all-orgs", "demo-orgs"})
+
+SHODAN_SCANS = {"shodan", "asmSync", "shodan_top_cves"}
 
 
 def is_local_mode(event: Dict[str, Any] | None = None) -> bool:

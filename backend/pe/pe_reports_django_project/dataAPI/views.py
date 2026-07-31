@@ -33,6 +33,7 @@ from home.models import (
     ShodanAssets,
     ShodanVulns,
     SubDomains,
+    TopCves,
 )
 from starlette.status import HTTP_403_FORBIDDEN
 
@@ -625,3 +626,55 @@ def shodan_vulns_insert(
             continue
     # Return success message
     return str(create_cnt) + " records created in the shodan vulns table"
+
+
+@transaction.atomic
+@api_router.put(
+    "/shodan_top_cves_insert",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Insert Shodan data into the top_cves table."],
+)
+def shodan_top_cves_insert(
+    data: schemas.ShodanTopCvesInsertInput, tokens: dict = Depends(verify_api_key)
+):
+    """Insert Shodan data into the top_cves table using the API endpoint."""
+    # Check for API key
+    LOGGER.info("The api key submitted tokens")
+    del tokens
+
+    # If API key valid, insert intelx data
+    create_cnt = 0
+    for row in data.top_epss_cves_dict:
+        row_dict = row.model_dump()
+        try:
+            # org_instance = Organizations.objects.get(
+            #     organizations_uid=row_dict["organizations_uid"]
+            # )
+            top_epss_cves_dict = {
+                "top_cves_uid": str(uuid.uuid4()),
+                "cve_id": row_dict.get("cve_id"),
+                "dynamic_rating": row_dict.get("dynamic_rating"),
+                "nvd_base_score": row_dict.get("nvd_base_score"),
+                "date": row_dict.get("date"),
+                "summary": row_dict.get("summary"),
+                "data_source_uid_id": row_dict.get("data_source_uid"),
+            }
+
+            obj, created = TopCves.objects.update_or_create(
+                # organizations_uid=org_instance,  # Directly use organizations_uid
+                # ip=row_dict["ip"],
+                # port=row_dict["port"],
+                # protocol=row_dict["protocol"],
+                date=timezone.make_aware(
+                    parse_datetime(row_dict["date"]),
+                    dt_timezone.utc,
+                ),
+                defaults=top_epss_cves_dict,
+            )
+            if created:
+                create_cnt += 1
+        except Exception as e:
+            LOGGER.warning(f"Shodan Top CVEs failed to save to PE DB: {e}")
+            continue
+    # Return success message
+    return str(create_cnt) + " records created in the shodan top cves table"

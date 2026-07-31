@@ -31,6 +31,7 @@ from pe_source.flare_events import run_flare_events
 from pe_source.flare_ident_prune.flare_ident_prune import run_flare_ident_prune
 from pe_source.flare_ident_refresh.flare_ident_refresh import run_flare_ident_refresh
 from pe_source.shodan.shodan_script import Get_shodan
+from pe_source.shodan.shodan_top_cves import run_top_cves_shodan
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ def run_pe_script(source, orgs_list):
             sys.exit(1)
         shodan = Get_shodan(orgs_list)
         shodan.run_shodan()
+    elif source == "shodan_top_cves":
+        run_top_cves_shodan()
     else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)

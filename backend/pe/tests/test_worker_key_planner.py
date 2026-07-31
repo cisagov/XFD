@@ -120,6 +120,9 @@ class PlanWorkerKeysTests(unittest.TestCase):
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": ""}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("shodan", 2)
+        with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": ""}, clear=False):
+            with self.assertRaises(ValueError):
+                plan_worker_keys("shodan", 2)
 
 
 class WorkerKeyEnvTests(unittest.TestCase):
@@ -201,6 +204,7 @@ class RegistryTests(unittest.TestCase):
         """Shodan scans should be in KEYED_SCANS."""
         self.assertIn("shodan", KEYED_SCANS)
         self.assertIn("asmSync", KEYED_SCANS)
+        self.assertIn("shodan_top_cves", KEYED_SCANS)
 
 
 if __name__ == "__main__":

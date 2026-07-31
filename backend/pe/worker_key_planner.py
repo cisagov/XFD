@@ -158,6 +158,11 @@ KEYED_SCANS: Dict[str, Dict] = {
         "worker_env": "PE_SHODAN_API_KEY",
         "validate": _validate_shodan,
     },
+    "shodan_top_cves": {
+        "keys_env": "PE_SHODAN_API_KEYS",
+        "worker_env": "PE_SHODAN_API_KEY",
+        "validate": _validate_shodan,
+    },
 }
 
 

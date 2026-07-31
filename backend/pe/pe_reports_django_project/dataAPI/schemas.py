@@ -239,3 +239,26 @@ class ShodanVulnsInsertInput(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     vuln_data: List[ShodanVulnsInsert]
+
+
+# Insert bulk Shodan data into top_cves table
+class ShodanTopCvesInsert(BaseModel):
+    """ShodanTopCvesInsert schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    cve_id: Optional[str] = None
+    dynamic_rating: Optional[str] = None
+    nvd_base_score: Optional[str] = None
+    date: Optional[str] = None
+    summary: Optional[str] = None
+    data_source_uid: Optional[str] = None
+
+
+# Insert bulk Shodan data into top_cves table, input
+class ShodanTopCvesInsertInput(BaseModel):
+    """ShodanTopCvesInsertInput schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    top_epss_cves_dict: List[ShodanTopCvesInsert]
