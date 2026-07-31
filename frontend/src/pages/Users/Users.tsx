@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { useTheme } from '@mui/material/styles';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -8,20 +10,32 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import { DataGrid } from '@mui/x-data-grid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+
+// Components
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
-import { User, UserFormValues } from 'types';
+import UserForm from './UserForm';
+
+// Constants
 import {
   initializeUser,
   initialUserFormValues
 } from '@/constants/userAndOrgData';
-import { useAuthContext } from 'context';
-import UserForm from './UserForm';
 import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
+
+//Context
+import { useAuthContext } from 'context';
+
+// Hooks
 import { useUserColumns } from './useUserColumns';
+
+// Types
+import { User, UserFormValues } from 'types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -228,7 +242,7 @@ export const Users: React.FC = () => {
         </Stack>
       ) : isLoading === false && loadingError === false ? (
         <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-          <DataGrid
+          <CustomDataGrid
             rows={users}
             columns={userCols}
             slots={{ toolbar: CustomToolbar }}

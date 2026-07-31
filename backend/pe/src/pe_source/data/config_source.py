@@ -71,12 +71,6 @@ def shodan_api_init():
             "PE_SHODAN_API_KEY is not set; peScanController assigns one key per worker"
         )
 
-    api = shodan.Shodan(api_key)
-    try:
-        api.info()
-    except Exception as e:
-        LOGGER.error("Invalid Shodan API key: %s", e)
-        raise
-
+    # Key is validated in peScanController; skip api.info() (1 rps Shodan limit).
     LOGGER.info("Initialized Shodan API with PE_SHODAN_API_KEY")
-    return [api]
+    return [shodan.Shodan(api_key)]

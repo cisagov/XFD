@@ -189,7 +189,9 @@ peScanController:
   memorySize: 512
   handler: pe.peScanController.handler
   environment:
-    PYTHONPATH: .
+    # pe_source lives under pe/src/ in the deployment zip; include it for keyed
+    # scan API-key validation (flare_events, shodan, ...).
+    PYTHONPATH: .:pe/src
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -221,7 +223,7 @@ peReportController:
   memorySize: 512
   handler: pe.peReportController.handler
   environment:
-    PYTHONPATH: .
+    PYTHONPATH: .:pe/src
   iamRoleStatements:
     - Effect: Allow
       Action:

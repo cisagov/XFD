@@ -7,7 +7,11 @@ export type Vuln = {
   title: string;
   product?: string | null;
   domain_string?: string;
-  domain?: { id: string; name: string };
+  domain?: {
+    id: string;
+    name: string;
+    organization?: { id: string; name: string };
+  };
   protocol?: string | null;
   port?: string | null;
   cvss?: number | null;

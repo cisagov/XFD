@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { DataGrid, GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
 import Grid from '@mui/material/Grid';
@@ -9,13 +10,25 @@ import RadioGroup from '@mui/material/RadioGroup';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { Organization as OrganizationType } from 'types';
-import { ENDPOINTS } from '@/constants/endpoints';
-import { useAuthContext } from 'context';
-import { organizationCols as orgCols } from './UserRegistrationColumns';
-import { User } from 'types';
-import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
+
+// DataGrid Components
+import { GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
+
+// Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { ElevationControl } from '../Users/ElevationControl';
+import { organizationCols as orgCols } from './UserRegistrationColumns';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Types
+import { Organization as OrganizationType } from 'types';
+import { User } from 'types';
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (organization: OrganizationType | null) => void;
@@ -216,7 +229,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         </Grid>
       </Grid>
       <Paper sx={{ height: 400, margin: 'auto' }}>
-        <DataGrid
+        <CustomDataGrid
           checkboxSelection
           onRowSelectionModelChange={onRowSelectionModelChange}
           rowSelectionModel={localSelectedOrg}

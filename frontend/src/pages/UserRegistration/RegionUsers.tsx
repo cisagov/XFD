@@ -1,33 +1,49 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useTheme } from '@mui/material/styles';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import InfoOutline from '@mui/icons-material/InfoOutline';
+
+// DataGrid Components
 import {
-  DataGrid,
   GridRowSelectionModel,
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import { User } from 'types';
-import { initializeUser } from '@/constants/userAndOrgData';
+
+// Components
+import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
 import InfoDialog from 'components/Dialog/InfoDialog';
-import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
-import { useAuthContext } from 'context';
-import { useUserLevel } from 'hooks/useUserLevel';
+import { OrganizationSelector } from './OrganizationSelector';
+
+// Constants
+import { initializeUser } from '@/constants/userAndOrgData';
 import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
-import { transformUserData } from '@/utils/transformTableData';
+
+// Context
+import { useAuthContext } from 'context';
+import { useTheme } from '@mui/material/styles';
+
+// Hooks
 import {
   getPendingUserColumns,
   getMemberUserColumns
 } from './UserRegistrationColumns';
-import { OrganizationSelector } from './OrganizationSelector';
+import { useUserLevel } from 'hooks/useUserLevel';
+
+// Types
+import { User } from 'types';
+
+// Utils
+import { logger } from '@/utils/logger';
+import { transformUserData } from '@/utils/transformTableData';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -498,7 +514,7 @@ export const RegionUsers: React.FC = () => {
           Pending Requests
         </Typography>
         <Paper sx={{ height: '387px' }}>
-          <DataGrid
+          <CustomDataGrid
             apiRef={apiRefPendingUsers}
             columns={pendingCols}
             rows={pendingUsers}
@@ -516,7 +532,7 @@ export const RegionUsers: React.FC = () => {
           Members of all regions
         </Typography>
         <Paper sx={{ height: '667px' }}>
-          <DataGrid
+          <CustomDataGrid
             apiRef={apiRefCurrentUsers}
             columns={memberCols}
             rows={currentUsers}

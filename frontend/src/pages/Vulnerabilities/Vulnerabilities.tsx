@@ -24,7 +24,6 @@ import OpenInNew from '@mui/icons-material/OpenInNew';
 
 // DataGrid Components
 import {
-  DataGrid,
   getGridSingleSelectOperators,
   getGridStringOperators,
   GridColDef,
@@ -52,6 +51,7 @@ import { useAuthContext } from 'context';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 
 // Utils
@@ -709,7 +709,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Vulnerabilities Table"
           >
-            <DataGrid<VulnerabilityRow>
+            <CustomDataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
