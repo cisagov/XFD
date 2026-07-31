@@ -12,21 +12,19 @@ os.environ.setdefault("PE_API_KEY", "test-key")
 
 # Third-Party Libraries
 import pandas as pd
-
 from pe_source.shodan.shodan_top_cves import (
     get_cve_details,
     get_shodan_cve_info,
     run_top_cves_shodan,
 )
 
+
 class ShodanTopCvesTests(unittest.TestCase):
     """Verify Shodan top-CVE helpers and orchestration."""
 
     @patch("pe_source.shodan.shodan_top_cves.time.sleep")
     @patch("pe_source.shodan.shodan_top_cves.requests.get")
-    def test_get_shodan_cve_info_retries_and_returns_json(
-        self, mock_get, mock_sleep
-    ):
+    def test_get_shodan_cve_info_retries_and_returns_json(self, mock_get, mock_sleep):
         """Transient HTTP failures should retry and return the final JSON payload."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -43,7 +41,6 @@ class ShodanTopCvesTests(unittest.TestCase):
         self.assertEqual(mock_get.call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)
 
-
     @patch("pe_source.shodan.shodan_top_cves.get_shodan_cve_info")
     def test_get_cve_details_builds_expected_dataframe(self, mock_get_info):
         """CVE detail retrieval should assemble the expected dataframe rows."""
@@ -59,7 +56,7 @@ class ShodanTopCvesTests(unittest.TestCase):
         self.assertIsInstance(details, pd.DataFrame)
         self.assertEqual(len(details), 1)
         self.assertEqual(details.iloc[0]["cve_id"], "CVE-2026-0001")
-        self.assertEqual(details.iloc[0]["dynamic_rating"], '25.0')
+        self.assertEqual(details.iloc[0]["dynamic_rating"], "25.0")
         self.assertIn("v2", details.iloc[0]["nvd_base_score"])
         self.assertIn("v3", details.iloc[0]["nvd_base_score"])
         self.assertEqual(details.iloc[0]["summary"], "A sample issue.")
@@ -95,7 +92,19 @@ class ShodanTopCvesTests(unittest.TestCase):
 
         mock_query.assert_called_once()
         mock_get_details.assert_called_once_with(
-            ["CVE-2026-0001", "CVE-2026-0002", "CVE-2026-0003", "CVE-2026-0004", "CVE-2026-0005", "CVE-2026-0006", "CVE-2026-0007", "CVE-2026-0008", "CVE-2026-0009", "CVE-2026-0010", "CVE-2026-0011"]
+            [
+                "CVE-2026-0001",
+                "CVE-2026-0002",
+                "CVE-2026-0003",
+                "CVE-2026-0004",
+                "CVE-2026-0005",
+                "CVE-2026-0006",
+                "CVE-2026-0007",
+                "CVE-2026-0008",
+                "CVE-2026-0009",
+                "CVE-2026-0010",
+                "CVE-2026-0011",
+            ]
         )
         mock_insert.assert_called_once()
         inserted = mock_insert.call_args.args[0]

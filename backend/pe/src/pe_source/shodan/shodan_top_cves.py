@@ -7,14 +7,12 @@ import time
 
 # Third-Party Libraries
 import pandas as pd
-import requests
-
-# cisagov Libraries
 from pe_source.data.db_query_source import (
-    insert_shodan_top_cves,
     get_all_shodan_cves,
     get_data_source_uid,
+    insert_shodan_top_cves,
 )
+import requests
 
 # Set up logging
 LOGGER = logging.getLogger(__name__)
@@ -82,9 +80,7 @@ def run_top_cves_shodan():
     )
     # Get further details for each CVE using shodan's API
     all_cve_details = get_cve_details(list(all_cves["cve"]))
-    LOGGER.info(
-        "Retrieved details for all distinct CVEs"
-    )
+    LOGGER.info("Retrieved details for all distinct CVEs")
     # Sort CVEs by EPSS score
     all_cve_details = all_cve_details.sort_values(
         by="dynamic_rating", ascending=False

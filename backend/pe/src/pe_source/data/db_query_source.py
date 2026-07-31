@@ -14,7 +14,6 @@ from pe_reports.data.config import config, staging_config
 import psycopg2
 from psycopg2 import OperationalError
 from psycopg2.extras import execute_values
-from psycopg2.extras import execute_values
 import requests
 
 LOGGER = logging.getLogger(__name__)
@@ -646,13 +645,12 @@ def get_all_shodan_cves(start_date, end_date):
     try:
         cursor = conn.cursor()
         LOGGER.info("get_all_shodan_cves: querying shodan_vulns")
-        shodan_cves_result = cursor.execute(query, {
-            'start_date': start_date, 
-            'end_date': end_date
-        })
+        shodan_cves_result = cursor.execute(
+            query, {"start_date": start_date, "end_date": end_date}
+        )
         rows = cursor.fetchall()
         columns = [desc[0] for desc in cursor.description]
-        
+
         shodan_cves_result = pd.DataFrame(rows, columns=columns)
         return shodan_cves_result
     except Exception:
@@ -664,7 +662,7 @@ def get_all_shodan_cves(start_date, end_date):
             cursor.close()
         conn.close()
 
-    
+
 def insert_shodan_top_cves(top_epss_cves_dict, failed):
     """
     Query API to insert Shodan Top CVEs data into the top_cves table.
