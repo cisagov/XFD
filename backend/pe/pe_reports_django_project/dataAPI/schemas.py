@@ -261,9 +261,9 @@ class ShodanTopCvesInsert(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     cve_id: Optional[str] = None
-    dynamic_rating: Optional[str] = None
+    epss_score: Optional[str] = None
     nvd_base_score: Optional[str] = None
-    date: Optional[str] = None
+    collection_date: Optional[str] = None
     summary: Optional[str] = None
     data_source_uid: Optional[str] = None
 

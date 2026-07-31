@@ -34,7 +34,7 @@ from home.models import (
     ShodanAssets,
     ShodanVulns,
     SubDomains,
-    TopCves,
+    TopCvesShodan,
 )
 from starlette.status import HTTP_403_FORBIDDEN
 
@@ -677,28 +677,21 @@ def shodan_top_cves_insert(
     for row in data.top_epss_cves_dict:
         row_dict = row.model_dump()
         try:
-            # org_instance = Organizations.objects.get(
-            #     organizations_uid=row_dict["organizations_uid"]
-            # )
+            collection_date = timezone.make_aware(
+                parse_datetime(row_dict["collection_date"]),
+                dt_timezone.utc,
+            ).date()
             top_epss_cves_dict = {
-                "top_cves_uid": str(uuid.uuid4()),
                 "cve_id": row_dict.get("cve_id"),
-                "dynamic_rating": row_dict.get("dynamic_rating"),
+                "epss_score": row_dict.get("epss_score"),
                 "nvd_base_score": row_dict.get("nvd_base_score"),
-                "date": row_dict.get("date"),
+                "collection_date": collection_date,
                 "summary": row_dict.get("summary"),
                 "data_source_uid_id": row_dict.get("data_source_uid"),
             }
-
-            obj, created = TopCves.objects.update_or_create(
-                # organizations_uid=org_instance,  # Directly use organizations_uid
-                # ip=row_dict["ip"],
-                # port=row_dict["port"],
-                # protocol=row_dict["protocol"],
-                date=timezone.make_aware(
-                    parse_datetime(row_dict["date"]),
-                    dt_timezone.utc,
-                ),
+            obj, created = TopCvesShodan.objects.update_or_create(
+                cve_id=row_dict.get("cve_id"),
+                collection_date=collection_date,
                 defaults=top_epss_cves_dict,
             )
             if created:

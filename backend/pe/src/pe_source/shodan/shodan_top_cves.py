@@ -49,16 +49,16 @@ def get_cve_details(cve_list):
         # Call shodan API to get CVE info
         LOGGER.info(f"Retrieving CVE details for {cve} ({idx+1} of {len(cve_list)})")
         cve_details = get_shodan_cve_info(cve)
-        dynamic_rating = round(cve_details.get("epss") * 100, 2)
+        epss_score = round(cve_details.get("epss") * 100, 2)
         cvss_v2 = cve_details.get("cvss_v2")
         cvss_v3 = cve_details.get("cvss_v3")
         summary = cve_details.get("summary")
         # Parse relevant details
         cve_detail_dict = {
             "cve_id": cve,
-            "dynamic_rating": str(dynamic_rating),
+            "epss_score": str(epss_score),
             "nvd_base_score": f"{{'v2': {cvss_v2}, 'v3': {cvss_v3}}}",
-            "date": TODAY.strftime("%Y-%m-%d"),
+            "collection_date": TODAY.strftime("%Y-%m-%d"),
             "summary": summary,
             "data_source_uid": source_uid,
         }
@@ -83,7 +83,7 @@ def run_top_cves_shodan():
     LOGGER.info("Retrieved details for all distinct CVEs")
     # Sort CVEs by EPSS score
     all_cve_details = all_cve_details.sort_values(
-        by="dynamic_rating", ascending=False
+        by="epss_score", ascending=False
     ).reset_index(drop=True)
     # Grab the top 10 CVEs with the highest EPSS score
     top_epss_cves = all_cve_details[:10]
