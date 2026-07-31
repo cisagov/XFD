@@ -52,10 +52,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
     )
     def test_count_higher_than_keys_caps(self):
         """Requested count above valid keys starts one container per key."""
-        with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2,k3,k4,k5"}, clear=False):
+        with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2,k3,k4,k5"}, clear=True):
             self.assertEqual(
                 plan_worker_keys("flare_events", 5), ["k1", "k2", "k3", "k4", "k5"]
             )
+        with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2,k3,k4,k5"}, clear=True):
             self.assertEqual(
                 plan_worker_keys("flare_creds", 5), ["k1", "k2", "k3", "k4", "k5"]
             )
