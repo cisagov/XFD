@@ -606,7 +606,6 @@ def get_execs_by_org_uid(org_uid):
         conn.close()
 
 
-
 def get_cred_breach_uids(breach_name_list):
     """
     Query API to get the uid for the specified crediential breaches.
@@ -688,6 +687,27 @@ def insert_flare_breaches(breach_list):
         ON CONFLICT (breach_name)
         DO UPDATE SET
             password_included = EXCLUDED.password_included;
+    """
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_breaches: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception(
+            "insert_flare_breaches: upsert failed for %d row(s)", len(rows)
+        )
+        LOGGER.error("get_all_shodan_cves: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+
 # TODO: Convert to API endpoint in CRASM-4061
 def get_all_shodan_cves(start_date, end_date):
     """Get list of shodan vulnerabilities for current report period."""
@@ -716,26 +736,7 @@ def get_all_shodan_cves(start_date, end_date):
         ORDER BY
             cve DESC
     """
-
     conn = connect()
-    if conn is None:
-        LOGGER.error("insert_flare_breaches: PE database connection failed")
-        raise RuntimeError("PE database connection failed")
-
-    cursor = None
-    try:
-        cursor = conn.cursor()
-        LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
-        execute_values(cursor, query, rows)
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        LOGGER.exception(
-            "insert_flare_breaches: upsert failed for %d row(s)", len(rows)
-        )
-        LOGGER.error("get_all_shodan_cves: PE database connection failed")
-        raise RuntimeError("PE database connection failed")
-
     cursor = None
     shodan_cves_result = pd.DataFrame()
     try:
@@ -757,7 +758,6 @@ def get_all_shodan_cves(start_date, end_date):
         if cursor is not None:
             cursor.close()
         conn.close()
-
 
 
 # TODO: Convert to API endpoint in CRASM-4061
@@ -818,6 +818,7 @@ def insert_flare_credentials(cred_list):
         if cursor is not None:
             cursor.close()
         conn.close()
+
 
 def insert_shodan_top_cves(top_epss_cves_dict, failed):
     """

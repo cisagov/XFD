@@ -94,16 +94,6 @@ def _check_shodan_api_key(api_key: str) -> None:
         raise
 
 
-def _validate_shodan(keys: List[str], **kwargs) -> List[str]:
-
-    try:
-        shodan.Shodan(api_key).info()
-    except Exception as exc:
-        if "rate limit" in str(exc).lower():
-            raise ShodanRateLimitError(str(exc)) from exc
-        raise
-
-
 def _validate_shodan(keys: List[str], max_valid=None) -> List[str]:
     if importlib.util.find_spec("shodan") is None:
         LOGGER.warning("shodan package not installed; skipping key validation")
