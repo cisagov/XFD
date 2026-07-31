@@ -514,49 +514,30 @@ def format_creds_for_db(all_creds_df, org_uid):
 
 def run_flare_creds(orgs_list):
     """Retrieve Flare leaked credential data for the specified list of organizations and insert into the P&E DB."""
-    # Retrieve full org info from PE database
-    pe_orgs = []
-    try:
-        # Process organization data
-        pe_orgs = get_orgs()
-    except Exception as e:
-        # Logs the error, but execution continues or exits cleanly (0)
-        LOGGER.error(f"Organization failed: {e}")
-        raise
-    pe_orgs_final = []
+    all_orgs = get_orgs()
     if orgs_list == "all":
-        for pe_org in pe_orgs:
-            if pe_org["report_on"]:
-                pe_orgs_final.append(pe_org)
-            else:
-                continue
+        orgs_list_final = [d for d in all_orgs if d.get("report_on")]
     elif orgs_list == "DEMO":
-        for pe_org in pe_orgs:
-            if pe_org["demo"]:
-                pe_orgs_final.append(pe_org)
-            else:
-                continue
+        orgs_list_final = [d for d in all_orgs if d.get("demo")]
     else:
-        for org in orgs_list:
-            org_dict = next((d for d in pe_orgs if d["cyhy_db_name"] == org), None)
-            pe_orgs_final.append(org_dict)
-    # Alphabetize org list for consistent order
-    LOGGER.info("Org Information: %s", pe_orgs)
-    pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
-
+        orgs_list = orgs_list.split(",")
+        orgs_list_final = [
+            d for d in all_orgs if d.get("cyhy_db_name") in set(orgs_list)
+        ]
+    orgs_list_final = sorted(orgs_list_final, key=lambda d: d["cyhy_db_name"])
     # Run Flare leaked credential data collection on each org
     start_date = START_DATE
     end_date = END_DATE
     success = 0
     failed = 0
     failed_list = []
-    for org_idx, org in enumerate(pe_orgs_final):
+    for org_idx, org in enumerate(orgs_list_final):
         try:
             # Run Flare on this organization
             org_abbrv = org["cyhy_db_name"]
             org_uid = org["organizations_uid"]
             LOGGER.info(
-                f'Running Flare leaked credentials collection on "{org_abbrv}" ({org_idx + 1} of {len(pe_orgs_final)})'
+                f'Running Flare leaked credentials collection on "{org_abbrv}" ({org_idx + 1} of {len(orgs_list_final)})'
             )
             # Retrieve identifier group info for this org
             ident_group_info = get_ident_group_info(org_abbrv)
@@ -725,8 +706,8 @@ def run_flare_creds(orgs_list):
 
     # Log overall success/fail statistics
     LOGGER.info(
-        f"{success}/{len(pe_orgs_final)} organizations successfully completed their Flare leaked creds data collection"
+        f"{success}/{len(orgs_list_final)} organizations successfully completed their Flare leaked creds data collection"
     )
     LOGGER.info(
-        f"{failed}/{len(pe_orgs_final)} organizations encountered an error during their Flare leaked creds data collection: {failed_list}"
+        f"{failed}/{len(orgs_list_final)} organizations encountered an error during their Flare leaked creds data collection: {failed_list}"
     )
