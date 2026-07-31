@@ -58,32 +58,35 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     } as const;
   }, []);
 
-  const logout = useCallback(async () => {
-    setIsLoggingOut(true);
+  const logout = useCallback(
+    async (shouldReloadPage = true) => {
+      setIsLoggingOut(true);
 
-    // If the user has a token, reload at the end to reset app state
-    const shouldReload = !!token;
+      try {
+        // 1. Clear local storage
+        localStorage.clear();
 
-    try {
-      // Clear local storage and Amplify session (if any)
-      localStorage.clear();
+        // 2. Clear token from persistent state hook
+        setToken(null);
+        setAuthUser(null);
 
-      // Remove both cookies the backend may have set
-      cookies.remove('token', cookieOpts);
-      cookies.remove('crossfeed-token', cookieOpts);
-
-      // Clear in-memory state
-      setAuthUser(null);
-      setToken(null);
-    } catch (error) {
-      logger.error(error);
-    } finally {
-      setIsLoggingOut(false);
-      if (shouldReload) {
-        window.location.reload();
+        // 3. Force-remove cookies across all path/domain combinations
+        cookies.remove('token', cookieOpts);
+        cookies.remove('crossfeed-token', cookieOpts);
+        cookies.remove('token', { path: '/' });
+        cookies.remove('crossfeed-token', { path: '/' });
+      } catch (error) {
+        logger.error(error);
+      } finally {
+        setIsLoggingOut(false);
+        // Only reload if NOT redirecting elsewhere
+        if (shouldReloadPage) {
+          window.location.reload();
+        }
       }
-    }
-  }, [cookies, cookieOpts, setToken, token]);
+    },
+    [cookies, cookieOpts, setToken]
+  );
 
   const handleError = useCallback(
     async (
@@ -93,9 +96,12 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       const status =
         in_error.statusCode ??
         in_error.response?.status ??
-        (in_error.message.includes('401') ? 401 : undefined);
+        (in_error.message?.includes('401') ? 401 : undefined);
+
       if (status === 401) {
-        await logout();
+        // Pass false so logout() doesn't call window.location.reload()
+        await logout(false);
+
         const next = encodeURIComponent(window.location.pathname || '/');
         window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
       }
