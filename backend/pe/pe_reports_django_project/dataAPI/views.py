@@ -23,6 +23,7 @@ from fastapi.security.api_key import APIKeyHeader
 
 # Import api database models
 from home.models import (
+    CredentialBreaches,
     DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
@@ -450,6 +451,35 @@ def domain_alerts_insert(
     except Exception as error:
         LOGGER.error("Error inserting into domain_alerts table: %s", error)
         return f"Error inserting into domain_alerts table: {error}"
+
+
+@api_router.post(
+    "/cred_breaches_by_name",
+    dependencies=[Depends(verify_api_key)],
+    response_model=List[schemas.CredBreachesByNameInsert],
+    tags=["flare"],
+)
+def cred_breaches_by_name(
+    payload: schemas.CredBreachesByNameInput,
+):
+    """List credential breaches and their associated IDs filtered by a list of breach names."""
+    breach_names = [item.breach_name for item in payload.breach_name_list]
+    rows = list(
+        CredentialBreaches.objects.filter(breach_name__in=breach_names).values(
+            "breach_name", "credential_breaches_uid"
+        )
+    )
+
+    for row in rows:
+        row["credential_breaches_uid"] = convert_uuid_to_string(
+            row.get("credential_breaches_uid")
+        )
+        row["breach_name"] = row.get("breach_name")
+        LOGGER.info(
+            f"breach uid: {row.get('credential_breaches_uid')}, breach name: {row.get('breach_name')}"
+        )
+
+    return rows
 
 
 # --- Shodan API endpoints --- #

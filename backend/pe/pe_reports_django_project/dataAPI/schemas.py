@@ -151,6 +151,19 @@ class DomainAlertsInsertInput(BaseModel):
     insert_data: List[DomainAlertsInsert]
 
 
+class CredBreachesByNameInsert(BaseModel):
+    """Individual row model."""
+
+    breach_name: str
+    credential_breaches_uid: Optional[str] = None
+
+
+class CredBreachesByNameInput(BaseModel):
+    """Request body model."""
+
+    breach_name_list: List[CredBreachesByNameInsert]
+
+
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
 # Insert bulk Shodan data into shodan_assets table
 class ShodanAssetsInsert(BaseModel):

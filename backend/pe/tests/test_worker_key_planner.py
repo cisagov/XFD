@@ -35,6 +35,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
     @patch.dict(
         "pe.worker_key_planner.KEYED_SCANS",
         {
+            "flare_creds": {
+                "keys_env": "FLARE_API_KEYS",
+                "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys, max_valid=None: keys,
+            },
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
@@ -51,6 +56,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
     def test_count_higher_than_keys_caps(self):
         """Requested count above valid keys starts one container per key."""
         with patch.dict(os.environ, {"FLARE_API_KEYS": "k1,k2"}, clear=False):
+            self.assertEqual(plan_worker_keys("flare_creds", 5), ["k1", "k2"])
             self.assertEqual(plan_worker_keys("flare_events", 5), ["k1", "k2"])
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": "k1,k2"}, clear=False):
             self.assertEqual(plan_worker_keys("shodan", 5), ["k1", "k2"])
@@ -74,6 +80,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
     @patch.dict(
         "pe.worker_key_planner.KEYED_SCANS",
         {
+            "flare_creds": {
+                "keys_env": "FLARE_API_KEYS",
+                "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys, max_valid=None: [],
+            },
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
@@ -91,6 +102,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
         """Zero valid keys should raise ValueError."""
         with patch.dict(os.environ, {"FLARE_API_KEYS": "bad"}, clear=False):
             with self.assertRaises(ValueError):
+                plan_worker_keys("flare_creds", 1)
                 plan_worker_keys("flare_events", 1)
         with patch.dict(os.environ, {"PE_SHODAN_API_KEYS": "bad"}, clear=False):
             with self.assertRaises(ValueError):
@@ -99,6 +111,11 @@ class PlanWorkerKeysTests(unittest.TestCase):
     @patch.dict(
         "pe.worker_key_planner.KEYED_SCANS",
         {
+            "flare_creds": {
+                "keys_env": "FLARE_API_KEYS",
+                "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys, max_valid=None: keys[:3],
+            },
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
@@ -114,6 +131,9 @@ class PlanWorkerKeysTests(unittest.TestCase):
     )
     def test_empty_env_raises(self):
         """Empty keys env var should raise before validation."""
+        with patch.dict(os.environ, {"FLARE_API_KEYS": ""}, clear=False):
+            with self.assertRaises(ValueError):
+                plan_worker_keys("flare_creds", 2)
         with patch.dict(os.environ, {"FLARE_API_KEYS": ""}, clear=False):
             with self.assertRaises(ValueError):
                 plan_worker_keys("flare_events", 2)
@@ -198,6 +218,7 @@ class RegistryTests(unittest.TestCase):
 
     def test_flare_and_shodan_registered(self):
         """Flare and Shodan scans should be in KEYED_SCANS."""
+        self.assertIn("flare_creds", KEYED_SCANS)
         self.assertIn("flare_events", KEYED_SCANS)
 
     def test_shodan_scans_registered(self):
