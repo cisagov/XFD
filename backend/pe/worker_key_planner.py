@@ -17,7 +17,14 @@ import logging
 import os
 from typing import Any, Dict, List
 
+# Third-Party Libraries
+from retry import retry
+
 LOGGER = logging.getLogger(__name__)
+
+
+class ShodanRateLimitError(Exception):
+    """Shodan API rate limit hit during key validation."""
 
 
 def _split_keys(raw: str) -> List[str]:
@@ -70,7 +77,21 @@ def _validate_flare(keys: List[str]) -> List[str]:
     return valid
 
 
-def _validate_shodan(keys: List[str]) -> List[str]:
+@retry(ShodanRateLimitError, tries=4, delay=1, backoff=1)
+def _check_shodan_api_key(api_key: str) -> None:
+    """Validate one Shodan API key; retries on rate-limit responses."""
+    # Third-Party Libraries
+    import shodan
+
+    try:
+        shodan.Shodan(api_key).info()
+    except Exception as exc:
+        if "rate limit" in str(exc).lower():
+            raise ShodanRateLimitError(str(exc)) from exc
+        raise
+
+
+def _validate_shodan(keys: List[str], **kwargs) -> List[str]:
     try:
         # Third-Party Libraries
         import shodan
