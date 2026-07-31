@@ -119,21 +119,28 @@ export const useApi = (onError?: OnError) => {
           // const result = await method('crossfeed', path, options);
           const response = await method({ apiName: 'crossfeed', path, options })
             .response;
-          const result = await response.body.json();
 
-          // Amplify v6 resolves .response for non-2xx; explicitly throw if >= 400
-          if (response.statusCode >= 400) {
-            if (response.statusCode === 401) {
-              localStorage.removeItem('token');
-            }
+          const statusCode = response.statusCode ?? (response as any).status;
+
+          let result: any;
+          try {
+            result = await response.body.json();
+          } catch {
+            result = undefined;
+          }
+
+          if (statusCode >= 400 || result?.detail === 'Token has expired') {
+            localStorage.removeItem('token');
+
             const error = new Error(
-              `Request failed with status code ${response.statusCode}`
+              result?.detail || `Request failed with status code ${statusCode}`
             );
+
             throw Object.assign(error, {
-              statusCode: response.statusCode,
+              statusCode: statusCode || 401,
               body: result,
               response: {
-                status: response.statusCode,
+                status: statusCode || 401,
                 headers: response.headers
               }
             });
@@ -144,17 +151,38 @@ export const useApi = (onError?: OnError) => {
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          // Standard 401 cleanup fallback if thrown elsewhere
-          if (e?.statusCode === 401 || e?.response?.status === 401) {
+          // 1. Extract status code from various Amplify v6 error formats
+          const status =
+            e?.response?.statusCode ??
+            e?.response?.status ??
+            e?.status ??
+            e?.statusCode ??
+            undefined;
+
+          // 2. Detect if this is an expired token / auth error:
+          //    - Explicit 401/403 status
+          //    - Amplify "UnknownError" while carrying a stored token
+          //    - Error message referencing expired token or unauthorized
+          const isAuthError =
+            status === 401 ||
+            status === 403 ||
+            e?.name === 'UnknownError' ||
+            e?.message?.toLowerCase().includes('token') ||
+            e?.message?.toLowerCase().includes('unauthorized');
+
+          if (isAuthError) {
+            // Clean local storage immediately
             localStorage.removeItem('token');
+
+            // Standardize error shape so AuthContextProvider.handleError receives status 401
+            e.statusCode = status || 401;
+            if (!e.response) {
+              e.response = { status: e.statusCode };
+            }
           }
 
           if (!isLocal) {
-            // Detection of blocks before API Gateway
             try {
-              const status =
-                e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
-
               const headersRaw =
                 e?.response?.headers ??
                 e?.headers ??
