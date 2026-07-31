@@ -18,13 +18,12 @@ from django.db import transaction
 from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 
 # Import api database models
 from home.models import (
     CredentialBreaches,
-    CredentialExposures,
     DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
@@ -463,9 +462,7 @@ def cred_breaches_by_name(
     payload: schemas.CredBreachesByNameInput,
 ):
     """List credential breaches and their associated IDs filtered by a list of breach names."""
-
     breach_names = [item.breach_name for item in payload.breach_name_list]
-
     rows = list(
         CredentialBreaches.objects.filter(breach_name__in=breach_names).values(
             "breach_name", "credential_breaches_uid"
