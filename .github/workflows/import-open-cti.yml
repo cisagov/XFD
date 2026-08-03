@@ -1,10 +1,21 @@
 ---
 # One-off, manually-triggered workflow to bring the already-existing OpenCTI EC2
-# instance (i-033771e2a6a9a26ca) into Terraform state via `terraform import`. Run
-# this exactly once, BEFORE merging infrastructure/open_cti.tf et al. into develop
-# -- the regular Infrastructure Pipeline workflow auto-applies on push to develop
-# with no manual approval gate, so importing first avoids it creating a duplicate
-# instance. Delete this file once the import has succeeded.
+# instance (i-033771e2a6a9a26ca) into Terraform state. Run this exactly once,
+# BEFORE merging infrastructure/open_cti.tf et al. into develop -- the regular
+# Infrastructure Pipeline workflow auto-applies on push to develop with no manual
+# approval gate.
+#
+# NOTE: this instance was never actually unmanaged -- it's the same instance
+# `aws_instance.pe` has managed all along (someone repurposed the running "pe" box
+# to also host OpenCTI, out-of-band). The original version of this workflow ran
+# `terraform import aws_instance.open_cti i-033771e2a6a9a26ca` while `aws_instance.pe`
+# was still in state pointing at the same ID, leaving two state entries bound to one
+# real resource -- which corrupted the plan (spurious destroy/recreate churn). The
+# steps below correct that: drop the bad import, then rename the existing
+# `aws_instance.pe` state entry to `aws_instance.open_cti` (a state-only operation,
+# no AWS API calls against the real instance). `aws_instance.pe`'s resource block
+# must already be removed from infrastructure/pe_worker.tf before this runs.
+# Delete this file once the corrected plan step below shows no destructive diff.
 name: Import OpenCTI EC2 into Terraform State
 
 on:
@@ -37,10 +48,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
 
-      - name: Terraform import
+      - name: Terraform state surgery (undo bad import, adopt pe as open_cti)
         run: |
-          terraform import -var-file=stage-cd.tfvars \
-            aws_instance.open_cti i-033771e2a6a9a26ca
+          terraform state rm 'aws_instance.open_cti[0]'
+          terraform state mv 'aws_instance.pe[0]' 'aws_instance.open_cti[0]'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
