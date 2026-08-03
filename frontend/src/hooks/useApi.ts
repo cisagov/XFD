@@ -170,6 +170,8 @@ export const useApi = (onError?: OnError) => {
             e?.statusCode ??
             undefined;
 
+          // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
+
           // 2. Detect if this is an expired token:
           //    - Explicit 401 status
           //    - Error message referencing "jwt", "token", and "expired"
