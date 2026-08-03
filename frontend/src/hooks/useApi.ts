@@ -129,7 +129,18 @@ export const useApi = (onError?: OnError) => {
             result = undefined;
           }
 
-          if (statusCode >= 400 || result?.detail === 'Token has expired') {
+          const tokenDetail =
+            typeof result?.detail === 'string'
+              ? result.detail.toLowerCase()
+              : '';
+
+          if (
+            typeof statusCode === 'number' &&
+            statusCode === 401 &&
+            (tokenDetail.includes('jwt') ||
+              (tokenDetail.includes('token') &&
+                tokenDetail.includes('expired')))
+          ) {
             localStorage.removeItem('token');
 
             const error = new Error(
@@ -159,18 +170,16 @@ export const useApi = (onError?: OnError) => {
             e?.statusCode ??
             undefined;
 
-          // 2. Detect if this is an expired token / auth error:
-          //    - Explicit 401/403 status
-          //    - Amplify "UnknownError" while carrying a stored token
-          //    - Error message referencing expired token or unauthorized
-          const isAuthError =
-            status === 401 ||
-            status === 403 ||
-            e?.name === 'UnknownError' ||
-            e?.message?.toLowerCase().includes('token') ||
-            e?.message?.toLowerCase().includes('unauthorized');
+          // 2. Detect if this is an expired token:
+          //    - Explicit 401 status
+          //    - Error message referencing "jwt", "token", and "expired"
+          const isTokenExpired =
+            status === 401 &&
+            (e?.message?.toLowerCase().includes('token') ||
+              e?.message?.toLowerCase().includes('jwt')) &&
+            e?.message?.toLowerCase().includes('expired');
 
-          if (isAuthError) {
+          if (isTokenExpired) {
             // Clean local storage immediately
             localStorage.removeItem('token');
 
