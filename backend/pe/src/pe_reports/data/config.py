@@ -37,3 +37,13 @@ def staging_config(filename=None, section="pe_api"):
             "pe_api_key": os.environ.get("PE_API_KEY", ""),
         }
     return {}
+
+
+def db_password_key() -> str:
+    """Return the symmetric key used to PGP-decrypt per-org report passwords."""
+    return _require("PE_DB_PASSWORD_KEY")
+
+
+def reports_bucket_name() -> str:
+    """Return the S3 bucket name containing generated report PDFs."""
+    return _require("PE_REPORTS_BUCKET_NAME")

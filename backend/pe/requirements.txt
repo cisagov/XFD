@@ -10,6 +10,7 @@ numpy
 pandas
 psycopg2-binary
 pydantic>=1.10,<3
+PyMuPDF
 python-decouple==3.6
 requests
 schema
