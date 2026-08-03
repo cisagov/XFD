@@ -12,7 +12,7 @@ class DomainAlertsTable(BaseModel):
     domain_alert_uid: str
     sub_domain_uid_id: Optional[str] = None
     data_source_uid_id: Optional[str] = None
-    organizations_uid: Optional[str] = None
+    organizations_uid_id: Optional[str] = None
     alert_type: Optional[str] = None
     message: Optional[str] = None
     previous_value: Optional[str] = None
@@ -73,7 +73,7 @@ class RSSTable(BaseModel):
     ports_count: Optional[int]
     creds_count: Optional[int]
     breach_count: Optional[int]
-    creds_password_count: Optional[int]
+    cred_password_count: Optional[int]
     domain_alert_count: Optional[int]
     suspected_domain_count: Optional[int]
     insecure_port_count: Optional[int]

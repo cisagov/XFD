@@ -448,6 +448,7 @@ def dark_web_flare(
         lambda x: list(set(x))
     )
     alerts_df.drop(columns=["related_identifiers_txt"], inplace=True)
+    alerts_df["content"] = alerts_df["content"].str.slice(0, 32000)
     # Prep top 10 cves raw data
     top_cves_df = FlareObj.top_cves
     top_cves_df.drop(columns=["summary_short"], inplace=True, errors="ignore")
