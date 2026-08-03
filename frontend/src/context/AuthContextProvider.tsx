@@ -100,6 +100,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
 
       if (status === 401) {
         // Pass false so logout() doesn't call window.location.reload()
+        logger.debug('handleError status:', status, 'error:', in_error);
         await logout(false);
 
         const next = encodeURIComponent(window.location.pathname || '/');
