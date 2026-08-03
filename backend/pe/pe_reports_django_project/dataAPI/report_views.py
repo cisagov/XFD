@@ -71,7 +71,9 @@ def domain_alerts_by_org_date(
             row["data_source_uid_id"] = convert_uuid_to_string(
                 row["data_source_uid_id"]
             )
-            row["organizations_uid"] = convert_uuid_to_string(row["organizations_uid"])
+            row["organizations_uid_id"] = convert_uuid_to_string(
+                row["organizations_uid_id"]
+            )
             row["date"] = convert_date_to_string(row["date"])
         return domain_alerts_by_org_date_data
     except ObjectDoesNotExist:
@@ -128,9 +130,7 @@ def domain_permu_by_org_date(
 # --- get_org_assets_count_past(), Issue 603 ---
 @report_router.post(
     "/past_asset_counts_by_org",
-    dependencies=[
-        Depends(verify_api_key)
-    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    dependencies=[Depends(verify_api_key)],
     response_model=List[schemas.RSSTable],
     tags=["Get all RSS data for the specified org_uid and date."],
 )

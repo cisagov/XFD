@@ -11,11 +11,14 @@ from django.db import IntegrityError, transaction
 from home.models import (
     Cidrs,
     DataSource,
+    DomainAlerts,
     Executives,
+    FlareEvents,
     FlareEventTypes,
     Ips,
     IpsSubs,
     Organizations,
+    ReportSummaryStats,
     RootDomains,
     SubDomains,
     TopCves,
@@ -476,6 +479,86 @@ def populate_sample_data():
                 "sixgill_id": "",
             },
         )
+
+    # Create domain alert sample data
+    org_inst = Organizations.objects.get(cyhy_db_name="DHS")
+    root_inst = RootDomains.objects.get(
+        root_domain="google.com", organizations_uid=org_inst.organizations_uid
+    )
+    sub_inst = SubDomains.objects.get(
+        sub_domain="dns.google", root_domain_uid=root_inst.root_domain_uid
+    )
+    data_src_inst = DataSource.objects.get(name="DNSMonitor")
+    dom_alert_obj, created = DomainAlerts.objects.update_or_create(
+        organizations_uid=org_inst,
+        message="The tracked domain dhs.gov has a new dnsA record, 12.345.678.910",
+        date="2026-07-12",
+        defaults={
+            "sub_domain_uid": sub_inst,
+            "data_source_uid": data_src_inst,
+            "alert_type": "New Variant Record",
+            "previous_value": "",
+            "new_value": "12.345.678.910",
+        },
+    )
+
+    # Create report summary stats table data
+    rss_obj, created = ReportSummaryStats.objects.update_or_create(
+        organizations_uid=org_inst,
+        start_date="2026-06-01",
+        end_date="2026-06-15",
+        defaults={
+            "ip_count": 0,
+            "root_count": 0,
+            "sub_count": 0,
+            "ports_count": 0,
+            "creds_count": 0,
+            "breach_count": 0,
+            "cred_password_count": 0,
+            "domain_alert_count": 0,
+            "suspected_domain_count": 0,
+            "insecure_port_count": 0,
+            "verified_vuln_count": 0,
+            "suspected_vuln_count": 0,
+            "suspected_vuln_addrs_count": 0,
+            "threat_actor_count": 0,
+            "dark_web_alerts_count": 0,
+            "dark_web_mentions_count": 0,
+            "dark_web_executive_alerts_count": 0,
+            "pe_number_score": "NA",
+            "pe_letter_grade": "NA",
+            "pe_percent_score": 0.5,
+            "cidr_count": 0,
+            "port_protocol_count": 0,
+            "software_count": 0,
+            "foreign_ips_count": 0,
+        },
+    )
+
+    # Create Flare alert (event) data
+    flare_src_inst = DataSource.objects.get(name="Flare")
+    long_content = "This is a really long content field... " + ("blah " * 6560)
+    flare_event_obj, created = FlareEvents.objects.update_or_create(
+        organizations_uid=org_inst,
+        flare_uid="service/driller_shodan/www.v-consultancy.com/cloudfront/443",
+        defaults={
+            "event_type": "service",
+            "event_date": "2026-07-12",
+            "collection_date": "2026-07-14",
+            "title": "sample title service event",
+            "content": long_content,
+            "content_hash": "a33be926d6508158b62aaf126aec1f87b4671462",
+            "actor": "test_actor",
+            "category": "HTTPS Service",
+            "source": "driller_shodan",
+            "url": "test_url.com",
+            "risk_scores": "{'score': 2}",
+            "related_identifiers": ["12345678"],
+            "data_source_uid": flare_src_inst,
+            "severity": "low",
+            "related_identifiers_txt": ["test_ident"],
+        },
+    )
 
     return {
         "data_sources": [

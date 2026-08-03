@@ -131,6 +131,7 @@ def query_domMasq_alerts(org_uid, start_date, end_date):
             columns={
                 "sub_domain_uid_id": "sub_domain_uid",
                 "data_source_uid_id": "data_source_uid",
+                "organizations_uid_id": "organizations_uid",
             },
             inplace=True,
         )
