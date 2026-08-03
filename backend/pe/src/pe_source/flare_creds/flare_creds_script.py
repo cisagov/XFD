@@ -520,6 +520,7 @@ def run_flare_creds(orgs_list):
     elif orgs_list == "DEMO":
         orgs_list_final = [d for d in all_orgs if d.get("demo")]
     else:
+        orgs_list = "".join(orgs_list.split())
         orgs_list = orgs_list.split(",")
         orgs_list_final = [
             d for d in all_orgs if d.get("cyhy_db_name") in set(orgs_list)
