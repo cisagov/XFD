@@ -5,6 +5,10 @@ directly or dispatched from worker/pe_worker.py (SERVICE_TYPE=mailer, one
 organization per SQS message). Report PDFs are read from S3 rather than a
 local report directory, since Fargate tasks have no persistent/shared
 filesystem (see pe_mailer.s3_reports for the bucket/prefix convention).
+Retrieval, password-encryption (pe_reports.helpers.pdf_encrypt), and mailing
+all happen in this one process/task -- with no shared filesystem between
+separate Fargate task invocations, a plaintext PDF written by an earlier,
+separate encryption step would never be visible to a later mailing step.
 
 Usage:
     pe-mailer [--orgs=ORG_LIST] [--summary-to=EMAILS] [--test-emails=EMAILS] [--log-level=LEVEL]
@@ -46,6 +50,9 @@ from pe_mailer.pe_message import PEMessage
 from pe_mailer.s3_reports import download_report_keys, select_latest_report_keys
 from pe_mailer.stats_message import StatsMessage
 import pe_reports
+from pe_reports.data.config import db_password_key
+from pe_reports.data.db_query import get_orgs_pass
+from pe_reports.helpers.pdf_encrypt import encrypt as encrypt_pdf_file
 from pe_source.data.db_query_source import get_orgs
 from schema import And, Schema, SchemaError, Use
 
@@ -142,6 +149,67 @@ def resolve_orgs(orgs_arg):
     return sorted(selected, key=lambda org: org.get("cyhy_db_name") or "")
 
 
+def _load_org_passwords():
+    """Return {cyhy_db_name: decrypted_report_password} for every report_on org.
+
+    Uses its own dedicated DB connection, since get_orgs_pass() closes
+    whatever connection it's given -- reusing send_pe_reports's own long-
+    lived `conn` here would close it out from under the per-org
+    get_org_contacts() calls later in that loop.
+
+    Returns
+    -------
+    dict(str, str): Empty if the DB is unreachable or the password key is
+    misconfigured (logged), in which case every org will be treated as
+    having no password and skipped rather than mailed unencrypted.
+
+    """
+    password_conn = connect()
+    if password_conn is None:
+        LOGGER.error(
+            "Unable to connect to load report encryption passwords; "
+            "no reports will be mailed this run"
+        )
+        return {}
+
+    try:
+        return dict(get_orgs_pass(password_conn, db_password_key()))
+    except Exception:
+        LOGGER.error(
+            "Unable to load report encryption passwords; no reports will be "
+            "mailed this run",
+            exc_info=True,
+        )
+        return {}
+
+
+def _encrypt_report_file(path, password, encrypted_dir):
+    """Password-encrypt one downloaded report PDF into encrypted_dir.
+
+    Parameters
+    ----------
+    path : str
+        Local path to the plaintext PDF, as downloaded from S3.
+
+    password : str
+        The org's report password (from _load_org_passwords()).
+
+    encrypted_dir : str
+        Directory (already created) to write the encrypted PDF into. Must
+        differ from path's directory -- the PDF library can't save back to
+        the file it opened.
+
+    Returns
+    -------
+    str: Path to the encrypted PDF, using the same basename as path so the
+    filename recipients see in the emailed attachment is unchanged.
+
+    """
+    encrypted_path = os.path.join(encrypted_dir, os.path.basename(path))
+    encrypt_pdf_file(path, password, encrypted_path)
+    return encrypted_path
+
+
 def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
     """Send out Posture and Exposure reports for the given orgs.
 
@@ -171,6 +239,7 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
 
     """
     conn = connect()
+    org_passwords = _load_org_passwords()
 
     agencies_emailed_pe_reports = 0
     reports_not_mailed = 0
@@ -230,14 +299,39 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
                 report_date_str,
             )
 
+        password = org_passwords.get(cyhy_id)
+        if not password:
+            LOGGER.warning(
+                "No report encryption password found for %s, no report "
+                "will be mailed",
+                cyhy_id,
+            )
+            reports_not_mailed += 1
+            continue
+
         tmp_dir = tempfile.mkdtemp(prefix="pe-mailer-")
         try:
             keys_to_download = [report_key] + ([asm_key] if asm_key else [])
             local_paths = download_report_keys(
                 s3_client, s3_bucket, keys_to_download, tmp_dir
             )
-            pe_report_filename = local_paths[0]
-            pe_asm_filename = local_paths[1] if asm_key else None
+            plaintext_report_path = local_paths[0]
+            plaintext_asm_path = local_paths[1] if asm_key else None
+
+            # Encrypt into a separate subdirectory (the PDF library can't
+            # save back to the file it opened) using each attachment's
+            # original basename, so the filename recipients see is
+            # unchanged from before encryption was added.
+            encrypted_dir = os.path.join(tmp_dir, "encrypted")
+            os.makedirs(encrypted_dir, exist_ok=True)
+            pe_report_filename = _encrypt_report_file(
+                plaintext_report_path, password, encrypted_dir
+            )
+            pe_asm_filename = (
+                _encrypt_report_file(plaintext_asm_path, password, encrypted_dir)
+                if plaintext_asm_path
+                else None
+            )
 
             report_date = datetime.datetime.strptime(
                 report_date_str, "%Y-%m-%d"
@@ -292,9 +386,12 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
 
 def send_reports(orgs_arg, summary_to, test_emails):
     """Send emails."""
-    s3_bucket = os.environ.get("PE_REPORTS_S3_BUCKET")
+    # Matches the Terraform-provisioned env var name (infrastructure/pe_worker.tf,
+    # peReportController.py) -- not pe_reports.data.config.reports_bucket_name()'s
+    # PE_REPORTS_BUCKET_NAME, which nothing in this deployment actually sets.
+    s3_bucket = os.environ.get("REPORTS_BUCKET_NAME")
     if not s3_bucket:
-        LOGGER.critical("PE_REPORTS_S3_BUCKET is not set. Exiting.")
+        LOGGER.critical("REPORTS_BUCKET_NAME is not set. Exiting.")
         sys.exit(1)
 
     if not MAILER_ARN:

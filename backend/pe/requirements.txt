@@ -1,6 +1,7 @@
 -r requirements-reports.txt
 aioping
 boto3
+chevron
 django>=4.2,<5
 dnspython
 dnstwist
