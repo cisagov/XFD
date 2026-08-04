@@ -30,7 +30,6 @@ Options:
 import datetime
 import logging
 import os
-import re
 import shutil
 import sys
 import tempfile
@@ -44,7 +43,7 @@ import docopt
 from pe_mailer._version import __version__
 from pe_mailer.db import connect, get_org_contacts
 from pe_mailer.pe_message import PEMessage
-from pe_mailer.s3_reports import download_report_keys, list_org_report_keys
+from pe_mailer.s3_reports import download_report_keys, select_latest_report_keys
 from pe_mailer.stats_message import StatsMessage
 import pe_reports
 from pe_source.data.db_query_source import get_orgs
@@ -205,13 +204,16 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
             reports_not_mailed += 1
             continue
 
-        # Find the Posture and Exposure report PDFs for this org in S3
-        report_keys = list_org_report_keys(s3_client, s3_bucket, cyhy_id)
+        # Find the most recent, date-matched report + ASM summary for this
+        # org in S3. This selects a single report/summary pair before
+        # downloading anything, rather than downloading every historical PDF
+        # under the org's prefix and picking a report and a summary
+        # independently, which could select mismatched dates.
+        report_key, asm_key, report_date_str = select_latest_report_keys(
+            s3_client, s3_bucket, cyhy_id
+        )
 
-        # At most one Cybex report and CSV should match
-        if len(report_keys) > 2:
-            LOGGER.warning("More than two report PDFs found for %s in S3", cyhy_id)
-        elif not report_keys:
+        if not report_key:
             LOGGER.warning(
                 "No report PDF found at s3://%s/%s/, no report will be mailed",
                 s3_bucket,
@@ -220,45 +222,26 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
             reports_not_mailed += 1
             continue
 
+        if not asm_key:
+            LOGGER.warning(
+                "No ASM summary PDF found for %s dated %s, sending report "
+                "without an ASM summary",
+                cyhy_id,
+                report_date_str,
+            )
+
         tmp_dir = tempfile.mkdtemp(prefix="pe-mailer-")
         try:
+            keys_to_download = [report_key] + ([asm_key] if asm_key else [])
             local_paths = download_report_keys(
-                s3_client, s3_bucket, report_keys, tmp_dir
+                s3_client, s3_bucket, keys_to_download, tmp_dir
             )
+            pe_report_filename = local_paths[0]
+            pe_asm_filename = local_paths[1] if asm_key else None
 
-            # We take the last matching filename since, if there happens to
-            # be more than one, it should be the latest (report_keys is
-            # sorted, so local_paths preserves that order).
-            pe_report_filename = None
-            pe_asm_filename = None
-            for path in local_paths:
-                if "Posture-and-Exposure-ASM-Summary" in path:
-                    pe_asm_filename = path
-                elif "Posture_and_Exposure_Report" in path:
-                    pe_report_filename = path
-                else:
-                    LOGGER.error("Extra PDF file or named incorrectly: %s", path)
-
-            if not pe_report_filename:
-                LOGGER.warning(
-                    "No Posture_and_Exposure_Report PDF found for %s, "
-                    "no report will be mailed",
-                    cyhy_id,
-                )
-                reports_not_mailed += 1
-                continue
-
-            # Extract the report date from the report filename
-            match = re.search(
-                r"-(?P<date>\d{4}-[01]\d-[0-3]\d)",
-                pe_report_filename,
-            )
-            if match:
-                report_date = datetime.datetime.strptime(
-                    match.group("date"), "%Y-%m-%d"
-                ).strftime("%B %d, %Y")
-            else:
-                report_date = "unknown date"
+            report_date = datetime.datetime.strptime(
+                report_date_str, "%Y-%m-%d"
+            ).strftime("%B %d, %Y")
 
             # Construct the Posture and Exposure message to send
             message = PEMessage(
