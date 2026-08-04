@@ -23,6 +23,7 @@ from fastapi.security.api_key import APIKeyHeader
 
 # Import api database models
 from home.models import (
+    CredentialBreaches,
     DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
@@ -33,6 +34,7 @@ from home.models import (
     ShodanAssets,
     ShodanVulns,
     SubDomains,
+    TopCvesShodan,
 )
 from starlette.status import HTTP_403_FORBIDDEN
 
@@ -218,7 +220,16 @@ def sub_domains_single_insert(
     )
     if not sub_domain_results.exists():
         # If it doesn't exist in subdomains table, check if root domain exists
-        findomain_inst = DataSource.objects.get(name="findomain")
+        findomain_inst = (
+            DataSource.objects.filter(name="findomain")
+            .order_by("data_source_uid")
+            .first()
+        )
+        if findomain_inst is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="findomain data source is not configured",
+            )
         root_results = RootDomains.objects.filter(
             organizations_uid=data.pe_org_uid, root_domain=curr_root
         )
@@ -442,6 +453,35 @@ def domain_alerts_insert(
         return f"Error inserting into domain_alerts table: {error}"
 
 
+@api_router.post(
+    "/cred_breaches_by_name",
+    dependencies=[Depends(verify_api_key)],
+    response_model=List[schemas.CredBreachesByNameInsert],
+    tags=["flare"],
+)
+def cred_breaches_by_name(
+    payload: schemas.CredBreachesByNameInput,
+):
+    """List credential breaches and their associated IDs filtered by a list of breach names."""
+    breach_names = [item.breach_name for item in payload.breach_name_list]
+    rows = list(
+        CredentialBreaches.objects.filter(breach_name__in=breach_names).values(
+            "breach_name", "credential_breaches_uid"
+        )
+    )
+
+    for row in rows:
+        row["credential_breaches_uid"] = convert_uuid_to_string(
+            row.get("credential_breaches_uid")
+        )
+        row["breach_name"] = row.get("breach_name")
+        LOGGER.info(
+            f"breach uid: {row.get('credential_breaches_uid')}, breach name: {row.get('breach_name')}"
+        )
+
+    return rows
+
+
 # --- Shodan API endpoints --- #
 
 
@@ -616,3 +656,48 @@ def shodan_vulns_insert(
             continue
     # Return success message
     return str(create_cnt) + " records created in the shodan vulns table"
+
+
+@transaction.atomic
+@api_router.put(
+    "/shodan_top_cves_insert",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Insert Shodan data into the top_cves table."],
+)
+def shodan_top_cves_insert(
+    data: schemas.ShodanTopCvesInsertInput, tokens: dict = Depends(verify_api_key)
+):
+    """Insert Shodan data into the top_cves table using the API endpoint."""
+    # Check for API key
+    LOGGER.info("The api key submitted tokens")
+    del tokens
+
+    # If API key valid, insert intelx data
+    create_cnt = 0
+    for row in data.top_epss_cves_dict:
+        row_dict = row.model_dump()
+        try:
+            collection_date = timezone.make_aware(
+                parse_datetime(row_dict["collection_date"]),
+                dt_timezone.utc,
+            ).date()
+            top_epss_cves_dict = {
+                "cve_id": row_dict.get("cve_id"),
+                "epss_score": row_dict.get("epss_score"),
+                "nvd_base_score": row_dict.get("nvd_base_score"),
+                "collection_date": collection_date,
+                "summary": row_dict.get("summary"),
+                "data_source_uid_id": row_dict.get("data_source_uid"),
+            }
+            obj, created = TopCvesShodan.objects.update_or_create(
+                cve_id=row_dict.get("cve_id"),
+                collection_date=collection_date,
+                defaults=top_epss_cves_dict,
+            )
+            if created:
+                create_cnt += 1
+        except Exception as e:
+            LOGGER.warning(f"Shodan Top CVEs failed to save to PE DB: {e}")
+            continue
+    # Return success message
+    return str(create_cnt) + " records created in the shodan top cves table"

@@ -1,1 +1,1 @@
-"""PE configuration helpers."""
+"""The pe-reports data directory."""

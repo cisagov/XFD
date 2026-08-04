@@ -70,13 +70,18 @@ SCAN_CATALOG = {
     "dnstwist": {"scan": "dnstwist", "count": 142},
     # Default high so unspecified COUNT uses all valid Flare keys (clamped later).
     "flare_events": {"scan": "flare_events", "count": 50},
+    "flare_creds": {"scan": "flare_creds", "count": 50},
     "flare_ident_prune": {"scan": "flare_ident_prune", "count": 1},
+    "flare_ident_refresh": {"scan": "flare_ident_refresh", "count": 1},
     "intelx": {"scan": "intelx", "count": 10},
-    "shodan": {"scan": "shodan", "count": 3},
+    "shodan": {"scan": "shodan", "count": 3, "apiKeys": ""},
+    "shodan_top_cves": {"scan": "shodan_top_cves", "count": 3, "apiKeys": ""},
 }
 
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})
 ORG_EXPAND_SHORTCUTS = frozenset({"all-orgs", "demo-orgs"})
+
+SHODAN_SCANS = {"shodan", "asmSync", "shodan_top_cves"}
 
 
 def is_local_mode(event: Dict[str, Any] | None = None) -> bool:
@@ -223,6 +228,7 @@ def pe_db_connection_params() -> Dict[str, str]:
     }
 
 
+# TODO: Convert to API endpoint in CRASM-4061
 def fetch_orgs_from_db(*, report_on: bool = False, demo: bool = False) -> List[str]:
     """Load cyhy_db_name values from the PE organizations table."""
     # Third-Party Libraries

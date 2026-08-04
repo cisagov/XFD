@@ -16,13 +16,13 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import {
-  DataGrid,
   GridColDef,
   GridFilterItem,
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 
 // Components
+import CustomDataGrid from '../DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 // Context
@@ -457,7 +457,7 @@ export const Logs: FC<LogsProps> = () => {
   return (
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rows={logs.result}
           columns={logCols}
           filterMode="server"

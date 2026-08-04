@@ -4,15 +4,15 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan", "flare_events", "flare_ident_prune".
+    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan", "flare_events", "flare_ident_prune", "flare_ident_refresh", "flare_creds.
 
 Options:
     -h --help                       Show this message.
     -v --version                    Show version information.
     -l --log-level=LEVEL            Log level: debug, info, warning, error, critical.
                                     [default: info]
-    -o --orgs=ORG_LIST  Comma-separated org cyhy_db_name values, DEMO, or all.
-                         [default: all]
+    -o --orgs=ORG_LIST              Comma-separated org cyhy_db_name values, "DEMO", or "all".
+                                    [default: all]
 """
 
 # Standard Python Libraries
@@ -27,9 +27,12 @@ import pe_reports
 from pe_source._version import __version__
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
+from pe_source.flare_creds.flare_creds_script import run_flare_creds
 from pe_source.flare_events import run_flare_events
 from pe_source.flare_ident_prune.flare_ident_prune import run_flare_ident_prune
+from pe_source.flare_ident_refresh.flare_ident_refresh import run_flare_ident_refresh
 from pe_source.shodan.shodan_script import Get_shodan
+from pe_source.shodan.shodan_top_cves import run_top_cves_shodan
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
@@ -50,6 +53,14 @@ def run_pe_script(source, orgs_list):
             )
             sys.exit(1)
         run_flare_events(orgs_list)
+    elif source == "flare_creds":
+        if not os.environ.get("FLARE_API_KEY", "").strip():
+            LOGGER.error(
+                "FLARE_API_KEY is not set. peScanController assigns one validated "
+                "key per flare_creds worker container."
+            )
+            sys.exit(1)
+        run_flare_creds(orgs_list)
     elif source == "flare_ident_prune":
         if not os.environ.get("FLARE_API_KEY", "").strip():
             LOGGER.error(
@@ -58,6 +69,14 @@ def run_pe_script(source, orgs_list):
             )
             sys.exit(1)
         run_flare_ident_prune(orgs_list)
+    elif source == "flare_ident_refresh":
+        if not os.environ.get("FLARE_API_KEY", "").strip():
+            LOGGER.error(
+                "FLARE_API_KEY is not set. peScanController assigns one validated "
+                "key per flare_ident_refresh worker container."
+            )
+            sys.exit(1)
+        run_flare_ident_refresh(orgs_list)
     elif source == "shodan":
         if not os.environ.get("PE_SHODAN_API_KEY", "").strip():
             LOGGER.error(
@@ -67,6 +86,8 @@ def run_pe_script(source, orgs_list):
             sys.exit(1)
         shodan = Get_shodan(orgs_list)
         shodan.run_shodan()
+    elif source == "shodan_top_cves":
+        run_top_cves_shodan()
     else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)

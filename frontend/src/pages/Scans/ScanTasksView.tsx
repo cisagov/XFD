@@ -25,9 +25,10 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 
@@ -505,7 +506,7 @@ export const ScanTasksView: React.FC = () => {
           </Stack>
         ) : (
           <Paper elevation={2} sx={{ width: '100%' }}>
-            <DataGrid
+            <CustomDataGrid
               rows={scansTasksRows}
               rowCount={totalResults}
               columns={scansTasksCols}

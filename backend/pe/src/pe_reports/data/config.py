@@ -47,3 +47,6 @@ def db_password_key() -> str:
 def reports_bucket_name() -> str:
     """Return the S3 bucket name containing generated report PDFs."""
     return _require("PE_REPORTS_BUCKET_NAME")
+
+
+PE_API_REQUEST_TIMEOUT = int(os.environ.get("PE_API_REQUEST_TIMEOUT", "60"))

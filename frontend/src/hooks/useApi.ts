@@ -119,18 +119,81 @@ export const useApi = (onError?: OnError) => {
           // const result = await method('crossfeed', path, options);
           const response = await method({ apiName: 'crossfeed', path, options })
             .response;
-          const result = await response.body.json();
+
+          const statusCode = response.statusCode ?? (response as any).status;
+
+          let result: any;
+          try {
+            result = await response.body.json();
+          } catch {
+            result = undefined;
+          }
+
+          const tokenDetail =
+            typeof result?.detail === 'string'
+              ? result.detail.toLowerCase()
+              : '';
+
+          if (
+            typeof statusCode === 'number' &&
+            statusCode === 401 &&
+            (tokenDetail.includes('jwt') ||
+              (tokenDetail.includes('token') &&
+                tokenDetail.includes('expired')))
+          ) {
+            localStorage.removeItem('token');
+
+            const error = new Error(
+              result?.detail || `Request failed with status code ${statusCode}`
+            );
+
+            throw Object.assign(error, {
+              statusCode: statusCode || 401,
+              body: result,
+              response: {
+                status: statusCode || 401,
+                headers: response.headers
+              }
+            });
+          }
+
           showLoading && setRequestCount((cnt) => cnt - 1);
           return result as T;
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          if (!isLocal) {
-            // Detection of blocks before API Gateway
-            try {
-              const status =
-                e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
+          // 1. Extract status code from various Amplify v6 error formats
+          const status =
+            e?.response?.statusCode ??
+            e?.response?.status ??
+            e?.status ??
+            e?.statusCode ??
+            undefined;
 
+          // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
+
+          // 2. Detect if this is an expired token:
+          //    - Explicit 401 status
+          //    - Error message referencing "jwt", "token", and "expired"
+          const isTokenExpired =
+            status === 401 &&
+            (e?.message?.toLowerCase().includes('token') ||
+              e?.message?.toLowerCase().includes('jwt')) &&
+            e?.message?.toLowerCase().includes('expired');
+
+          if (isTokenExpired) {
+            // Clean local storage immediately
+            localStorage.removeItem('token');
+
+            // Standardize error shape so AuthContextProvider.handleError receives status 401
+            e.statusCode = status || 401;
+            if (!e.response) {
+              e.response = { status: e.statusCode };
+            }
+          }
+
+          if (!isLocal) {
+            try {
               const headersRaw =
                 e?.response?.headers ??
                 e?.headers ??
