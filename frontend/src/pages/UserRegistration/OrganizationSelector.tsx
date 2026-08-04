@@ -12,10 +12,9 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
 // DataGrid Components
-import { GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
+import { DataGrid, GridRowSelectionModel, GridToolbar } from '@mui/x-data-grid';
 
 // Components
-import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { ElevationControl } from '../Users/ElevationControl';
 import { organizationCols as orgCols } from './UserRegistrationColumns';
 
@@ -229,7 +228,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         </Grid>
       </Grid>
       <Paper sx={{ height: 400, margin: 'auto' }}>
-        <CustomDataGrid
+        <DataGrid
           checkboxSelection
           onRowSelectionModelChange={onRowSelectionModelChange}
           rowSelectionModel={localSelectedOrg}
@@ -241,6 +240,9 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
               showQuickFilter: false,
               csvOptions: { disableToolbarButton: true },
               printOptions: { disableToolbarButton: true }
+            },
+            basePopper: {
+              placement: 'bottom-start'
             }
           }}
           sx={{
