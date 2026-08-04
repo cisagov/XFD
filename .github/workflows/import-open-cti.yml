@@ -13,8 +13,18 @@
 # real resource -- which corrupted the plan (spurious destroy/recreate churn). The
 # steps below correct that: drop the bad import, then rename the existing
 # `aws_instance.pe` state entry to `aws_instance.open_cti` (a state-only operation,
-# no AWS API calls against the real instance). `aws_instance.pe`'s resource block
-# must already be removed from infrastructure/pe_worker.tf before this runs.
+# no AWS API calls against the real instance). This addressing ([0], via `count`)
+# matches PR #1530's `aws_instance.open_cti` definition.
+#
+# Preconditions -- enforced by the pre-flight step below, noted here for a human
+# reader too:
+#   - infrastructure/pe_worker.tf's old `aws_instance.pe` block must already be
+#     removed, and infrastructure/open_cti.tf's `aws_instance.open_cti` (with
+#     `count`) must already be present, on whatever ref this is dispatched against.
+#   - `aws_instance.pe[0]` and `aws_instance.open_cti[0]` must both currently exist
+#     in remote state (the former from history, the latter from the earlier bad
+#     import).
+#
 # Delete this file once the corrected plan step below shows no destructive diff.
 name: Import OpenCTI EC2 into Terraform State
 
@@ -48,18 +58,135 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
 
-      - name: Terraform state surgery (undo bad import, adopt pe as open_cti)
+      # Fail before mutating anything if the checked-out ref or the remote state
+      # don't match what the state surgery below assumes.
+      - name: Pre-flight checks (config + state preconditions)
         run: |
-          terraform state rm 'aws_instance.open_cti[0]'
-          terraform state mv 'aws_instance.pe[0]' 'aws_instance.open_cti[0]'
+          set -euo pipefail
+
+          if grep -qE '^resource\s+"aws_instance"\s+"pe"' pe_worker.tf 2>/dev/null; then
+            echo "::error::aws_instance.pe is still declared in pe_worker.tf."
+            echo "::error::Remove it before running this workflow."
+            exit 1
+          fi
+
+          if ! grep -qE '^resource\s+"aws_instance"\s+"open_cti"' \
+            open_cti.tf 2>/dev/null; then
+            echo "::error::aws_instance.open_cti is not declared in open_cti.tf."
+            echo "::error::Nothing to adopt into."
+            exit 1
+          fi
+
+          if ! terraform state list | grep -qxF 'aws_instance.pe[0]'; then
+            echo "::error::aws_instance.pe[0] not found in remote state."
+            echo "::error::Nothing to rename -- aborting before any mutation."
+            exit 1
+          fi
+
+          if ! terraform state list | grep -qxF 'aws_instance.open_cti[0]'; then
+            echo "::error::aws_instance.open_cti[0] not found in remote state."
+            echo "::error::Expected the earlier bad import to be present."
+            echo "::error::Aborting before any mutation."
+            exit 1
+          fi
+
+          echo "Pre-flight checks passed."
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
 
-      - name: Terraform plan (verify no destructive diff)
-        run: terraform plan -var-file=stage-cd.tfvars
+      # Local-only snapshot so a partial failure below can be undone within this
+      # same job. Deliberately not uploaded as an artifact -- state can contain
+      # secrets, and this runner is torn down at the end of the job regardless.
+      - name: Back up state before mutating
+        run: terraform state pull > pre-surgery-backup.tfstate
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
+
+      - name: Terraform state surgery (undo bad import, adopt pe as open_cti)
+        id: surgery
+        run: |
+          set -euo pipefail
+
+          terraform state rm 'aws_instance.open_cti[0]'
+          if terraform state list | grep -qxF 'aws_instance.open_cti[0]'; then
+            echo "::error::aws_instance.open_cti[0] still present after rm."
+            echo "::error::Aborting before rename."
+            exit 1
+          fi
+
+          terraform state mv 'aws_instance.pe[0]' 'aws_instance.open_cti[0]'
+          if terraform state list | grep -qxF 'aws_instance.pe[0]'; then
+            echo "::error::aws_instance.pe[0] still present after state mv."
+            exit 1
+          fi
+          if ! terraform state list | grep -qxF 'aws_instance.open_cti[0]'; then
+            echo "::error::aws_instance.open_cti[0] missing after state mv."
+            exit 1
+          fi
+
+          echo "State surgery complete: pe[0] -> open_cti[0]"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
+
+      # If either mutation above failed partway, the real instance could be left
+      # with no state address at all (rm succeeded, mv didn't). Restore the
+      # pre-surgery snapshot immediately, in the same job, rather than leaving that
+      # for a human to notice and fix by hand later.
+      - name: Roll back state if surgery failed
+        if: failure() && steps.surgery.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          echo "::error::State surgery failed partway through."
+          echo "::error::Restoring pre-surgery snapshot."
+          terraform state push -force pre-surgery-backup.tfstate
+          echo "::error::State restored to its pre-surgery snapshot."
+          echo "::error::aws_instance.pe[0] is intact; aws_instance.open_cti[0]"
+          echo "::error::is back to how it was before this run. Investigate the"
+          echo "::error::surgery step's log before retrying this workflow."
+          exit 1
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
+
+      # Fails closed if aws_instance.open_cti[0] itself would be destroyed or
+      # replaced -- the actual guarantee this workflow needs to make. Scoped to
+      # that one resource rather than the whole plan: this same plan is expected
+      # to show unrelated destroys elsewhere (email_sender, elk_stack, the old pe
+      # IAM role/profile) as part of retiring those alongside this rename, and a
+      # blanket "no deletes anywhere" check would fail on those every time.
+      - name: Terraform plan (fails on destroy/replace of open_cti instance)
+        run: |
+          set -euo pipefail
+          terraform plan -no-color -var-file=stage-cd.tfvars -out=surgery-verify.plan
+          terraform show -no-color surgery-verify.plan
+          terraform show -json surgery-verify.plan > surgery-verify.json
+
+          destructive=$(jq -r '
+            .resource_changes[]?
+            | select(.address == "aws_instance.open_cti[0]")
+            | select(.change.actions | index("delete"))
+            | .address
+          ' surgery-verify.json)
+
+          if [ -n "$destructive" ]; then
+            echo "::error::aws_instance.open_cti[0] shows a destroy/replace action."
+            echo "::error::An attribute in open_cti.tf doesn't match reality."
+            echo "::error::Do not apply. Fix the mismatch and re-run this workflow."
+            exit 1
+          fi
+
+          echo "No destructive change on aws_instance.open_cti[0]."
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
+
+      - if: ${{ always() }}
+        run: rm -f surgery-verify.plan surgery-verify.json pre-surgery-backup.tfstate
