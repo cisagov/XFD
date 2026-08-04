@@ -42,6 +42,13 @@ jobs:
   import:
     runs-on: ubuntu-latest
     environment: staging
+    # Reuses the exact same group name as the `staging` job's concurrency
+    # lock in infrastructure.yml -- concurrency groups are matched repo-wide,
+    # not per-workflow, so this queues (rather than races) against both other
+    # dispatches of this workflow and the regular Infrastructure Pipeline's
+    # staging apply, which would otherwise be free to mutate the same remote
+    # state concurrently with the state rm/mv/push below.
+    concurrency: '1'
     steps:
       - uses: actions/checkout@v3
 
@@ -90,6 +97,42 @@ jobs:
             exit 1
           fi
 
+          # Confirm both addresses are the SAME real instance before renaming
+          # one over the other. If the earlier import pointed at a different
+          # instance ID, rm+mv would silently orphan whichever one isn't kept.
+          state_json=$(terraform state pull)
+
+          pe_id=$(jq -r '
+            .resources[]?
+            | select(.type == "aws_instance" and .name == "pe")
+            | .instances[]?
+            | select(.index_key == 0)
+            | .attributes.id // empty
+          ' <<<"$state_json")
+
+          open_cti_id=$(jq -r '
+            .resources[]?
+            | select(.type == "aws_instance" and .name == "open_cti")
+            | .instances[]?
+            | select(.index_key == 0)
+            | .attributes.id // empty
+          ' <<<"$state_json")
+
+          if [ -z "$pe_id" ] || [ -z "$open_cti_id" ]; then
+            echo "::error::Could not read an instance ID for pe[0] or"
+            echo "::error::open_cti[0] from state -- aborting before mutation."
+            exit 1
+          fi
+
+          if [ "$pe_id" != "$open_cti_id" ]; then
+            echo "::error::aws_instance.pe[0] is $pe_id but"
+            echo "::error::aws_instance.open_cti[0] is $open_cti_id --"
+            echo "::error::these are different real instances. Renaming would"
+            echo "::error::orphan whichever one isn't kept. Aborting."
+            exit 1
+          fi
+
+          echo "Confirmed pe[0] and open_cti[0] both reference $pe_id."
           echo "Pre-flight checks passed."
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
