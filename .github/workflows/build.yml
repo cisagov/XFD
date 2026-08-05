@@ -25,9 +25,6 @@ env:
   PIP_CACHE_DIR: ~/.cache/pip
   PRE_COMMIT_CACHE_DIR: ~/.cache/pre-commit
   RUN_TMATE: ${{ secrets.RUN_TMATE }}
-  TERRAFORM_DOCS_REPO_BRANCH_NAME: cisagov
-  TERRAFORM_DOCS_REPO_DEPTH: 1
-  TERRAFORM_DOCS_REPO_URL: https://github.com/mcdonnnj/terraform-docs.git
 
 jobs:
   diagnostics:
@@ -101,10 +98,10 @@ jobs:
           # this workflow.
           permissions_monitoring_config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       - id: setup-env
-        uses: cisagov/setup-env-github-action@v1
-      - uses: actions/checkout@v6
+        uses: cisagov/setup-env-github-action@v2
+      - uses: actions/checkout@v7
       - id: setup-python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
 <<<<<<< HEAD
           python-version: '3.11'
@@ -114,7 +111,7 @@ jobs:
       # We need the Go version and Go cache location for the actions/cache step,
       # so the Go installation must happen before that.
       - id: setup-go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           # There is no expectation for actual Go code so we disable caching as
           # it relies on the existence of a go.sum file.
@@ -126,9 +123,10 @@ jobs:
         run: echo "dir=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 =======
           go-version: ${{ steps.setup-env.outputs.go-version }}
-      - id: go-cache
-        name: Lookup Go cache directory
+      - id: go-dirs
+        name: Lookup Go directories to cache
         run: |
+<<<<<<< HEAD
           echo "dir=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -149,6 +147,11 @@ jobs:
 >>>>>>> d289ef312b24b454cc0edfbe5788697a933d1bd2
 =======
       - uses: actions/cache@v5
+=======
+          echo "gocache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v6
+>>>>>>> 8bac46a67efbf10942a2aad01d75d8a13f341352
         env:
           BASE_CACHE_KEY: >-
             ${{ github.job }}-${{ runner.os
@@ -159,10 +162,10 @@ jobs:
 >>>>>>> 6ae498b36fa7254aa6967362544a55c30ff3d7ce
         with:
           key: >-
-            ${{ env.BASE_CACHE_KEY }}${{
-            hashFiles('**/requirements-test.txt') }}-${{
-            hashFiles('**/requirements.txt') }}-${{
-            hashFiles('**/.pre-commit-config.yaml') }}
+            ${{ env.BASE_CACHE_KEY }}${{ hashFiles(
+            '**/requirements-test.txt',
+            '**/requirements.txt',
+            '**/.pre-commit-config.yaml') }}
           # Note that the .terraform directory IS NOT included in the
           # cache because if we were caching, then we would need to use
           # the `-upgrade=true` option. This option blindly pulls down the
@@ -172,6 +175,7 @@ jobs:
           path: |
             ${{ env.PIP_CACHE_DIR }}
             ${{ env.PRE_COMMIT_CACHE_DIR }}
+<<<<<<< HEAD
             ${{ steps.go-cache.outputs.dir }}
 <<<<<<< HEAD
           key: "${{ env.BASE_CACHE_KEY }}\
@@ -193,6 +197,10 @@ jobs:
           PACKAGE_VERSION: ${{ steps.setup-env.outputs.terraform-docs-version }}
         run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
 =======
+=======
+            ${{ steps.go-dirs.outputs.gocache }}
+            ${{ steps.go-dirs.outputs.gomodcache }}
+>>>>>>> 8bac46a67efbf10942a2aad01d75d8a13f341352
           restore-keys: |
             ${{ env.BASE_CACHE_KEY }}
       - uses: hashicorp/setup-packer@v3
@@ -221,6 +229,7 @@ jobs:
           PACKAGE_URL: honnef.co/go/tools/cmd/staticcheck
           PACKAGE_VERSION: ${{ steps.setup-env.outputs.staticcheck-version }}
         run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
+<<<<<<< HEAD
       # TODO: https://github.com/cisagov/skeleton-generic/issues/165
       # We are temporarily using a branch of @mcdonnnj's fork of terraform-docs that
       # groups changes from his PRs until they are approved and merged:
@@ -242,6 +251,13 @@ jobs:
           -C /tmp/terraform-docs \
           -o $(go env GOPATH)/bin/terraform-docs
 >>>>>>> e79569c534ec91872ed8fb7733a23b7ca35f8b60
+=======
+      - name: Install terraform-docs
+        env:
+          PACKAGE_URL: github.com/terraform-docs/terraform-docs
+          PACKAGE_VERSION: ${{ steps.setup-env.outputs.terraform-docs-version }}
+        run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
+>>>>>>> 8bac46a67efbf10942a2aad01d75d8a13f341352
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools

@@ -35,15 +35,29 @@ updates:
       interval: weekly
 
   - directory: /
+    # ignore:
+    #   # Managed by cisagov/skeleton-generic
+    #   - dependency-name: pre-commit
+    #   - dependency-name: semver
+    #   - dependency-name: setuptools
     package-ecosystem: pip
     schedule:
       interval: weekly
+    versioning-strategy: increase-if-necessary
 
+<<<<<<< HEAD
   - directory: /
     package-ecosystem: terraform
     schedule:
       interval: weekly
 >>>>>>> f517db7930c879e0b365c3a7795d722894fea581
+=======
+  # Uncomment this section if you have Terraform code in your project.
+  # - directory: /
+  #   package-ecosystem: terraform
+  #   schedule:
+  #     interval: weekly
+>>>>>>> 8bac46a67efbf10942a2aad01d75d8a13f341352
 version: 2
 updates:
   - package-ecosystem: github-actions
