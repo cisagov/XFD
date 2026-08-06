@@ -263,14 +263,12 @@ def software_by_org(
 # --- query_foreign_IPs(), Issue 621 ---
 @report_router.post(
     "/foreign_ips_by_org",
-    dependencies=[
-        Depends(verify_api_key)
-    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    dependencies=[Depends(verify_api_key)],
     response_model=List[schemas.ForeignIpsByOrg],
     tags=["Get all foreign IPs for a specified organization."],
 )
 def foreign_ips_by_org(
-    data: schemas.GenInputOrgUIDSingle, tokens: str = Depends(verify_api_key)
+    data: schemas.GenInputOrgUIDDateRange, tokens: str = Depends(verify_api_key)
 ):
     """Create API endpoint to get all foreign IPs for a specified organization."""
     # Check for API key
@@ -278,7 +276,9 @@ def foreign_ips_by_org(
         # If API key valid, make query
         foreign_ips_by_org_data = list(
             ShodanAssets.objects.filter(
-                organizations_uid=data.org_uid, country_code__isnull=False
+                organizations_uid=data.org_uid,
+                country_code__isnull=False,
+                timestamp__range=(data.start_date, data.end_date),
             )
             .exclude(country_code="US")
             .values()
