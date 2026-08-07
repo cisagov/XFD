@@ -2207,7 +2207,7 @@ CREATE TABLE public.credential_exposures (
 	hash_type text NULL,
 	intelx_system_id text NULL,
 	login_url text NULL,
-	CONSTRAINT credential_exposure_unique_constraint UNIQUE (breach_name, email),
+	CONSTRAINT credential_exposure_unique_constraint UNIQUE (breach_name, email, organizations_uid),
 	CONSTRAINT hibp_exposed_credentials_pkey PRIMARY KEY (credential_exposures_uid),
 	CONSTRAINT credential_exposures_data_source_uid_fkey FOREIGN KEY (data_source_uid) REFERENCES public.data_source(data_source_uid),
 	CONSTRAINT hibp_exposed_credentials_breach_id_fkey FOREIGN KEY (credential_breaches_uid) REFERENCES public.credential_breaches(credential_breaches_uid),
