@@ -1459,7 +1459,9 @@ class Flare:
             "domain": "Typo-Squatting Domain",
             "service": "Exposed Service",
         }
-        alerts_threats["Threat Type"].replace(threat_dict, inplace=True)
+        alerts_threats["Threat Type"] = alerts_threats["Threat Type"].replace(
+            threat_dict
+        )
         return alerts_threats
 
     def dark_web_sites(self):
