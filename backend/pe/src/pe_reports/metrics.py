@@ -926,21 +926,6 @@ class Flare:
         ]
         mentions = mentions.reset_index(drop=True)
         self.mentions = mentions
-        # Aggregate all Flare "alert" events (all alert event types)
-        self.alert_event_types = [
-            "bot",
-            "bucket",
-            "bucket_object",
-            "domain",
-            "service",
-            "stealer_log",
-            "listing",
-        ]
-        alerts = self.all_events.loc[
-            self.all_events["event_type"].isin(self.alert_event_types)
-        ]
-        alerts = alerts.reset_index(drop=True)
-        self.alerts = alerts
         # Aggregate all Flare "executive alert" events (any events involving executive identifiers)
         self.flare_exec_ids = list(self.flare_exec_dict.keys())
         exec_events = self.all_events[
@@ -961,6 +946,29 @@ class Flare:
         ]
         asset_events = asset_events.reset_index(drop=True)
         self.asset_events = asset_events
+        # Aggregate all Flare "alert" events
+        # alert type events + executive alert events + asset alert events
+        self.alert_event_types = [
+            "bot",
+            "bucket",
+            "bucket_object",
+            "domain",
+            "service",
+            "stealer_log",
+            "listing",
+        ]
+        alerts = self.all_events.loc[
+            self.all_events["event_type"].isin(self.alert_event_types)
+        ]
+        alerts = pd.concat([alerts, self.exec_events, self.asset_events], axis=0)
+        dedupe_cols = [
+            item
+            for item in alerts.columns.tolist()
+            if item not in ["related_identifiers", "related_identifiers_txt"]
+        ]
+        alerts.drop_duplicates(subset=dedupe_cols, inplace=True)
+        alerts = alerts.reset_index(drop=True)
+        self.alerts = alerts
         # Assemble top 10 CVEs for this report period (Shodan EPSS)
         self.top_cves = query_shodan_top_cves()
         # Retrieve Flare event type definitions
@@ -1191,17 +1199,7 @@ class Flare:
 
     def dark_web_alerts_total(self):
         """Get the total number of dark web alerts."""
-        all_alerts = pd.concat(
-            [self.alerts, self.exec_events, self.asset_events], axis=0
-        )
-        all_alerts["related_identifiers"] = all_alerts["related_identifiers"].astype(
-            str
-        )
-        all_alerts["related_identifiers_txt"] = all_alerts[
-            "related_identifiers_txt"
-        ].astype(str)
-        all_alerts.drop_duplicates(inplace=True)
-        return len(all_alerts)
+        return len(self.alerts)
 
     def dark_web_mentions_by_date(self):
         """Get the dark web mention counts for each of the past 4 weeks."""
