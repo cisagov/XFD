@@ -536,25 +536,16 @@ def init(
         past_sub_count = asset_dict_past["sub_count"][0]
         past_software_count = asset_dict_past["software_count"][0]
         past_for_ip_count = asset_dict_past["foreign_ips_count"][0]
-    # Special date-sensitive query needed for calculating foreign IPs
-    foreign_ips = query_foreign_IPs(org_uid)
+    # Retrieve foreign IPs for current and previous report periods
+    foreign_ips = query_foreign_IPs(org_uid, start_date, end_date)
     foreign_ips["timestamp"] = pd.to_datetime(foreign_ips["timestamp"])
-    curr_end = datetime.datetime.strptime(datestring, "%Y-%m-%d")
-    curr_start = start_date
     prev_end = previous_end_date
     if prev_end.day == 15:
         prev_start = datetime.datetime(prev_end.year, prev_end.month, 1)
     else:
         prev_start = datetime.datetime(prev_end.year, prev_end.month, 16)
-    curr_foreign_ips = foreign_ips.loc[
-        (foreign_ips["timestamp"] >= curr_start)
-        & (foreign_ips["timestamp"] <= curr_end)
-    ].reset_index(drop=True)
-    past_foreign_ips = foreign_ips.loc[
-        (foreign_ips["timestamp"] >= prev_start)
-        & (foreign_ips["timestamp"] <= prev_end)
-    ].reset_index(drop=True)
-    asset_dict["num_foreign_ips"] = len(curr_foreign_ips)
+    past_foreign_ips = query_foreign_IPs(org_uid, prev_start, prev_end)
+    asset_dict["num_foreign_ips"] = len(foreign_ips)
     past_for_ip_count = len(past_foreign_ips)
     # Create ASM Summary dictionary
     summary_dict = {

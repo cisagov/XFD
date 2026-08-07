@@ -175,11 +175,8 @@ def add_attachment(
     soft_dict = soft_df["product"].to_list()
 
     # Foreign Ips
-    for_ips_df = query_foreign_IPs(org_uid)
+    for_ips_df = query_foreign_IPs(org_uid, start_date, end_date)
     for_ips_df["timestamp"] = pd.to_datetime(for_ips_df["timestamp"])
-    for_ips_df = for_ips_df.loc[
-        (for_ips_df["timestamp"] >= start_date) & (for_ips_df["timestamp"] <= end_date)
-    ].reset_index(drop=True)
     for_ips_df = for_ips_df[
         [
             "organization",
