@@ -1,6 +1,7 @@
 """Report-generation FastAPI routes ported from ATC-Framework CD-add-CODEOWNERS."""
 
 # Standard Python Libraries
+from datetime import datetime, timedelta
 import logging
 from typing import List
 import uuid
@@ -10,6 +11,7 @@ from dataAPI import report_schemas as schemas
 from dataAPI.views import convert_date_to_string, convert_uuid_to_string, verify_api_key
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.utils import timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from home.models import (
     Alerts,
@@ -233,22 +235,30 @@ def cidrs_by_org(
 # --- query_software(), Issue 620 ---
 @report_router.post(
     "/software_by_org",
-    dependencies=[
-        Depends(verify_api_key)
-    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    dependencies=[Depends(verify_api_key)],
     response_model=List[schemas.SoftwareByOrg],
     tags=["Get all distinct software products for a specified organization."],
 )
 def software_by_org(
-    data: schemas.GenInputOrgUIDSingle, tokens: str = Depends(verify_api_key)
+    data: schemas.GenInputOrgUIDDateRange, tokens: str = Depends(verify_api_key)
 ):
     """Create API endpoint to get all distinct software products for a specified organization."""
     # Check for API key
     try:
         # If API key valid, make query
+        start_datetime = datetime.strptime(
+            data.start_date,
+            "%Y-%m-%d",
+        ).replace(tzinfo=timezone.utc)
+        end_datetime = (
+            datetime.strptime(data.end_date, "%Y-%m-%d") + timedelta(days=1)
+        ).replace(tzinfo=timezone.utc)
         software_by_org_data = list(
             ShodanAssets.objects.filter(
-                organizations_uid=data.org_uid, product__isnull=False
+                organizations_uid=data.org_uid,
+                product__isnull=False,
+                timestamp__gte=start_datetime,
+                timestamp__lt=end_datetime,
             )
             .values("product")
             .distinct()
