@@ -232,7 +232,6 @@ def cidrs_by_org(
         ) from None
 
 
-# --- query_software(), Issue 620 ---
 @report_router.post(
     "/software_by_org",
     dependencies=[Depends(verify_api_key)],
@@ -270,7 +269,6 @@ def software_by_org(
         ) from None
 
 
-# --- query_foreign_IPs(), Issue 621 ---
 @report_router.post(
     "/foreign_ips_by_org",
     dependencies=[Depends(verify_api_key)],
@@ -284,11 +282,19 @@ def foreign_ips_by_org(
     # Check for API key
     try:
         # If API key valid, make query
+        start_datetime = datetime.strptime(
+            data.start_date,
+            "%Y-%m-%d",
+        ).replace(tzinfo=timezone.utc)
+        end_datetime = (
+            datetime.strptime(data.end_date, "%Y-%m-%d") + timedelta(days=1)
+        ).replace(tzinfo=timezone.utc)
         foreign_ips_by_org_data = list(
             ShodanAssets.objects.filter(
                 organizations_uid=data.org_uid,
                 country_code__isnull=False,
-                timestamp__range=(data.start_date, data.end_date),
+                timestamp__gte=start_datetime,
+                timestamp__lt=end_datetime,
             )
             .exclude(country_code="US")
             .values()
