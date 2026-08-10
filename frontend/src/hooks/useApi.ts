@@ -91,20 +91,28 @@ export const useApi = (onError?: OnError) => {
   const getToken = () => {
     const token = localStorage.getItem('token');
     try {
-      return token ? JSON.parse(token) : '';
+      return token ? JSON.parse(token) : token || '';
     } catch {
-      return '';
+      return token || '';
     }
   };
 
   const prepareInit = useCallback(async (init: any) => {
     const { headers, ...rest } = init;
+    const token = getToken();
+
     return {
       ...rest,
       headers: {
         ...baseHeaders, // put base first
         ...headers, // allow caller to override (e.g., Accept: text/csv)
-        Authorization: getToken()
+        ...(token
+          ? {
+              Authorization: token.startsWith('Bearer ')
+                ? token
+                : `Bearer ${token}`
+            }
+          : {})
       }
     };
   }, []);
@@ -116,7 +124,6 @@ export const useApi = (onError?: OnError) => {
         try {
           showLoading && setRequestCount((cnt) => cnt + 1);
           const options = await prepareInit(rest);
-          // const result = await method('crossfeed', path, options);
           const response = await method({ apiName: 'crossfeed', path, options })
             .response;
 
@@ -129,29 +136,19 @@ export const useApi = (onError?: OnError) => {
             result = undefined;
           }
 
-          const tokenDetail =
-            typeof result?.detail === 'string'
-              ? result.detail.toLowerCase()
-              : '';
-
-          if (
-            typeof statusCode === 'number' &&
-            statusCode === 401 &&
-            (tokenDetail.includes('jwt') ||
-              (tokenDetail.includes('token') &&
-                tokenDetail.includes('expired')))
-          ) {
-            localStorage.removeItem('token');
-
+          // If status is 401, immediately throw standardized error
+          if (statusCode === 401) {
             const error = new Error(
-              result?.detail || `Request failed with status code ${statusCode}`
+              result?.detail ||
+                result?.message ||
+                `Request failed with status code 401`
             );
 
             throw Object.assign(error, {
-              statusCode: statusCode || 401,
+              statusCode: 401,
               body: result,
               response: {
-                status: statusCode || 401,
+                status: 401,
                 headers: response.headers
               }
             });
@@ -168,27 +165,32 @@ export const useApi = (onError?: OnError) => {
             e?.response?.status ??
             e?.status ??
             e?.statusCode ??
-            undefined;
+            (e?.message?.includes('401') ? 401 : undefined);
+
+          const errorDetail = (
+            e?.message ||
+            e?.body?.detail ||
+            e?.response?.data?.detail ||
+            ''
+          ).toLowerCase();
 
           // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
 
           // 2. Detect if this is an expired token:
           //    - Explicit 401 status
-          //    - Error message referencing "jwt", "token", and "expired"
-          const isTokenExpired =
-            status === 401 &&
-            (e?.message?.toLowerCase().includes('token') ||
-              e?.message?.toLowerCase().includes('jwt')) &&
-            e?.message?.toLowerCase().includes('expired');
+          //    - Error message referencing explicit token expiration or invalidity
+          const isAuthError =
+            status === 401 ||
+            errorDetail.includes('token has expired') ||
+            errorDetail.includes('jwt expired') ||
+            errorDetail.includes('invalid token') ||
+            errorDetail.includes('not authenticated');
 
-          if (isTokenExpired) {
-            // Clean local storage immediately
-            localStorage.removeItem('token');
-
+          if (isAuthError) {
             // Standardize error shape so AuthContextProvider.handleError receives status 401
-            e.statusCode = status || 401;
+            e.statusCode = 401;
             if (!e.response) {
-              e.response = { status: e.statusCode };
+              e.response = { status: 401 };
             }
           }
 
@@ -223,7 +225,10 @@ export const useApi = (onError?: OnError) => {
             }
           }
 
-          onError && onError(e);
+          // Pass standardized error to AuthContextProvider
+          if (onError) {
+            await onError(e);
+          }
           throw e;
         }
       },
