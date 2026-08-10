@@ -81,7 +81,6 @@ def get_orgs():
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
-    return []
 
 
 def get_data_source_uid(source):
