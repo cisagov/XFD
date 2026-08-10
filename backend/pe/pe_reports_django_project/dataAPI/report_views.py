@@ -729,7 +729,6 @@ def rss_insert(data: schemas.RSSInsertInput, tokens: str = Depends(verify_api_ke
         ) from error
 
 
-# --- query_subs(), Issue 633 (paginated) ---
 @report_router.post(
     "/sub_domains_by_org",
     dependencies=[Depends(verify_api_key)],
@@ -743,7 +742,8 @@ def sub_domains_by_org(
     try:
         total_data = list(
             SubDomains.objects.filter(
-                root_domain_uid__organizations_uid=data.org_uid
+                root_domain_uid__organizations_uid=data.org_uid,
+                current=True,
             ).values(
                 "sub_domain_uid",
                 "sub_domain",
