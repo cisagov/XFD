@@ -3,7 +3,7 @@ FROM python:3.12-slim-trixie
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends jq curl unzip \
+  && apt-get install -y --no-install-recommends jq curl unzip fontconfig \
   && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o awscliv2.zip \
@@ -11,8 +11,8 @@ RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -
   && ./aws/install \
   && rm -rf aws awscliv2.zip
 
-# Install Python deps in a layer that only rebuilds when requirements.txt changes.
-COPY requirements.txt ./
+# Install Python deps in a layer that only rebuilds when requirements change.
+COPY requirements.txt requirements-reports.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Package install is cheap (--no-deps); src/worker changes should not reinstall boto3, etc.

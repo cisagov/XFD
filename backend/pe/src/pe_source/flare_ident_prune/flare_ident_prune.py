@@ -134,36 +134,38 @@ def get_all_autoenum_domains(custom_params=None):
     return all_domain_list
 
 
-async def check_ip_reachable(ip, count=1, timeout=3.0):
+async def check_ip_reachable(sem, ip, count=1, timeout=3.0):
     """Check if a single IP is reachable using specified ping count and timeout."""
-    # Attempt to ping IP the specified amount of times
-    for i in range(count):
-        try:
-            # Attempt ping
-            delay = await aioping.ping(ip, timeout=timeout)
-            # If response receieved, return results
-            return {
-                "ip": ip,
-                "detected_reachable": True,
-                "response_delay": delay,
-            }
-        except (TimeoutError, PermissionError) as e:
-            # If ping failed, try again
-            LOGGER.info("Ping %d/%d failed for %s - %s", i + 1, count, ip, e)
-    # If all ping attempts fail, mark as unreachable
-    return {
-        "ip": ip,
-        "detected_reachable": False,
-        "response_delay": None,
-    }
+    async with sem:
+        # Attempt to ping IP the specified amount of times
+        for i in range(count):
+            try:
+                # Attempt ping
+                delay = await aioping.ping(ip, timeout=timeout)
+                # If response receieved, return results
+                return {
+                    "ip": ip,
+                    "detected_reachable": True,
+                    "response_delay": delay,
+                }
+            except (TimeoutError, PermissionError) as e:
+                # If ping failed, try again
+                LOGGER.info("Ping %d/%d failed for %s - %s" % (i + 1, count, ip, e))
+        # If all ping attempts fail, mark as unreachable
+        return {
+            "ip": ip,
+            "detected_reachable": False,
+            "response_delay": None,
+        }
 
 
 async def check_ip_list_reachable(ip_list):
     """Launch multiple tasks to check IPs' reachability."""
     # Create separate tasks for each IP
+    sem = asyncio.Semaphore(150)  # Reduce if there are Too Many Files Open errors
     ping_ct = 5
     timeout = 3
-    tasks = [check_ip_reachable(ip, ping_ct, timeout) for ip in ip_list]
+    tasks = [check_ip_reachable(sem, ip, ping_ct, timeout) for ip in ip_list]
     results = await asyncio.gather(*tasks)
     return results
 

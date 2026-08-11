@@ -1,7 +1,14 @@
 import React from 'react';
+
+// Material-UI Components
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+
+// DataGrid Components
+import { GridColDef } from '@mui/x-data-grid';
+
+// Components
+import CustomDataGrid from '../DataGrid/CustomDataGrid';
 
 interface NotificationTableProps {
   title: string;
@@ -24,7 +31,7 @@ const NotificationTable: React.FC<NotificationTableProps> = ({
     <Typography variant="h6" pb={2} fontWeight="500">
       {title}
     </Typography>
-    <DataGrid
+    <CustomDataGrid
       rows={rows}
       columns={columns}
       getRowHeight={() => 'auto'}

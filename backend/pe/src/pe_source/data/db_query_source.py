@@ -535,3 +535,325 @@ def insert_shodan_vulns(vuln_data, failed):
         LOGGER.error(err)
         failed.append("Failed inserting shodan assets: {}".format(err))
     return failed
+
+
+def get_current_ips_by_org(org_abbrv):
+    """
+    Get all IPs that are marked as current for the specified org.
+
+    Return:
+        All current IPs for org as dataframe
+    """
+    query = """
+    SELECT
+        o.organizations_uid,
+        o.cyhy_db_name,
+        i.ip
+    FROM
+        ips i join
+        organizations o
+        on i.organizations_uid = o.organizations_uid
+    WHERE
+        o.cyhy_db_name = %s AND
+        i.current=True
+    ORDER BY
+        cyhy_db_name
+    """
+    result = None
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_current_ips_by_org: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_current_ips_by_org: Querying current IPs for customer")
+        result = pd.read_sql(query, conn, params=(org_abbrv,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_current_ips_by_org: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+    return result
+
+
+def get_execs_by_org_uid(org_uid):
+    """Get executives for the specified organization_uid."""
+    # Build query
+    sql = """
+    SELECT *
+    FROM executives
+    WHERE organizations_uid = %s
+    """
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_execs_by_org_uid: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_execs_by_org_uid: Querying executives for customer")
+        result = pd.read_sql(sql, conn, params=(org_uid,))
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_execs_by_org_uid: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+
+
+def get_cred_breach_uids(breach_name_list):
+    """
+    Query API to get the uid for the specified crediential breaches.
+
+    Args:
+        breach_name_list: The list of names of the credential breaches
+
+    Return:
+        uid for the specified credential breaches
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "cred_breaches_by_name"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.post(
+            endpoint_url,
+            headers=headers,
+            json={
+                "breach_name_list": [{"breach_name": name} for name in breach_name_list]
+            },
+            timeout=60,
+        ).json()
+
+        # Process data and return
+        for row in result:
+            if row.get("credential_breaches_uid") is not None:
+                row["credential_breaches_uid"] = str(row.get("credential_breaches_uid"))
+            if row.get("breach_name") is not None:
+                row["breach_name"] = str(row.get("breach_name"))
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# TODO: Convert to API endpoint in CRASM-4061
+def insert_flare_breaches(breach_list):
+    """Insert list of flare breaches into the PE DB."""
+    if not breach_list:
+        return
+
+    rows = [
+        (
+            str(uuid.uuid1()),
+            event.get("breach_name"),
+            event.get("description"),
+            event.get("exposed_cred_count"),
+            event.get("breach_date"),
+            event.get("added_date"),
+            event.get("modified_date"),
+            event.get("data_classes"),
+            event.get("password_included"),
+            event.get("is_verified"),
+            event.get("is_fabricated"),
+            event.get("is_sensitive"),
+            event.get("is_retired"),
+            event.get("is_spam_list"),
+            event.get("data_source_uid"),
+        )
+        for event in breach_list
+    ]
+
+    query = """
+        INSERT INTO credential_breaches(
+            credential_breaches_uid, breach_name, description, exposed_cred_count, breach_date, added_date,
+            modified_date, data_classes, password_included, is_verified, is_fabricated, is_sensitive,
+            is_retired, is_spam_list, data_source_uid)
+        VALUES %s
+        ON CONFLICT (breach_name)
+        DO UPDATE SET
+            password_included = EXCLUDED.password_included;
+    """
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_breaches: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception(
+            "insert_flare_breaches: upsert failed for %d row(s)", len(rows)
+        )
+        LOGGER.error("get_all_shodan_cves: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+
+# TODO: Convert to API endpoint in CRASM-4061
+def get_all_shodan_cves(start_date, end_date):
+    """Get list of shodan vulnerabilities for current report period."""
+    if not start_date or not end_date:
+        return
+
+    query = """
+        SELECT DISTINCT cve
+        FROM
+            (
+                SELECT
+                    o.organizations_uid,
+                    o.cyhy_db_name,
+                    sv.timestamp,
+                    sv.type,
+                    UNNEST(sv.potential_vulns) as cve
+                FROM
+                    shodan_vulns sv JOIN
+                    organizations o ON
+                    sv.organizations_uid = o.organizations_uid
+                WHERE
+                    o.report_on = True AND
+                    sv.timestamp BETWEEN %(start_date)s AND %(end_date)s AND
+                    sv.type != 'Insecure Protocol'
+            ) q1
+        ORDER BY
+            cve DESC
+    """
+    conn = connect()
+    cursor = None
+    shodan_cves_result = pd.DataFrame()
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("get_all_shodan_cves: querying shodan_vulns")
+        shodan_cves_result = cursor.execute(
+            query, {"start_date": start_date, "end_date": end_date}
+        )
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+
+        shodan_cves_result = pd.DataFrame(rows, columns=columns)
+        return shodan_cves_result
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_all_shodan_cves: could not get shodan_vulns")
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
+
+
+# TODO: Convert to API endpoint in CRASM-4061
+def insert_flare_credentials(cred_list):
+    """Insert list of flare credentials into the PE DB."""
+    if not cred_list:
+        return
+
+    rows = [
+        (
+            str(uuid.uuid1()),
+            event.get("email"),
+            event.get("organizations_uid"),
+            event.get("root_domain"),
+            event.get("sub_domain"),
+            event.get("breach_name"),
+            event.get("modified_date"),
+            event.get("credential_breaches_uid"),
+            event.get("data_source_uid"),
+            event.get("name"),
+            event.get("login_id"),
+            event.get("phone"),
+            event.get("password"),
+            event.get("hash_type"),
+            event.get("intelx_system_id"),
+        )
+        for event in cred_list
+    ]
+
+    query = """
+        INSERT INTO credential_exposures(
+            credential_exposures_uid, email, organizations_uid, root_domain, sub_domain, breach_name,
+            modified_date, credential_breaches_uid, data_source_uid, name, login_id, phone, password, hash_type, intelx_system_id)
+        VALUES %s
+        ON CONFLICT (email, breach_name)
+        DO UPDATE SET
+            modified_date = EXCLUDED.modified_date;
+    """
+
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_credentials: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_credentials: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception(
+            "insert_flare_credentials: upsert failed for %d row(s)", len(rows)
+        )
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
+
+
+def insert_shodan_top_cves(top_epss_cves_dict, failed):
+    """
+    Query API to insert Shodan Top CVEs data into the top_cves table.
+
+    Args:
+        data: Dataframe of the cves data to be inserted into top_cves.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_top_cves_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"top_epss_cves_dict": top_epss_cves_dict})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed

@@ -98,6 +98,7 @@ class OrganizationsFullTable(BaseModel):
     state_name: Optional[str] = None
     country: Optional[str] = None
     country_name: Optional[str] = None
+    exec_url: Optional[str] = None
 
 
 class DNSMonitorDomainMapTable(BaseModel):
@@ -148,6 +149,19 @@ class DomainAlertsInsertInput(BaseModel):
     """Request body for domain_alerts_insert."""
 
     insert_data: List[DomainAlertsInsert]
+
+
+class CredBreachesByNameInsert(BaseModel):
+    """Individual row model."""
+
+    breach_name: str
+    credential_breaches_uid: Optional[str] = None
+
+
+class CredBreachesByNameInput(BaseModel):
+    """Request body model."""
+
+    breach_name_list: List[CredBreachesByNameInsert]
 
 
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
@@ -238,3 +252,26 @@ class ShodanVulnsInsertInput(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     vuln_data: List[ShodanVulnsInsert]
+
+
+# Insert bulk Shodan data into top_cves table
+class ShodanTopCvesInsert(BaseModel):
+    """ShodanTopCvesInsert schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    cve_id: Optional[str] = None
+    epss_score: Optional[str] = None
+    nvd_base_score: Optional[str] = None
+    collection_date: Optional[str] = None
+    summary: Optional[str] = None
+    data_source_uid: Optional[str] = None
+
+
+# Insert bulk Shodan data into top_cves table, input
+class ShodanTopCvesInsertInput(BaseModel):
+    """ShodanTopCvesInsertInput schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    top_epss_cves_dict: List[ShodanTopCvesInsert]

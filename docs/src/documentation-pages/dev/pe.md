@@ -69,6 +69,10 @@ This runs `manage.py pesyncdb --populate`, which:
 
 After changing models or to pick up newly added tables: `make -C backend/pe syncdb`
 
+A full production schema dump is archived for reference (not applied locally) at
+`backend/pe/schema/data_schema.sql`. Local report views live in
+`pe_reports_django_project/home/tasks/sql/local_report_views.sql`.
+
 To rebuild from scratch: `make -C backend/pe syncdb-dangerously-force` then `syncdb-populate`
 
 ### 4. Run a scan
@@ -113,6 +117,40 @@ Workers drain their scan queue and **exit when it is empty** (same pattern as Cr
 Queue only (no worker start): `make -C backend/pe queue SCANS=dnstwist ORGS=DHS`
 
 Other targets: `make -C backend/pe help` (`logs`, `test`, etc.)
+
+### 5. Generate P&E reports (PDF → S3)
+
+Report generation uses the **`pe-reports`** CLI under `backend/pe/src/pe_reports/` (core ATC report code only: generators, metrics, `db_query`, assets). **`peReportController`** Lambda starts a Fargate task (or a local `pe-worker` container) that runs `worker/pe-report-start.sh`.
+
+| Parameter        | Make (local)             | Lambda / `run_reports.sh`                             |
+| ---------------- | ------------------------ | ----------------------------------------------------- |
+| Report date      | `REPORT_DATE=2026-07-15` | `reportDate`                                          |
+| Orgs             | `ORGS=all`               | `orgs` (`all`, `demo`, `DHS,DHS_CISA`, `all-orgs`, …) |
+| Output directory | `OUTPUT_DIR=~/reports`   | —                                                     |
+| Parallel tasks   | `COUNT=2`                | `taskCount`                                           |
+| Social media     | `SOC_MED=true`           | `socMedIncluded: true`                                |
+
+Local (same stack as scans — `start` + `build` + `syncdb-populate`; each report container starts its own PE API):
+
+```bash
+make -C backend/pe start build
+make -C backend/pe syncdb-populate   # once; creates report views + sample orgs
+make -C backend/pe run-reports REPORT_DATE=2026-07-15 ORGS=DHS OUTPUT_DIR=~/reports
+```
+
+PDFs are generated inside the container at `/tmp/pe-reports`. With `OUTPUT_DIR` set, Make waits for the job to finish and copies them to that path. Without `OUTPUT_DIR`, the container runs detached and you can copy manually:
+
+```bash
+docker cp pe_report_<id>:/tmp/pe-reports/. ./my-reports/
+```
+
+Deployed Lambda (staging-cd / integration):
+
+```bash
+REPORT_DATE=2026-07-15 ORGS=all backend/pe/tools/run_reports.sh
+```
+
+In AWS, PDFs and raw Excel backups upload to the P&E reports bucket (`REPORTS_BUCKET_NAME` — e.g. `cisa-crossfeed-staging-reports`).
 
 ---
 

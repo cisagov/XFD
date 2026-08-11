@@ -37,3 +37,6 @@ def staging_config(filename=None, section="pe_api"):
             "pe_api_key": os.environ.get("PE_API_KEY", ""),
         }
     return {}
+
+
+PE_API_REQUEST_TIMEOUT = int(os.environ.get("PE_API_REQUEST_TIMEOUT", "60"))

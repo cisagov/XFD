@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { useAuthContext } from 'context';
-import { Organization as OrganizationType, Role } from 'types';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -9,12 +8,30 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import RemoveCircleOutline from '@mui/icons-material/RemoveCircleOutline';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+
+// DataGrid Components
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Components
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Hooks
 import { useUserLevel, STANDARD_USER, GLOBAL_VIEW } from 'hooks/useUserLevel';
+
+// Types
+import { Organization as OrganizationType, Role } from 'types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 type OrgMemberProps = {
   organization: OrganizationType;
@@ -139,7 +156,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   return (
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rows={flatUserRoles}
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}

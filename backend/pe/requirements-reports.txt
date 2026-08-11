@@ -1,0 +1,10 @@
+demoji
+# P&E report generation (pe-reports CLI in Fargate / local pe-worker).
+matplotlib
+numpy
+openpyxl
+PyMuPDF
+pypdf>=3.9.0
+reportlab
+sshtunnel
+xlsxwriter
