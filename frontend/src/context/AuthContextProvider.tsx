@@ -191,6 +191,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     } else if (!authUser) {
       getProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]); // Clean dependencies prevent infinite re-fetches
 
   const extendedOrg = useMemo(
