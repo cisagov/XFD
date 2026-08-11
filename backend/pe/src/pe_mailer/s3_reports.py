@@ -8,6 +8,15 @@ org's cyhy_db_name, e.g.:
 
     s3://<BUCKET>/<cyhy_db_name>/Posture_and_Exposure_Report-2026-07-30.pdf
     s3://<BUCKET>/<cyhy_db_name>/Posture-and-Exposure-ASM-Summary-2026-07-30.pdf
+
+Password-encrypted copies (built in-process from those plaintext PDFs, see
+pe_mailer.email_reports) are uploaded back under a separate top-level
+ENCRYPTED_PREFIX, deliberately outside the "<cyhy_db_name>/" prefix that
+select_latest_report_keys() scans -- keeping them under the org prefix
+would let a later run's date/basename matching pick an already-encrypted
+PDF back up as though it were that cycle's plaintext source:
+
+    s3://<BUCKET>/encrypted-reports/<cyhy_db_name>/Posture_and_Exposure_Report-2026-07-30.pdf
 """
 
 # Standard Python Libraries
@@ -28,6 +37,10 @@ ASM_SUMMARY_FILENAME_RE = re.compile(
     r"^Posture-and-Exposure-ASM-Summary-(?P<date>\d{4}-[01]\d-[0-3]\d)\.pdf$",
     re.IGNORECASE,
 )
+
+# Top-level prefix for password-encrypted report/ASM-summary copies -- see the
+# module docstring for why this must not sit under the "<cyhy_db_name>/" prefix.
+ENCRYPTED_PREFIX = "encrypted-reports"
 
 
 def select_latest_report_keys(s3_client, bucket, cyhy_db_name):
@@ -125,3 +138,38 @@ def download_report_keys(s3_client, bucket, keys, dest_dir):
         local_paths.append(local_path)
 
     return local_paths
+
+
+def upload_encrypted_reports(s3_client, bucket, cyhy_db_name, local_paths):
+    """Upload password-encrypted PDFs to S3 under ENCRYPTED_PREFIX/<cyhy_db_name>/.
+
+    Parameters
+    ----------
+    s3_client : boto3.client
+        A boto3 S3 client.
+
+    bucket : str
+        The S3 bucket to upload the encrypted PDFs to.
+
+    cyhy_db_name : str
+        The organization's cyhy_db_name, used as the destination sub-prefix.
+
+    local_paths : list(str)
+        Local filesystem paths to the already-encrypted PDFs (as written by
+        pe_reports.helpers.pdf_encrypt.encrypt), keeping their basenames on
+        upload.
+
+    Returns
+    -------
+    list(str): The S3 keys uploaded to, in the same order as local_paths.
+
+    """
+    uploaded_keys = []
+    for local_path in local_paths:
+        filename = os.path.basename(local_path)
+        key = f"{ENCRYPTED_PREFIX}/{cyhy_db_name}/{filename}"
+        s3_client.upload_file(local_path, bucket, key)
+        LOGGER.debug("Uploaded %s to s3://%s/%s", local_path, bucket, key)
+        uploaded_keys.append(key)
+
+    return uploaded_keys

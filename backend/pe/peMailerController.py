@@ -145,6 +145,24 @@ def start_local_docker_mailer_task(
     if test_emails:
         environment["MAILER_TEST_EMAILS"] = test_emails
 
+    # Unlike peScanController/peReportController's local containers -- which only
+    # ever talk to the elasticmq SQS mock, or skip S3 entirely in local mode --
+    # pe-mailer's S3 report download, MAILER_ARN assume-role, and SES send are not
+    # skippable, so this container needs real AWS credentials. Forward whatever the
+    # invoking process has (e.g. exported via `aws configure export-credentials` or
+    # an SSO session) rather than fabricating placeholder ones.
+    for aws_var in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_DEFAULT_REGION",
+        "AWS_REGION",
+        "AWS_PROFILE",
+    ):
+        value = os.getenv(aws_var)
+        if value:
+            environment[aws_var] = value
+
     run_kwargs: Dict[str, Any] = {
         "image": "pe-worker",
         "name": container_name,

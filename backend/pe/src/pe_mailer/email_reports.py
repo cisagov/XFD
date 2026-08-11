@@ -47,7 +47,11 @@ import docopt
 from pe_mailer._version import __version__
 from pe_mailer.db import connect, get_org_contacts
 from pe_mailer.pe_message import PEMessage
-from pe_mailer.s3_reports import download_report_keys, select_latest_report_keys
+from pe_mailer.s3_reports import (
+    download_report_keys,
+    select_latest_report_keys,
+    upload_encrypted_reports,
+)
 from pe_mailer.stats_message import StatsMessage
 import pe_reports
 from pe_reports.data.config import db_password_key
@@ -332,6 +336,27 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
                 if plaintext_asm_path
                 else None
             )
+
+            # Persist the encrypted PDFs to S3 (encrypted-reports/<cyhy_id>/,
+            # separate from the plaintext originals -- see s3_reports.py) so an
+            # already-encrypted copy is retrievable without redoing the
+            # encryption step. Best-effort: a failed upload shouldn't stop the
+            # report from being emailed.
+            try:
+                upload_encrypted_reports(
+                    s3_client,
+                    s3_bucket,
+                    cyhy_id,
+                    [pe_report_filename]
+                    + ([pe_asm_filename] if pe_asm_filename else []),
+                )
+            except ClientError:
+                LOGGER.error(
+                    "Unable to upload encrypted report(s) to S3 for %s",
+                    cyhy_id,
+                    exc_info=True,
+                    stack_info=True,
+                )
 
             report_date = datetime.datetime.strptime(
                 report_date_str, "%Y-%m-%d"

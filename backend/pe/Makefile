@@ -13,8 +13,15 @@ PE_STACK_SERVICES := db elasticmq backend
 # Queue local scans via peScanController (backend container must be running).
 PE_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app:/app/pe/src backend python /app/pe/tools/queue_local_scans.py
 PE_REPORT_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app backend python /app/pe/tools/queue_local_reports.py
+# -e VAR (no value) forwards VAR from the invoking shell if set, e.g. after
+# `aws sso login` / `eval $(aws configure export-credentials --format env)` --
+# pe-mailer needs real AWS creds to hit S3/STS/SES (see peMailerController.py).
+PE_MAILER_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app \
+	-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
+	-e AWS_DEFAULT_REGION -e AWS_REGION -e AWS_PROFILE \
+	backend python /app/pe/tools/queue_local_mailer.py
 
-.PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status run-reports
+.PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status run-reports run-mailer
 
 REPORT_CONTAINER_PATH ?= /tmp/pe-reports
 PE_MANAGE = $(COMPOSE) exec -T -w /app/pe/pe_reports_django_project \
@@ -40,6 +47,7 @@ help:
 	@echo "  watch-queues     Poll AWS queues until empty (SCANS= INTERVAL=)"
 	@echo "  queue-status     One-shot queue depth (SCANS=)"
 	@echo "  run-reports      Start report container; OUTPUT_DIR= copies PDFs when done"
+	@echo "  run-mailer       Start pe-mailer container (TEST_EMAILS= to avoid mailing real orgs)"
 	@echo ""
 	@echo "ORGS is comma-separated (e.g. ORGS=DHS,DHS_CISA). Shortcuts must be used alone:"
 	@echo "  all / DEMO       batch: 1 queue message -> one worker scans all orgs in one job"
@@ -120,3 +128,16 @@ run-reports:
 		COUNT="$(COUNT)" SOC_MED="$(or $(SOC_MED),false)" \
 		REPORT_CONTAINER_PATH="$(REPORT_CONTAINER_PATH)" \
 		"$(PE_DIR)/tools/run_local_reports.sh"
+
+# Invoke peMailerController locally (self-contained pe-worker container, like run-reports).
+# Reads report PDFs from S3 (REPORTS_BUCKET_NAME) -- reports generated via `make run-reports`
+# are NOT uploaded there (local report runs skip the S3 backup upload), so REPORTS_BUCKET_NAME
+# must point at a bucket that already has PDFs for ORGS, and the backend container's env needs
+# real MAILER_ARN/PE_DB_PASSWORD_KEY/AWS credentials (see backend/pe/peMailerController.py docstring).
+# Always set TEST_EMAILS unless you actually want to email real org contacts.
+#   make -C backend/pe run-mailer ORGS=DHS TEST_EMAILS=you@example.com
+#   make -C backend/pe run-mailer ORGS=all TEST_EMAILS=you@example.com SUMMARY_TO=you@example.com
+run-mailer:
+	@test -n "$(TEST_EMAILS)" -o "$(FORCE)" = "true" || \
+		(echo "TEST_EMAILS is required to avoid mailing real org contacts (or set FORCE=true)" && exit 1)
+	$(PE_MAILER_QUEUE) --orgs=$(or $(ORGS),all) --test-emails="$(TEST_EMAILS)" --summary-to="$(SUMMARY_TO)"
