@@ -10,12 +10,21 @@ all happen in this one process/task -- with no shared filesystem between
 separate Fargate task invocations, a plaintext PDF written by an earlier,
 separate encryption step would never be visible to a later mailing step.
 
+REPORT_DATE is required, the same way pe-reports takes it as a positional
+argument (see pe_reports.report_generator) -- reports are stored under a
+per-date S3 prefix rather than a per-org one, so there is no per-org prefix
+left to scan for a "latest" date the way earlier revisions of this module
+did.
+
 Usage:
-    pe-mailer [--orgs=ORG_LIST] [--summary-to=EMAILS] [--test-emails=EMAILS] [--log-level=LEVEL]
+    pe-mailer REPORT_DATE [--orgs=ORG_LIST] [--summary-to=EMAILS] [--test-emails=EMAILS] [--log-level=LEVEL]
 
 Options:
   -h --help                         Show this message.
   -v --version                      Show version information.
+  REPORT_DATE                       Date of the report to mail, format
+                                    YYYY-MM-DD. Must match the date prefix
+                                    pe-reports uploaded the PDFs under.
   -o --orgs=ORG_LIST                Comma-separated org cyhy_db_name values,
                                     or "all". [default: all]
   -s --summary-to=EMAILS            A comma-separated list of email addresses
@@ -48,8 +57,10 @@ from pe_mailer._version import __version__
 from pe_mailer.db import connect, get_org_contacts
 from pe_mailer.pe_message import PEMessage
 from pe_mailer.s3_reports import (
+    asm_summary_object_key,
     download_report_keys,
-    select_latest_report_keys,
+    object_exists,
+    report_object_key,
     upload_encrypted_reports,
 )
 from pe_mailer.stats_message import StatsMessage
@@ -214,7 +225,7 @@ def _encrypt_report_file(path, password, encrypted_dir):
     return encrypted_path
 
 
-def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
+def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
     """Send out Posture and Exposure reports for the given orgs.
 
     Parameters
@@ -227,6 +238,10 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
 
     s3_bucket : str
         The S3 bucket containing generated report PDFs.
+
+    report_date : str
+        The report date ("YYYY-MM-DD") pe-reports uploaded PDFs under --
+        the S3 date prefix to read from for every org.
 
     orgs : list(dict)
         The organizations (as returned by resolve_orgs()) to mail
@@ -277,31 +292,30 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
             reports_not_mailed += 1
             continue
 
-        # Find the most recent, date-matched report + ASM summary for this
-        # org in S3. This selects a single report/summary pair before
-        # downloading anything, rather than downloading every historical PDF
-        # under the org's prefix and picking a report and a summary
-        # independently, which could select mismatched dates.
-        report_key, asm_key, report_date_str = select_latest_report_keys(
-            s3_client, s3_bucket, cyhy_id
-        )
+        # Reports live under a per-date S3 prefix (matching
+        # pe_reports.report_generator.upload_file_to_s3), so the key is
+        # built directly from report_date rather than discovered by
+        # scanning -- see pe_mailer.s3_reports for the convention.
+        report_key = report_object_key(report_date, cyhy_id)
+        asm_key = asm_summary_object_key(report_date, cyhy_id)
 
-        if not report_key:
+        if not object_exists(s3_client, s3_bucket, report_key):
             LOGGER.warning(
-                "No report PDF found at s3://%s/%s/, no report will be mailed",
+                "No report PDF found at s3://%s/%s, no report will be mailed",
                 s3_bucket,
-                cyhy_id,
+                report_key,
             )
             reports_not_mailed += 1
             continue
 
-        if not asm_key:
+        if not object_exists(s3_client, s3_bucket, asm_key):
             LOGGER.warning(
                 "No ASM summary PDF found for %s dated %s, sending report "
                 "without an ASM summary",
                 cyhy_id,
-                report_date_str,
+                report_date,
             )
+            asm_key = None
 
         password = org_passwords.get(cyhy_id)
         if not password:
@@ -337,16 +351,16 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
                 else None
             )
 
-            # Persist the encrypted PDFs to S3 (encrypted-reports/<cyhy_id>/,
-            # separate from the plaintext originals -- see s3_reports.py) so an
-            # already-encrypted copy is retrievable without redoing the
-            # encryption step. Best-effort: a failed upload shouldn't stop the
-            # report from being emailed.
+            # Persist the encrypted PDFs to S3 (<report_date>/encrypted-reports/,
+            # alongside the plaintext originals for that same date -- see
+            # s3_reports.py) so an already-encrypted copy is retrievable
+            # without redoing the encryption step. Best-effort: a failed
+            # upload shouldn't stop the report from being emailed.
             try:
                 upload_encrypted_reports(
                     s3_client,
                     s3_bucket,
-                    cyhy_id,
+                    report_date,
                     [pe_report_filename]
                     + ([pe_asm_filename] if pe_asm_filename else []),
                 )
@@ -358,17 +372,21 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
                     stack_info=True,
                 )
 
-            report_date = datetime.datetime.strptime(
-                report_date_str, "%Y-%m-%d"
+            human_report_date = datetime.datetime.strptime(
+                report_date, "%Y-%m-%d"
             ).strftime("%B %d, %Y")
 
             # Construct the Posture and Exposure message to send
             message = PEMessage(
-                pe_report_filename, pe_asm_filename, report_date, cyhy_id, to_emails
+                pe_report_filename,
+                pe_asm_filename,
+                human_report_date,
+                cyhy_id,
+                to_emails,
             )
 
             LOGGER.info("Recipient(s): %s", to_emails)
-            LOGGER.info("Report date: %s", report_date)
+            LOGGER.info("Report date: %s", human_report_date)
             LOGGER.info("Report file: %s", pe_report_filename)
             LOGGER.info("ASM summary file: %s", pe_asm_filename)
 
@@ -409,7 +427,7 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to):
     return pe_stats_string
 
 
-def send_reports(orgs_arg, summary_to, test_emails):
+def send_reports(report_date, orgs_arg, summary_to, test_emails):
     """Send emails."""
     # Matches the Terraform-provisioned env var name (infrastructure/pe_worker.tf,
     # peReportController.py) -- not pe_reports.data.config.reports_bucket_name()'s
@@ -452,7 +470,7 @@ def send_reports(orgs_arg, summary_to, test_emails):
         to = None
 
     # Send reports and gather summary statistics
-    stats = send_pe_reports(ses_client, s3_client, s3_bucket, orgs, to)
+    stats = send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to)
 
     # Email the summary statistics, if necessary
     if summary_to is not None and stats:
@@ -526,6 +544,7 @@ def main():
     LOGGER.info("Posture & Exposure Report Mailer, Version : %s", __version__)
 
     send_reports(
+        validated_args["REPORT_DATE"],
         validated_args["--orgs"],
         validated_args["--summary-to"],
         validated_args["--test-emails"],

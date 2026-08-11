@@ -9,11 +9,17 @@ semantics to gain by routing it through SCAN_CATALOG/pe_worker.py.
 
 Event payload:
     {
+        "reportDate": "2026-07-30",
         "orgs": "all",
         "summaryTo": "person@example.com,other@example.com",
         "testEmails": "test@example.com",
         "local": false
     }
+
+reportDate is required, the same as peReportController's -- pe-mailer reads
+report PDFs from S3 under a per-date prefix (see pe_mailer.s3_reports), so
+there is no "latest" to discover on its own; it must be told which run's
+reports to mail, normally the same date passed to peReportController.
 
 orgs is either "all" (every report_on org, matching pe-mailer --orgs=all) or
 a comma-separated list of cyhy_db_name values. pe-mailer's own --orgs flag
@@ -59,6 +65,7 @@ def resolve_mailer_orgs(orgs: Union[str, List[str]]) -> str:
 
 
 def start_fargate_mailer_task(
+    report_date: str,
     orgs_arg: str,
     *,
     summary_to: str = "",
@@ -66,10 +73,11 @@ def start_fargate_mailer_task(
 ) -> int:
     """Start an ECS Fargate task that runs pe-mailer.
 
-    Only overrides the env vars specific to this invocation (MAILER_ORGS/
-    MAILER_SUMMARY_TO/MAILER_TEST_EMAILS) -- DB credentials, MAILER_ARN,
-    REPORTS_BUCKET_NAME, and PE API creds are expected to already be part of
-    the base task definition, same as peReportController does for pe-reports.
+    Only overrides the env vars specific to this invocation (MAILER_REPORT_DATE/
+    MAILER_ORGS/MAILER_SUMMARY_TO/MAILER_TEST_EMAILS) -- DB credentials,
+    MAILER_ARN, REPORTS_BUCKET_NAME, and PE API creds are expected to already
+    be part of the base task definition, same as peReportController does for
+    pe-reports.
     """
     ecs_client = boto3.client("ecs")
     cluster = os.environ["PE_FARGATE_CLUSTER_NAME"]
@@ -77,13 +85,18 @@ def start_fargate_mailer_task(
     security_group = os.environ["FARGATE_SG_ID"]
     subnet = os.environ["FARGATE_SUBNET_ID"]
 
-    environment = [{"name": "MAILER_ORGS", "value": orgs_arg}]
+    environment = [
+        {"name": "MAILER_REPORT_DATE", "value": report_date},
+        {"name": "MAILER_ORGS", "value": orgs_arg},
+    ]
     if summary_to:
         environment.append({"name": "MAILER_SUMMARY_TO", "value": summary_to})
     if test_emails:
         environment.append({"name": "MAILER_TEST_EMAILS", "value": test_emails})
 
-    LOGGER.info("Starting Fargate mailer task for orgs=%s", orgs_arg)
+    LOGGER.info(
+        "Starting Fargate mailer task for date=%s orgs=%s", report_date, orgs_arg
+    )
     response = ecs_client.run_task(
         cluster=cluster,
         taskDefinition=task_definition,
@@ -114,6 +127,7 @@ def start_fargate_mailer_task(
 
 
 def start_local_docker_mailer_task(
+    report_date: str,
     orgs_arg: str,
     *,
     summary_to: str = "",
@@ -129,6 +143,7 @@ def start_local_docker_mailer_task(
         "IS_LOCAL": "true",
         "DJANGO_SETTINGS_MODULE": "pe_reports_django.settings",
         "DJANGO_ALLOW_ASYNC_UNSAFE": "true",
+        "MAILER_REPORT_DATE": report_date,
         "MAILER_ORGS": orgs_arg,
         "REPORTS_BUCKET_NAME": os.getenv("REPORTS_BUCKET_NAME", "local-reports"),
         "MAILER_ARN": os.getenv("MAILER_ARN", ""),
@@ -183,11 +198,17 @@ def start_local_docker_mailer_task(
 
 def run(event: Dict[str, Any]) -> Dict[str, Any]:
     """Start pe-mailer on Fargate or local Docker."""
+    report_date = event.get("reportDate")
     orgs = event.get("orgs")
     summary_to = event.get("summaryTo") or ""
     test_emails = event.get("testEmails") or ""
     local = is_local_mode(event)
 
+    if not report_date:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "reportDate is required (YYYY-MM-DD)"}),
+        }
     if not orgs:
         return {
             "statusCode": 400,
@@ -198,10 +219,11 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
 
     if local:
         container_name = start_local_docker_mailer_task(
-            orgs_arg, summary_to=summary_to, test_emails=test_emails
+            report_date, orgs_arg, summary_to=summary_to, test_emails=test_emails
         )
         body = {
             "message": "PE mailer started",
+            "reportDate": report_date,
             "orgs": orgs_arg,
             "tasksStarted": 1,
             "local": True,
@@ -209,10 +231,11 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
         }
     else:
         started = start_fargate_mailer_task(
-            orgs_arg, summary_to=summary_to, test_emails=test_emails
+            report_date, orgs_arg, summary_to=summary_to, test_emails=test_emails
         )
         body = {
             "message": "PE mailer started",
+            "reportDate": report_date,
             "orgs": orgs_arg,
             "tasksStarted": started,
             "local": False,

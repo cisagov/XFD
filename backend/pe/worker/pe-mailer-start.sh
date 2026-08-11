@@ -6,6 +6,7 @@ export PE_API_URL="${PE_API_URL:-http://127.0.0.1:8000}"
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-pe_reports_django.settings}"
 export DJANGO_ALLOW_ASYNC_UNSAFE="${DJANGO_ALLOW_ASYNC_UNSAFE:-true}"
 
+MAILER_REPORT_DATE="${MAILER_REPORT_DATE:?MAILER_REPORT_DATE is required (YYYY-MM-DD)}"
 MAILER_ORGS="${MAILER_ORGS:-all}"
 MAILER_LOG_LEVEL="${MAILER_LOG_LEVEL:-info}"
 
@@ -41,5 +42,5 @@ if [ -n "${MAILER_TEST_EMAILS:-}" ]; then
   EXTRA_ARGS+=(--test-emails="${MAILER_TEST_EMAILS}")
 fi
 
-echo "Starting pe-mailer for orgs=${MAILER_ORGS}..."
-exec pe-mailer --orgs="${MAILER_ORGS}" --log-level="${MAILER_LOG_LEVEL}" "${EXTRA_ARGS[@]}"
+echo "Starting pe-mailer for ${MAILER_REPORT_DATE} (orgs=${MAILER_ORGS})..."
+exec pe-mailer "${MAILER_REPORT_DATE}" --orgs="${MAILER_ORGS}" --log-level="${MAILER_LOG_LEVEL}" "${EXTRA_ARGS[@]}"
