@@ -4,7 +4,7 @@
 # repo. Unless a later match takes precedence, these owners will be
 # requested for review when someone opens a pull request.
 
- 
+
 * @cduhn17 @nickviola @rapidray12 @schmelz21 @hawkishpolicy @jayjaybunce @ameliav
 
 # These folks own any files in the .github directory at the root of
