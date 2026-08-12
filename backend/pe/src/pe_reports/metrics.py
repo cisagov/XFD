@@ -1033,7 +1033,7 @@ class Flare:
             LOGGER.error("Error: Failed to retrieve Flare identifier group info")
             return None
         else:
-            # PE&T parent group id
+            # parent group id
             resp = resp.json()
             group_id = 191286
             orgs_list = resp.get("assets_groups")
@@ -1047,12 +1047,9 @@ class Flare:
                 "id": org_id,
             }
 
-    def get_ident_by_group_id(self, flare_token, ident_group_id):
-        """Retrieve all identifiers for the specified group ID."""
+    def get_ident_by_group_id_chunk(self, flare_token, params):
+        """Retrieve chunk of identifiers for the specified group ID."""
         url = "https://api.flare.io/firework/v3/identifiers/"
-        params = {
-            "parent_group_id": ident_group_id,
-        }
         headers = {"Authorization": f"Bearer {flare_token}"}
         resp = requests.get(
             url, headers=headers, params=params, timeout=PE_API_REQUEST_TIMEOUT
@@ -1061,22 +1058,20 @@ class Flare:
         retry_count, max_retries, time_delay = 1, 5, 3
         while resp.status_code != 200 and retry_count <= max_retries:
             LOGGER.warning(
-                f"\tRetrying org Flare identifiers API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+                f"\tRetrying Flare identifiers by group ID API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
             )
             time.sleep(time_delay)
             resp = requests.get(
-                url,
-                headers=headers,
-                params=params,
-                timeout=PE_API_REQUEST_TIMEOUT,
+                url, headers=headers, params=params, timeout=PE_API_REQUEST_TIMEOUT
             )
             retry_count += 1
         # Return results
         if retry_count == max_retries + 1:
-            LOGGER.error("Error: Failed to retrieve org Flare identifiers")
+            LOGGER.error("Error: Failed to retrieve Flare identifiers by group ID")
             return None
         else:
             resp = resp.json()
+            next_val = resp.get("next")
             # Format identifier info
             ident_list = []
             for ident in resp.get("items"):
@@ -1085,16 +1080,69 @@ class Flare:
                 ident_type = ident.get("type")
                 ident_dict = {"id": ident_id, "value": ident_value, "type": ident_type}
                 ident_list.append(ident_dict)
-            if len(ident_list) == 0:
-                return [
-                    {
-                        "id": None,
-                        "value": None,
-                        "type": None,
-                    }
-                ]
+            # Return results
+            return {
+                "ident_list": ident_list,
+                "next_val": next_val,
+            }
+
+    def get_ident_by_group_id(self, ident_group_id, flare_tenant_id, api_auth):
+        """Retrieve all identifiers belonging to the specified identifier group (organization)."""
+        flare_token = self.get_flare_token(api_auth, flare_tenant_id)
+        results_list = []
+        more_data = False
+        curr_next = ""
+        # chunk_size = 10  # max size is 10
+        # Make initial data feed call
+        ini_params = {
+            "parent_group_id": ident_group_id,
+        }
+        ini_resp = self.get_ident_by_group_id_chunk(flare_token, ini_params)
+        results_list += ini_resp.get("ident_list")
+        # Check if there's any more data to retrieve
+        if ini_resp.get("next_val"):
+            more_data = True
+            curr_next = ini_resp.get("next_val")
+        # If there's a "next" value, continue fetching data
+        retrieve_ct = 2
+        while more_data:
+            # Rate control delay
+            time.sleep(1)
+            # Refresh auth token every ~30 min (avg event retrieval api call ~= 1.5s)
+            if retrieve_ct % 500 == 0:
+                LOGGER.warning(
+                    "Refreshing Flare API auth token for intial event retrieval"
+                )
+                flare_token = self.get_flare_token(api_auth, flare_tenant_id)
+            # Make API call for current chunk
+            curr_params = {
+                "parent_group_id": ident_group_id,
+                "from": curr_next,
+            }
+            curr_resp = self.get_ident_by_group_id_chunk(flare_token, curr_params)
+            # Handle edge case where no results found for this chunk
+            if len(curr_resp.get("ident_list")) != 0:
+                # Append results
+                results_list += curr_resp.get("ident_list")
+            # Check if there's anymore data to retrieve
+            if curr_resp.get("next_val"):
+                # If there's more data, update next value
+                curr_next = curr_resp.get("next_val")
             else:
-                return ident_list
+                # If no next value, there's no more data to retrieve
+                more_data = False
+            retrieve_ct += 1
+        # Once all data has been retrieved, format and return results
+        if len(results_list) == 0:
+            return [
+                {
+                    "id": None,
+                    "value": None,
+                    "type": None,
+                }
+            ]
+        else:
+            return results_list
 
     def _identifiers_from_stored_events(self):
         """Build identifier id→label map from flare_events rows already in the DB."""
@@ -1129,7 +1177,7 @@ class Flare:
                 flare_org_info = self.get_ident_group_info(flare_token, org_abbrv)
                 if flare_org_info and flare_org_info.get("id") is not None:
                     flare_org_identifiers = self.get_ident_by_group_id(
-                        flare_token, flare_org_info.get("id")
+                        flare_org_info.get("id"), flare_tenant_id, flare_api_auth
                     )
                     if flare_org_identifiers:
                         for ident in flare_org_identifiers:
