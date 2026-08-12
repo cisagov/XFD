@@ -1,5 +1,6 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { ApiError } from 'aws-amplify/api';
 import { logger } from '@/utils/logger';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
@@ -93,16 +94,19 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       in_error: Error & { statusCode?: number; response?: { status?: number } }
     ) => {
       logger.error(in_error);
-      const status =
-        in_error.statusCode ??
-        in_error.response?.status ??
-        (in_error.message?.includes('401') ? 401 : undefined);
 
-      if (status === 401) {
-        // Pass false so logout() doesn't call window.location.reload()
-        logger.debug('handleError status:', status, 'error:', in_error);
-        await logout(false);
+      // Amplify v6 REST errors (ApiError) carry the HTTP status on
+      // `response.statusCode`, not in `message` (unlike v5's axios-style
+      // "Request failed with status code 401" messages).
+      const statusCode =
+        in_error instanceof ApiError
+          ? in_error.response?.statusCode
+          : undefined;
+      const isUnauthorized =
+        statusCode === 401 || in_error.message?.includes('401');
 
+      if (isUnauthorized) {
+        await logout();
         const next = encodeURIComponent(window.location.pathname || '/');
         window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
       }
