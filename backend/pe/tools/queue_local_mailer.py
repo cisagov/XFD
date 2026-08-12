@@ -21,6 +21,11 @@ def main() -> int:
         help="Comma-separated cyhy_db_name values, or 'all'.",
     )
     parser.add_argument(
+        "--report-date",
+        default="",
+        help="Report date (YYYY-MM-DD) for the run.",
+    )
+    parser.add_argument(
         "--summary-to",
         default="",
         help="Comma-separated email(s) for the end-of-run summary.",
@@ -40,6 +45,7 @@ def main() -> int:
 
     event = {
         "orgs": args.orgs,
+        "reportDate": args.report_date,
         "summaryTo": args.summary_to,
         "testEmails": args.test_emails,
         "local": True,

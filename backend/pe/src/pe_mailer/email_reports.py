@@ -10,6 +10,13 @@ all happen in this one process/task -- with no shared filesystem between
 separate Fargate task invocations, a plaintext PDF written by an earlier,
 separate encryption step would never be visible to a later mailing step.
 
+For local testing only, setting MAILER_LOCAL_REPORTS_DIR bypasses S3
+entirely and reads PDFs from a local directory instead (see
+pe_mailer.local_reports) -- wired up by peMailerController's
+PE_LOCAL_REPORTS_DIR bind mount for local Docker runs. SES sending (and the
+MAILER_ARN role assumption it requires) is unaffected either way; there is
+no local bypass for actually sending mail.
+
 REPORT_DATE is required, the same way pe-reports takes it as a positional
 argument (see pe_reports.report_generator) -- reports are stored under a
 per-date S3 prefix rather than a per-org one, so there is no per-org prefix
@@ -55,6 +62,7 @@ from botocore.exceptions import ClientError
 import docopt
 from pe_mailer._version import __version__
 from pe_mailer.db import connect, get_org_contacts
+from pe_mailer.local_reports import asm_summary_path, report_path
 from pe_mailer.pe_message import PEMessage
 from pe_mailer.s3_reports import (
     asm_summary_object_key,
@@ -225,7 +233,9 @@ def _encrypt_report_file(path, password, encrypted_dir):
     return encrypted_path
 
 
-def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
+def send_pe_reports(
+    ses_client, s3_client, s3_bucket, report_date, orgs, to, local_reports_dir=None
+):
     """Send out Posture and Exposure reports for the given orgs.
 
     Parameters
@@ -233,11 +243,13 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
     ses_client : boto3.client
         The boto3 SES client via which the message is to be sent.
 
-    s3_client : boto3.client
-        The boto3 S3 client used to download report PDFs.
+    s3_client : boto3.client or None
+        The boto3 S3 client used to download report PDFs. Ignored (may be
+        None) when local_reports_dir is given.
 
     s3_bucket : str
-        The S3 bucket containing generated report PDFs.
+        The S3 bucket containing generated report PDFs. Ignored when
+        local_reports_dir is given.
 
     report_date : str
         The report date ("YYYY-MM-DD") pe-reports uploaded PDFs under --
@@ -250,6 +262,12 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
     to : list(str) or None
         If given, overrides each org's contact-derived recipients with
         this fixed list of addresses (used for --test-emails runs).
+
+    local_reports_dir : str or None
+        When given, report/ASM-summary PDFs are read from this local
+        directory (see pe_mailer.local_reports) instead of S3, and the
+        encrypted-copy upload-back to S3 is skipped -- for local testing
+        against reports from `make run-reports`, without an S3 bucket.
 
     Returns
     -------
@@ -295,20 +313,32 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
         # Reports live under a per-date S3 prefix (matching
         # pe_reports.report_generator.upload_file_to_s3), so the key is
         # built directly from report_date rather than discovered by
-        # scanning -- see pe_mailer.s3_reports for the convention.
-        report_key = report_object_key(report_date, cyhy_id)
-        asm_key = asm_summary_object_key(report_date, cyhy_id)
+        # scanning -- see pe_mailer.s3_reports for the convention. In
+        # local_reports_dir mode, the equivalent local filesystem path is
+        # used instead (see pe_mailer.local_reports) -- same convention,
+        # no S3 involved.
+        if local_reports_dir:
+            report_key = report_path(local_reports_dir, report_date, cyhy_id)
+            asm_key = asm_summary_path(local_reports_dir, report_date, cyhy_id)
+            report_found = os.path.isfile(report_key)
+            asm_found = os.path.isfile(asm_key)
+            report_location = report_key
+        else:
+            report_key = report_object_key(report_date, cyhy_id)
+            asm_key = asm_summary_object_key(report_date, cyhy_id)
+            report_found = object_exists(s3_client, s3_bucket, report_key)
+            asm_found = object_exists(s3_client, s3_bucket, asm_key)
+            report_location = f"s3://{s3_bucket}/{report_key}"
 
-        if not object_exists(s3_client, s3_bucket, report_key):
+        if not report_found:
             LOGGER.warning(
-                "No report PDF found at s3://%s/%s, no report will be mailed",
-                s3_bucket,
-                report_key,
+                "No report PDF found at %s, no report will be mailed",
+                report_location,
             )
             reports_not_mailed += 1
             continue
 
-        if not object_exists(s3_client, s3_bucket, asm_key):
+        if not asm_found:
             LOGGER.warning(
                 "No ASM summary PDF found for %s dated %s, sending report "
                 "without an ASM summary",
@@ -329,12 +359,16 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
 
         tmp_dir = tempfile.mkdtemp(prefix="pe-mailer-")
         try:
-            keys_to_download = [report_key] + ([asm_key] if asm_key else [])
-            local_paths = download_report_keys(
-                s3_client, s3_bucket, keys_to_download, tmp_dir
-            )
-            plaintext_report_path = local_paths[0]
-            plaintext_asm_path = local_paths[1] if asm_key else None
+            if local_reports_dir:
+                plaintext_report_path = shutil.copy(report_key, tmp_dir)
+                plaintext_asm_path = shutil.copy(asm_key, tmp_dir) if asm_key else None
+            else:
+                keys_to_download = [report_key] + ([asm_key] if asm_key else [])
+                local_paths = download_report_keys(
+                    s3_client, s3_bucket, keys_to_download, tmp_dir
+                )
+                plaintext_report_path = local_paths[0]
+                plaintext_asm_path = local_paths[1] if asm_key else None
 
             # Encrypt into a separate subdirectory (the PDF library can't
             # save back to the file it opened) using each attachment's
@@ -355,22 +389,25 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
             # alongside the plaintext originals for that same date -- see
             # s3_reports.py) so an already-encrypted copy is retrievable
             # without redoing the encryption step. Best-effort: a failed
-            # upload shouldn't stop the report from being emailed.
-            try:
-                upload_encrypted_reports(
-                    s3_client,
-                    s3_bucket,
-                    report_date,
-                    [pe_report_filename]
-                    + ([pe_asm_filename] if pe_asm_filename else []),
-                )
-            except ClientError:
-                LOGGER.error(
-                    "Unable to upload encrypted report(s) to S3 for %s",
-                    cyhy_id,
-                    exc_info=True,
-                    stack_info=True,
-                )
+            # upload shouldn't stop the report from being emailed. Skipped
+            # entirely in local_reports_dir mode -- there is no bucket to
+            # write back to.
+            if not local_reports_dir:
+                try:
+                    upload_encrypted_reports(
+                        s3_client,
+                        s3_bucket,
+                        report_date,
+                        [pe_report_filename]
+                        + ([pe_asm_filename] if pe_asm_filename else []),
+                    )
+                except ClientError:
+                    LOGGER.error(
+                        "Unable to upload encrypted report(s) to S3 for %s",
+                        cyhy_id,
+                        exc_info=True,
+                        stack_info=True,
+                    )
 
             human_report_date = datetime.datetime.strptime(
                 report_date, "%Y-%m-%d"
@@ -429,11 +466,17 @@ def send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to):
 
 def send_reports(report_date, orgs_arg, summary_to, test_emails):
     """Send emails."""
+    # Set by peMailerController.start_local_docker_mailer_task's
+    # PE_LOCAL_REPORTS_DIR bind mount for local testing against reports from
+    # `make run-reports`, bypassing S3 entirely -- see pe_mailer.local_reports.
+    # Unset (the normal/Fargate case), pe-mailer reads from S3 as before.
+    local_reports_dir = os.environ.get("MAILER_LOCAL_REPORTS_DIR")
+
     # Matches the Terraform-provisioned env var name (infrastructure/pe_worker.tf,
     # peReportController.py) -- not pe_reports.data.config.reports_bucket_name()'s
     # PE_REPORTS_BUCKET_NAME, which nothing in this deployment actually sets.
     s3_bucket = os.environ.get("REPORTS_BUCKET_NAME")
-    if not s3_bucket:
+    if not s3_bucket and not local_reports_dir:
         LOGGER.critical("REPORTS_BUCKET_NAME is not set. Exiting.")
         sys.exit(1)
 
@@ -458,8 +501,9 @@ def send_reports(report_date, orgs_arg, summary_to, test_emails):
     )
 
     # Reading generated reports from S3 uses the task's own role directly;
-    # no cross-account assume-role is needed for that.
-    s3_client = boto3.client("s3")
+    # no cross-account assume-role is needed for that. Skipped in
+    # local_reports_dir mode -- no S3 access is needed at all.
+    s3_client = boto3.client("s3") if not local_reports_dir else None
 
     orgs = resolve_orgs(orgs_arg)
 
@@ -470,7 +514,15 @@ def send_reports(report_date, orgs_arg, summary_to, test_emails):
         to = None
 
     # Send reports and gather summary statistics
-    stats = send_pe_reports(ses_client, s3_client, s3_bucket, report_date, orgs, to)
+    stats = send_pe_reports(
+        ses_client,
+        s3_client,
+        s3_bucket,
+        report_date,
+        orgs,
+        to,
+        local_reports_dir=local_reports_dir,
+    )
 
     # Email the summary statistics, if necessary
     if summary_to is not None and stats:

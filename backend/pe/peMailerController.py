@@ -28,6 +28,12 @@ neither does this controller.
 
 summaryTo/testEmails are optional comma-separated email lists, passed
 through to pe-mailer's --summary-to/--test-emails.
+
+For local Docker runs only, setting the host env var PE_LOCAL_REPORTS_DIR
+(a directory laid out the way `make run-reports`' OUTPUT_DIR is) bind-mounts
+it into the container and points pe-mailer at it instead of S3 for reading
+report PDFs -- see pe_mailer.local_reports. MAILER_ARN/SES sending is
+unaffected; that's always real AWS regardless.
 """
 # Standard Python Libraries
 import json
@@ -147,12 +153,24 @@ def start_local_docker_mailer_task(
         "MAILER_ORGS": orgs_arg,
         "REPORTS_BUCKET_NAME": os.getenv("REPORTS_BUCKET_NAME", "local-reports"),
         "MAILER_ARN": os.getenv("MAILER_ARN", ""),
+        # pe-mailer's own logging.basicConfig() sends everything to a log file
+        # inside the container by default (see email_reports.py:main) -- for
+        # local runs, mirror it to stderr too so errors show up in `docker
+        # logs` instead of only being visible via `docker cp` from a
+        # container that's already exited.
+        "PE_LOG_TO_STDERR": "true",
         "PE_DB_PASSWORD_KEY": os.getenv("PE_DB_PASSWORD_KEY", ""),
         "DB_HOST": os.getenv("PE_DB_HOST", os.getenv("DB_HOST", "db")),
         "PE_DB_NAME": os.getenv("PE_DB_NAME", "pe"),
         "PE_DB_USERNAME": os.getenv("PE_DB_USERNAME", "pe"),
         "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD", ""),
-        "PE_API_URL": os.getenv("PE_API_URL", "http://127.0.0.1:8000"),
+        # Always the in-container loopback -- this is the same container's own
+        # uvicorn process (started by pe-mailer-start.sh), not a host-configurable
+        # external API. Deliberately not sourced from the host's PE_API_URL env
+        # var, which commonly points elsewhere (e.g. the xfd-backend healthcheck
+        # in the repo-root .env) and would silently break the in-container health
+        # check if forwarded here.
+        "PE_API_URL": "http://127.0.0.1:8000",
         "PE_API_KEY": os.getenv("PE_API_KEY", ""),
     }
     if summary_to:
@@ -160,12 +178,11 @@ def start_local_docker_mailer_task(
     if test_emails:
         environment["MAILER_TEST_EMAILS"] = test_emails
 
-    # Unlike peScanController/peReportController's local containers -- which only
-    # ever talk to the elasticmq SQS mock, or skip S3 entirely in local mode --
-    # pe-mailer's S3 report download, MAILER_ARN assume-role, and SES send are not
-    # skippable, so this container needs real AWS credentials. Forward whatever the
-    # invoking process has (e.g. exported via `aws configure export-credentials` or
-    # an SSO session) rather than fabricating placeholder ones.
+    # MAILER_ARN assume-role and SES send are always real AWS calls -- no local
+    # bypass exists for actually sending mail -- so this container needs real AWS
+    # credentials regardless. Forward whatever the invoking process has (e.g.
+    # exported via `aws configure export-credentials` or an SSO session) rather
+    # than fabricating placeholder ones.
     for aws_var in (
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -178,6 +195,28 @@ def start_local_docker_mailer_task(
         if value:
             environment[aws_var] = value
 
+    volumes: Dict[str, Dict[str, str]] = {}
+    dev_mount = local_worker_dev_mount()
+    if dev_mount:
+        volumes.update(dev_mount)
+
+    # Optional: bypass S3 for the report PDFs themselves (only S3 -- MAILER_ARN/
+    # SES above are unaffected) by pointing this at a local directory laid out
+    # the same way `make run-reports`' OUTPUT_DIR is, e.g. the same path passed
+    # as OUTPUT_DIR there. See pe_mailer.local_reports for the convention.
+    #
+    # Taken as-is, already resolved -- this process runs inside the `backend`
+    # container (docker compose exec), so ~/os.path.expanduser() here would
+    # resolve against *that* container's $HOME (root's), not the actual
+    # Docker-daemon host's, silently producing a path the daemon can't mount
+    # (e.g. /root/... instead of /Users/you/...). The Makefile's run-mailer
+    # target does the real (host-side) tilde-expansion and existence check
+    # before this ever runs, matching the PE_DEV_MOUNT_HOST convention above.
+    local_reports_dir = os.getenv("PE_LOCAL_REPORTS_DIR")
+    if local_reports_dir:
+        volumes[local_reports_dir] = {"bind": "/local-reports", "mode": "ro"}
+        environment["MAILER_LOCAL_REPORTS_DIR"] = "/local-reports"
+
     run_kwargs: Dict[str, Any] = {
         "image": "pe-worker",
         "name": container_name,
@@ -187,9 +226,8 @@ def start_local_docker_mailer_task(
         "detach": True,
         "mem_limit": os.getenv("PE_MAILER_MEM_LIMIT", "2g"),
     }
-    dev_mount = local_worker_dev_mount()
-    if dev_mount:
-        run_kwargs["volumes"] = dev_mount
+    if volumes:
+        run_kwargs["volumes"] = volumes
 
     client.containers.run(**run_kwargs)
     LOGGER.info("Started local mailer container %s", container_name)
