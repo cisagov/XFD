@@ -792,7 +792,7 @@ def insert_flare_credentials(cred_list):
             credential_exposures_uid, email, organizations_uid, root_domain, sub_domain, breach_name,
             modified_date, credential_breaches_uid, data_source_uid, name, login_id, phone, password, hash_type, intelx_system_id)
         VALUES %s
-        ON CONFLICT (email, breach_name)
+        ON CONFLICT (email, breach_name, organizations_uid)
         DO UPDATE SET
             modified_date = EXCLUDED.modified_date;
     """
