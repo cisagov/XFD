@@ -45,7 +45,7 @@ resource "aws_db_instance" "db" {
   iops                        = 16000
   storage_throughput          = 1000
   engine                      = "postgres"
-  engine_version              = "17.6"
+  engine_version              = "17.9"
   allow_major_version_upgrade = true
   skip_final_snapshot         = true
   availability_zone = (
