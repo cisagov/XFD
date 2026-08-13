@@ -1,11 +1,25 @@
 ---
-# One-off, manually-triggered workflow to bring the already-existing OpenCTI EC2
-# instance (i-033771e2a6a9a26ca) into Terraform state via `terraform import`. Run
-# this exactly once, BEFORE merging infrastructure/open_cti.tf et al. into develop
-# -- the regular Infrastructure Pipeline workflow auto-applies on push to develop
-# with no manual approval gate, so importing first avoids it creating a duplicate
-# instance. Delete this file once the import has succeeded.
-name: Import OpenCTI EC2 into Terraform State
+# One-off, manually-triggered workflow to inspect a `terraform plan` against the
+# staging-cd remote state with real CI credentials, without mutating anything.
+#
+# This file originally performed one-time state surgery to adopt the existing
+# OpenCTI EC2 instance (i-033771e2a6a9a26ca) into Terraform state as
+# `aws_instance.open_cti` (see git history for that version, and PR discussion
+# for the corrupted-plan issue it fixed). That surgery is already complete --
+# `aws_instance.pe[0]` has been removed from state and `aws_instance.open_cti[0]`
+# is now the sole tracked address for that instance.
+#
+# This version is read-only: init + validate + plan, nothing else. No `-out` is
+# written, so there's no plan artifact anything could later `apply` -- that's
+# deliberate, not an oversight. Use this to inspect what a real plan looks like
+# with proper CI credentials before deciding whether/what to merge.
+#
+# Dispatch this from any branch that has this file -- no need to merge to
+# develop/integration first. Merging to develop triggers the regular
+# Infrastructure Pipeline (.github/workflows/infrastructure.yml), which DOES
+# auto-apply on push with no approval gate; this workflow exists specifically
+# so you can inspect a plan before that happens.
+name: Inspect OpenCTI Terraform Plan
 
 on:
   workflow_dispatch: {}
@@ -18,9 +32,13 @@ defaults:
     working-directory: ./infrastructure
 
 jobs:
-  import:
+  plan:
     runs-on: ubuntu-latest
     environment: staging
+    # Same literal group as infrastructure.yml's staging job -- concurrency
+    # groups are matched repo-wide, not per-workflow, so this queues behind
+    # (rather than races) a real apply run instead of reading state mid-mutation.
+    concurrency: '1'
     steps:
       - uses: actions/checkout@v3
 
@@ -37,17 +55,11 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
 
-      - name: Terraform import
-        run: |
-          terraform import -var-file=stage-cd.tfvars \
-            aws_instance.open_cti i-033771e2a6a9a26ca
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: "us-east-1"
+      - name: Terraform validate
+        run: terraform validate
 
-      - name: Terraform plan (verify no destructive diff)
-        run: terraform plan -var-file=stage-cd.tfvars
+      - name: Terraform plan (read-only -- no -out, nothing to apply)
+        run: terraform plan -no-color -var-file=stage-cd.tfvars
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
