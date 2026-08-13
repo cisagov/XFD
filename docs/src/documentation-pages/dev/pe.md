@@ -98,6 +98,11 @@ To rebuild from scratch: `make -C backend/pe syncdb-dangerously-force` then `syn
 
 Use **batch** (`all` / `DEMO`) for a simple single-worker run. Use **parallel** (`all-orgs` / `demo-orgs`) when you want multiple workers draining the queue at once. Do not combine a shortcut with named orgs.
 
+For example, to run Flare Events across all reportable organizations with two
+workers, use `ORGS=all-orgs`. Using `ORGS=all` queues one batch message, so one
+worker processes the organizations sequentially while the other workers remain
+idle.
+
 ```bash
 make -C backend/pe run SCANS=dnstwist ORGS=DHS,DHS_CISA COUNT=2
 make -C backend/pe run SCANS=dnstwist ORGS=all COUNT=1
