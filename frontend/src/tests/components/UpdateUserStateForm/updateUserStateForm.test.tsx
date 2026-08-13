@@ -290,4 +290,18 @@ describe('UpdateStateForm component', () => {
 
     dispatchEventSpy.mockRestore();
   });
+
+  it('enables Save after the user selects a state', async () => {
+    render(<UpdateStateForm {...mockProps} />, {
+      authContext: mockAuthContext
+    });
+
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    expect(saveButton).toBeDisabled();
+
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByText('California'));
+
+    expect(saveButton).toBeEnabled();
+  });
 });
