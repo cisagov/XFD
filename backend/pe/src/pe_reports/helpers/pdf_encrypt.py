@@ -18,12 +18,12 @@ _PERMISSIONS = int(
 
 def encrypt(file_path, password, encrypted_file_path):
     """AES-256 password-protect file_path, writing the result to encrypted_file_path."""
-    doc = fitz.open(file_path)
-    doc.save(
-        encrypted_file_path,
-        encryption=fitz.PDF_ENCRYPT_AES_256,
-        user_pw=password,
-        permissions=_PERMISSIONS,
-        garbage=4,
-        deflate=True,
-    )
+    with fitz.open(file_path) as doc:
+        doc.save(
+            encrypted_file_path,
+            encryption=fitz.PDF_ENCRYPT_AES_256,
+            user_pw=password,
+            permissions=_PERMISSIONS,
+            garbage=4,
+            deflate=True,
+        )

@@ -169,6 +169,17 @@ def resolve_orgs(orgs_arg):
         requested = _requested_org_names(orgs_arg)
         selected = [org for org in pe_orgs if org.get("cyhy_db_name") in requested]
 
+        # A typo'd/unknown cyhy_db_name would otherwise just silently vanish
+        # from the run with zero signal -- worse than the missing-contact/
+        # missing-password cases below, which at least warn per org.
+        matched = {org.get("cyhy_db_name") for org in selected}
+        unmatched = requested - matched
+        if unmatched:
+            LOGGER.warning(
+                "Requested org(s) not found (typo, or not report_on?): %s",
+                ", ".join(sorted(unmatched)),
+            )
+
     return sorted(selected, key=lambda org: org.get("cyhy_db_name") or "")
 
 
@@ -271,8 +282,15 @@ def send_pe_reports(
 
     Returns
     -------
-    str: A string that summarizes what was sent, or None if no
-    organizations were found for the requested --orgs value.
+    tuple(str or None, bool): A string that summarizes what was sent (None
+    if no organizations were found for the requested --orgs value), and
+    whether any org that should have been mailed wasn't -- a failed send,
+    a missing report/password, or no contacts on file. Does NOT count
+    GSEC's permanent, by-design skip as a failure. send_reports() uses this
+    to decide the process's exit code, since a partial-failure run must not
+    look identical to a clean one from the outside (e.g. pe_worker.py's
+    SERVICE_TYPE=mailer dispatch only has this process's exit code to go
+    on).
 
     """
     conn = connect()
@@ -280,6 +298,15 @@ def send_pe_reports(
 
     agencies_emailed_pe_reports = 0
     reports_not_mailed = 0
+    # Distinct from reports_not_mailed: GSEC's skip below is permanent and
+    # by design, not a failure, so it must never trip this. Every other
+    # reports_not_mailed increment (missing contacts/report/password, or a
+    # failed send) represents an org we intended to mail but couldn't --
+    # send_reports() uses this to decide whether the run should exit
+    # non-zero, so a failure can't look identical to a clean run from the
+    # outside (e.g. pe_worker.py's SERVICE_TYPE=mailer dispatch only has
+    # this process's exit code to go on).
+    had_failures = False
 
     for org in orgs:
         cyhy_id = org.get("cyhy_db_name")
@@ -308,6 +335,7 @@ def send_pe_reports(
                 "No contacts found for %s, no report will be mailed", cyhy_id
             )
             reports_not_mailed += 1
+            had_failures = True
             continue
 
         # Reports live under a per-date S3 prefix (matching
@@ -336,6 +364,7 @@ def send_pe_reports(
                 report_location,
             )
             reports_not_mailed += 1
+            had_failures = True
             continue
 
         if not asm_found:
@@ -355,6 +384,7 @@ def send_pe_reports(
                 cyhy_id,
             )
             reports_not_mailed += 1
+            had_failures = True
             continue
 
         tmp_dir = tempfile.mkdtemp(prefix="pe-mailer-")
@@ -438,6 +468,8 @@ def send_pe_reports(
                     exc_info=True,
                     stack_info=True,
                 )
+                reports_not_mailed += 1
+                had_failures = True
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -447,7 +479,7 @@ def send_pe_reports(
     total_orgs = len(orgs)
     if total_orgs == 0:
         LOGGER.critical("No organizations were found for the requested --orgs value")
-        return None
+        return None, True
 
     # Print out and log some statistics
     pe_stats_string = (
@@ -461,7 +493,7 @@ def send_pe_reports(
     )
     LOGGER.info(mail_summary_log_string)
 
-    return pe_stats_string
+    return pe_stats_string, had_failures
 
 
 def send_reports(report_date, orgs_arg, summary_to, test_emails):
@@ -514,7 +546,7 @@ def send_reports(report_date, orgs_arg, summary_to, test_emails):
         to = None
 
     # Send reports and gather summary statistics
-    stats = send_pe_reports(
+    stats, had_failures = send_pe_reports(
         ses_client,
         s3_client,
         s3_bucket,
@@ -537,6 +569,19 @@ def send_reports(report_date, orgs_arg, summary_to, test_emails):
             )
     elif stats is None:
         LOGGER.warning("Nothing was emailed.")
+
+    # Make failures visible in the process's exit code -- otherwise a run
+    # that mailed nothing (or partially failed) is indistinguishable from a
+    # clean one to anything that only checks whether the process succeeded
+    # (pe_worker.py's SERVICE_TYPE=mailer dispatch, an orchestrator, etc.).
+    # Checked after the summary email above so operators still get the
+    # X/Y-mailed breakdown even on a failing run.
+    if had_failures:
+        LOGGER.critical(
+            "One or more organizations were not mailed this run; exiting "
+            "with a non-zero status"
+        )
+        sys.exit(1)
 
 
 def main():
