@@ -141,7 +141,7 @@ export const UpdateStateForm: React.FC<{
               <Save />
             )
           }
-          disabled={user?.state === '' || user?.state === null} // disable submission if state is empty or null
+          disabled={!values.state || isLoading}
         >
           Save
         </Button>
