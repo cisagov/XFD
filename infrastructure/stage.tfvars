@@ -138,6 +138,7 @@ ssm_latest_port_scan_cutoff                  = "/crossfeed/staging/LATEST_PORT_S
 ssm_dmz_sync_endpoint                        = "/crossfeed/staging/MDL_SYNC_ENDPOINT"
 create_email_sender_instance                 = false
 email_sender_instance_type                   = "t3.small"
+create_open_cti_instance                     = false
 crossfeed_playwright                         = "crossfeed-playwright-staging"
 automated_test_reports_bucket_name           = "cisa-crossfeed-staging-automated-test-reports"
 ssm_qualys_username                          = "/crossfeed/staging/QUALYS_USERNAME"

@@ -192,6 +192,10 @@ peScanController:
     # pe_source lives under pe/src/ in the deployment zip; include it for keyed
     # scan API-key validation (flare_events, shodan, ...).
     PYTHONPATH: .:pe/src
+    PE_DB_HOST: ${ssm:/crossfeed/staging/PE_DB_HOST}
+    PE_DB_NAME: ${ssm:/crossfeed/staging/PE_DB_NAME}
+    PE_DB_USERNAME: ${ssm:/crossfeed/staging/PE_DB_USERNAME}
+    PE_DB_PASSWORD: ${ssm:/crossfeed/staging/PE_DB_PASSWORD}
   iamRoleStatements:
     - Effect: Allow
       Action:

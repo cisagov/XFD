@@ -611,6 +611,83 @@ variable "email_sender_instance_type" {
   default     = false
 }
 
+variable "create_open_cti_instance" {
+  description = "Whether to manage the existing OpenCTI EC2 instance in Terraform. This instance already exists (created out-of-band) running OpenCTI via Docker Compose -- this flag must only be true in the environment where that live instance actually resides, since the resource is imported, not freshly created."
+  type        = bool
+  default     = false
+}
+
+variable "open_cti_instance_id" {
+  description = "Instance ID of the existing OpenCTI EC2 instance (used for the one-time `terraform import`, and for reference)."
+  type        = string
+  default     = "i-033771e2a6a9a26ca"
+}
+
+variable "open_cti_ami_id" {
+  description = "AMI ID of the existing OpenCTI EC2 instance. Must match reality -- this is not the `var.ami_id`/`is_dmz` ternary used for freshly-created instances."
+  type        = string
+  default     = "ami-0fb0b230890ccd1e6"
+}
+
+variable "open_cti_instance_type" {
+  description = "Instance type of the existing OpenCTI EC2 instance. Must be set to the real value (see `aws ec2 describe-instances --instance-ids <id>`) before running `terraform plan` -- an incorrect value here will show as a replace diff."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_root_volume_size" {
+  description = "Root volume size (GiB) of the existing OpenCTI EC2 instance's single EBS volume, which also hosts all Docker data (no separate data volume exists today). Must match the real volume size."
+  type        = number
+  default     = 1000
+}
+
+variable "open_cti_subnet_id" {
+  description = "Subnet ID the existing OpenCTI EC2 instance is in."
+  type        = string
+  default     = "subnet-0b1b2c61141354e25"
+}
+
+variable "open_cti_security_group_id" {
+  description = "Existing security group ID attached to the OpenCTI EC2 instance. Referenced read-only via a data source (not managed as a Terraform resource) since its origin/ownership predates this config and is unverified."
+  type        = string
+  default     = "sg-0947bc9960c82a0b2"
+}
+
+variable "open_cti_ssm_path_prefix" {
+  description = "SSM Parameter Store path prefix for OpenCTI/XTM One secrets. Deliberately its own hierarchical path segment (/crossfeed/staging/opencti/<KEY>) rather than the flat /crossfeed/<env>/<KEY> convention used elsewhere (e.g. ssm_matomo_db_password) -- OpenCTI's docker-compose.yml reuses generic var names (SHODAN_API_KEY, CENSYS_API_KEY, etc.) that would otherwise collide with Crossfeed's own existing ssm_shodan_api_key/ssm_censys_api_id parameters, which already occupy the flat namespace. staging-cd shares the staging namespace, same as other Crossfeed secrets in this repo."
+  type        = string
+  default     = "/crossfeed/staging/opencti"
+}
+
+variable "open_cti_secret_keys" {
+  description = "Names (suffix only, appended to open_cti_ssm_path_prefix) of OpenCTI/XTM One secrets that must exist in SSM Parameter Store as SecureString placeholders. Real values already exist only in the live instance's .env and are set here once, out-of-band, via `aws ssm put-parameter --overwrite` -- Terraform creates the parameter shells but never generates or overwrites the real values, since these secrets can't be safely regenerated (e.g. rotating the encryption key breaks decryption of existing data)."
+  type        = set(string)
+  default = [
+    "CENSYS_API_KEY",
+    "CONNECTOR_CENSYS_API_KEY",
+    "CONNECTOR_CISA_KEV_API_KEY",
+    "CONNECTOR_CVE_API_KEY",
+    "CONNECTOR_QUALYS_CVE_ENRICHMENT_API_KEY",
+    "CONNECTOR_SHODAN_API_KEY",
+    "CONNECTOR_VULNCHECK_API_KEY",
+    "MINIO_ROOT_PASSWORD",
+    "NVD_API_KEY",
+    "OPENCTI_ADMIN_PASSWORD",
+    "OPENCTI_ADMIN_TOKEN",
+    "OPENCTI_ENCRYPTION_KEY",
+    "OPENCTI_HEALTHCHECK_ACCESS_KEY",
+    "PLATFORM_REGISTRATION_TOKEN",
+    "QUALYS_API_PASSWORD",
+    "RABBITMQ_DEFAULT_PASS",
+    "SHODAN_API_KEY",
+    "VULNCHECK_API_KEY",
+    "XTM_ONE_ADMIN_PASSWORD",
+    "XTM_ONE_ENTERPRISE_LICENSE",
+    "XTM_ONE_POSTGRES_PASSWORD",
+    "XTM_ONE_SECRET_KEY",
+  ]
+}
+
 variable "db_accessor_instance_class" {
   description = "db_accessor_instance_class"
   type        = string
