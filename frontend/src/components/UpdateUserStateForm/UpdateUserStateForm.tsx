@@ -82,7 +82,10 @@ export const UpdateStateForm: React.FC<{
     <Dialog
       open={open}
       onClose={(event: any, reason: string) => {
-        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+        if (reason === 'backdropClick') {
+          return; // Ignore clicks outside the dialog
+        }
+        if (reason === 'escapeKeyDown') {
           logout(); // <-- logout if closed without saving to force state
         } else {
           onClose(); // only allow normal onClose otherwise
@@ -138,6 +141,7 @@ export const UpdateStateForm: React.FC<{
               <Save />
             )
           }
+          disabled={user?.state === '' || user?.state === null} // disable submission if state is empty or null
         >
           Save
         </Button>
