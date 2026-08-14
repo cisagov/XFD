@@ -1,7 +1,7 @@
 """Report-generation FastAPI routes ported from ATC-Framework CD-add-CODEOWNERS."""
 
 # Standard Python Libraries
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from typing import List
 import uuid
@@ -249,15 +249,15 @@ def software_by_org(
             data.start_date,
             "%Y-%m-%d",
         ).replace(tzinfo=timezone.utc)
-        end_datetime = (
-            datetime.strptime(data.end_date, "%Y-%m-%d") + timedelta(days=1)
+        end_datetime = datetime.strptime(
+            data.end_date,
+            "%Y-%m-%d",
         ).replace(tzinfo=timezone.utc)
         software_by_org_data = list(
             ShodanAssets.objects.filter(
                 organizations_uid=data.org_uid,
                 product__isnull=False,
-                timestamp__gte=start_datetime,
-                timestamp__lt=end_datetime,
+                timestamp__range=(start_datetime, end_datetime),
             )
             .values("product")
             .distinct()
@@ -286,15 +286,15 @@ def foreign_ips_by_org(
             data.start_date,
             "%Y-%m-%d",
         ).replace(tzinfo=timezone.utc)
-        end_datetime = (
-            datetime.strptime(data.end_date, "%Y-%m-%d") + timedelta(days=1)
+        end_datetime = datetime.strptime(
+            data.end_date,
+            "%Y-%m-%d",
         ).replace(tzinfo=timezone.utc)
         foreign_ips_by_org_data = list(
             ShodanAssets.objects.filter(
                 organizations_uid=data.org_uid,
                 country_code__isnull=False,
-                timestamp__gte=start_datetime,
-                timestamp__lt=end_datetime,
+                timestamp__range=(start_datetime, end_datetime),
             )
             .exclude(country_code="US")
             .values()
