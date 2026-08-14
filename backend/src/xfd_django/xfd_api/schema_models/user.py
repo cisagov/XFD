@@ -176,11 +176,20 @@ class UpdateUserV2(BaseModel):
     approved_by: Optional[Any] = None
 
 
+class ApproveRegistrationRequest(BaseModel):
+    """Data required to complete a user registration approval."""
+
+    state: str
+    organization_id: UUID
+    user_type: Optional[UserType] = None
+
+
 class RegisterUserResponse(BaseModel):
     """Register or deny user response."""
 
     status_code: int
     body: str
+    email_sent: Optional[bool] = None
 
 
 class VersionModel(BaseModel):

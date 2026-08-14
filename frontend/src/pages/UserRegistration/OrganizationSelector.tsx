@@ -167,6 +167,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
               if (!selectedUser || !selectUser) {
                 return;
               }
+              onSelectionChange(null);
+              setLocalSelectedOrg({ type: 'include', ids: new Set() });
               selectUser({
                 ...selectedUser,
                 state: newValue || '',

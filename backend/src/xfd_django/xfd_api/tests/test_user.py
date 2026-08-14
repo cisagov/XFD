@@ -530,7 +530,7 @@ def test_invite_existing_user_by_global_view_should_not_work():
 @patch("xfd_api.api_methods.user.send_registration_approved_email")
 def test_register_approve_success(mock_email):
     """Test successful user registration approval."""
-    mock_email.return_value = "test"
+    mock_email.return_value = True
     current_user = User.objects.create(
         first_name="Admin",
         last_name="User",
@@ -546,19 +546,36 @@ def test_register_approve_success(mock_email):
         first_name="Test",
         last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        region_id="region-1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+    )
+    organization = Organization.objects.create(
+        name="Virginia Organization {}".format(secrets.token_hex(4)),
+        acronym="VA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="Virginia",
+        region_id="3",
     )
     # Mock email sending
     response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["body"] == "User registration approved."
+    assert data["email_sent"] is True
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.state == "Virginia"
+    assert user_to_approve.region_id == "3"
+    assert user_to_approve.invite_pending is False
+    assert Role.objects.filter(
+        user=user_to_approve, organization=organization, approved=True, role="user"
+    ).exists()
     mock_email.assert_called_once_with(
         user_to_approve.email,
         subject="CISA CyHy Dashboard Account Approved",
@@ -592,14 +609,74 @@ def test_register_approve_already_approved_returns_200_message():
         date_approved=datetime.now(),
         approved_by=current_user,
     )
+    organization = Organization.objects.create(
+        name="Virginia Organization {}".format(secrets.token_hex(4)),
+        acronym="VA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="Virginia",
+        region_id="3",
+    )
 
     response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 200
     assert response.json()["body"] == "User registration already approved."
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.region_id == "region-1"
+    assert user_to_approve.state != "Virginia"
+    assert not Role.objects.filter(user=user_to_approve).exists()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.api_methods.user.send_registration_approved_email")
+def test_register_approve_succeeds_when_approval_email_fails(mock_email):
+    """Email-delivery failures do not undo a completed registration approval."""
+    mock_email.side_effect = Exception("SES unavailable")
+    current_user = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
+    )
+    user_to_approve = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+    )
+    organization = Organization.objects.create(
+        name="Virginia Organization {}".format(secrets.token_hex(4)),
+        acronym="VA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="Virginia",
+        region_id="3",
+    )
+
+    response = client.post(
+        "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["body"] == (
+        "User registration approved, but the approval email could not be sent."
+    )
+    assert response.json()["email_sent"] is False
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.date_approved is not None
+    assert Role.objects.filter(
+        user=user_to_approve, organization=organization, approved=True
+    ).exists()
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -627,11 +704,53 @@ def test_register_approve_unauthorized_region():
 
     response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "New York", "organization_id": str(uuid.uuid4())},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized region access."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_register_approve_rejects_organization_outside_selected_state():
+    """Approval cannot assign an organization outside the selected state."""
+    current_user = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
+    )
+    user_to_approve = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+    )
+    organization = Organization.objects.create(
+        name="California Organization {}".format(secrets.token_hex(4)),
+        acronym="CA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="California",
+        region_id="9",
+    )
+
+    response = client.post(
+        "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Organization does not match the selected state and region."
+    )
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.date_approved is None
+    assert not Role.objects.filter(user=user_to_approve).exists()
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
