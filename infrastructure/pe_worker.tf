@@ -310,6 +310,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.lg_workspace_name.arn}"
       },
       {
+        "name": "MAILER_ARN",
+        "valueFrom": "${data.aws_ssm_parameter.mailer_arn.arn}"
+      },
+      {
         "name": "PE_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
       },
