@@ -318,6 +318,10 @@ export const RegionUsers: React.FC = () => {
       ids: new Set<string | number>()
     });
     setSelectedOrgObject(null);
+    setErrorStates((prevState) => ({
+      ...prevState,
+      getUpdateError: ''
+    }));
     setDialogStates({
       ...dialogStates,
       isOrgDialogOpen: true
