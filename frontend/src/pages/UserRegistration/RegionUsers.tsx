@@ -458,7 +458,7 @@ export const RegionUsers: React.FC = () => {
         setInfoDialogContent(
           isSaveAction
             ? 'The user has been saved.'
-            : `The user has been approved and is a member of Region ${selectedUser.region_id}. ${emailSent === false ? 'The approval email could not be sent. The user can contact support.' : 'The approval email was sent.'}`
+            : `The user has been approved and is a member of Region ${selectedUser.region_id}. ${emailSent === false ? 'The approval email could not be sent. Check the network tab for details.' : 'The approval email was sent.'}`
         );
       } else {
         setErrorStates({

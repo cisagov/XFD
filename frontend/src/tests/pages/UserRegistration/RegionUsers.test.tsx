@@ -220,7 +220,7 @@ describe('RegionUsers', () => {
 
     await waitFor(() => {
       expect(getByRole('dialog', { name: /Success/i })).toHaveTextContent(
-        'The approval email could not be sent. The user can contact support.'
+        'The approval email could not be sent. Check the network tab for details.'
       );
     });
   });
