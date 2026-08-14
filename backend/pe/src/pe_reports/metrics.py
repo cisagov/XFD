@@ -1066,25 +1066,29 @@ class Flare:
             )
             retry_count += 1
         # Return results
-        if retry_count == max_retries + 1:
-            LOGGER.error("Error: Failed to retrieve Flare identifiers by group ID")
+        if resp.status_code != 200:
+            LOGGER.error(
+                "Failed to retrieve Flare identifiers for group %s; "
+                "final API status was %s",
+                params.get("parent_group_id"),
+                resp.status_code,
+            )
             return None
-        else:
-            resp = resp.json()
-            next_val = resp.get("next")
-            # Format identifier info
-            ident_list = []
-            for ident in resp.get("items"):
-                ident_id = ident.get("id")
-                ident_value = ident.get("name")
-                ident_type = ident.get("type")
-                ident_dict = {"id": ident_id, "value": ident_value, "type": ident_type}
-                ident_list.append(ident_dict)
-            # Return results
-            return {
-                "ident_list": ident_list,
-                "next_val": next_val,
-            }
+
+        response_data = resp.json()
+        ident_list = []
+        for ident in response_data.get("items", []):
+            ident_list.append(
+                {
+                    "id": ident.get("id"),
+                    "value": ident.get("name"),
+                    "type": ident.get("type"),
+                }
+            )
+        return {
+            "ident_list": ident_list,
+            "next_val": response_data.get("next"),
+        }
 
     def get_ident_by_group_id(self, ident_group_id, flare_tenant_id, api_auth):
         """Retrieve all identifiers belonging to the specified identifier group (organization)."""
@@ -1098,6 +1102,13 @@ class Flare:
             "parent_group_id": ident_group_id,
         }
         ini_resp = self.get_ident_by_group_id_chunk(flare_token, ini_params)
+        if ini_resp is None:
+            LOGGER.warning(
+                "Flare identifier retrieval failed for group %s; ",
+                ident_group_id,
+            )
+            return None
+
         results_list += ini_resp.get("ident_list")
         # Check if there's any more data to retrieve
         if ini_resp.get("next_val"):
@@ -1120,6 +1131,13 @@ class Flare:
                 "from": curr_next,
             }
             curr_resp = self.get_ident_by_group_id_chunk(flare_token, curr_params)
+            if curr_resp is None:
+                LOGGER.warning(
+                    "Flare identifier pagination failed for group %s; ",
+                    ident_group_id,
+                )
+                return None
+
             # Handle edge case where no results found for this chunk
             if len(curr_resp.get("ident_list")) != 0:
                 # Append results
@@ -1179,7 +1197,14 @@ class Flare:
                     flare_org_identifiers = self.get_ident_by_group_id(
                         flare_org_info.get("id"), flare_tenant_id, flare_api_auth
                     )
-                    if flare_org_identifiers:
+                    if flare_org_identifiers is None:
+                        LOGGER.warning(
+                            "Flare identifier API unavailable for organization %s, "
+                            "group %s; using identifier text from stored flare_events",
+                            org_abbrv,
+                            flare_org_info.get("id"),
+                        )
+                    else:
                         for ident in flare_org_identifiers:
                             if ident.get("type") == "keyword":
                                 flare_aliases[str(ident.get("id"))] = str(
