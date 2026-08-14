@@ -199,7 +199,8 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
         "s3:ListBucket"
       ],
       "Resource": [
-        "${aws_s3_bucket.export_bucket.arn}"
+        "${aws_s3_bucket.export_bucket.arn}",
+        "${aws_s3_bucket.reports_bucket.arn}"
       ]
     },
     {
