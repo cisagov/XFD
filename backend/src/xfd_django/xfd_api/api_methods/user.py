@@ -585,35 +585,8 @@ def update_user_v2(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# PUT: /users/{user_id}/register/approve
-def approve_user_registration(user_id, approval_data, current_user):
-    """Atomically complete a registered user's approval and organization assignment."""
-    if not is_valid_uuid(user_id):
-        raise HTTPException(status_code=404, detail="Invalid user ID.")
-
-    if str(current_user.id) == str(user_id):
-        raise HTTPException(status_code=403, detail="Users cannot approve themselves.")
-
-    try:
-        # Retrieve the user by ID
-        user = User.objects.get(id=user_id)
-    except ObjectDoesNotExist:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    if current_user.invite_pending or not current_user.date_accepted_terms:
-        # Return 403 if user is unapproved or has not accepted terms
-        raise HTTPException(status_code=403, detail="Account not fully activated.")
-
-    if not (
-        is_global_write_admin(current_user)
-        or current_user.user_type == UserType.REGIONAL_ADMIN
-    ):
-        # Return 403 if user is not global_write_admin or regional_admin
-        raise HTTPException(
-            status_code=403,
-            detail="Only authorized admins can approve or deny users.",
-        )
-
+def _validate_approval_request(user, approval_data, current_user):
+    """Validate approval state, organization, and requested user type."""
     region_id = REGION_STATE_MAP.get(approval_data.state)
     if not region_id:
         raise HTTPException(status_code=400, detail="Invalid state.")
@@ -639,25 +612,61 @@ def approve_user_registration(user_id, approval_data, current_user):
     requested_user_type = (
         approval_data.user_type.value if approval_data.user_type else None
     )
-    if requested_user_type and requested_user_type != user.user_type:
-        if not is_global_write_admin(current_user):
+    _validate_requested_user_type(user, requested_user_type, current_user)
+    return region_id, organization, requested_user_type
+
+
+def _validate_requested_user_type(user, requested_user_type, current_user):
+    """Ensure only eligible global admins can change a user's type on approval."""
+    if not requested_user_type or requested_user_type == user.user_type:
+        return
+
+    if not is_global_write_admin(current_user):
+        raise HTTPException(
+            status_code=403, detail="Only global admins can update userType."
+        )
+
+    if requested_user_type in settings.ALLOWED_ADMIN_ROLES:
+        email_value = (user.email or "").strip().lower()
+        email_parts = email_value.split("@")
+        email_domain = email_parts[-1] if len(email_parts) == 2 else ""
+        allowed_admin_domains = get_allowed_admin_domains()
+        if allowed_admin_domains != ["*"] and email_domain not in allowed_admin_domains:
             raise HTTPException(
-                status_code=403, detail="Only global admins can update userType."
+                status_code=403,
+                detail="User not authorized for requested user type.",
             )
 
-        if requested_user_type in settings.ALLOWED_ADMIN_ROLES:
-            email_value = (user.email or "").strip().lower()
-            email_parts = email_value.split("@")
-            email_domain = email_parts[-1] if len(email_parts) == 2 else ""
-            allowed_admin_domains = get_allowed_admin_domains()
-            if (
-                allowed_admin_domains != ["*"]
-                and email_domain not in allowed_admin_domains
-            ):
-                raise HTTPException(
-                    status_code=403,
-                    detail="User not authorized for requested user type.",
-                )
+
+# PUT: /users/{user_id}/register/approve
+def approve_user_registration(user_id, approval_data, current_user):
+    """Atomically complete a registered user's approval and organization assignment."""
+    if not is_valid_uuid(user_id):
+        raise HTTPException(status_code=404, detail="Invalid user ID.")
+
+    if str(current_user.id) == str(user_id):
+        raise HTTPException(status_code=403, detail="Users cannot approve themselves.")
+
+    try:
+        user = User.objects.get(id=user_id)
+    except ObjectDoesNotExist:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if current_user.invite_pending or not current_user.date_accepted_terms:
+        raise HTTPException(status_code=403, detail="Account not fully activated.")
+
+    if not (
+        is_global_write_admin(current_user)
+        or current_user.user_type == UserType.REGIONAL_ADMIN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only authorized admins can approve or deny users.",
+        )
+
+    region_id, organization, requested_user_type = _validate_approval_request(
+        user, approval_data, current_user
+    )
 
     with transaction.atomic(using=user._state.db):
         # Lock the user to avoid creating duplicate roles or approval emails.
