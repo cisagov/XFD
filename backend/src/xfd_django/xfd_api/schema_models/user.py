@@ -189,6 +189,7 @@ class RegisterUserResponse(BaseModel):
 
     status_code: int
     body: str
+    already_approved: bool = False
     email_sent: Optional[bool] = None
 
 

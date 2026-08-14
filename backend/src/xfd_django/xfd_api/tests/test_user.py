@@ -568,6 +568,7 @@ def test_register_approve_success(mock_email):
     assert response.status_code == 200
     data = response.json()
     assert data["body"] == "User registration approved."
+    assert data["already_approved"] is False
     assert data["email_sent"] is True
     user_to_approve.refresh_from_db()
     assert user_to_approve.state == "Virginia"
@@ -627,6 +628,7 @@ def test_register_approve_already_approved_returns_200_message():
 
     assert response.status_code == 200
     assert response.json()["body"] == "User registration already approved."
+    assert response.json()["already_approved"] is True
     user_to_approve.refresh_from_db()
     assert user_to_approve.region_id == "region-1"
     assert user_to_approve.state != "Virginia"

@@ -256,7 +256,12 @@ export const RegionUsers: React.FC = () => {
     async (
       selectedUser: User,
       organizationId: string
-    ): Promise<{ status_code: number; body: string; email_sent?: boolean }> => {
+    ): Promise<{
+      status_code: number;
+      body: string;
+      already_approved?: boolean;
+      email_sent?: boolean;
+    }> => {
       try {
         const res = await apiPost(
           ENDPOINTS.USERS_REGISTER_APPROVE.replace(
@@ -276,12 +281,19 @@ export const RegionUsers: React.FC = () => {
         return {
           status_code: res.status_code,
           body: res.body,
+          already_approved: res.already_approved,
           email_sent: res.email_sent
         };
       } catch (e: any) {
         return {
-          status_code: e.status_code || 500,
-          body: e.message || 'Unknown error',
+          status_code: e.statusCode || e.status_code || 500,
+          body:
+            e.body?.detail ||
+            e.response?.data?.detail ||
+            e.detail ||
+            e.message ||
+            'Unknown error',
+          already_approved: undefined,
           email_sent: undefined
         };
       }
@@ -401,6 +413,7 @@ export const RegionUsers: React.FC = () => {
       const originalRoleId = selectedUser?.roles?.[0]?.id || '';
       const selectedOrgId = selectedOrgObject?.id || null;
       let success = false;
+      let alreadyApproved = false;
       let emailSent: boolean | undefined;
       if (!isSaveAction) {
         if (!selectedOrgId) {
@@ -411,10 +424,13 @@ export const RegionUsers: React.FC = () => {
           selectedOrgId
         );
         success = approvalResult.status_code === 200;
+        alreadyApproved = approvalResult.already_approved === true;
         emailSent = approvalResult.email_sent;
         if (success) {
           await fetchPendingUsers();
           await fetchCurrentUsers();
+        } else {
+          throw new Error(approvalResult.body || 'Unable to approve the user.');
         }
       } else if (userHadOrg && originalOrgId === selectedOrgId) {
         const updateUserResult = await updateUser(selectedUser, isSaveAction);
@@ -458,7 +474,9 @@ export const RegionUsers: React.FC = () => {
         setInfoDialogContent(
           isSaveAction
             ? 'The user has been saved.'
-            : `The user has been approved and is a member of Region ${selectedUser.region_id}. ${emailSent === false ? 'The approval email could not be sent. Check the network tab for details.' : 'The approval email was sent.'}`
+            : alreadyApproved
+              ? 'This user was already approved.'
+              : `The user has been approved and is a member of Region ${selectedUser.region_id}. ${emailSent === false ? 'The approval email could not be sent. Check the network tab for details.' : 'The approval email was sent.'}`
         );
       } else {
         setErrorStates({

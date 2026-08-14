@@ -678,6 +678,7 @@ def approve_user_registration(user_id, approval_data, current_user):
             return {
                 "status_code": 200,
                 "body": "User registration already approved.",
+                "already_approved": True,
             }
 
         role, _ = Role.objects.get_or_create(
@@ -732,6 +733,7 @@ def approve_user_registration(user_id, approval_data, current_user):
             if email_sent
             else "User registration approved, but the approval email could not be sent."
         ),
+        "already_approved": False,
         "email_sent": email_sent,
     }
 
