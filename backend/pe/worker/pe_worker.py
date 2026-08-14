@@ -135,6 +135,8 @@ def build_command(service_type: str, org: str) -> list[str]:
     """Build the pe-source command line for the given scan type and org."""
     if service_type == "shodan_top_cves":
         return ["pe-source", "shodan_top_cves"]
+    if "mailer" in service_type:
+        return ["pe-mailer", "--orgs={}".format(org)]
     if "shodan" in service_type:
         return ["pe-source", "shodan", "--orgs={}".format(org)]
     if "dnsmonitor" in service_type:
