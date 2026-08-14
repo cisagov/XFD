@@ -102,6 +102,20 @@ describe('UpdateStateForm component', () => {
     expect(mockAuthContext.logout).toHaveBeenCalledOnce();
   });
 
+  it('enables Save after the user selects a state', async () => {
+    render(<UpdateStateForm {...mockProps} />, {
+      authContext: mockAuthContext
+    });
+
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    expect(saveButton).toBeDisabled();
+
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    fireEvent.click(await screen.findByText('California'));
+
+    expect(saveButton).toBeEnabled();
+  });
+
   it('calls apiPost when Save button is clicked with valid state', async () => {
     mockAuthContext.apiPost.mockResolvedValue({});
     mockAuthContext.apiGet.mockResolvedValue([]);
