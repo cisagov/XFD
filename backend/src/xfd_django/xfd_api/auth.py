@@ -573,13 +573,14 @@ def get_allowed_user_update_fields(current_user, target_user):
     if current_user.id == target_user.id:
         allowed = {"first_login"}  # allow the user to dismiss their own first_login
         if (
-            current_user.can_select_own_state is True
-            and current_user.invite_pending is True
+            (
+                current_user.can_select_own_state is True
+                and current_user.invite_pending is True
+            )
+            or current_user.state is None
+            or current_user.state == ""
         ):
-            allowed |= {"can_select_own_state", "state", "region_id", "invite_pending"}
-
-        if current_user.state is None or current_user.state == "":
-            allowed |= {"state"}
+            allowed.add("state")
         return allowed
 
     return set()

@@ -1848,17 +1848,25 @@ def test_update_user_v2_standard_user_cannot_update_name():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_standard_user_cannot_clear_invite_pending():
-    """Standard user should not be able to set invite_pending to false on themselves."""
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"can_select_own_state": False}, "can_select_own_state"),
+        ({"invite_pending": False}, "invite_pending"),
+    ],
+)
+def test_pending_standard_user_cannot_update_backend_controlled_state_fields(
+    payload, field
+):
+    """Only the state value may be self-updated while an invite is pending."""
     user = User.objects.create(
         first_name="Self",
         last_name="Invitee",
         email="{}@example.com".format(secrets.token_hex(4)),
         user_type=UserType.STANDARD,
         invite_pending=True,
+        can_select_own_state=True,
     )
-
-    payload = {"invite_pending": False}
 
     response = client.post(
         "/v2/update_user/{}".format(user.id),
@@ -1866,10 +1874,9 @@ def test_standard_user_cannot_clear_invite_pending():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "Unauthorized to update the following fields: invite_pending"
-    )
+    assert response.json()[
+        "detail"
+    ] == "Unauthorized to update the following fields: {}".format(field)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
