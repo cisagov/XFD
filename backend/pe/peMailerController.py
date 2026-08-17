@@ -80,10 +80,19 @@ def start_fargate_mailer_task(
     """Start an ECS Fargate task that runs pe-mailer.
 
     Only overrides the env vars specific to this invocation (MAILER_REPORT_DATE/
-    MAILER_ORGS/MAILER_SUMMARY_TO/MAILER_TEST_EMAILS) -- DB credentials,
-    MAILER_ARN, REPORTS_BUCKET_NAME, and PE API creds are expected to already
-    be part of the base task definition, same as peReportController does for
-    pe-reports.
+    MAILER_ORGS/MAILER_SUMMARY_TO/MAILER_TEST_EMAILS/PE_LOG_TO_STDERR) -- DB
+    credentials, MAILER_ARN, REPORTS_BUCKET_NAME, and PE API creds are expected
+    to already be part of the base task definition, same as peReportController
+    does for pe-reports.
+
+    PE_LOG_TO_STDERR is forced on here (rather than added to the shared
+    pe_worker task definition in Terraform) specifically so it only applies to
+    pe-mailer runs -- that task definition is also used by peScanController/
+    peReportController, and this is the one path where email_reports.py's own
+    LOGGER output (its file-only default -- see email_reports.main) needs to
+    reach the awslogs driver/CloudWatch instead of vanishing with the
+    container's ephemeral filesystem when the task stops. See
+    start_local_docker_mailer_task, which already sets this for local runs.
     """
     ecs_client = boto3.client("ecs")
     cluster = os.environ["PE_FARGATE_CLUSTER_NAME"]
@@ -94,6 +103,7 @@ def start_fargate_mailer_task(
     environment = [
         {"name": "MAILER_REPORT_DATE", "value": report_date},
         {"name": "MAILER_ORGS", "value": orgs_arg},
+        {"name": "PE_LOG_TO_STDERR", "value": "true"},
     ]
     if summary_to:
         environment.append({"name": "MAILER_SUMMARY_TO", "value": summary_to})
