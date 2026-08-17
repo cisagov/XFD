@@ -85,6 +85,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.intelx_api_key.arn,
           data.aws_ssm_parameter.lg_api_key.arn,
           data.aws_ssm_parameter.lg_workspace_name.arn,
+          data.aws_ssm_parameter.mailer_arn.arn,
           data.aws_ssm_parameter.pe_api_key.arn,
           data.aws_ssm_parameter.pe_api_url.arn,
           data.aws_ssm_parameter.pe_db_name.arn,
@@ -198,7 +199,8 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
         "s3:ListBucket"
       ],
       "Resource": [
-        "${aws_s3_bucket.export_bucket.arn}"
+        "${aws_s3_bucket.export_bucket.arn}",
+        "${aws_s3_bucket.reports_bucket.arn}"
       ]
     },
     {
@@ -211,6 +213,15 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
         "sqs:ReceiveMessage"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Resource": [
+        "${data.aws_ssm_parameter.mailer_arn.value}"
+      ]
     }
   ]
 }
@@ -608,6 +619,8 @@ data "aws_ssm_parameter" "worker_signature_private_key" { name = var.ssm_worker_
 data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
 
 data "aws_ssm_parameter" "pe_api_url" { name = var.ssm_pe_api_url }
+
+data "aws_ssm_parameter" "mailer_arn" { name = var.ssm_mailer_arn }
 
 data "aws_ssm_parameter" "cf_api_key" { name = var.ssm_cf_api_key }
 

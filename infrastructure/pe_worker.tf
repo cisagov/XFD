@@ -162,6 +162,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.lg_workspace_name.arn}"
       },
       {
+        "name": "MAILER_ARN",
+        "valueFrom": "${data.aws_ssm_parameter.mailer_arn.arn}"
+      },
+      {
         "name": "PE_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
       },
@@ -306,6 +310,15 @@ resource "aws_iam_policy" "pe_scan_operator" {
         "lambda:GetFunction"
       ],
       "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peReportController"
+    },
+    {
+      "Sid": "InvokePeMailerController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peMailerController"
     },
     {
       "Sid": "ReadPeWorkerLogs",

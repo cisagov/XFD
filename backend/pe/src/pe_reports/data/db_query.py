@@ -1201,6 +1201,20 @@ def get_orgs(conn):
             close(conn)
 
 
+def get_orgs_pass(conn, password_key):
+    """Return (cyhy_db_name, decrypted_password) for every report_on org."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT cyhy_db_name, PGP_SYM_DECRYPT(password::bytea, %s) "
+                "FROM organizations WHERE report_on",
+                (password_key,),
+            )
+            return cur.fetchall()
+    finally:
+        close(conn)
+
+
 # TODO: Convert to API endpoint in CRASM-4061
 def get_org_assets_count_past_tsql(org_uid, date):
     """Get asset counts for an organization."""

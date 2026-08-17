@@ -866,6 +866,12 @@ variable "ssm_pe_api_url" {
   default     = "/crossfeed/staging/PE_API_URL"
 }
 
+variable "ssm_mailer_arn" {
+  description = "SSM parameter holding the IAM role ARN that pe-mailer (email_reports.py) assumes to send via SES"
+  type        = string
+  default     = "/crossfeed/staging/MAILER_ARN"
+}
+
 variable "ssm_cf_api_key" {
   description = "ssm_cf_api_key"
   type        = string
