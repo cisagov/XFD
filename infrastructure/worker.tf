@@ -90,6 +90,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.pe_api_url.arn,
           data.aws_ssm_parameter.pe_db_name.arn,
           data.aws_ssm_parameter.pe_db_password.arn,
+          data.aws_ssm_parameter.pe_db_password_key.arn,
           data.aws_ssm_parameter.pe_db_username.arn,
           data.aws_ssm_parameter.pe_shodan_api_keys.arn,
           data.aws_ssm_parameter.qualys_password.arn,
@@ -607,6 +608,8 @@ data "aws_ssm_parameter" "pe_db_name" { name = var.ssm_pe_db_name }
 data "aws_ssm_parameter" "pe_db_username" { name = var.ssm_pe_db_username }
 
 data "aws_ssm_parameter" "pe_db_password" { name = var.ssm_pe_db_password }
+
+data "aws_ssm_parameter" "pe_db_password_key" { name = var.ssm_pe_db_password_key }
 
 data "aws_ssm_parameter" "lg_api_key" { name = var.ssm_lg_api_key }
 
