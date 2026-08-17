@@ -197,18 +197,21 @@ peScanController:
     PE_DB_USERNAME: ${ssm:/crossfeed/staging/PE_DB_USERNAME}
     PE_DB_PASSWORD: ${ssm:/crossfeed/staging/PE_DB_PASSWORD}
   events:
-    # "all" - load is handled by one container.
+    # CRON JOBS - EventBridge evaluates in UTC. Adjust expressions accordingly.
 
-    # "all-orgs" - load is distributed equally across multiple worker containers.
-      # Creates a queue of tasks, one for each PE customer/organization.
-      # Worker containers then work through that queue together.
-      # Ensures load balancing and working in parallel until all tasks are complete.
+    # ORGS:
+      # "all" - load is handled by one container.
+
+      # "all-orgs" - load is distributed equally across multiple worker containers.
+        # Creates a queue of tasks, one for each PE customer/organization.
+        # Worker containers then work through that queue together.
+        # Ensures load balancing and working in parallel until all tasks are complete.
 
     - schedule:
         name: pe-dnsmonitor-semi-monthly
         description: "Semi-monthly dnsmonitor scan for all orgs"
-        # This triggers the function on the 1st and 16th of every month at 12:15 AM
-        rate: cron(15 0 1,16 ? * *)
+        # Runs the 1st and 16th of every month at 12:15 AM EST/5:15 AM UTC
+        rate: cron(15 5 1,16 * ? *)
         enabled: true
         input:
           scans: ["dnsmonitor"]
@@ -217,8 +220,8 @@ peScanController:
     - schedule:
         name: pe-dnstwist-semi-monthly
         description: "Semi-monthly dnstwist scan"
-        # This triggers the function on the 14th and 27th of every month at 12:30 AM
-        rate: cron(30 0 14,27 ? * *)
+        # Runs the 14th and 27th of every month at 12:30 AM EST/5:30 AM UTC
+        rate: cron(30 5 14,27 * ? *)
         enabled: true
         input:
           scans: ["dnstwist"]
@@ -229,8 +232,8 @@ peScanController:
     - schedule:
         name: pe-flare-events-semi-monthly
         description: "Semi-monthly flare events scan"
-        # This triggers the function every 1st and 16th of the month at midnight
-        rate: cron(0 0 1,16 ? * *)
+        # Runs the 1st and 16th of every month at 12:00 AM EST/5:00 AM UTC
+        rate: cron(0 5 1,16 * ? *)
         enabled: true
         input:
           scans: ["flare_events"]
@@ -239,8 +242,8 @@ peScanController:
     - schedule:
         name: pe-flare-leaked-credentials-semi-monthly
         description: "Semi-monthly flare leaked credentials scan"
-        # This triggers the function on the 1st and 16th of every month at 6:00 AM
-        rate: cron(0 6 1,16 ? * *)
+        # Runs the 1st and 16th of every month at 6:00 AM EST/11:00 AM UTC
+        rate: cron(0 11 1,16 * ? *)
         enabled: true
         input:
           scans: ["flare_creds"]
@@ -249,8 +252,8 @@ peScanController:
     - schedule:
         name: pe-shodan-semi-monthly
         description: "Semi-monthly shodan scan"
-        # This triggers the function on the 1st and 16th of every month at 12:30 AM
-        rate: cron(30 0 1,16 ? * *)
+        # Runs the 1st and 16th of every month at 12:30 AM EST/5:30 AM UTC
+        rate: cron(30 5 1,16 * ? *)
         enabled: true
         input:
           scans: ["shodan"]
@@ -259,8 +262,8 @@ peScanController:
     - schedule:
         name: pe-shodan-top-cves-semi-monthly
         description: "Semi-monthly shodan top CVEs scan"
-        # This triggers the function on the 1st and 16th of every month at 6:00 AM
-        rate: cron(0 6 1,16 ? * *)
+        # Runs the 1st and 16th of every month at 6:00 AM EST/11:00 AM UTC
+        rate: cron(0 11 1,16 * ? *)
         enabled: true
         input:
           scans: ["shodan_top_cves"]
