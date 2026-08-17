@@ -197,6 +197,13 @@ peScanController:
     PE_DB_USERNAME: ${ssm:/crossfeed/staging/PE_DB_USERNAME}
     PE_DB_PASSWORD: ${ssm:/crossfeed/staging/PE_DB_PASSWORD}
   events:
+    # "all" - load is handled by one container.
+
+    # "all-orgs" - load is distributed equally across multiple worker containers.
+      # Creates a queue of tasks, one for each PE customer/organization.
+      # Worker containers then work through that queue together.
+      # Ensures load balancing and working in parallel until all tasks are complete.
+
     - schedule:
         name: pe-dnsmonitor-semi-monthly
         description: "Semi-monthly dnsmonitor scan for all orgs"
@@ -205,7 +212,6 @@ peScanController:
         enabled: true
         input:
           scans: ["dnsmonitor"]
-          # "all" - load is handled by one container.
           orgs: ["all"]
           taskCount: 1
     - schedule:
@@ -216,10 +222,6 @@ peScanController:
         enabled: true
         input:
           scans: ["dnstwist"]
-          # "all-orgs" - load is distributed equally across multiple worker containers.
-          # Creates a queue of tasks, one for each PE customer/organization.
-          # Worker containers then work through that queue together.
-          # Ensures load balancing and working in parallel until all tasks are complete.
           orgs: ["all-orgs"]
           # Currently limited to 10 containers due to queing configuration.
           # Will be addressed with a future To-Do.
