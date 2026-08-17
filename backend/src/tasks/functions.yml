@@ -198,64 +198,58 @@ peScanController:
     PE_DB_PASSWORD: ${ssm:/crossfeed/staging/PE_DB_PASSWORD}
   events:
     - schedule:
-        name: pe-dnsmonitor-weekdays
-        description: "Weekday dnsmonitor scan for demo orgs"
-        # This triggers the function every weekday at 10 AM UTC
-        rate: cron(0 10 ? * MON-FRI *)
-        enabled: true
-        input:
-          scans: ["dnsmonitor"]
-          orgs: ["DEMO"]
-    - schedule:
         name: pe-dnsmonitor-semi-monthly
         description: "Semi-monthly dnsmonitor scan for all orgs"
-        # This triggers the function on the 1st and 15th of every month at 10 AM UTC
+        # This triggers the function on the 1st and 16th of every month at 12:15 AM
         rate: cron(15 0 1,16 ? * *)
         enabled: true
         input:
           scans: ["dnsmonitor"]
-          orgs: ["all-orgs"]
+          orgs: ["all"]
           taskCount: 1
     - schedule:
         name: pe-dnstwist-semi-monthly
         description: "Semi-monthly dnstwist scan"
-        # This triggers the function on the 14th and 27th of every month at 12:30 AM UTC
+        # This triggers the function on the 14th and 27th of every month at 12:30 AM
         rate: cron(30 0 14,27 ? * *)
         enabled: true
         input:
           scans: ["dnstwist"]
           orgs: ["all-orgs"]
-          taskCount: 142
-    - schedule:
-        name: pe-shodan-semi-monthly
-        description: "Semi-monthly shodan scan"
-        # This triggers the function on the 1st and 16th of every month at 12:30 AM UTC
-        rate: cron(30 0 1,16 ? * *)
-        enabled: true
-        input:
-          scans: ["shodan"]
-          orgs: ["all-orgs"]
-          taskCount: 3
+          # Currently limited to 10 containers due to queing configuration.
+          # Will be addressed with a future To-Do.
+          taskCount: 10
     - schedule:
         name: pe-flare-events-semi-monthly
         description: "Semi-monthly flare events scan"
-        # This triggers the function every 1st and 16th of the month at midnight UTC
+        # This triggers the function every 1st and 16th of the month at midnight
         rate: cron(0 0 1,16 ? * *)
         enabled: true
         input:
           scans: ["flare_events"]
           orgs: ["all-orgs"]
-          taskCount: 4
+          taskCount: 2
     - schedule:
         name: pe-flare-leaked-credentials-semi-monthly
         description: "Semi-monthly flare leaked credentials scan"
-        # This triggers the function on the 1st and 16th of every month at 6 AM UTC
+        # This triggers the function on the 1st and 16th of every month at 6 AM
         rate: cron(0 6 1,16 ? * *)
         enabled: true
         input:
-          scans: ["flare_leaked_credentials"]
+          scans: ["flare_creds"]
+          # "all-orgs"...will add description later
           orgs: ["all-orgs"]
           taskCount: 2
+    - schedule:
+        name: pe-shodan-semi-monthly
+        description: "Semi-monthly shodan scan"
+        # This triggers the function on the 1st and 16th of every month at 12:30 AM
+        rate: cron(30 0 1,16 ? * *)
+        enabled: true
+        input:
+          scans: ["shodan"]
+          orgs: ["all"]
+          taskCount: 1
     - schedule:
         name: pe-shodan-top-cves-semi-monthly
         description: "Semi-monthly shodan top CVEs scan"
@@ -264,7 +258,8 @@ peScanController:
         enabled: true
         input:
           scans: ["shodan_top_cves"]
-          orgs: ["all-orgs"]
+          # "all"...will add description later
+          orgs: ["all"]
           taskCount: 1
   iamRoleStatements:
     - Effect: Allow
