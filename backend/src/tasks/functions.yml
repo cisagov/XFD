@@ -227,7 +227,7 @@ peScanController:
         input:
           scans: ["dnstwist"]
           orgs: ["all-orgs"]
-          # Currently limited to 10 containers due to queing configuration.
+          # Currently limited to 10 containers due to queuing configuration.
           # Will be addressed with a future To-Do.
           taskCount: 10
     - schedule:
