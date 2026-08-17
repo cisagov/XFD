@@ -197,7 +197,8 @@ peScanController:
     PE_DB_USERNAME: ${ssm:/crossfeed/staging/PE_DB_USERNAME}
     PE_DB_PASSWORD: ${ssm:/crossfeed/staging/PE_DB_PASSWORD}
   events:
-    # CRON JOBS - EventBridge evaluates in UTC. Adjust expressions accordingly.
+    # RATE:
+      # EventBridge evaluates in UTC. Adjust expressions accordingly.
 
     # ORGS:
       # "all" - load is handled by one container.
