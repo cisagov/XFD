@@ -1838,7 +1838,7 @@ def test_update_user_v2_regional_admin_can_update_in_region_state():
         region_id="X1",
     )
 
-    payload = {"state": "NY"}
+    payload = {"state": "New York"}
 
     response = client.post(
         "/v2/update_user/{}".format(user.id),
@@ -1850,6 +1850,8 @@ def test_update_user_v2_regional_admin_can_update_in_region_state():
     )
 
     assert response.status_code == 200
+    assert response.json()["state"] == "New York"
+    assert response.json()["region_id"] == "2"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2224,7 +2226,7 @@ def test_global_user_updates_confirm_authorized_fields():
     )
     payload = {
         "region_id": "2",
-        "state": "NY",
+        "state": "New York",
         "first_name": "Updated",
         "last_name": "New",
         "date_approved": datetime.now().isoformat(),
@@ -2237,6 +2239,8 @@ def test_global_user_updates_confirm_authorized_fields():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 200
+    assert response.json()["state"] == "New York"
+    assert response.json()["region_id"] == "2"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
