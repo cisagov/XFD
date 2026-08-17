@@ -503,6 +503,9 @@ def update_user_v2(
                 ),
             )
 
+        if "state" in requested_fields and updates["state"] not in REGION_STATE_MAP:
+            raise HTTPException(status_code=400, detail="Invalid state.")
+
         if "user_type" in requested_fields:
             if updates["user_type"] in settings.ALLOWED_ADMIN_ROLES:
                 email_value = (user.email or "").strip().lower()

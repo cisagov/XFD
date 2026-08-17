@@ -1595,6 +1595,35 @@ def test_update_user_v2_approved_user_can_set_missing_own_state():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@pytest.mark.parametrize("state", ["Invalid State", ""])
+def test_update_user_v2_rejects_invalid_self_selected_state(state):
+    """A self-service state update must use a configured state."""
+    user = User.objects.create(
+        first_name="Pending",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        invite_pending=True,
+        state="Virginia",
+        region_id="3",
+        can_select_own_state=True,
+    )
+
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
+        json={"state": state},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid state."
+    user.refresh_from_db()
+    assert user.state == "Virginia"
+    assert user.region_id == "3"
+    assert user.can_select_own_state is True
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_non_existent_user():
     """Test that updating a non-existent user returns a 404."""
     global_admin = User.objects.create(
