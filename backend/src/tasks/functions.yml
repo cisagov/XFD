@@ -205,6 +205,7 @@ peScanController:
         enabled: true
         input:
           scans: ["dnsmonitor"]
+          # "all" - load is handled by one container.
           orgs: ["all"]
           taskCount: 1
     - schedule:
@@ -215,6 +216,10 @@ peScanController:
         enabled: true
         input:
           scans: ["dnstwist"]
+          # "all-orgs" - load is distributed equally across multiple worker containers.
+          # Creates a queue of tasks, one for each PE customer/organization.
+          # Worker containers then work through that queue together.
+          # Ensures load balancing and working in parallel until all tasks are complete.
           orgs: ["all-orgs"]
           # Currently limited to 10 containers due to queing configuration.
           # Will be addressed with a future To-Do.
