@@ -239,12 +239,11 @@ peScanController:
     - schedule:
         name: pe-flare-leaked-credentials-semi-monthly
         description: "Semi-monthly flare leaked credentials scan"
-        # This triggers the function on the 1st and 16th of every month at 6 AM
+        # This triggers the function on the 1st and 16th of every month at 6:00 AM
         rate: cron(0 6 1,16 ? * *)
         enabled: true
         input:
           scans: ["flare_creds"]
-          # "all-orgs"...will add description later
           orgs: ["all-orgs"]
           taskCount: 2
     - schedule:
@@ -260,12 +259,11 @@ peScanController:
     - schedule:
         name: pe-shodan-top-cves-semi-monthly
         description: "Semi-monthly shodan top CVEs scan"
-        # This triggers the function on the 1st and 16th of every month at 6 AM UTC
+        # This triggers the function on the 1st and 16th of every month at 6:00 AM
         rate: cron(0 6 1,16 ? * *)
         enabled: true
         input:
           scans: ["shodan_top_cves"]
-          # "all"...will add description later
           orgs: ["all"]
           taskCount: 1
   iamRoleStatements:
