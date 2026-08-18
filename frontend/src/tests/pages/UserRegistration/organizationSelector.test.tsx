@@ -116,6 +116,16 @@ describe('OrganizationSelector', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not request elevation confirmation for a preselected elevated user type', async () => {
+    const elevatedUser = { ...testUser, user_type: 'globalView' as const };
+
+    renderComponent({ selectedUser: elevatedUser, pendingUsers: [] });
+
+    expect(
+      screen.queryByText(/you are attempting to change this user/i)
+    ).not.toBeInTheDocument();
+  });
+
   it('respects initialOrgId selection', async () => {
     apiGetMock.mockResolvedValueOnce(organizations);
 
