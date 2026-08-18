@@ -122,8 +122,6 @@ create_email_sender_instance         = true
 email_sender_instance_type           = "t3.small"
 create_open_cti_instance             = true
 open_cti_instance_type               = "m5.4xlarge"
-# Must match .github/workflows/open-cti-config-sync.yml's OPEN_CTI_CONFIG_BUCKET literal.
-open_cti_config_bucket_name = "cisa-crossfeed-staging-cd-open-cti-config"
 # Confirmed against stage-cd's real, running .env on 2026-08-17.
 open_cti_host                = "localhost"
 open_cti_admin_email         = "admin@opencti.io"

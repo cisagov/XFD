@@ -9,16 +9,17 @@
 # This is the one place per-environment, non-secret open-cti config lives --
 # see infrastructure/vars.tf (open_cti_host and friends) for the source
 # variables and infrastructure/*.tfvars for the actual per-environment
-# values. open-cti/bootstrap.sh (run every boot by
-# open-cti-render-env.service) sources the file this writes to pick these
-# values back up; it never re-derives them itself.
+# values. open-cti/bootstrap.sh AND open-cti/refresh-repo.sh (both run every
+# boot by open-cti-render-env.service) source the file this writes to pick
+# these values back up; neither re-derives them itself.
 set -euo pipefail
 
 mkdir -p /opt/open-cti
 
 cat > /opt/open-cti/env.deploy <<'ENV_DEPLOY_EOF'
 OPEN_CTI_SSM_PATH_PREFIX="${ssm_path_prefix}"
-OPEN_CTI_CONFIG_BUCKET="${config_bucket}"
+OPEN_CTI_REPO_URL="${repo_url}"
+OPEN_CTI_REPO_BRANCH="${repo_branch}"
 OPENCTI_HOST="${opencti_host}"
 OPENCTI_ADMIN_EMAIL="${opencti_admin_email}"
 SMTP_HOSTNAME="${smtp_hostname}"

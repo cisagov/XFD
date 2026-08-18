@@ -26,13 +26,14 @@ output "open_cti_backfill_script" {
     mistake) would pass that check silently and cause OpenCTI to register
     duplicate connectors on next boot -- don't regenerate these for stage-cd.
 
-    docker-compose.yml and rabbitmq.conf are NOT part of this payload (18KB,
-    over EC2's user_data limit) -- bootstrap.sh instead fetches both from S3
-    itself, every boot (step 0). That means the S3 bucket needs to actually
-    have current objects in it before backfilling: confirm
-    .github/workflows/open-cti-config-sync.yml has run at least once (it
-    fires on every push to develop touching either file) -- a bucket that's
-    never been populated will make bootstrap.sh fail on its `aws s3 cp` step.
+    docker-compose.yml, rabbitmq.conf, bootstrap.sh, env.static, and both
+    systemd units are NOT part of this payload either -- this script only
+    installs open-cti/refresh-repo.sh, which git-clones/pulls
+    var.open_cti_repo_url at var.open_cti_repo_branch into
+    /opt/open-cti-repo and runs everything straight out of that checkout.
+    That means the instance needs real outbound internet access to reach
+    that URL (git-over-HTTPS) -- confirm that before backfilling, or
+    refresh-repo.sh's `git clone` step will simply hang or fail.
   EOT
   value       = local.open_cti_user_data
   sensitive   = true

@@ -1,11 +1,13 @@
 #!/bin/bash
-# open-cti/bootstrap.sh -- renders /opt/open-cti/.env from SSM + env.static/env.deploy. Run every
-# boot by open-cti-render-env.service, idempotent. Comments terse on purpose: embedded whole into
-# EC2 user_data (16KB limit). Full rationale: open-cti/STATUS.md.
+# open-cti/bootstrap.sh -- renders /opt/open-cti/.env from SSM + env.static/env.deploy. Runs every
+# boot, in place from the git checkout (/opt/open-cti-repo), via open-cti-render-env.service --
+# refresh-repo.sh (that unit's ExecStartPre) re-syncs the checkout first, so this always executes
+# whatever's current on var.open_cti_repo_branch. Idempotent. Full rationale: open-cti/STATUS.md.
 set -euo pipefail
 
-OPEN_CTI_DIR="/opt/open-cti"
-ENV_STATIC="$OPEN_CTI_DIR/env.static"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OPEN_CTI_DIR="/opt/open-cti" # runtime state -- distinct from $SCRIPT_DIR, which is the (replaceable) repo checkout
+ENV_STATIC="$SCRIPT_DIR/env.static"
 ENV_DEPLOY="$OPEN_CTI_DIR/env.deploy"
 ENV_OUT="$OPEN_CTI_DIR/.env"
 ENV_TMP="$OPEN_CTI_DIR/.env.tmp"
@@ -13,19 +15,12 @@ ENV_TMP="$OPEN_CTI_DIR/.env.tmp"
 log() { echo "[bootstrap.sh] $*"; }
 fail() { echo "[bootstrap.sh] FATAL: $*" >&2; exit 1; }
 
-[[ -f "$ENV_STATIC" ]] || fail "$ENV_STATIC not found -- bootstrapped by Terraform user_data?"
+[[ -f "$ENV_STATIC" ]] || fail "$ENV_STATIC not found -- corrupt/incomplete repo checkout?"
 [[ -f "$ENV_DEPLOY" ]] || fail "$ENV_DEPLOY not found -- bootstrapped by Terraform user_data?"
 
 # shellcheck source=/dev/null
 source "$ENV_DEPLOY"
 : "${OPEN_CTI_SSM_PATH_PREFIX:?OPEN_CTI_SSM_PATH_PREFIX must be set in $ENV_DEPLOY}"
-: "${OPEN_CTI_CONFIG_BUCKET:?OPEN_CTI_CONFIG_BUCKET must be set in $ENV_DEPLOY}"
-
-# 0) docker-compose.yml + rabbitmq.conf: too large for user_data, fetched from S3 every boot.
-# Objects kept current by .github/workflows/open-cti-config-sync.yml, not Terraform.
-log "Fetching docker-compose.yml + rabbitmq.conf from s3://$OPEN_CTI_CONFIG_BUCKET ..."
-aws s3 cp "s3://$OPEN_CTI_CONFIG_BUCKET/docker-compose.yml" "$OPEN_CTI_DIR/docker-compose.yml"
-aws s3 cp "s3://$OPEN_CTI_CONFIG_BUCKET/rabbitmq.conf" "$OPEN_CTI_DIR/rabbitmq.conf"
 
 log "Rendering $ENV_OUT ..."
 umask 077  # .env holds decrypted secrets from here on

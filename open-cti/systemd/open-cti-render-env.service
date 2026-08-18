@@ -1,11 +1,14 @@
 [Unit]
-Description=Render open-cti .env from SSM Parameter Store + env.static/env.deploy
+Description=Refresh the open-cti repo checkout, then render .env from SSM + env.static/env.deploy
 # Compose must never start against a stale or half-written .env.
 Before=open-cti-compose.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/open-cti/bootstrap.sh
+# Re-syncs /opt/open-cti-repo from open_cti_repo_url/branch and re-installs both units from it --
+# see open-cti/refresh-repo.sh. Runs first so ExecStart below always executes whatever's current.
+ExecStartPre=/opt/open-cti/refresh-repo.sh
+ExecStart=/opt/open-cti-repo/open-cti/bootstrap.sh
 
 [Install]
 WantedBy=multi-user.target

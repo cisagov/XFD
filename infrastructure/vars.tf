@@ -741,10 +741,16 @@ variable "open_cti_xtm_one_admin_email" {
   default     = ""
 }
 
-variable "open_cti_config_bucket_name" {
-  description = "S3 bucket open-cti/docker-compose.yml and open-cti/rabbitmq.conf live in. Terraform (open_cti.tf) owns the bucket itself; .github/workflows/open-cti-config-sync.yml owns keeping the two objects in it current on every push to develop -- the two must be kept in sync by hand, this variable's value has to match that workflow's hardcoded OPEN_CTI_CONFIG_BUCKET literal. Neither file can be embedded directly in user_data like bootstrap.sh/env.static are -- docker-compose.yml alone is ~18KB, over EC2's 16KB user_data limit -- so bootstrap.sh fetches both from here at every boot instead, before compose starts. Must be globally unique; set per environment in *.tfvars."
+variable "open_cti_repo_url" {
+  description = "Git URL open-cti/refresh-repo.sh clones/pulls from on every boot -- the source of truth for bootstrap.sh, env.static, docker-compose.yml, rabbitmq.conf, and both systemd units, none of which are embedded in user_data or delivered via S3 anymore (see open_cti.tf's header comment on that decision). Defaults to this repo's current public URL, which needs no credentials. When this repo moves to the enterprise remote (already configured locally as `enterprise` -- https://github.com/cisa-vulnerability-management/asm-xfd.git) and stops being publicly cloneable, this needs to change AND refresh-repo.sh needs real git auth added -- see open-cti/STATUS.md for that plan."
   type        = string
-  default     = ""
+  default     = "https://github.com/cisagov/XFD.git"
+}
+
+variable "open_cti_repo_branch" {
+  description = "Branch open-cti/refresh-repo.sh tracks -- a merge here reaches every instance's next boot, no CI push and no terraform apply required."
+  type        = string
+  default     = "develop"
 }
 
 variable "open_cti_db_username" {

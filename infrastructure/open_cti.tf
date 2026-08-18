@@ -88,114 +88,18 @@ resource "aws_iam_role_policy" "open_cti_ssm_read_secrets" {
   })
 }
 
-# Delivery for open-cti/docker-compose.yml + rabbitmq.conf -- confirmed byte-for-byte identical
-# (modulo whitespace/comments) to what's actually running on stage-cd on 2026-08-17, so this repo's
-# copies are safe to treat as the source of truth. Can't go through user_data like bootstrap.sh/
-# env.static do -- docker-compose.yml alone is ~18KB, over EC2's 16KB user_data limit -- so
-# bootstrap.sh instead `aws s3 cp`s both from here every boot, before open-cti-compose.service
-# starts. BucketOwnerEnforced (ACLs fully disabled): only ever written by CI and read by this
-# instance's role, no cross-account/ACL-based access needed.
-#
-# Terraform owns the bucket itself (below) -- policy, encryption, versioning, logging, and the IAM
-# read grant. It deliberately does NOT own the objects in it: .github/workflows/
-# open-cti-config-sync.yml uploads open-cti/docker-compose.yml + rabbitmq.conf on every push to
-# develop that touches either file, so a config change reaches the bucket the moment it merges,
-# without waiting on (or requiring) a `terraform apply`. That workflow's target bucket name is a
-# hardcoded literal, kept in sync with var.open_cti_config_bucket_name by convention -- see that
-# workflow file's header comment.
-#
-# Operational note: a brand-new bucket starts empty. Nothing lands in it until the next push to
-# develop that touches either file merges (or someone seeds it by hand with one `aws s3 cp`) -- so
-# for a genuinely new environment, land a no-op touch/merge to develop before that instance's first
-# real boot, or bootstrap.sh's S3 fetch will fail with a 404.
-resource "aws_s3_bucket" "open_cti_config" {
-  count  = var.create_open_cti_instance ? 1 : 0
-  bucket = var.open_cti_config_bucket_name
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-    Owner   = "Crossfeed managed resource"
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "open_cti_config" {
-  count                   = var.create_open_cti_instance ? 1 : 0
-  bucket                  = aws_s3_bucket.open_cti_config[0].id
-  block_public_acls       = true
-  ignore_public_acls      = true
-  block_public_policy     = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_policy" "open_cti_config" {
-  count  = var.create_open_cti_instance ? 1 : 0
-  bucket = aws_s3_bucket.open_cti_config[0].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "RequireSSLRequests"
-        Action    = "s3:*"
-        Effect    = "Deny"
-        Principal = "*"
-        Resource = [
-          aws_s3_bucket.open_cti_config[0].arn,
-          "${aws_s3_bucket.open_cti_config[0].arn}/*"
-        ]
-        Condition = {
-          Bool = { "aws:SecureTransport" = "false" }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_ownership_controls" "open_cti_config" {
-  count  = var.create_open_cti_instance ? 1 : 0
-  bucket = aws_s3_bucket.open_cti_config[0].id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "open_cti_config" {
-  count  = var.create_open_cti_instance ? 1 : 0
-  bucket = aws_s3_bucket.open_cti_config[0].id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_versioning" "open_cti_config" {
-  count  = var.create_open_cti_instance ? 1 : 0
-  bucket = aws_s3_bucket.open_cti_config[0].id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_logging" "open_cti_config" {
-  count         = var.create_open_cti_instance ? 1 : 0
-  bucket        = aws_s3_bucket.open_cti_config[0].id
-  target_bucket = aws_s3_bucket.logging_bucket.id
-  target_prefix = "open_cti_config/"
-}
-
-resource "aws_iam_role_policy" "open_cti_s3_config_read" {
-  count = var.create_open_cti_instance ? 1 : 0
-  name  = "crossfeed-open-cti-${var.stage}-s3-config-read"
-  role  = aws_iam_role.open_cti[0].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:GetObject"]
-      Resource = "${aws_s3_bucket.open_cti_config[0].arn}/*"
-    }]
-  })
-}
+# Delivery for open-cti/docker-compose.yml + rabbitmq.conf (and, as of the git-clone redesign,
+# bootstrap.sh + env.static + both systemd units too): NOT S3-based. An S3 bucket was built and
+# removed here -- it had no working path to gov-cloud (cross-partition bucket access is impossible,
+# and no CI credentials/pipeline reach the aws-us-gov account to push objects into one). Replaced
+# with the instance pulling everything itself via `git clone`/`git pull` from this repo -- see
+# open-cti/refresh-repo.sh, which every boot re-syncs a checkout at /opt/open-cti-repo and
+# open-cti-render-env.service runs bootstrap.sh straight out of that checkout, in place, rather than
+# anything being embedded into user_data or copied out of S3. Trade-off worth knowing: this needs
+# real outbound internet from whatever subnet the instance lands in (git-over-HTTPS to github.com),
+# where S3-via-VPC-endpoint would not have -- accepted since S3 had no working path here anyway.
+# var.open_cti_repo_url defaults to this repo's current public URL; see open-cti/STATUS.md for the
+# plan once it moves to the (already-configured-locally) enterprise remote and needs real auth.
 
 # Read-only lookups, stage-cd (is_dmz) ONLY. This security group and subnet already exist and were
 # not created by this config -- their ownership/rules predate this Terraform and are unverified, so
@@ -287,32 +191,31 @@ resource "aws_iam_role_policy" "open_cti_rds_iam_auth" {
 }
 
 locals {
-  # Full boot-time payload for aws_instance.open_cti: writes env.static,
-  # bootstrap.sh, and both systemd units to /opt/open-cti //
-  # /etc/systemd/system, then enables + starts them -- see open-cti/bootstrap.sh
-  # and open-cti/systemd/*.service for what actually runs on every boot after
-  # that.
+  # Full boot-time payload for aws_instance.open_cti. Deliberately small: writes env.deploy (the
+  # only piece that's actually per-environment Terraform config, hence templatefile() -- see
+  # open_cti_user_data_env.sh.tpl), writes open-cti/refresh-repo.sh, runs it once (bootstraps the
+  # first git checkout at /opt/open-cti-repo + installs both systemd units from it), then enables +
+  # starts them. Everything else -- bootstrap.sh, env.static, docker-compose.yml, rabbitmq.conf, the
+  # unit files themselves on every later boot -- is read straight out of that checkout, in place, by
+  # refresh-repo.sh/bootstrap.sh/the units. Nothing else gets embedded here or copied from S3; see
+  # the comment above data.aws_security_group.open_cti for why S3 was tried and removed.
   #
-  # Deliberately built with join()/file(), NOT one big templatefile() or HCL
-  # heredoc over the whole thing: bootstrap.sh and the unit files are real
-  # scripts full of their own ${...} syntax (bash parameter expansion, systemd
-  # specifiers) that Terraform's template interpolation would otherwise try --
-  # and fail -- to parse as Terraform variables. file() returns raw bytes with
-  # no reinterpretation, so nesting its result inside join() carries each
-  # embedded file through untouched. Only the tiny env header actually needs
-  # Terraform-side interpolation, so that's the one piece using templatefile().
+  # refresh-repo.sh is still embedded via file() rather than templatefile(), same reasoning as
+  # before: it's a real bash script with its own ${...} syntax that Terraform's interpolation would
+  # otherwise misparse.
   #
-  # Also exposed via output.open_cti_backfill_script (output.tf) so the exact
-  # same payload can be replayed against the already-running stage-cd instance
-  # -- see that output's description for the runbook, and this resource's
-  # header comment for why `terraform apply` alone won't do it automatically.
+  # Also exposed via output.open_cti_backfill_script (output.tf) so the exact same payload can be
+  # replayed against the already-running stage-cd instance -- see that output's description for the
+  # runbook, and this resource's header comment for why `terraform apply` alone won't do it
+  # automatically.
   open_cti_user_data = var.create_open_cti_instance ? join("\n", [
     "#!/bin/bash",
     "set -euo pipefail",
     "",
     templatefile("${path.module}/open_cti_user_data_env.sh.tpl", {
       ssm_path_prefix     = var.open_cti_ssm_path_prefix
-      config_bucket       = var.open_cti_config_bucket_name
+      repo_url            = var.open_cti_repo_url
+      repo_branch         = var.open_cti_repo_branch
       opencti_host        = var.open_cti_host
       opencti_admin_email = var.open_cti_admin_email
       smtp_hostname       = var.open_cti_smtp_hostname
@@ -322,24 +225,12 @@ locals {
       xtm_one_admin_email = var.open_cti_xtm_one_admin_email
     }),
     "",
-    "cat > /opt/open-cti/env.static <<'ENV_STATIC_EOF'",
-    file("${path.module}/../open-cti/env.static"),
-    "ENV_STATIC_EOF",
+    "cat > /opt/open-cti/refresh-repo.sh <<'REFRESH_REPO_EOF'",
+    file("${path.module}/../open-cti/refresh-repo.sh"),
+    "REFRESH_REPO_EOF",
+    "chmod 755 /opt/open-cti/refresh-repo.sh",
+    "/opt/open-cti/refresh-repo.sh",
     "",
-    "cat > /opt/open-cti/bootstrap.sh <<'BOOTSTRAP_SH_EOF'",
-    file("${path.module}/../open-cti/bootstrap.sh"),
-    "BOOTSTRAP_SH_EOF",
-    "chmod 755 /opt/open-cti/bootstrap.sh",
-    "",
-    "cat > /etc/systemd/system/open-cti-render-env.service <<'RENDER_UNIT_EOF'",
-    file("${path.module}/../open-cti/systemd/open-cti-render-env.service"),
-    "RENDER_UNIT_EOF",
-    "",
-    "cat > /etc/systemd/system/open-cti-compose.service <<'COMPOSE_UNIT_EOF'",
-    file("${path.module}/../open-cti/systemd/open-cti-compose.service"),
-    "COMPOSE_UNIT_EOF",
-    "",
-    "systemctl daemon-reload",
     "systemctl enable --now open-cti-render-env.service open-cti-compose.service",
   ]) : null
 }
@@ -385,12 +276,9 @@ resource "aws_instance" "open_cti" {
     aws_iam_instance_profile.open_cti,
     aws_iam_role_policy_attachment.open_cti_ssm_core,
     aws_iam_role_policy_attachment.open_cti_ssm_service,
-    # user_data's first boot fetches secrets/config via these -- make sure IAM
-    # has actually propagated before the instance exists to use it. (The S3
-    # objects themselves are NOT a Terraform dependency -- see the bucket's
-    # comment above -- open-cti-config-sync.yml owns keeping those current.)
+    # user_data's first boot fetches secrets via this policy -- make sure IAM
+    # has actually propagated before the instance exists to use it.
     aws_iam_role_policy.open_cti_ssm_read_secrets,
-    aws_iam_role_policy.open_cti_s3_config_read,
     # LZ-only (!is_dmz) -- harmless no-op count=0 references on stage-cd.
     aws_iam_role_policy.open_cti_rds_iam_auth,
   ]
