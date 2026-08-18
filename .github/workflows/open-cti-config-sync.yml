@@ -1,0 +1,50 @@
+---
+# Keeps the open-cti EC2 instance's Docker Compose config in sync with what's checked
+# into this repo. docker-compose.yml (~18KB) and rabbitmq.conf can't be delivered via
+# Terraform's user_data like open-cti/bootstrap.sh and env.static are -- EC2's user_data
+# has a hard 16KB limit -- so they're uploaded to S3 here instead; open-cti/bootstrap.sh
+# (run every boot by open-cti-render-env.service) `aws s3 cp`s both down before
+# open-cti-compose.service starts.
+#
+# Deliberately NOT part of the Terraform apply in infrastructure.yml:
+# infrastructure/open_cti.tf owns the S3 bucket itself (policy/encryption/versioning/IAM
+# read access), but not the objects in it -- that split means a docker-compose.yml
+# change reaches the running instance's next boot the moment it merges to develop,
+# without needing (or waiting on) a `terraform apply`.
+#
+# OPEN_CTI_CONFIG_BUCKET below must match infrastructure/stage-cd.tfvars's
+# open_cti_config_bucket_name -- Terraform doesn't read this workflow (or vice versa),
+# so keeping them aligned is a manual convention, not something enforced.
+name: Sync open-cti Config to S3
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - open-cti/docker-compose.yml
+      - open-cti/rabbitmq.conf
+      - .github/workflows/open-cti-config-sync.yml
+
+env:
+  OPEN_CTI_CONFIG_BUCKET: cisa-crossfeed-staging-cd-open-cti-config
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Same environment/credential pattern as infrastructure.yml's staging job -- this
+    # bucket lives in the same (stage-cd/commercial) account.
+    environment: staging
+    concurrency: open-cti-config-sync
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Upload docker-compose.yml + rabbitmq.conf
+        run: |
+          for f in docker-compose.yml rabbitmq.conf; do
+            aws s3 cp "open-cti/$f" "s3://${OPEN_CTI_CONFIG_BUCKET}/$f"
+          done
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"

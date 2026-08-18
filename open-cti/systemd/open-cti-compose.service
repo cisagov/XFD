@@ -1,0 +1,19 @@
+[Unit]
+Description=open-cti Docker Compose stack
+Requires=open-cti-render-env.service docker.service
+After=open-cti-render-env.service docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# docker-compose.yml + rabbitmq.conf are fetched into /opt/open-cti by
+# bootstrap.sh (step 0) from S3, not delivered here directly -- see that
+# script and .github/workflows/open-cti-config-sync.yml. Requires=/After=
+# open-cti-render-env.service above guarantees that fetch has already
+# happened by the time this unit starts.
+WorkingDirectory=/opt/open-cti
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+
+[Install]
+WantedBy=multi-user.target

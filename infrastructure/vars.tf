@@ -691,7 +691,66 @@ variable "open_cti_secret_keys" {
     "XTM_ONE_ENTERPRISE_LICENSE",
     "XTM_ONE_POSTGRES_PASSWORD",
     "XTM_ONE_SECRET_KEY",
+    # Found by diffing stage-cd's real .env against this list on 2026-08-17 --
+    # none of these three were tracked here before.
+    "MINIO_ROOT_USER",                   # confirmed live: a UUID, not a plain username -- credential-grade, paired with MINIO_ROOT_PASSWORD as effectively access_key+secret_key
+    "OPENSEARCH_ADMIN_PASSWORD",         # confirmed live, but docker-compose.yml's elasticsearch service has xpack.security.enabled=false -- unclear if this is actually consumed or vestigial from a different compose config
+    "CONNECTOR_CENSYS_ENRICHMENT_TOKEN", # confirmed live (still literally "NEED_TO_SET" there) -- not referenced anywhere in docker-compose.yml today, likely stale/vestigial
   ]
+}
+
+variable "open_cti_host" {
+  description = "Per-environment, non-secret hostname OpenCTI is reached at (OPENCTI_HOST in open-cti/.env.example). Baked into env.deploy by open_cti.tf's user_data -- see open-cti/bootstrap.sh. Must be set to the real value in each environment's .tfvars before create_open_cti_instance is turned on there; the empty default is intentionally invalid so an unset value fails loudly (an empty OPENCTI_HOST breaks APP__BASE_URL) rather than silently deploying broken config."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_admin_email" {
+  description = "Per-environment, non-secret OpenCTI admin account email (OPENCTI_ADMIN_EMAIL). See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_smtp_hostname" {
+  description = "Per-environment, non-secret SMTP relay hostname OpenCTI sends mail through (SMTP_HOSTNAME). See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_censys_org_id" {
+  description = "Per-environment, non-secret Censys organization ID (CENSYS_ORG_ID) -- not a credential, just an account identifier, which is why it's not in open_cti_secret_keys/SSM. See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_qualys_api_username" {
+  description = "Per-environment, non-secret Qualys API username (QUALYS_API_USERNAME) -- the paired QUALYS_API_PASSWORD is a real secret and stays in SSM (open_cti_secret_keys); the username alone is not. See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_xtm_one_host" {
+  description = "Per-environment, non-secret hostname XTM One is reached at (XTM_ONE_HOST). Unlike open_cti_host and its siblings, bootstrap.sh does NOT fail closed on this being empty -- confirmed on 2026-08-17 that XTM One isn't actually active on stage-cd, so an empty value here is the expected/normal case, not a misconfiguration. Set it for real once XTM One is actually turned on for a given environment."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_xtm_one_admin_email" {
+  description = "Per-environment, non-secret XTM One admin account email (XTM_ONE_ADMIN_EMAIL). See open_cti_xtm_one_host -- same optional-until-XTM-One-is-active treatment."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_config_bucket_name" {
+  description = "S3 bucket open-cti/docker-compose.yml and open-cti/rabbitmq.conf live in. Terraform (open_cti.tf) owns the bucket itself; .github/workflows/open-cti-config-sync.yml owns keeping the two objects in it current on every push to develop -- the two must be kept in sync by hand, this variable's value has to match that workflow's hardcoded OPEN_CTI_CONFIG_BUCKET literal. Neither file can be embedded directly in user_data like bootstrap.sh/env.static are -- docker-compose.yml alone is ~18KB, over EC2's 16KB user_data limit -- so bootstrap.sh fetches both from here at every boot instead, before compose starts. Must be globally unique; set per environment in *.tfvars."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_db_username" {
+  description = "Dedicated Postgres role OpenCTI connects to the Crossfeed RDS DB as, via IAM database authentication (rds-db:connect) -- see aws_iam_role_policy.open_cti_rds_iam_auth in open_cti.tf. Deliberately separate from var.db_username (the worker/backend's own role), for least privilege. NOT Terraform-managed: this role, and the one-time `GRANT rds_iam TO <role>` it needs, must be created in Postgres itself, out-of-band -- there's no postgresql provider in this repo. Only used in the LZ (!is_dmz) branch; stage-cd has no DB connectivity of this kind."
+  type        = string
+  default     = "open_cti"
 }
 
 variable "db_accessor_instance_class" {

@@ -1,0 +1,11 @@
+[Unit]
+Description=Render open-cti .env from SSM Parameter Store + env.static/env.deploy
+# Compose must never start against a stale or half-written .env.
+Before=open-cti-compose.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/open-cti/bootstrap.sh
+
+[Install]
+WantedBy=multi-user.target
