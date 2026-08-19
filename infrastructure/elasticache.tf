@@ -85,16 +85,6 @@ resource "aws_iam_policy" "elasticache_policy" {
           "iam:ListPolicyVersions",
         ]
         Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "scheduler:CreateSchedule",
-          "scheduler:DeleteSchedule",
-          "scheduler:GetSchedule",
-          "scheduler:UpdateSchedule",
-        ]
-        Resource = "arn:${var.aws_partition}:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/pe-*"
       }
     ]
   })
