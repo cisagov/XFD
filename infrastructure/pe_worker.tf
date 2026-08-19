@@ -321,6 +321,15 @@ resource "aws_iam_policy" "pe_scan_operator" {
       "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peMailerController"
     },
     {
+      "Sid": "InvokePeAsmSyncController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peAsmSyncController"
+    },
+    {
       "Sid": "ReadPeWorkerLogs",
       "Effect": "Allow",
       "Action": [
