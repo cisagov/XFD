@@ -29,7 +29,6 @@ from asm_sync_local_query import (
 )
 import boto3
 from botocore.exceptions import ClientError
-from bs4 import BeautifulSoup
 import pandas as pd
 import psycopg2
 from psycopg2 import OperationalError
@@ -233,16 +232,14 @@ def local_db_connect():
 
 
 def dotgov_domains():
-    """Get list of dotgov domains from the github repo."""
+    """Get list of dotgov domains from the GitHub repository."""
     dotgov_url = (
         "https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-federal.csv"
     )
-    resp = requests.get(dotgov_url, timeout=60)
-    soup_obj = BeautifulSoup(resp.content, features="lxml")
-    body_str = soup_obj.find("body").get_text()
-    body_str = body_str.strip()
-    df = pd.read_csv(StringIO(body_str), sep=",")
-    df = df.rename(
+    response = requests.get(dotgov_url, timeout=60)
+    response.raise_for_status()
+    dataframe = pd.read_csv(StringIO(response.text))
+    dataframe = dataframe.rename(
         columns={
             "Domain name": "domain_name",
             "Domain type": "domain_type",
@@ -253,7 +250,7 @@ def dotgov_domains():
             "Security contact email": "security_contact_email",
         }
     )
-    return df
+    return dataframe
 
 
 def retrieve_all_cyhy_data(cyhy_db):

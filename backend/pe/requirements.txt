@@ -1,7 +1,6 @@
 -r requirements-reports.txt
 aioping
 boto3
-bs4
 chevron
 django>=4.2,<5
 dnspython

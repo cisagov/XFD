@@ -359,11 +359,11 @@ class DotgovDomainsTests(unittest.TestCase):
     @patch.object(asm_sync_local_helpers.requests, "get")
     def test_normalizes_dotgov_column_names(self, get_mock):
         """Return a dataframe using PE column names."""
-        get_mock.return_value.content = (
-            b"Domain name,Domain type,Organization name,Suborganization name,"
-            b"City,State,Security contact email\n"
-            b"example.gov,Federal,Example Agency,Example Office,Washington,DC,"
-            b"security@example.gov\n"
+        get_mock.return_value.text = (
+            "Domain name,Domain type,Organization name,Suborganization name,"
+            "City,State,Security contact email\n"
+            "example.gov,Federal,Example Agency,Example Office,Washington,DC,"
+            "security@example.gov\n"
         )
 
         dataframe = asm_sync_local_helpers.dotgov_domains()
