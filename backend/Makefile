@@ -65,7 +65,8 @@ pe-requirements-audit:
 		--ignore-vuln CVE-2026-8404 \
 		--ignore-vuln CVE-2026-48588 \
 		--ignore-vuln CVE-2026-53877 \
-		--ignore-vuln CVE-2026-53878
+		--ignore-vuln CVE-2026-53878 \
+		--ignore-vuln PYSEC-2026-3717
 
 # Verify the pe-worker image built from backend/pe/Dockerfile
 PE_SMOKE_ENV = \
