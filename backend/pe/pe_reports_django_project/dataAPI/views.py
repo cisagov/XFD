@@ -24,6 +24,7 @@ from fastapi.security.api_key import APIKeyHeader
 # Import api database models
 from home.models import (
     CredentialBreaches,
+    CyhyDbAssets,
     DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
@@ -701,3 +702,32 @@ def shodan_top_cves_insert(
             continue
     # Return success message
     return str(create_cnt) + " records created in the shodan top cves table"
+
+
+@api_router.post(
+    "/cyhy_assets_by_org",
+    dependencies=[Depends(verify_api_key)],
+    response_model=List[schemas.CyhyDbAssetsByOrg],
+    tags=["Get all cyhy assets for the specified organization."],
+)
+def cyhy_assets_by_org(
+    data: schemas.GenInputOrgCyhyNameSingle, tokens: dict = Depends(verify_api_key)
+):
+    """Create API endpoint to get all cyhy assets for the specified organization."""
+    del tokens
+    cyhy_assets_by_org_data = list(
+        CyhyDbAssets.objects.filter(
+            org_id=data.org_cyhy_name, currently_in_cyhy=True
+        ).values()
+    )
+    # Convert uuids to strings
+    for row in cyhy_assets_by_org_data:
+        row["field_id"] = convert_uuid_to_string(row["field_id"])
+        row["first_seen"] = convert_date_to_string(row["first_seen"])
+        row["last_seen"] = convert_date_to_string(row["last_seen"])
+    # Catch query no results scenario
+    if not cyhy_assets_by_org_data:
+        cyhy_assets_by_org_data = [
+            {x: None for x in schemas.CyhyDbAssetsByOrg.__fields__}
+        ]
+    return cyhy_assets_by_org_data
