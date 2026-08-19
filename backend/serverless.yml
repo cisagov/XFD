@@ -121,7 +121,7 @@ resources:
     ASMSyncQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: ${self:provider.stage}-asmSync-queue
+        QueueName: ${self:provider.stage}-asmsync-queue
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
