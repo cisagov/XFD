@@ -182,6 +182,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.pe_db_password.arn}"
       },
       {
+        "name": "PE_DB_PASSWORD_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_password_key.arn}"
+      },
+      {
         "name": "PE_DB_USERNAME",
         "valueFrom": "${data.aws_ssm_parameter.pe_db_username.arn}"
       },

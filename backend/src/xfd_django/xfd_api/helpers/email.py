@@ -137,8 +137,11 @@ def send_registration_approved_email(
                 recipient,
             )
 
+        return True
+
     except (ClientError, ValueError) as e:
         LOGGER.error("Email failed with error: %s", e)
+        return False
 
 
 def send_registration_denied_email(

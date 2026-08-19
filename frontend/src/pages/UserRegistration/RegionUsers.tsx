@@ -252,22 +252,53 @@ export const RegionUsers: React.FC = () => {
     [apiPost, updateUser, errorStates]
   );
 
-  const sendApprovalEmail = useCallback(
-    async (user_id: string): Promise<{ status_code: number; body: string }> => {
+  const completeRegistrationApproval = useCallback(
+    async (
+      selectedUser: User,
+      organizationId: string
+    ): Promise<{
+      status_code: number;
+      body: string;
+      already_approved?: boolean;
+      email_sent?: boolean;
+    }> => {
       try {
         const res = await apiPost(
-          ENDPOINTS.USERS_REGISTER_APPROVE.replace('{user_id}', user_id),
-          {}
+          ENDPOINTS.USERS_REGISTER_APPROVE.replace(
+            '{user_id}',
+            selectedUser.id
+          ),
+          {
+            body: {
+              state: selectedUser.state,
+              organization_id: organizationId,
+              ...(loggedInUser?.user_type === 'globalAdmin' && {
+                user_type: selectedUser.user_type
+              })
+            }
+          }
         );
-        return { status_code: res.status_code, body: res.body };
+        return {
+          status_code: res.status_code,
+          body: res.body,
+          already_approved: res.already_approved,
+          email_sent: res.email_sent
+        };
       } catch (e: any) {
         return {
-          status_code: e.status_code || 500,
-          body: e.message || 'Unknown error'
+          status_code: e.statusCode || e.status_code || 500,
+          body:
+            e.body?.detail ||
+            e.response?.data?.detail ||
+            e.detail ||
+            e.message ||
+            'Unknown error',
+          already_approved: undefined,
+          email_sent: undefined
         };
       }
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apiPost]
+    [apiPost, loggedInUser?.user_type]
   );
 
   const handleCloseDialog = (value: CloseReason) => {
@@ -299,6 +330,10 @@ export const RegionUsers: React.FC = () => {
       ids: new Set<string | number>()
     });
     setSelectedOrgObject(null);
+    setErrorStates((prevState) => ({
+      ...prevState,
+      getUpdateError: ''
+    }));
     setDialogStates({
       ...dialogStates,
       isOrgDialogOpen: true
@@ -378,62 +413,26 @@ export const RegionUsers: React.FC = () => {
       const originalRoleId = selectedUser?.roles?.[0]?.id || '';
       const selectedOrgId = selectedOrgObject?.id || null;
       let success = false;
+      let alreadyApproved = false;
+      let emailSent: boolean | undefined;
       if (!isSaveAction) {
-        const emailResult = await sendApprovalEmail(selectedUser.id);
-
-        if (
-          emailResult.status_code === 200 &&
-          emailResult.body === 'User registration already approved.'
-        ) {
-          let alreadyApprovedSuccess = false;
-
-          if (userHadOrg && originalOrgId === selectedOrgId) {
-            const updateUserResult = await updateUser(
-              selectedUser,
-              isSaveAction
-            );
-            alreadyApprovedSuccess = updateUserResult.success;
-          } else if (selectedOrgObject) {
-            const addOrgResult = await addOrgToUser(
-              selectedUser,
-              selectedOrgObject,
-              isSaveAction
-            );
-            alreadyApprovedSuccess = addOrgResult.success;
-          } else if (selectedUser.roles[0]?.organization) {
-            const updateUserResult = await updateUser(
-              selectedUser,
-              isSaveAction
-            );
-            alreadyApprovedSuccess = updateUserResult.success;
-          }
-
-          if (alreadyApprovedSuccess) {
-            const approvedOrgName =
-              selectedOrgObject?.name ??
-              selectedUser.roles[0]?.organization?.name ??
-              'the selected organization';
-            handleCloseDialog('closeButtonClick');
-            setDialogStates((prevState) => ({
-              ...prevState,
-              isInfoDialogOpen: true
-            }));
-            setInfoDialogContent(
-              `This user was previously approved. Their registration is now complete and they are a member of ${approvedOrgName} in Region ${selectedUser.region_id}.`
-            );
-          } else {
-            setDialogStates((prevState) => ({
-              ...prevState,
-              isOrgDialogOpen: false,
-              isUserAlreadyApprovedDialogOpen: true
-            }));
-          }
-          return;
+        if (!selectedOrgId) {
+          throw new Error('Select an organization before approving the user.');
         }
-      }
-
-      // If the user's org was already added and not modified, only update the user.
-      if (userHadOrg && originalOrgId === selectedOrgId) {
+        const approvalResult = await completeRegistrationApproval(
+          selectedUser,
+          selectedOrgId
+        );
+        success = approvalResult.status_code === 200;
+        alreadyApproved = approvalResult.already_approved === true;
+        emailSent = approvalResult.email_sent;
+        if (success) {
+          await fetchPendingUsers();
+          await fetchCurrentUsers();
+        } else {
+          throw new Error(approvalResult.body || 'Unable to approve the user.');
+        }
+      } else if (userHadOrg && originalOrgId === selectedOrgId) {
         const updateUserResult = await updateUser(selectedUser, isSaveAction);
         success = updateUserResult.success;
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
@@ -473,7 +472,11 @@ export const RegionUsers: React.FC = () => {
           isInfoDialogOpen: true
         }));
         setInfoDialogContent(
-          `The user has been ${isSaveAction ? 'saved.' : `approved and is a member of Region ${selectedUser.region_id}.`}`
+          isSaveAction
+            ? 'The user has been saved.'
+            : alreadyApproved
+              ? 'This user was already approved.'
+              : `The user has been approved and is a member of Region ${selectedUser.region_id}. ${emailSent === false ? 'The approval email could not be sent. Check the network tab for details.' : 'The approval email was sent.'}`
         );
       } else {
         setErrorStates({

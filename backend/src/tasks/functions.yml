@@ -196,6 +196,97 @@ peScanController:
     PE_DB_NAME: ${ssm:/crossfeed/staging/PE_DB_NAME}
     PE_DB_USERNAME: ${ssm:/crossfeed/staging/PE_DB_USERNAME}
     PE_DB_PASSWORD: ${ssm:/crossfeed/staging/PE_DB_PASSWORD}
+  events:
+    # RATE:
+      # EventBridge evaluates in UTC by default.
+      # Added timezone to ensure the cron schedule is evaluated in EST/EDT.
+      # Method: scheduler switches the function to use the scheduler method
+      # instead of the default eventBridge method.
+
+    # ORGS:
+      # "all" - load is handled by one container.
+
+      # "all-orgs" - load is distributed equally across multiple worker containers.
+        # Creates a queue of tasks, one for each PE customer/organization.
+        # Worker containers then work through that queue together.
+        # Ensures load balancing and working in parallel until all tasks are complete.
+
+    - schedule:
+        name: pe-dnsmonitor-semi-monthly
+        description: "Semi-monthly dnsmonitor scan for all orgs"
+        # Runs the 1st and 16th of every month at 12:15 AM EST/EDT
+        rate: cron(15 0 1,16 * ? *)
+        method: scheduler
+        timezone: America/New_York
+        enabled: true
+        input:
+          scans: ["dnsmonitor"]
+          orgs: ["all"]
+          taskCount: 1
+    - schedule:
+        name: pe-dnstwist-semi-monthly
+        description: "Semi-monthly dnstwist scan"
+        # Runs the 14th and 27th of every month at 12:30 AM EST/EDT
+        rate: cron(30 0 14,27 * ? *)
+        method: scheduler
+        timezone: America/New_York
+        enabled: true
+        input:
+          scans: ["dnstwist"]
+          orgs: ["all-orgs"]
+          # Currently limited to 10 containers due to queuing configuration.
+          # Will be addressed with a future To-Do.
+          taskCount: 10
+    - schedule:
+        name: pe-flare-events-semi-monthly
+        description: "Semi-monthly flare events scan"
+        # Runs the 1st and 16th of every month at 12:00 AM EST/EDT
+        rate: cron(0 0 1,16 * ? *)
+        method: scheduler
+        timezone: America/New_York
+        enabled: true
+        input:
+          scans: ["flare_events"]
+          orgs: ["all-orgs"]
+          taskCount: 2
+    - schedule:
+        name: pe-flare-leaked-credentials-semi-monthly
+        description: "Semi-monthly flare leaked credentials scan"
+        # Runs the 1st and 16th of every month at 6:00 AM EST/EDT
+        rate: cron(0 6 1,16 * ? *)
+        method: scheduler
+        timezone: America/New_York
+        enabled: true
+        input:
+          scans: ["flare_creds"]
+          orgs: ["all-orgs"]
+          taskCount: 2
+    - schedule:
+        name: pe-shodan-semi-monthly
+        description: "Semi-monthly shodan scan"
+        # Runs the 1st and 16th of every month at 12:30 AM EST/EDT
+        rate: cron(30 0 1,16 * ? *)
+        method: scheduler
+        timezone: America/New_York
+        enabled: true
+        input:
+          scans: ["shodan"]
+          orgs: ["all"]
+          taskCount: 1
+    - schedule:
+        name: pe-shodan-top-cves-semi-monthly
+        description: "Semi-monthly shodan top CVEs scan"
+        # Runs the 1st and 19th of every month at 3:30 PM EST/EDT
+        # Revert back to 1st and 16th of every month at 8:00 AM EST/EDT
+        # after the first run of this task on 2024-08-19.
+        rate: cron(30 15 1,19 * ? *)
+        method: scheduler
+        timezone: America/New_York
+        enabled: true
+        input:
+          scans: ["shodan_top_cves"]
+          orgs: ["all"]
+          taskCount: 1
   iamRoleStatements:
     - Effect: Allow
       Action:

@@ -232,6 +232,12 @@ variable "ssm_pe_db_password" {
   default     = "/crossfeed/staging/PE_DB_PASSWORD"
 }
 
+variable "ssm_pe_db_password_key" {
+  description = "SSM path to the pgcrypto symmetric passphrase used by PGP_SYM_DECRYPT to decrypt the organizations.password column (pe_reports.data.config.db_password_key / pe_mailer's per-org report password lookup). Distinct from ssm_pe_db_password (the Postgres auth password) -- this key must exactly match whatever value originally encrypted those rows, since it can't be safely rotated or regenerated."
+  type        = string
+  default     = "/crossfeed/staging/PE_DB_PASSWORD_KEY"
+}
+
 variable "ssm_crossfeed_vpc_name" {
   description = "ssm_crossfeed_vpc_name"
   type        = string
