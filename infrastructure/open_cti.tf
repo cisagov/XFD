@@ -193,21 +193,25 @@ resource "aws_iam_role_policy" "open_cti_rds_iam_auth" {
 locals {
   # Full boot-time payload for aws_instance.open_cti. Deliberately small: writes env.deploy (the
   # only piece that's actually per-environment Terraform config, hence templatefile() -- see
-  # open_cti_user_data_env.sh.tpl), writes open-cti/refresh-repo.sh, runs it once (bootstraps the
-  # first git checkout at /opt/open-cti-repo + installs both systemd units from it), then enables +
-  # starts them. Everything else -- bootstrap.sh, env.static, docker-compose.yml, rabbitmq.conf, the
-  # unit files themselves on every later boot -- is read straight out of that checkout, in place, by
-  # refresh-repo.sh/bootstrap.sh/the units. Nothing else gets embedded here or copied from S3; see
-  # the comment above data.aws_security_group.open_cti for why S3 was tried and removed.
+  # open_cti_user_data_env.sh.tpl), installs Docker/Compose V2/git if the base AMI doesn't already
+  # have them (open-cti/install-deps.sh), writes open-cti/refresh-repo.sh, runs it once (bootstraps
+  # the first git checkout at /opt/open-cti-repo + installs both systemd units from it), then
+  # enables + starts them. Everything else -- bootstrap.sh, env.static, docker-compose.yml,
+  # rabbitmq.conf, the unit files themselves on every later boot -- is read straight out of that
+  # checkout, in place, by refresh-repo.sh/bootstrap.sh/the units. Nothing else gets embedded here
+  # or copied from S3; see the comment above data.aws_security_group.open_cti for why S3 was tried
+  # and removed.
   #
-  # refresh-repo.sh is still embedded via file() rather than templatefile(), same reasoning as
-  # before: it's a real bash script with its own ${...} syntax that Terraform's interpolation would
-  # otherwise misparse.
+  # install-deps.sh and refresh-repo.sh are both embedded via file() rather than templatefile(),
+  # same reasoning: they're real bash scripts with their own ${...}/$(...) syntax that Terraform's
+  # interpolation would otherwise misparse.
   #
   # Also exposed via output.open_cti_backfill_script (output.tf) so the exact same payload can be
   # replayed against the already-running stage-cd instance -- see that output's description for the
   # runbook, and this resource's header comment for why `terraform apply` alone won't do it
-  # automatically.
+  # automatically. install-deps.sh is written defensively (command -v guards, not just apt
+  # idempotency) specifically so that replay is a no-op there instead of risking apt touching the
+  # live Docker daemon -- see that script's header comment.
   open_cti_user_data = var.create_open_cti_instance ? join("\n", [
     "#!/bin/bash",
     "set -euo pipefail",
@@ -225,6 +229,12 @@ locals {
       xtm_one_admin_email = var.open_cti_xtm_one_admin_email
     }),
     "",
+    "cat > /opt/open-cti/install-deps.sh <<'INSTALL_DEPS_EOF'",
+    file("${path.module}/../open-cti/install-deps.sh"),
+    "INSTALL_DEPS_EOF",
+    "chmod 755 /opt/open-cti/install-deps.sh",
+    "/opt/open-cti/install-deps.sh",
+    "",
     "cat > /opt/open-cti/refresh-repo.sh <<'REFRESH_REPO_EOF'",
     file("${path.module}/../open-cti/refresh-repo.sh"),
     "REFRESH_REPO_EOF",
@@ -236,8 +246,14 @@ locals {
 }
 
 resource "aws_instance" "open_cti" {
-  count                       = var.create_open_cti_instance ? 1 : 0
-  ami                         = var.open_cti_ami_id
+  count = var.create_open_cti_instance ? 1 : 0
+  # stage-cd (is_dmz): must match the already-running commercial-partition instance being
+  # adopted -- var.open_cti_ami_id (see its description). LZ (!is_dmz, e.g. stage/prod): this is
+  # a brand-new instance, and var.open_cti_ami_id's commercial AMI ID doesn't even exist in the
+  # gov-cloud partition -- var.lz_open_cti_ami_id instead, a dedicated gov-cloud AMI (NOT
+  # var.ami_id, unlike other LZ instances such as aws_instance.db_accessor in database.tf -- see
+  # var.lz_open_cti_ami_id's description for why this one needed its own variable).
+  ami                         = var.is_dmz ? var.open_cti_ami_id : var.lz_open_cti_ami_id
   instance_type               = var.open_cti_instance_type
   associate_public_ip_address = false
 
