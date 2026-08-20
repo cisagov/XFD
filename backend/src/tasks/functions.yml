@@ -269,10 +269,10 @@ peScanController:
     - schedule:
         name: pe-shodan-top-cves-semi-monthly
         description: "Semi-monthly shodan top CVEs scan"
-        # Runs the 1st and 19th of every month at 4:30 PM EST/EDT
+        # Runs the 1st and 20th of every month at 1:00 PM EST/EDT
         # Revert back to 1st and 16th of every month at 8:00 AM EST/EDT
-        # after the first run of this task on 2024-08-19.
-        rate: cron(30 20 1,19 * ? *)
+        # after the first run of this task on 2024-08-20.
+        rate: cron(0 13 1,20 * ? *)
         enabled: true
         input:
           scans: ["shodan_top_cves"]
