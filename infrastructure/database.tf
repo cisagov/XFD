@@ -71,7 +71,15 @@ resource "aws_db_instance" "db" {
   db_subnet_group_name = aws_db_subnet_group.default.name
   parameter_group_name = aws_db_parameter_group.default.name
 
-  vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
+  # open_cti_db_access (open_cti.tf) is layered on ALONGSIDE allow_internal_lz here, not instead of
+  # it -- allow_internal_lz already permits the whole LZ VPC CIDR on every port; open_cti_db_access
+  # scopes down to exactly "OpenCTI's EC2, port var.db_port" as an explicit, reviewable grant.
+  # compact() drops the null when create_open_cti_instance is false or is_dmz is true (stage-cd has
+  # no such SG at all).
+  vpc_security_group_ids = compact([
+    var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id,
+    (var.create_open_cti_instance && !var.is_dmz) ? aws_security_group.open_cti_db_access[0].id : null,
+  ])
 
   tags = {
     Project        = "Crossfeed"

@@ -691,7 +691,72 @@ variable "open_cti_secret_keys" {
     "XTM_ONE_ENTERPRISE_LICENSE",
     "XTM_ONE_POSTGRES_PASSWORD",
     "XTM_ONE_SECRET_KEY",
+    # Found by diffing stage-cd's real .env against this list on 2026-08-17 --
+    # none of these three were tracked here before.
+    "MINIO_ROOT_USER",                   # confirmed live: a UUID, not a plain username -- credential-grade, paired with MINIO_ROOT_PASSWORD as effectively access_key+secret_key
+    "OPENSEARCH_ADMIN_PASSWORD",         # confirmed live, but docker-compose.yml's elasticsearch service has xpack.security.enabled=false -- unclear if this is actually consumed or vestigial from a different compose config
+    "CONNECTOR_CENSYS_ENRICHMENT_TOKEN", # confirmed live (still literally "NEED_TO_SET" there) -- not referenced anywhere in docker-compose.yml today, likely stale/vestigial
   ]
+}
+
+variable "open_cti_host" {
+  description = "Per-environment, non-secret hostname OpenCTI is reached at (OPENCTI_HOST in open-cti/.env.example). Baked into env.deploy by open_cti.tf's user_data -- see open-cti/bootstrap.sh. Must be set to the real value in each environment's .tfvars before create_open_cti_instance is turned on there; the empty default is intentionally invalid so an unset value fails loudly (an empty OPENCTI_HOST breaks APP__BASE_URL) rather than silently deploying broken config."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_admin_email" {
+  description = "Per-environment, non-secret OpenCTI admin account email (OPENCTI_ADMIN_EMAIL). See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_smtp_hostname" {
+  description = "Per-environment, non-secret SMTP relay hostname OpenCTI sends mail through (SMTP_HOSTNAME). See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_censys_org_id" {
+  description = "Per-environment, non-secret Censys organization ID (CENSYS_ORG_ID) -- not a credential, just an account identifier, which is why it's not in open_cti_secret_keys/SSM. See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_qualys_api_username" {
+  description = "Per-environment, non-secret Qualys API username (QUALYS_API_USERNAME) -- the paired QUALYS_API_PASSWORD is a real secret and stays in SSM (open_cti_secret_keys); the username alone is not. See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_xtm_one_host" {
+  description = "Per-environment, non-secret hostname XTM One is reached at (XTM_ONE_HOST). Unlike open_cti_host and its siblings, bootstrap.sh does NOT fail closed on this being empty -- confirmed on 2026-08-17 that XTM One isn't actually active on stage-cd, so an empty value here is the expected/normal case, not a misconfiguration. Set it for real once XTM One is actually turned on for a given environment."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_xtm_one_admin_email" {
+  description = "Per-environment, non-secret XTM One admin account email (XTM_ONE_ADMIN_EMAIL). See open_cti_xtm_one_host -- same optional-until-XTM-One-is-active treatment."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_repo_url" {
+  description = "Git URL open-cti/refresh-repo.sh clones/pulls from on every boot -- the source of truth for bootstrap.sh, env.static, docker-compose.yml, rabbitmq.conf, and both systemd units, none of which are embedded in user_data or delivered via S3 anymore (see open_cti.tf's header comment on that decision). Defaults to this repo's current public URL, which needs no credentials. When this repo moves to the enterprise remote (already configured locally as `enterprise` -- https://github.com/cisa-vulnerability-management/asm-xfd.git) and stops being publicly cloneable, this needs to change AND refresh-repo.sh needs real git auth added -- see open-cti/STATUS.md for that plan."
+  type        = string
+  default     = "https://github.com/cisagov/XFD.git"
+}
+
+variable "open_cti_repo_branch" {
+  description = "Branch open-cti/refresh-repo.sh tracks -- a merge here reaches every instance's next boot, no CI push and no terraform apply required."
+  type        = string
+  default     = "develop"
+}
+
+variable "open_cti_db_username" {
+  description = "Dedicated Postgres role OpenCTI connects to the Crossfeed RDS DB as, via IAM database authentication (rds-db:connect) -- see aws_iam_role_policy.open_cti_rds_iam_auth in open_cti.tf. Deliberately separate from var.db_username (the worker/backend's own role), for least privilege. NOT Terraform-managed: this role, and the one-time `GRANT rds_iam TO <role>` it needs, must be created in Postgres itself, out-of-band -- there's no postgresql provider in this repo. Only used in the LZ (!is_dmz) branch; stage-cd has no DB connectivity of this kind."
+  type        = string
+  default     = "open_cti"
 }
 
 variable "db_accessor_instance_class" {
