@@ -630,9 +630,15 @@ variable "open_cti_instance_id" {
 }
 
 variable "open_cti_ami_id" {
-  description = "AMI ID of the existing OpenCTI EC2 instance. Must match reality -- this is not the `var.ami_id`/`is_dmz` ternary used for freshly-created instances."
+  description = "AMI ID of the existing, already-running stage-cd (is_dmz) OpenCTI EC2 instance -- must match reality, since that instance is adopted rather than created. Commercial-partition only: it does not exist in gov-cloud, so LZ (!is_dmz) instances use var.lz_open_cti_ami_id instead -- see aws_instance.open_cti's `ami` ternary in open_cti.tf."
   type        = string
   default     = "ami-0fb0b230890ccd1e6"
+}
+
+variable "lz_open_cti_ami_id" {
+  description = "AMI ID for a genuinely new OpenCTI EC2 instance in the gov-cloud Landing Zone (!is_dmz, e.g. stage/prod) -- this instance is created fresh, not adopted, so unlike var.open_cti_ami_id this doesn't need to match an already-running box. Gov-cloud-partition only: var.open_cti_ami_id's commercial AMI ID does not exist here -- see aws_instance.open_cti's `ami` ternary in open_cti.tf. NOT independently verified against real aws-us-gov credentials as of 2026-08-20 -- see open-cti/STATUS.md's AMI section."
+  type        = string
+  default     = "ami-035b0309a54bd5b23"
 }
 
 variable "open_cti_instance_type" {
