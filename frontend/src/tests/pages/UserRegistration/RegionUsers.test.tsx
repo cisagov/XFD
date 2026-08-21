@@ -60,7 +60,15 @@ vi.mock('@/utils/transformTableData', async (importOriginal) => {
 });
 
 vi.mock('@/pages/UserRegistration/OrganizationSelector', () => ({
-  OrganizationSelector: () => <div data-testid="organization-selector" />
+  OrganizationSelector: ({ onSelectionChange }: any) => (
+    <div data-testid="organization-selector">
+      <button
+        onClick={() => onSelectionChange({ id: 'org-1', name: 'Virginia Org' })}
+      >
+        Select organization
+      </button>
+    </div>
+  )
 }));
 
 const getUsersURL = `${ENDPOINTS.USERS_V2}?invite_pending=`;
@@ -155,5 +163,65 @@ describe('RegionUsers', () => {
     });
 
     expect(apiGet.mock.calls.length).toBe(callsWithDialogOpen);
+  });
+
+  it('completes approval with one request containing state and organization', async () => {
+    const pendingUser = {
+      id: 'user-1',
+      full_name: 'Pending User',
+      email: 'pending@example.com',
+      state: 'Virginia',
+      region_id: '3',
+      user_type: 'standard',
+      roles: []
+    };
+    apiGet.mockImplementation((url: string) =>
+      Promise.resolve(url === `${getUsersURL}true` ? [pendingUser] : [])
+    );
+    apiPost.mockResolvedValue({
+      status_code: 200,
+      body: 'User registration approved.',
+      email_sent: false
+    });
+
+    const { getByRole } = render(<RegionUsers />, {
+      authContext: { apiGet, apiPost, apiDelete }
+    });
+
+    await waitFor(() => {
+      expect(
+        getByRole('button', { name: /Approve User: Pending User/i })
+      ).toBeInTheDocument();
+    });
+
+    getByRole('button', { name: /Approve User: Pending User/i }).click();
+    await waitFor(() => {
+      expect(
+        getByRole('button', { name: /Select organization/i })
+      ).toBeInTheDocument();
+    });
+    getByRole('button', { name: /Select organization/i }).click();
+    await waitFor(() => {
+      expect(getByRole('button', { name: 'Confirm' })).toBeEnabled();
+    });
+    getByRole('button', { name: 'Confirm' }).click();
+
+    await waitFor(() => {
+      expect(apiPost).toHaveBeenCalledWith(
+        ENDPOINTS.USERS_REGISTER_APPROVE.replace('{user_id}', 'user-1'),
+        {
+          body: {
+            state: 'Virginia',
+            organization_id: 'org-1'
+          }
+        }
+      );
+    });
+
+    await waitFor(() => {
+      expect(getByRole('dialog', { name: /Success/i })).toHaveTextContent(
+        'The approval email could not be sent. Check the network tab for details.'
+      );
+    });
   });
 });

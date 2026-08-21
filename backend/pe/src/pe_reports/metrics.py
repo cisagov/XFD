@@ -926,21 +926,6 @@ class Flare:
         ]
         mentions = mentions.reset_index(drop=True)
         self.mentions = mentions
-        # Aggregate all Flare "alert" events (all alert event types)
-        self.alert_event_types = [
-            "bot",
-            "bucket",
-            "bucket_object",
-            "domain",
-            "service",
-            "stealer_log",
-            "listing",
-        ]
-        alerts = self.all_events.loc[
-            self.all_events["event_type"].isin(self.alert_event_types)
-        ]
-        alerts = alerts.reset_index(drop=True)
-        self.alerts = alerts
         # Aggregate all Flare "executive alert" events (any events involving executive identifiers)
         self.flare_exec_ids = list(self.flare_exec_dict.keys())
         exec_events = self.all_events[
@@ -961,6 +946,29 @@ class Flare:
         ]
         asset_events = asset_events.reset_index(drop=True)
         self.asset_events = asset_events
+        # Aggregate all Flare "alert" events
+        # alert type events + executive alert events + asset alert events
+        self.alert_event_types = [
+            "bot",
+            "bucket",
+            "bucket_object",
+            "domain",
+            "service",
+            "stealer_log",
+            "listing",
+        ]
+        alerts = self.all_events.loc[
+            self.all_events["event_type"].isin(self.alert_event_types)
+        ]
+        alerts = pd.concat([alerts, self.exec_events, self.asset_events], axis=0)
+        dedupe_cols = [
+            item
+            for item in alerts.columns.tolist()
+            if item not in ["related_identifiers", "related_identifiers_txt"]
+        ]
+        alerts.drop_duplicates(subset=dedupe_cols, inplace=True)
+        alerts = alerts.reset_index(drop=True)
+        self.alerts = alerts
         # Assemble top 10 CVEs for this report period (Shodan EPSS)
         self.top_cves = query_shodan_top_cves()
         # Retrieve Flare event type definitions
@@ -1025,7 +1033,7 @@ class Flare:
             LOGGER.error("Error: Failed to retrieve Flare identifier group info")
             return None
         else:
-            # PE&T parent group id
+            # parent group id
             resp = resp.json()
             group_id = 191286
             orgs_list = resp.get("assets_groups")
@@ -1039,12 +1047,9 @@ class Flare:
                 "id": org_id,
             }
 
-    def get_ident_by_group_id(self, flare_token, ident_group_id):
-        """Retrieve all identifiers for the specified group ID."""
+    def get_ident_by_group_id_chunk(self, flare_token, params):
+        """Retrieve chunk of identifiers for the specified group ID."""
         url = "https://api.flare.io/firework/v3/identifiers/"
-        params = {
-            "parent_group_id": ident_group_id,
-        }
         headers = {"Authorization": f"Bearer {flare_token}"}
         resp = requests.get(
             url, headers=headers, params=params, timeout=PE_API_REQUEST_TIMEOUT
@@ -1053,40 +1058,109 @@ class Flare:
         retry_count, max_retries, time_delay = 1, 5, 3
         while resp.status_code != 200 and retry_count <= max_retries:
             LOGGER.warning(
-                f"\tRetrying org Flare identifiers API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
+                f"\tRetrying Flare identifiers by group ID API endpoint (code {resp.status_code}), attempt {retry_count} of {max_retries}"
             )
             time.sleep(time_delay)
             resp = requests.get(
-                url,
-                headers=headers,
-                params=params,
-                timeout=PE_API_REQUEST_TIMEOUT,
+                url, headers=headers, params=params, timeout=PE_API_REQUEST_TIMEOUT
             )
             retry_count += 1
         # Return results
-        if retry_count == max_retries + 1:
-            LOGGER.error("Error: Failed to retrieve org Flare identifiers")
+        if resp.status_code != 200:
+            LOGGER.error(
+                "Failed to retrieve Flare identifiers for group %s; "
+                "final API status was %s",
+                params.get("parent_group_id"),
+                resp.status_code,
+            )
             return None
-        else:
-            resp = resp.json()
-            # Format identifier info
-            ident_list = []
-            for ident in resp.get("items"):
-                ident_id = ident.get("id")
-                ident_value = ident.get("name")
-                ident_type = ident.get("type")
-                ident_dict = {"id": ident_id, "value": ident_value, "type": ident_type}
-                ident_list.append(ident_dict)
-            if len(ident_list) == 0:
-                return [
-                    {
-                        "id": None,
-                        "value": None,
-                        "type": None,
-                    }
-                ]
+
+        response_data = resp.json()
+        ident_list = []
+        for ident in response_data.get("items", []):
+            ident_list.append(
+                {
+                    "id": ident.get("id"),
+                    "value": ident.get("name"),
+                    "type": ident.get("type"),
+                }
+            )
+        return {
+            "ident_list": ident_list,
+            "next_val": response_data.get("next"),
+        }
+
+    def get_ident_by_group_id(self, ident_group_id, flare_tenant_id, api_auth):
+        """Retrieve all identifiers belonging to the specified identifier group (organization)."""
+        flare_token = self.get_flare_token(api_auth, flare_tenant_id)
+        results_list = []
+        more_data = False
+        curr_next = ""
+        # chunk_size = 10  # max size is 10
+        # Make initial data feed call
+        ini_params = {
+            "parent_group_id": ident_group_id,
+        }
+        ini_resp = self.get_ident_by_group_id_chunk(flare_token, ini_params)
+        if ini_resp is None:
+            LOGGER.warning(
+                "Flare identifier retrieval failed for group %s; ",
+                ident_group_id,
+            )
+            return None
+
+        results_list += ini_resp.get("ident_list")
+        # Check if there's any more data to retrieve
+        if ini_resp.get("next_val"):
+            more_data = True
+            curr_next = ini_resp.get("next_val")
+        # If there's a "next" value, continue fetching data
+        retrieve_ct = 2
+        while more_data:
+            # Rate control delay
+            time.sleep(1)
+            # Refresh auth token every ~30 min (avg event retrieval api call ~= 1.5s)
+            if retrieve_ct % 500 == 0:
+                LOGGER.warning(
+                    "Refreshing Flare API auth token for intial event retrieval"
+                )
+                flare_token = self.get_flare_token(api_auth, flare_tenant_id)
+            # Make API call for current chunk
+            curr_params = {
+                "parent_group_id": ident_group_id,
+                "from": curr_next,
+            }
+            curr_resp = self.get_ident_by_group_id_chunk(flare_token, curr_params)
+            if curr_resp is None:
+                LOGGER.warning(
+                    "Flare identifier pagination failed for group %s; ",
+                    ident_group_id,
+                )
+                return None
+
+            # Handle edge case where no results found for this chunk
+            if len(curr_resp.get("ident_list")) != 0:
+                # Append results
+                results_list += curr_resp.get("ident_list")
+            # Check if there's anymore data to retrieve
+            if curr_resp.get("next_val"):
+                # If there's more data, update next value
+                curr_next = curr_resp.get("next_val")
             else:
-                return ident_list
+                # If no next value, there's no more data to retrieve
+                more_data = False
+            retrieve_ct += 1
+        # Once all data has been retrieved, format and return results
+        if len(results_list) == 0:
+            return [
+                {
+                    "id": None,
+                    "value": None,
+                    "type": None,
+                }
+            ]
+        else:
+            return results_list
 
     def _identifiers_from_stored_events(self):
         """Build identifier id→label map from flare_events rows already in the DB."""
@@ -1121,9 +1195,16 @@ class Flare:
                 flare_org_info = self.get_ident_group_info(flare_token, org_abbrv)
                 if flare_org_info and flare_org_info.get("id") is not None:
                     flare_org_identifiers = self.get_ident_by_group_id(
-                        flare_token, flare_org_info.get("id")
+                        flare_org_info.get("id"), flare_tenant_id, flare_api_auth
                     )
-                    if flare_org_identifiers:
+                    if flare_org_identifiers is None:
+                        LOGGER.warning(
+                            "Flare identifier API unavailable for organization %s, "
+                            "group %s; using identifier text from stored flare_events",
+                            org_abbrv,
+                            flare_org_info.get("id"),
+                        )
+                    else:
                         for ident in flare_org_identifiers:
                             if ident.get("type") == "keyword":
                                 flare_aliases[str(ident.get("id"))] = str(
@@ -1191,17 +1272,7 @@ class Flare:
 
     def dark_web_alerts_total(self):
         """Get the total number of dark web alerts."""
-        all_alerts = pd.concat(
-            [self.alerts, self.exec_events, self.asset_events], axis=0
-        )
-        all_alerts["related_identifiers"] = all_alerts["related_identifiers"].astype(
-            str
-        )
-        all_alerts["related_identifiers_txt"] = all_alerts[
-            "related_identifiers_txt"
-        ].astype(str)
-        all_alerts.drop_duplicates(inplace=True)
-        return len(all_alerts)
+        return len(self.alerts)
 
     def dark_web_mentions_by_date(self):
         """Get the dark web mention counts for each of the past 4 weeks."""
