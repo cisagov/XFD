@@ -659,6 +659,95 @@ variable "ami_id" {
   default     = "ami-0a1445a13e666a557"
 }
 
+variable "create_was_reporting_instance" {
+  description = "Create the WAS reporting EC2 instance. The instance is only created in the DMZ environment."
+  type        = bool
+  default     = false
+}
+
+variable "was_reporting_ami_id" {
+  description = "ID of the approved AMI for the WAS reporting EC2 instance."
+  type        = string
+  default     = ""
+}
+
+variable "was_reporting_instance_type" {
+  description = "EC2 instance type for the WAS reporting instance."
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "was_reporting_root_volume_size" {
+  description = "Size in GiB of the encrypted WAS reporting root volume."
+  type        = number
+  default     = 50
+
+  validation {
+    condition     = var.was_reporting_root_volume_size > 0
+    error_message = "The WAS reporting root volume size must be greater than zero."
+  }
+}
+
+variable "was_reporting_root_volume_type" {
+  description = "EBS volume type for the WAS reporting root volume."
+  type        = string
+  default     = "gp3"
+}
+
+variable "was_reporting_delete_volume_on_termination" {
+  description = "Whether to delete the WAS reporting root volume when the instance is terminated."
+  type        = bool
+  default     = true
+}
+
+variable "was_reporting_subnet_id" {
+  description = "ID of an approved DMZ subnet for WAS reporting. When empty, the existing DMZ backend subnet is used."
+  type        = string
+  default     = ""
+}
+
+variable "was_reporting_iam_instance_profile_name" {
+  description = "Name of the approved, pre-existing IAM instance profile for WAS reporting."
+  type        = string
+  default     = ""
+}
+
+variable "was_reporting_approved_security_group_ids" {
+  description = "Additional approved security group IDs to attach to the WAS reporting instance."
+  type        = list(string)
+  default     = []
+}
+
+variable "was_reporting_ingress_rules" {
+  description = "Approved ingress rules for WAS reporting. Leave empty to deny all inbound traffic."
+  type = list(object({
+    description = string
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = list(string)
+  }))
+  default = []
+}
+
+variable "was_reporting_egress_rules" {
+  description = "Approved egress rules for WAS reporting. Leave empty to deny all outbound traffic."
+  type = list(object({
+    description = string
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = list(string)
+  }))
+  default = []
+}
+
+variable "was_reporting_tags" {
+  description = "Environment-specific tags to merge with the standard WAS reporting resource tags."
+  type        = map(string)
+  default     = {}
+}
+
 variable "cloudtrail_name" {
   description = "cloudtrail_name"
   type        = string
