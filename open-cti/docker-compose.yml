@@ -1,0 +1,529 @@
+---
+services:
+
+  ###########################
+  # DEPENDENCIES            #
+  ###########################
+
+  # Generate RSA key for xtm-composer (PKCS#8 format)
+  rsa-key-generator:
+    image: alpine/openssl:latest
+    volumes:
+      - rsakeys:/keys
+    entrypoint: ["/bin/ash"]
+    command: ["-c", "if [ ! -f /keys/private_key.pem ]; then openssl genpkey -algorithm RSA -out /keys/private_key.pem -pkeyopt rsa_keygen_bits:4096; fi && tail -f /dev/null"]  # yamllint disable-line rule:line-length
+    healthcheck:
+      test: ["CMD", "test", "-f", "/keys/private_key.pem"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: always
+  redis:
+    image: redis:8.8.0
+    restart: always
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.16
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    environment:
+      # Comment-out the line below for a cluster of multiple nodes
+      - discovery.type=single-node
+      # Uncomment the line below below for a cluster of multiple nodes
+      # - cluster.name=docker-cluster
+      - xpack.ml.enabled=false
+      - xpack.security.enabled=false
+      - thread_pool.search.queue_size=5000
+      - logger.org.elasticsearch.discovery="ERROR"
+      - "ES_JAVA_OPTS=-Xms${ELASTIC_MEMORY_SIZE} -Xmx${ELASTIC_MEMORY_SIZE}"
+    restart: always
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://elasticsearch:9200/_cluster/health?wait_for_status=yellow >/dev/null || exit 1"]  # yamllint disable-line rule:line-length
+      interval: 5s
+      timeout: 3s
+      retries: 50
+  pgsql-xtm-one:
+    # Dedicated pgvector-enabled instance for XTM One.
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${XTM_ONE_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${XTM_ONE_POSTGRES_PASSWORD}
+      POSTGRES_DB: xtm_one
+    volumes:
+      - pgsqlxtmonedata:/var/lib/postgresql/data
+    restart: always
+    # Remove ports unless needed outside the Docker network -- exposing this is a risk.
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${XTM_ONE_POSTGRES_USER}", "-d", "xtm_one"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  minio:
+    image: minio/minio:latest
+    volumes:
+      - s3data:/data
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data
+    restart: always
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  rabbitmq:
+    image: rabbitmq:4.3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_NODENAME=rabbit01@localhost
+    volumes:
+      - type: bind
+        source: ./rabbitmq.conf
+        target: /etc/rabbitmq/rabbitmq.conf
+      - amqpdata:/var/lib/rabbitmq
+    restart: always
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  ###########################
+  # COMMON                  #
+  ###########################
+
+  xtm-composer:
+    image: filigran/xtm-composer:latest
+    platform: linux/amd64
+    environment:
+      - MANAGER__ID=${XTM_COMPOSER_ID}
+      - "MANAGER__NAME=XTM Integrations Manager"
+      - MANAGER__CREDENTIALS_KEY_FILEPATH=/keys/private_key.pem
+      - OPENCTI__ENABLE=true
+      - OPENCTI__URL=http://opencti:8080
+      - OPENCTI__TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - OPENCTI__DAEMON__SELECTOR=docker
+      - OPENCTI__DAEMON__DOCKER__NETWORK_MODE=${COMPOSE_PROJECT_NAME}_default
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - rsakeys:/keys:ro  # RSA key mounted as read-only
+    depends_on:
+      rsa-key-generator:
+        condition: service_healthy
+      opencti:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: always
+
+  ###########################
+  # OPENCTI                 #
+  ###########################
+
+  opencti:
+    image: opencti/platform:latest
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=8096
+      - APP__PORT=8080
+      - APP__BASE_URL=${OPENCTI_EXTERNAL_SCHEME}://${OPENCTI_HOST}:${OPENCTI_PORT}
+      - APP__ADMIN__EMAIL=${OPENCTI_ADMIN_EMAIL}
+      - APP__ADMIN__PASSWORD=${OPENCTI_ADMIN_PASSWORD}
+      - APP__ADMIN__TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - APP__ENCRYPTION_KEY=${OPENCTI_ENCRYPTION_KEY}
+      - REDIS__HOSTNAME=redis
+      - REDIS__PORT=6379
+      - ELASTICSEARCH__URL=http://elasticsearch:9200
+      - ELASTICSEARCH__NUMBER_OF_REPLICAS=0
+      - MINIO__ENDPOINT=minio
+      - MINIO__PORT=9000
+      - MINIO__USE_SSL=false
+      - MINIO__ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO__SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - RABBITMQ__HOSTNAME=rabbitmq
+      - RABBITMQ__PORT=5672
+      - RABBITMQ__PORT_MANAGEMENT=15672
+      - RABBITMQ__MANAGEMENT_SSL=false
+      - RABBITMQ__USERNAME=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ__PASSWORD=${RABBITMQ_DEFAULT_PASS}
+      - SMTP__HOSTNAME=${SMTP_HOSTNAME}
+      - SMTP__PORT=25
+      - PROVIDERS__LOCAL__STRATEGY=LocalStrategy
+      - APP__HEALTH_ACCESS_KEY=${OPENCTI_HEALTHCHECK_ACCESS_KEY}
+      # XTM One
+      - XTM__XTM_ONE_URL=http://xtm-one:4000
+      - XTM__XTM_ONE_TOKEN=${PLATFORM_REGISTRATION_TOKEN}
+    ports:
+      - "${OPENCTI_PORT}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://opencti:8080/health?health_access_key=${OPENCTI_HEALTHCHECK_ACCESS_KEY}"]  # yamllint disable-line rule:line-length
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  worker:
+    image: opencti/worker:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+    depends_on:
+      opencti:
+        condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 3
+    restart: always
+
+  ###########################
+  # OPENCTI CONNECTORS      #
+  ###########################
+
+  connector-export-file-stix:
+    image: opencti/connector-export-file-stix:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_EXPORT_FILE_STIX_ID}  # Valid UUIDv4
+      - CONNECTOR_TYPE=INTERNAL_EXPORT_FILE
+      - CONNECTOR_NAME=ExportFileStix2
+      - CONNECTOR_SCOPE=application/json
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-export-file-csv:
+    image: opencti/connector-export-file-csv:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_EXPORT_FILE_CSV_ID}  # Valid UUIDv4
+      - CONNECTOR_TYPE=INTERNAL_EXPORT_FILE
+      - CONNECTOR_NAME=ExportFileCsv
+      - CONNECTOR_SCOPE=text/csv
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-export-file-txt:
+    image: opencti/connector-export-file-txt:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_EXPORT_FILE_TXT_ID}  # Valid UUIDv4
+      - CONNECTOR_TYPE=INTERNAL_EXPORT_FILE
+      - CONNECTOR_NAME=ExportFileTxt
+      - CONNECTOR_SCOPE=text/plain
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-import-file-stix:
+    image: opencti/connector-import-file-stix:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_IMPORT_FILE_STIX_ID}  # Valid UUIDv4
+      - CONNECTOR_TYPE=INTERNAL_IMPORT_FILE
+      - CONNECTOR_NAME=ImportFileStix
+      - CONNECTOR_VALIDATE_BEFORE_IMPORT=true  # Validate any bundle before import
+      - CONNECTOR_SCOPE=application/json,text/xml
+      - CONNECTOR_AUTO=true  # Enable/disable auto-import of file
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-import-document:
+    image: opencti/connector-import-document:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_IMPORT_DOCUMENT_ID}  # Valid UUIDv4
+      - CONNECTOR_TYPE=INTERNAL_IMPORT_FILE
+      - CONNECTOR_NAME=ImportDocument
+      - CONNECTOR_VALIDATE_BEFORE_IMPORT=true  # Validate any bundle before import
+      - CONNECTOR_SCOPE=application/pdf,text/plain,text/html
+      - CONNECTOR_AUTO=true  # Enable/disable auto-import of file
+      - CONNECTOR_ONLY_CONTEXTUAL=false  # Only extract entity-related data
+      - IMPORT_DOCUMENT_CREATE_INDICATOR=true
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-import-file-yara:
+    image: opencti/connector-import-file-yara:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_IMPORT_FILE_YARA_ID}  # Valid UUIDv4
+      - CONNECTOR_NAME=ImportFileYARA
+      - CONNECTOR_VALIDATE_BEFORE_IMPORT=true  # Validate any bundle before import
+      - CONNECTOR_SCOPE=text/yara+plain
+      - CONNECTOR_AUTO=false  # Enable/disable auto-import of file
+      - YARA_IMPORT_FILE_SPLIT_RULES=true
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-analysis:
+    image: opencti/connector-import-document:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_ANALYSIS_ID}  # Valid UUIDv4
+      - CONNECTOR_TYPE=INTERNAL_ANALYSIS
+      - CONNECTOR_NAME=ImportDocumentAnalysis
+      - CONNECTOR_VALIDATE_BEFORE_IMPORT=false  # Validate any bundle before import
+      - CONNECTOR_SCOPE=application/pdf,text/plain,text/html
+      - CONNECTOR_AUTO=true  # Enable/disable auto-import of file
+      - CONNECTOR_ONLY_CONTEXTUAL=false  # Only extract entity-related data
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-import-external-reference:
+    image: opencti/connector-import-external-reference:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_IMPORT_EXTERNAL_REFERENCE_ID}
+      - CONNECTOR_NAME=ImportExternalReference
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-shodan:
+    image: opencti/connector-shodan:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${CONNECTOR_SHODAN_API_KEY}
+      - SHODAN_TOKEN=${SHODAN_API_KEY}
+      - CONNECTOR_SCOPE=IPv4-Addr,Indicator
+      - CONNECTOR_AUTO=false
+      - CONNECTOR_LOG_LEVEL=error
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+
+  connector-cve:
+    image: opencti/connector-cve:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${CONNECTOR_CVE_API_KEY}
+      - CONNECTOR_ID=860d39dd-35ae-4f31-bb7c-38ffe17ba736
+      - CONNECTOR_NAME=Common Vulnerabilities and Exposures
+      - CONNECTOR_SCOPE=cve
+      - CVE_HISTORY_START_YEAR=2019
+      - CONNECTOR_LOG_LEVEL=debug
+      - CVE_API_KEY=${NVD_API_KEY}
+      - VULNCHECK_DATASOURCES=vulncheck-nvd2
+      - CVE_INTERVAL=2  # In hours, minimum 2 recommended by NIST
+      - CVE_BASE_URL=https://services.nvd.nist.gov/rest/json/cves
+      - MAINTAIN_DATA=true
+      # - CVE_MAX_DATE_RANGE=120
+      # - CVE_MAINTAIN_DATA=true
+      # - CVE_PULL_HISTORY=false
+      # - CVE_HISTORY_START_YEAR=2019
+      # - CVE_IMPORT_SOFTWARE=false  # Enable to import Software (CPE) objects
+      # - CVE_CPE_MAX_CONCURRENCY=10 # needs CVE_IMPORT_SOFTWARE=true
+      # - CVE_CVE_MAX_CONCURRENCY=50 # concurrent CVE processing workers
+    restart: always
+
+  connector-censys-enrichment:
+    image: opencti/connector-censys-enrichment:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${CONNECTOR_CENSYS_API_KEY}
+      - CONNECTOR_ID=8d5eb379-d10b-4e26-b604-72bf329cabd0
+      - CONNECTOR_NAME='Censys Enrichment'
+      - CONNECTOR_TYPE=INTERNAL_ENRICHMENT
+      - CONNECTOR_SCOPE=IPv4-Addr,IPv6-Addr,X509-Certificate,Domain-Name
+      - CONNECTOR_LOG_LEVEL=error
+      - CONNECTOR_AUTO=false
+      - CENSYS_ENRICHMENT_ORGANISATION_ID=${CENSYS_ORG_ID}
+      - CENSYS_ENRICHMENT_TOKEN=${CENSYS_API_KEY}
+      - CENSYS_ENRICHMENT_MAX_TLP=TLP:AMBER
+    restart: always
+
+  connector-vulncheck:
+    image: opencti/connector-vulncheck:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${CONNECTOR_VULNCHECK_API_KEY}
+      - CONNECTOR_ID=3f50cb8f-bd0c-4b9a-8e10-90b6999b75d9
+      - CONNECTOR_NAME='VulnCheck Enrichment'
+      - CONNECTOR_TYPE=EXTERNAL_IMPORT
+      - CONNECTOR_SCOPE=cve
+      - CONNECTOR_LOG_LEVEL=error
+      - CONNECTOR_AUTO=false
+      - VULNCHECK_API_KEY=${VULNCHECK_API_KEY}
+    restart: always
+
+  connector-cisa-known-exploited-vulnerabilities:
+    image: opencti/connector-cisa-known-exploited-vulnerabilities:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${CONNECTOR_CISA_KEV_API_KEY}
+      - CONNECTOR_ID=b1e20be2-fddb-4a68-ba2d-73edf5708bce
+      - CONNECTOR_NAME='CISA KEV'
+      - CONNECTOR_SCOPE=cisa
+      - CONNECTOR_LOG_LEVEL=info
+      - CONNECTOR_DURATION_PERIOD=P1D
+      - CISA_CATALOG_URL=https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+      - CISA_CREATE_INFRASTRUCTURES=false
+      - CISA_KEV_FLAG_ONLY=false
+      - CISA_TLP=TLP:CLEAR
+    restart: always
+
+  connector-qualys-cve-enrichment:
+    image: opencti/connector-qualys-cve-enrichment:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${CONNECTOR_QUALYS_CVE_ENRICHMENT_API_KEY}
+      - CONNECTOR_ID=374c0e03-ef47-413f-b045-edd96c47407d
+      - CONNECTOR_NAME='Qualys CVE Enrichment'
+      - CONNECTOR_TYPE=INTERNAL_ENRICHMENT
+      - QUALYS_CVE_ENRICHMENT_BASE_URL=https://qualysapi.qg3.apps.qualys.com
+      - QUALYS_CVE_ENRICHMENT_API_VERSION=v2
+      - QUALYS_SSL_VERIFY=false
+      - CONNECTOR_LOG_LEVEL=debug
+      - CONNECTOR_AUTO=false
+      - QUALYS_CVE_ENRICHMENT_USERNAME=${QUALYS_API_USERNAME}
+      - QUALYS_CVE_ENRICHMENT_PASSWORD=${QUALYS_API_PASSWORD}
+    restart: always
+
+
+  ###########################
+  # OPENCTI DEFAULT DATA    #
+  ###########################
+
+  connector-opencti:
+    image: opencti/connector-opencti:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_OPENCTI_ID}
+      - "CONNECTOR_NAME=OpenCTI Datasets"
+      - CONNECTOR_SCOPE=marking-definition,identity,location
+      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
+      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=100
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+  connector-mitre:
+    image: opencti/connector-mitre:latest
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_MITRE_ID}
+      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
+      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=75
+    restart: always
+    depends_on:
+      opencti:
+        condition: service_healthy
+
+  ###########################
+  # XTM ONE                 #
+  ###########################
+
+  xtm-one:
+    image: xtmone/platform:latest
+    environment:
+      - PLATFORM_MODE=xtm_one
+      - PLATFORM_REGISTRATION_TOKEN=${PLATFORM_REGISTRATION_TOKEN}
+      - BASE_URL=${XTM_ONE_EXTERNAL_SCHEME}://${XTM_ONE_HOST}:${XTM_ONE_PORT}
+      - FRONTEND_URL=${XTM_ONE_EXTERNAL_SCHEME}://${XTM_ONE_HOST}:${XTM_ONE_PORT}
+      - ADMIN_EMAIL=${XTM_ONE_ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${XTM_ONE_ADMIN_PASSWORD}
+      - SECRET_KEY=${XTM_ONE_SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${XTM_ONE_POSTGRES_USER}:${XTM_ONE_POSTGRES_PASSWORD}@pgsql-xtm-one:5432/xtm_one
+      - REDIS_URL=redis://redis:6379
+      - S3_ENDPOINT=minio:9000
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_BUCKET=${XTM_ONE_S3_BUCKET:-xtm-one-files}
+      - S3_USE_SSL=false
+      - LOG_LEVEL=${XTM_ONE_LOG_LEVEL:-info}
+      - LOG_FORMAT=${XTM_ONE_LOG_FORMAT:-json}
+      - ENTERPRISE_LICENSE=${XTM_ONE_ENTERPRISE_LICENSE:-}
+      # Internal API endpoint for the OpenCTI integration (Docker hostname)
+      - OPENCTI_API_URL=http://opencti:8080
+    ports:
+      - "${XTM_ONE_PORT}:4000"
+    depends_on:
+      pgsql-xtm-one:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  xtm-one-worker:
+    image: xtmone/worker:latest
+    environment:
+      - PLATFORM_MODE=xtm_one
+      - PLATFORM_REGISTRATION_TOKEN=${PLATFORM_REGISTRATION_TOKEN}
+      - ADMIN_EMAIL=${XTM_ONE_ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${XTM_ONE_ADMIN_PASSWORD}
+      - SECRET_KEY=${XTM_ONE_SECRET_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${XTM_ONE_POSTGRES_USER}:${XTM_ONE_POSTGRES_PASSWORD}@pgsql-xtm-one:5432/xtm_one
+      - REDIS_URL=redis://redis:6379
+      - S3_ENDPOINT=minio:9000
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_BUCKET=${XTM_ONE_S3_BUCKET:-xtm-one-files}
+      - S3_USE_SSL=false
+      - LOG_LEVEL=${XTM_ONE_LOG_LEVEL:-info}
+      - LOG_FORMAT=${XTM_ONE_LOG_FORMAT:-json}
+      - ENTERPRISE_LICENSE=${XTM_ONE_ENTERPRISE_LICENSE:-}
+    depends_on:
+      xtm-one:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  esdata:
+  s3data:
+  redisdata:
+  amqpdata:
+  rsakeys:
+  pgsqlxtmonedata:

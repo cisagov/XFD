@@ -47,6 +47,7 @@ setup(
         "console_scripts": [
             "pe-source=pe_source.pe_scripts:main",
             "pe-reports=pe_reports.report_generator:main",
+            "pe-mailer=pe_mailer.email_reports:main",
         ],
     },
     python_requires=">=3.10",

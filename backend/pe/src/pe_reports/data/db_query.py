@@ -426,33 +426,42 @@ def query_software(org_uid, start_date, end_date):
 
 
 # --- Issue 621 ---
-def query_foreign_IPs(org_uid):
+def query_foreign_IPs(org_uid, start_date, end_date):
     """
     Query API to retrieve all foreign ips for an organization.
 
     Args:
         org_uid: uid of the specified organization
+        start_date: period start date, datetime
+        end_date: period end date, datetime
 
     Return:
         All the foreign ips belonging to the specified org as a dataframe
     """
+    # Convert datetimes to string
+    if isinstance(start_date, datetime.datetime) or isinstance(
+        start_date, datetime.date
+    ):
+        start_date = start_date.strftime("%Y-%m-%d")
+    if isinstance(end_date, datetime.datetime) or isinstance(end_date, datetime.date):
+        end_date = end_date.strftime("%Y-%m-%d")
     # Endpoint info
     endpoint_url = pe_api_url + "foreign_ips_by_org"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    data = json.dumps({"org_uid": org_uid})
+    data = json.dumps(
+        {
+            "org_uid": org_uid,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
     try:
         response = requests.post(
             endpoint_url, headers=headers, data=data, timeout=PE_API_REQUEST_TIMEOUT
         )
-        if response.status_code != 200:
-            LOGGER.info(
-                "foreign_ips_by_org returned %s; using database fallback",
-                response.status_code,
-            )
-            return query_foreign_IPs_tsql(org_uid)
         result = response.json()
         # Process data and return
         result_df = _dataframe_from_api_json(result)
@@ -478,12 +487,6 @@ def query_foreign_IPs(org_uid):
         LOGGER.error(err)
     except (KeyError, IndexError, ValueError) as err:
         LOGGER.error(err)
-
-    try:
-        return query_foreign_IPs_tsql(org_uid)
-    except Exception as exc:
-        LOGGER.warning("Foreign IPs database query failed: %s", exc)
-        return _empty_foreign_ips_df()
 
 
 # --- Issue 622 ---
@@ -1198,6 +1201,20 @@ def get_orgs(conn):
             close(conn)
 
 
+def get_orgs_pass(conn, password_key):
+    """Return (cyhy_db_name, decrypted_password) for every report_on org."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT cyhy_db_name, PGP_SYM_DECRYPT(password::bytea, %s) "
+                "FROM organizations WHERE report_on",
+                (password_key,),
+            )
+            return cur.fetchall()
+    finally:
+        close(conn)
+
+
 # TODO: Convert to API endpoint in CRASM-4061
 def get_org_assets_count_past_tsql(org_uid, date):
     """Get asset counts for an organization."""
@@ -1399,20 +1416,6 @@ def query_ports_protocols(org_uid, start_date, end_date):
             "end_date": end_date,
         },
     )
-    conn.close()
-    return df
-
-
-# TODO: Convert to API endpoint in CRASM-4061
-def query_foreign_IPs_tsql(org_uid):
-    """Query distinct software by org."""
-    conn = connect()
-    sql = """select * from
-            shodan_assets sa
-            where (sa.country_code != 'US' and sa.country_code notnull)
-            and sa.organizations_uid  = %(org_uid)s;
-            """
-    df = pd.read_sql(sql, conn, params={"org_uid": org_uid})
     conn.close()
     return df
 

@@ -52,7 +52,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   selectUser,
   formattedUserType,
   getUpdateError,
-  pendingUsers,
   isRoleElevationConfirmed,
   setIsRoleElevationConfirmed,
   confirmGlobalAdminChange = '',
@@ -62,10 +61,18 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [organizationsError, setOrganizationsError] = useState('');
-  const editedUser = pendingUsers.find(
-    (userItem: User) => userItem.id === selectedUser.id
-  );
-  const userRoleChanged = editedUser?.user_type !== selectedUser.user_type;
+  const initialUserType = React.useRef({
+    userId: selectedUser.id,
+    userType: selectedUser.user_type
+  });
+  if (initialUserType.current.userId !== selectedUser.id) {
+    initialUserType.current = {
+      userId: selectedUser.id,
+      userType: selectedUser.user_type
+    };
+  }
+  const userRoleChanged =
+    initialUserType.current.userType !== selectedUser.user_type;
   // Local state to manage the grid selection, matching your original logic
   const [localSelectedOrg, setLocalSelectedOrg] =
     useState<GridRowSelectionModel>({
@@ -166,6 +173,8 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
               if (!selectedUser || !selectUser) {
                 return;
               }
+              onSelectionChange(null);
+              setLocalSelectedOrg({ type: 'include', ids: new Set() });
               selectUser({
                 ...selectedUser,
                 state: newValue || '',

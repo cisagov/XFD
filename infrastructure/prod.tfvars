@@ -143,6 +143,7 @@ ssm_dmz_sync_endpoint               = "/crossfeed/prod/DMZ_SYNC_ENDPOINT"
 create_elasticache_cluster          = true
 create_email_sender_instance        = false
 email_sender_instance_type          = "t3.small"
+create_open_cti_instance            = false
 crossfeed_playwright                = "crossfeed-playwright-prod"
 automated_test_reports_bucket_name  = "cisa-crossfeed-prod-automated-test-reports"
 ssm_qualys_username                 = "/crossfeed/prod/QUALYS_USERNAME"
