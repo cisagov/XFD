@@ -22,7 +22,7 @@ with (
     patch("logging.handlers.RotatingFileHandler"),
 ):
     # Third-Party Libraries
-    from pe_asm.remote_step import asm_sync_remote
+    from pe_asm.remote_step import asm_sync_remote, asm_sync_remote_query
     from pe_asm.remote_step.asm_sync_remote_helpers import (
         enum_ips_from_subs,
         enum_subs_from_ips,
@@ -703,6 +703,74 @@ class UpsertCyhyCidrsTests(unittest.TestCase):
         connection.commit.assert_called_once_with()
         second_cursor.close.assert_called_once_with()
         connection.close.assert_called_once_with()
+
+
+class PeDatabaseQueryTests(unittest.TestCase):
+    """Verify PE queries build dataframes using a DBAPI cursor."""
+
+    def test_query_pe_sectors_returns_cursor_rows_as_dataframe(self):
+        """Return sector rows without passing the DBAPI connection to pandas."""
+        connection = MagicMock(name="connection")
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.description = [
+            ("sector_uid",),
+            ("id",),
+            ("acronym",),
+            ("run_scorecards",),
+        ]
+        cursor.fetchall.return_value = [("sector-uid", "SECTOR", "SEC", True)]
+
+        result = asm_sync_remote_query.query_pe_sectors(connection)
+
+        self.assertEqual(
+            result.to_dict("records"),
+            [
+                {
+                    "sector_uid": "sector-uid",
+                    "id": "SECTOR",
+                    "acronym": "SEC",
+                    "run_scorecards": True,
+                }
+            ],
+        )
+        cursor.execute.assert_called_once()
+        cursor.fetchall.assert_called_once_with()
+
+    def test_query_pe_orgs_returns_cursor_rows_as_dataframe(self):
+        """Return organization rows with column names from cursor metadata."""
+        connection = MagicMock(name="connection")
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.description = [
+            ("organizations_uid",),
+            ("cyhy_db_name",),
+            ("name",),
+            ("agency_type",),
+            ("report_on",),
+            ("fceb",),
+            ("scorecard",),
+        ]
+        cursor.fetchall.return_value = [
+            ("org-uid", "ORG", "Organization", "Federal", True, False, True)
+        ]
+
+        result = asm_sync_remote_query.query_pe_orgs(connection)
+
+        self.assertEqual(
+            result.to_dict("records"),
+            [
+                {
+                    "organizations_uid": "org-uid",
+                    "cyhy_db_name": "ORG",
+                    "name": "Organization",
+                    "agency_type": "Federal",
+                    "report_on": True,
+                    "fceb": False,
+                    "scorecard": True,
+                }
+            ],
+        )
+        cursor.execute.assert_called_once()
+        cursor.fetchall.assert_called_once_with()
 
 
 if __name__ == "__main__":
