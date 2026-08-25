@@ -7,6 +7,7 @@ import os
 from django.core.management.base import BaseCommand
 from django.db import connections
 from home.tasks.helpers.create_sample_data import populate_sample_data
+from home.tasks.local_report_views import ensure_local_report_views
 from home.tasks.syncdb_task import drop_all_tables, synchronize
 
 
@@ -89,12 +90,21 @@ class Command(BaseCommand):
 
         synchronize()
 
+        self.stdout.write(
+            "Ensuring local report views (production-equivalent, not used in deployed envs)..."
+        )
+        ensure_local_report_views(stdout=self.stdout)
+
         if populate:
             self.stdout.write("Populating PE sample data...")
             result = populate_sample_data()
             self.stdout.write(
-                "Sample data loaded: orgs=%s, data_sources=%s"
-                % (result["organizations"], result["data_sources"])
+                "Sample data loaded: orgs=%s, data_sources=%s, shodan_samples=%s"
+                % (
+                    result["organizations"],
+                    result["data_sources"],
+                    result.get("shodan_samples"),
+                )
             )
 
         self.stdout.write("PE database sync complete.")

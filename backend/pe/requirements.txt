@@ -1,13 +1,21 @@
+-r requirements-reports.txt
+aioping
 boto3
+chevron
 django>=4.2,<5
 dnspython
 dnstwist
 docopt
 dshield
 fastapi>=0.100
+numpy
 pandas
 psycopg2-binary
 pydantic>=1.10,<3
+PyMuPDF
+python-decouple==3.6
 requests
+retry==0.9.2
 schema
+shodan==1.27.0
 uvicorn[standard]>=0.23

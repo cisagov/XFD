@@ -133,12 +133,24 @@ def parse_org(message: dict) -> str | None:
 
 def build_command(service_type: str, org: str) -> list[str]:
     """Build the pe-source command line for the given scan type and org."""
+    if service_type == "shodan_top_cves":
+        return ["pe-source", "shodan_top_cves"]
+    if "mailer" in service_type:
+        return ["pe-mailer", "--orgs={}".format(org)]
     if "shodan" in service_type:
-        return ["pe-source", "shodan", "--soc_med_included", "--org={}".format(org)]
+        return ["pe-source", "shodan", "--orgs={}".format(org)]
     if "dnsmonitor" in service_type:
         return ["pe-source", "dnsmonitor", "--orgs={}".format(org)]
     if "dnstwist" in service_type:
         return ["pe-source", "dnstwist", "--orgs={}".format(org)]
+    if "flare_events" in service_type:
+        return ["pe-source", "flare_events", "--orgs={}".format(org)]
+    if "flare_creds" in service_type:
+        return ["pe-source", "flare_creds", "--orgs={}".format(org)]
+    if "flare_ident_prune" in service_type:
+        return ["pe-source", "flare_ident_prune", "--orgs={}".format(org)]
+    if "flare_ident_refresh" in service_type:
+        return ["pe-source", "flare_ident_refresh", "--orgs={}".format(org)]
     if "intelx" in service_type:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
     if "xpanse" in service_type:
@@ -185,6 +197,30 @@ def run_scan(service_type: str, org: str) -> bool:
     return True
 
 
+def api_key_label(api_key: str) -> str:
+    """Return a log-safe API key identifier (last four characters only)."""
+    key = (api_key or "").strip()
+    if not key:
+        return "(unset)"
+    if len(key) <= 4:
+        return "****"
+    return "...{}".format(key[-4:])
+
+
+def log_assigned_api_key(service_type: str) -> None:
+    """Log which keyed-scan API key this worker received (masked)."""
+    for env_var in ("FLARE_API_KEY", "PE_SHODAN_API_KEY"):
+        key = os.getenv(env_var, "").strip()
+        if key:
+            LOGGER.info(
+                "Worker %s using %s %s",
+                service_type,
+                env_var,
+                api_key_label(key),
+            )
+            return
+
+
 def main() -> None:
     """Poll the scan queue until empty, running pe-source for each org."""
     queue_url = os.getenv("SERVICE_QUEUE_URL")
@@ -203,6 +239,7 @@ def main() -> None:
         service_type,
         queue_url,
     )
+    log_assigned_api_key(service_type)
 
     while True:
         message = receive_message(client, queue_url)

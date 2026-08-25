@@ -15,7 +15,6 @@ import { visuallyHidden } from '@mui/utils';
 
 // DataGrid Components
 import {
-  DataGrid,
   GridColDef,
   GridRenderCellParams,
   GridCellParams
@@ -36,6 +35,7 @@ import {
 import { useAuthContext } from 'context';
 
 // Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 
 // Utils
@@ -444,7 +444,7 @@ const ScansWidget: React.FC = () => {
               <SummaryHeader />
 
               <Box mt={1} aria-label="Scan status summary table">
-                <DataGrid
+                <CustomDataGrid
                   rows={summaryRows}
                   columns={summaryColumns}
                   disableRowSelectionOnClick
@@ -488,7 +488,7 @@ const ScansWidget: React.FC = () => {
                   'HTTP status trends table for scan ' + scanDetails.name
                 }
               >
-                <DataGrid
+                <CustomDataGrid
                   rows={detailRows}
                   columns={detailColumns}
                   getRowId={(row) => row.id}

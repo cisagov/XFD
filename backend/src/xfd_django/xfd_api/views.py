@@ -168,6 +168,7 @@ from .schema_models.saved_search import SavedSearch as SavedSearchSchema
 from .schema_models.search import DomainSearchBody, SearchResponse
 from .schema_models.sync import SyncBody, SyncResponse, XpanseSyncResponse
 from .schema_models.user import (
+    ApproveRegistrationRequest,
     NewUser,
     NewUserResponseModel,
     RegisterUserResponse,
@@ -1668,10 +1669,12 @@ async def call_get_users_v2(
 async def update_user_v2_view(
     user_id: str,
     user_data: UpdateUserV2,
+    request: Request,
     current_user: User = Depends(get_current_active_user_unsafe),
 ):
     """Update a particular user."""
-    return update_user_v2(user_id, user_data, current_user)
+    origin_path = request.headers.get("X-Origin-Path")
+    return update_user_v2(user_id, user_data, current_user, origin_path)
 
 
 @api_router.post(
@@ -1692,10 +1695,12 @@ async def update_user_v2_view(
     },
 )
 async def register_approve(
-    user_id: str, current_user: User = Depends(get_current_active_user)
+    user_id: str,
+    approval_data: ApproveRegistrationRequest,
+    current_user: User = Depends(get_current_active_user),
 ):
     """Approve a registered user."""
-    return user.approve_user_registration(user_id, current_user)
+    return user.approve_user_registration(user_id, approval_data, current_user)
 
 
 @api_router.post(

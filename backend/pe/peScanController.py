@@ -5,15 +5,19 @@ workers for the requested scans.
 
 Event payload:
     {
-        "scans": ["dnstwist", "shodan"],
+        "scans": ["dnstwist", "shodan", "flare_events"],
         "orgs": ["DHS", "DHS_CISA"],
         "taskCount": 3,
-        "apiKeyList": "key1,key2,key3",
         "queueOnly": false,
         "tasksOnly": false,
         "messageDelaySeconds": 1,
         "local": false
     }
+
+Keyed scans (flare_events, shodan, asmSync) validate comma-separated API keys from
+SSM-injected env vars, skip invalid keys, and start one worker container per valid
+key (capped by taskCount/COUNT). Each container receives a single per-worker key
+env var (e.g. FLARE_API_KEY, PE_SHODAN_API_KEY). See worker_key_planner.py.
 
 Orgs (comma-separated cyhy_db_name values, or one shortcut used alone):
 
@@ -32,7 +36,7 @@ Orgs (comma-separated cyhy_db_name values, or one shortcut used alone):
     Do not combine a shortcut with named orgs (e.g. all-orgs,DHS is invalid).
 
 taskCount overrides the scan catalog default worker count for this invocation.
-Inline scan config: {"scan": "dnstwist", "count": 10, "apiKeys": "..."}
+Inline scan config: {"scan": "dnstwist", "count": 10}
 """
 # Standard Python Libraries
 import json
@@ -45,6 +49,15 @@ from urllib.parse import urlparse
 # Third-Party Libraries
 import boto3
 
+# Local Libraries
+from pe.worker_key_planner import (
+    KEYED_SCANS,
+    api_key_label,
+    plan_worker_keys_for_scans,
+    worker_key_env,
+    worker_keys_for_scan,
+)
+
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
 
@@ -52,17 +65,23 @@ LOGGER.setLevel(logging.INFO)
 VISIBILITY_TIMEOUT_SECONDS = 18000
 
 SCAN_CATALOG = {
-    "asmSync": {"scan": "asmSync", "count": 2, "apiKeys": ""},
+    "asmSync": {"scan": "asmSync", "count": 2},
     "dnsmonitor": {"scan": "dnsmonitor", "count": 1},
     "dnstwist": {"scan": "dnstwist", "count": 142},
+    # Default high so unspecified COUNT uses all valid Flare keys (clamped later).
+    "flare_events": {"scan": "flare_events", "count": 50},
+    "flare_creds": {"scan": "flare_creds", "count": 50},
+    "flare_ident_prune": {"scan": "flare_ident_prune", "count": 1},
+    "flare_ident_refresh": {"scan": "flare_ident_refresh", "count": 1},
     "intelx": {"scan": "intelx", "count": 10},
     "shodan": {"scan": "shodan", "count": 3, "apiKeys": ""},
+    "shodan_top_cves": {"scan": "shodan_top_cves", "count": 3, "apiKeys": ""},
 }
 
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})
 ORG_EXPAND_SHORTCUTS = frozenset({"all-orgs", "demo-orgs"})
 
-SHODAN_SCANS = {"shodan", "asmSync"}
+SHODAN_SCANS = {"shodan", "asmSync", "shodan_top_cves"}
 
 
 def is_local_mode(event: Dict[str, Any] | None = None) -> bool:
@@ -209,6 +228,7 @@ def pe_db_connection_params() -> Dict[str, str]:
     }
 
 
+# TODO: Convert to API endpoint in CRASM-4061
 def fetch_orgs_from_db(*, report_on: bool = False, demo: bool = False) -> List[str]:
     """Load cyhy_db_name values from the PE organizations table."""
     # Third-Party Libraries
@@ -298,15 +318,6 @@ def resolve_scans(
     return resolved
 
 
-def api_keys_for_scan(scan: Dict[str, Any], event_api_keys: str) -> str:
-    """Return Shodan API keys for a scan from config, event, or environment."""
-    if scan.get("apiKeys"):
-        return scan["apiKeys"]
-    if event_api_keys:
-        return event_api_keys
-    return os.environ.get("PE_SHODAN_API_KEYS", "")
-
-
 def queue_messages(
     scan_list: List[Dict[str, Any]],
     org_list: List[str],
@@ -341,7 +352,8 @@ def queue_messages(
 
 
 def start_fargate_tasks(
-    scan_list: List[Dict[str, Any]], event_api_keys: str
+    scan_list: List[Dict[str, Any]],
+    worker_keys_by_scan: Dict[str, List[str]] | None = None,
 ) -> Dict[str, int]:
     """Start ECS Fargate pe-worker tasks for each scan in the list."""
     ecs_client = boto3.client("ecs")
@@ -353,20 +365,63 @@ def start_fargate_tasks(
 
     for scan in scan_list:
         scan_name = scan["scan"]
-        count = int(scan["count"])
         queue_url = queue_url_for_scan(scan_name)
+
+        if scan_name in KEYED_SCANS:
+            worker_keys = worker_keys_for_scan(
+                scan_name,
+                int(scan["count"]),
+                worker_keys_by_scan,
+            )
+            task_count = 0
+            for index, key in enumerate(worker_keys, start=1):
+                key_env = worker_key_env(scan_name, key)
+                environment = [
+                    {"name": "SERVICE_TYPE", "value": scan_name},
+                    {"name": "SERVICE_QUEUE_URL", "value": queue_url},
+                    *[{"name": k, "value": v} for k, v in key_env.items()],
+                ]
+                LOGGER.info(
+                    "Starting 1 Fargate task for %s with API key %d/%d (%s)",
+                    scan_name,
+                    index,
+                    len(worker_keys),
+                    api_key_label(key),
+                )
+                response = ecs_client.run_task(
+                    cluster=cluster,
+                    taskDefinition=task_definition,
+                    networkConfiguration={
+                        "awsvpcConfiguration": {
+                            "assignPublicIp": "ENABLED",
+                            "securityGroups": [security_group],
+                            "subnets": [subnet],
+                        }
+                    },
+                    platformVersion="1.4.0",
+                    launchType="FARGATE",
+                    count=1,
+                    overrides={
+                        "containerOverrides": [
+                            {"name": "main", "environment": environment}
+                        ]
+                    },
+                )
+                failures = response.get("failures", [])
+                if failures:
+                    raise RuntimeError(
+                        "Failed to start tasks for {}: {}".format(scan_name, failures)
+                    )
+                task_count += len(response.get("tasks", []))
+            started[scan_name] = task_count
+            LOGGER.info("Started %d task(s) for %s", task_count, scan_name)
+            continue
+
+        count = int(scan["count"])
         environment = [
             {"name": "SERVICE_TYPE", "value": scan_name},
             {"name": "SERVICE_QUEUE_URL", "value": queue_url},
         ]
-
-        if scan_name in SHODAN_SCANS:
-            environment.append(
-                {
-                    "name": "PE_SHODAN_API_KEYS",
-                    "value": api_keys_for_scan(scan, event_api_keys),
-                }
-            )
 
         LOGGER.info("Starting %d Fargate task(s) for %s", count, scan_name)
         response = ecs_client.run_task(
@@ -400,7 +455,8 @@ def start_fargate_tasks(
 
 
 def start_local_docker_workers(
-    scan_list: List[Dict[str, Any]], event_api_keys: str
+    scan_list: List[Dict[str, Any]],
+    worker_keys_by_scan: Dict[str, List[str]] | None = None,
 ) -> Dict[str, int]:
     """Start detached pe-worker containers on the local Docker network (IS_LOCAL)."""
     # Third-Party Libraries
@@ -411,11 +467,21 @@ def start_local_docker_workers(
 
     for scan in scan_list:
         scan_name = scan["scan"]
-        count = int(scan["count"])
         queue_url = queue_url_for_scan(scan_name)
         task_count = 0
 
-        for _ in range(count):
+        if scan_name in KEYED_SCANS:
+            worker_slots: List[str | None] = list(
+                worker_keys_for_scan(
+                    scan_name,
+                    int(scan["count"]),
+                    worker_keys_by_scan,
+                )
+            )
+        else:
+            worker_slots = [None] * int(scan["count"])
+
+        for index, worker_api_key in enumerate(worker_slots, start=1):
             container_name = "pe_worker_{}_{:x}".format(
                 scan_name.replace("-", "_"),
                 int.from_bytes(os.urandom(4), "big"),
@@ -441,11 +507,11 @@ def start_local_docker_workers(
                 "PE_QUEUE_PREFIX": default_queue_prefix(),
                 "DNSMONITOR_CLIENT_ID": os.getenv("DNSMONITOR_CLIENT_ID", None),
                 "DNSMONITOR_CLIENT_SECRET": os.getenv("DNSMONITOR_CLIENT_SECRET", None),
+                "FLARE_TENANT_ID": os.getenv("FLARE_TENANT_ID", ""),
+                "SHODAN_ORG_EXCEPTION": os.getenv("SHODAN_ORG_EXCEPTION", None),
             }
-            if scan_name in SHODAN_SCANS:
-                environment["PE_SHODAN_API_KEYS"] = api_keys_for_scan(
-                    scan, event_api_keys
-                )
+            if worker_api_key is not None:
+                environment.update(worker_key_env(scan_name, worker_api_key))
 
             run_kwargs: Dict[str, Any] = {
                 "image": "pe-worker",
@@ -461,9 +527,21 @@ def start_local_docker_workers(
                 LOGGER.info("Mounting live PE tree for local worker %s", container_name)
 
             client.containers.run(**run_kwargs)
-            LOGGER.info(
-                "Started local pe-worker container %s for %s", container_name, scan_name
-            )
+            if worker_api_key is not None:
+                LOGGER.info(
+                    "Started local pe-worker container %s for %s " "(API key %d/%d %s)",
+                    container_name,
+                    scan_name,
+                    index,
+                    len(worker_slots),
+                    api_key_label(worker_api_key),
+                )
+            else:
+                LOGGER.info(
+                    "Started local pe-worker container %s for %s",
+                    container_name,
+                    scan_name,
+                )
             task_count += 1
 
         started[scan_name] = task_count
@@ -472,12 +550,14 @@ def start_local_docker_workers(
 
 
 def start_workers(
-    scan_list: List[Dict[str, Any]], event_api_keys: str, local: bool
+    scan_list: List[Dict[str, Any]],
+    local: bool,
+    worker_keys_by_scan: Dict[str, List[str]] | None = None,
 ) -> Dict[str, int]:
     """Start local Docker workers or Fargate tasks depending on environment."""
     if local:
-        return start_local_docker_workers(scan_list, event_api_keys)
-    return start_fargate_tasks(scan_list, event_api_keys)
+        return start_local_docker_workers(scan_list, worker_keys_by_scan)
+    return start_fargate_tasks(scan_list, worker_keys_by_scan)
 
 
 def run(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -489,7 +569,6 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
     delay_seconds = float(
         event.get("messageDelaySeconds", 0 if is_local_mode(event) else 1)
     )
-    event_api_keys = event.get("apiKeyList", "")
     local = is_local_mode(event)
 
     task_count = event.get("taskCount")
@@ -508,13 +587,17 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
     scan_list = resolve_scans(scans, task_count=task_count)
     org_list = resolve_orgs(orgs) if orgs else []
 
+    worker_keys_by_scan: Dict[str, List[str]] | None = None
+    if not queue_only and not tasks_only:
+        worker_keys_by_scan = plan_worker_keys_for_scans(scan_list)
+
     queued = {}
     if not tasks_only:
         queued = queue_messages(scan_list, org_list, delay_seconds)
 
     started = {}
     if not queue_only:
-        started = start_workers(scan_list, event_api_keys, local)
+        started = start_workers(scan_list, local, worker_keys_by_scan)
 
     body = {
         "message": "PE scans requested successfully",

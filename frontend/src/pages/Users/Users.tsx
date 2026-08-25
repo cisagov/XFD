@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { useTheme } from '@mui/material/styles';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -8,20 +10,32 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import { DataGrid } from '@mui/x-data-grid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+
+// Components
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
-import { User, UserFormValues } from 'types';
+import UserForm from './UserForm';
+
+// Constants
 import {
   initializeUser,
   initialUserFormValues
 } from '@/constants/userAndOrgData';
-import { useAuthContext } from 'context';
-import UserForm from './UserForm';
 import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
+
+//Context
+import { useAuthContext } from 'context';
+
+// Hooks
 import { useUserColumns } from './useUserColumns';
+
+// Types
+import { User, UserFormValues } from 'types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -58,7 +72,7 @@ interface UserType extends User {
 }
 
 export const Users: React.FC = () => {
-  const { user, apiDelete, apiGet } = useAuthContext();
+  const { user: loggedInUser, apiDelete, apiGet } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
@@ -83,7 +97,7 @@ export const Users: React.FC = () => {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
+      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS_V2);
       rows.forEach((row) => {
         row.lastLoggedInString = row.last_logged_in
           ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
@@ -118,7 +132,7 @@ export const Users: React.FC = () => {
   }, [fetchUsers]);
 
   const userCols = useUserColumns({
-    user,
+    loggedInUser,
     setSelectedRow,
     setFormValues,
     setEditUserDialogOpen,
@@ -228,7 +242,7 @@ export const Users: React.FC = () => {
         </Stack>
       ) : isLoading === false && loadingError === false ? (
         <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-          <DataGrid
+          <CustomDataGrid
             rows={users}
             columns={userCols}
             slots={{ toolbar: CustomToolbar }}
@@ -256,7 +270,8 @@ export const Users: React.FC = () => {
               columns: {
                 columnVisibilityModel: {
                   dateToUSigned: false,
-                  accepted_terms_version: false
+                  accepted_terms_version: false,
+                  invite_pending: false
                 }
               }
             }}

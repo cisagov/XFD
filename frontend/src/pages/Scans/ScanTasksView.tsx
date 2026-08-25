@@ -7,7 +7,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 
 // External libraries
 import { FaSyncAlt } from 'react-icons/fa';
-import { LazyLog } from 'react-lazylog';
+import { LazyLog as MellowareLazyLog } from '@melloware/react-logviewer';
 import { Button } from '@trussworks/react-uswds';
 
 // MUI Components
@@ -25,9 +25,10 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 
@@ -78,7 +79,7 @@ const Log = ({ url, token }: { url: string; token: string }) => {
   const [logKey, setLogKey] = useState(0);
   return (
     <div className={classes.logContainer}>
-      <LazyLog
+      <MellowareLazyLog
         aria-label="Log readout"
         key={'lazylog-' + logKey}
         follow={true}
@@ -505,7 +506,7 @@ export const ScanTasksView: React.FC = () => {
           </Stack>
         ) : (
           <Paper elevation={2} sx={{ width: '100%' }}>
-            <DataGrid
+            <CustomDataGrid
               rows={scansTasksRows}
               rowCount={totalResults}
               columns={scansTasksCols}

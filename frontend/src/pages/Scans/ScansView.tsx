@@ -34,9 +34,10 @@ import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Local Components & Context
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { ModalToggleButton } from 'components';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
 import { useAuthContext } from 'context';
@@ -476,7 +477,7 @@ const ScansView: React.FC = () => {
           {scans?.length === 0 ? (
             <Alert severity="info">No scans found</Alert>
           ) : (
-            <DataGrid
+            <CustomDataGrid
               rows={scansRows}
               columns={scansCols}
               //To-do: re-enable Custom Toolbar to handle scan Create, Export, Import,

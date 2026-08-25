@@ -98,6 +98,7 @@ class OrganizationsFullTable(BaseModel):
     state_name: Optional[str] = None
     country: Optional[str] = None
     country_name: Optional[str] = None
+    exec_url: Optional[str] = None
 
 
 class DNSMonitorDomainMapTable(BaseModel):
@@ -148,3 +149,129 @@ class DomainAlertsInsertInput(BaseModel):
     """Request body for domain_alerts_insert."""
 
     insert_data: List[DomainAlertsInsert]
+
+
+class CredBreachesByNameInsert(BaseModel):
+    """Individual row model."""
+
+    breach_name: str
+    credential_breaches_uid: Optional[str] = None
+
+
+class CredBreachesByNameInput(BaseModel):
+    """Request body model."""
+
+    breach_name_list: List[CredBreachesByNameInsert]
+
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+# Insert bulk Shodan data into shodan_assets table
+class ShodanAssetsInsert(BaseModel):
+    """ShodanAssetsInsert schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    organizations_uid: Optional[str] = None
+    organization: Optional[str] = None
+    ip: Optional[str] = None
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+    timestamp: Optional[str] = None
+    product: Optional[str] = None
+    server: Optional[str] = None
+    tags: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    hostnames: Optional[List[str]] = None
+    isn: Optional[str] = None
+    asn: Optional[int] = None
+    data_source_uid: Optional[str] = None
+    country_code: Optional[str] = None
+    location: Optional[str] = None
+
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+# Insert bulk Shodan data into shodan_assets table, input
+class ShodanAssetsInsertInput(BaseModel):
+    """ShodanAssetsInsertInput schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    asset_data: List[ShodanAssetsInsert]
+
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+# Insert bulk Shodan data into shodan_vulns table
+class ShodanVulnsInsert(BaseModel):
+    """ShodanVulnsInsert schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    organizations_uid: Optional[str] = None
+    organization: Optional[str] = None
+    ip: Optional[str] = None
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+    timestamp: Optional[str] = None
+    cve: Optional[str] = None
+    severity: Optional[str] = None
+    cvss: Optional[float] = None
+    summary: Optional[str] = None
+    product: Optional[str] = None
+    attack_vector: Optional[str] = None
+    av_description: Optional[str] = None
+    attack_complexity: Optional[str] = None
+    ac_description: Optional[str] = None
+    confidentiality_impact: Optional[str] = None
+    ci_description: Optional[str] = None
+    integrity_impact: Optional[str] = None
+    ii_description: Optional[str] = None
+    availability_impact: Optional[str] = None
+    ai_description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    hostnames: Optional[List[str]] = None
+    isn: Optional[str] = None
+    asn: Optional[int] = None
+    data_source_uid: Optional[str] = None
+    type: Optional[str] = None
+    name: Optional[str] = None
+    potential_vulns: Optional[List[str]] = None
+    mitigation: Optional[str] = None
+    server: Optional[str] = None
+    is_verified: Optional[bool] = None
+    banner: Optional[str] = None
+    version: Optional[str] = None
+    cpe: Optional[List[str]] = None
+
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+# Insert bulk Shodan data into shodan_vulns table, input
+class ShodanVulnsInsertInput(BaseModel):
+    """ShodanVulnsInsertInput schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    vuln_data: List[ShodanVulnsInsert]
+
+
+# Insert bulk Shodan data into top_cves table
+class ShodanTopCvesInsert(BaseModel):
+    """ShodanTopCvesInsert schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    cve_id: Optional[str] = None
+    epss_score: Optional[str] = None
+    nvd_base_score: Optional[str] = None
+    collection_date: Optional[str] = None
+    summary: Optional[str] = None
+    data_source_uid: Optional[str] = None
+
+
+# Insert bulk Shodan data into top_cves table, input
+class ShodanTopCvesInsertInput(BaseModel):
+    """ShodanTopCvesInsertInput schema class."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    top_epss_cves_dict: List[ShodanTopCvesInsert]

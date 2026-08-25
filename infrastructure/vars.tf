@@ -232,6 +232,12 @@ variable "ssm_pe_db_password" {
   default     = "/crossfeed/staging/PE_DB_PASSWORD"
 }
 
+variable "ssm_pe_db_password_key" {
+  description = "SSM path to the pgcrypto symmetric passphrase used by PGP_SYM_DECRYPT to decrypt the organizations.password column (pe_reports.data.config.db_password_key / pe_mailer's per-org report password lookup). Distinct from ssm_pe_db_password (the Postgres auth password) -- this key must exactly match whatever value originally encrypted those rows, since it can't be safely rotated or regenerated."
+  type        = string
+  default     = "/crossfeed/staging/PE_DB_PASSWORD_KEY"
+}
+
 variable "ssm_crossfeed_vpc_name" {
   description = "ssm_crossfeed_vpc_name"
   type        = string
@@ -350,6 +356,12 @@ variable "ssm_wiz_service_account_secret_arn" {
   description = "ssm_wiz_service_account_secret_arn"
   type        = string
   default     = "/crossfeed/staging/WIZ_SERVICE_ACCOUNT_SECRET_ARN"
+}
+
+variable "ssm_wiz_http_proxy_cert_secret_arn" {
+  description = "ssm_wiz_http_proxy_cert_secret_arn"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_HTTP_PROXY_CERT_SECRET_ARN"
 }
 
 variable "ssm_sixgill_client_id" {
@@ -605,6 +617,154 @@ variable "email_sender_instance_type" {
   default     = false
 }
 
+variable "create_open_cti_instance" {
+  description = "Whether to manage the existing OpenCTI EC2 instance in Terraform. This instance already exists (created out-of-band) running OpenCTI via Docker Compose -- this flag must only be true in the environment where that live instance actually resides, since the resource is imported, not freshly created."
+  type        = bool
+  default     = false
+}
+
+variable "open_cti_instance_id" {
+  description = "Instance ID of the existing OpenCTI EC2 instance (used for the one-time `terraform import`, and for reference)."
+  type        = string
+  default     = "i-033771e2a6a9a26ca"
+}
+
+variable "open_cti_ami_id" {
+  description = "AMI ID of the existing, already-running stage-cd (is_dmz) OpenCTI EC2 instance -- must match reality, since that instance is adopted rather than created. Commercial-partition only: it does not exist in gov-cloud, so LZ (!is_dmz) instances use var.lz_open_cti_ami_id instead -- see aws_instance.open_cti's `ami` ternary in open_cti.tf."
+  type        = string
+  default     = "ami-0fb0b230890ccd1e6"
+}
+
+variable "lz_open_cti_ami_id" {
+  description = "AMI ID for a genuinely new OpenCTI EC2 instance in the gov-cloud Landing Zone (!is_dmz, e.g. stage/prod) -- this instance is created fresh, not adopted, so unlike var.open_cti_ami_id this doesn't need to match an already-running box. Gov-cloud-partition only: var.open_cti_ami_id's commercial AMI ID does not exist here -- see aws_instance.open_cti's `ami` ternary in open_cti.tf. NOT independently verified against real aws-us-gov credentials as of 2026-08-20 -- see open-cti/STATUS.md's AMI section."
+  type        = string
+  default     = "ami-035b0309a54bd5b23"
+}
+
+variable "open_cti_instance_type" {
+  description = "Instance type of the existing OpenCTI EC2 instance. Must be set to the real value (see `aws ec2 describe-instances --instance-ids <id>`) before running `terraform plan` -- an incorrect value here will show as a replace diff."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_root_volume_size" {
+  description = "Root volume size (GiB) of the existing OpenCTI EC2 instance's single EBS volume, which also hosts all Docker data (no separate data volume exists today). Must match the real volume size."
+  type        = number
+  default     = 1000
+}
+
+variable "open_cti_subnet_id" {
+  description = "Subnet ID the existing OpenCTI EC2 instance is in."
+  type        = string
+  default     = "subnet-0b1b2c61141354e25"
+}
+
+variable "open_cti_security_group_id" {
+  description = "Existing security group ID attached to the OpenCTI EC2 instance. Referenced read-only via a data source (not managed as a Terraform resource) since its origin/ownership predates this config and is unverified."
+  type        = string
+  default     = "sg-0947bc9960c82a0b2"
+}
+
+variable "open_cti_ssm_path_prefix" {
+  description = "SSM Parameter Store path prefix for OpenCTI/XTM One secrets. Deliberately its own hierarchical path segment (/crossfeed/staging/opencti/<KEY>) rather than the flat /crossfeed/<env>/<KEY> convention used elsewhere (e.g. ssm_matomo_db_password) -- OpenCTI's docker-compose.yml reuses generic var names (SHODAN_API_KEY, CENSYS_API_KEY, etc.) that would otherwise collide with Crossfeed's own existing ssm_shodan_api_key/ssm_censys_api_id parameters, which already occupy the flat namespace. staging-cd shares the staging namespace, same as other Crossfeed secrets in this repo."
+  type        = string
+  default     = "/crossfeed/staging/opencti"
+}
+
+variable "open_cti_secret_keys" {
+  description = "Names (suffix only, appended to open_cti_ssm_path_prefix) of OpenCTI/XTM One secrets that must exist in SSM Parameter Store as SecureString placeholders. Real values already exist only in the live instance's .env and are set here once, out-of-band, via `aws ssm put-parameter --overwrite` -- Terraform creates the parameter shells but never generates or overwrites the real values, since these secrets can't be safely regenerated (e.g. rotating the encryption key breaks decryption of existing data)."
+  type        = set(string)
+  default = [
+    "CENSYS_API_KEY",
+    "CONNECTOR_CENSYS_API_KEY",
+    "CONNECTOR_CISA_KEV_API_KEY",
+    "CONNECTOR_CVE_API_KEY",
+    "CONNECTOR_QUALYS_CVE_ENRICHMENT_API_KEY",
+    "CONNECTOR_SHODAN_API_KEY",
+    "CONNECTOR_VULNCHECK_API_KEY",
+    "MINIO_ROOT_PASSWORD",
+    "NVD_API_KEY",
+    "OPENCTI_ADMIN_PASSWORD",
+    "OPENCTI_ADMIN_TOKEN",
+    "OPENCTI_ENCRYPTION_KEY",
+    "OPENCTI_HEALTHCHECK_ACCESS_KEY",
+    "PLATFORM_REGISTRATION_TOKEN",
+    "QUALYS_API_PASSWORD",
+    "RABBITMQ_DEFAULT_PASS",
+    "SHODAN_API_KEY",
+    "VULNCHECK_API_KEY",
+    "XTM_ONE_ADMIN_PASSWORD",
+    "XTM_ONE_ENTERPRISE_LICENSE",
+    "XTM_ONE_POSTGRES_PASSWORD",
+    "XTM_ONE_SECRET_KEY",
+    # Found by diffing stage-cd's real .env against this list on 2026-08-17 --
+    # none of these three were tracked here before.
+    "MINIO_ROOT_USER",                   # confirmed live: a UUID, not a plain username -- credential-grade, paired with MINIO_ROOT_PASSWORD as effectively access_key+secret_key
+    "OPENSEARCH_ADMIN_PASSWORD",         # confirmed live, but docker-compose.yml's elasticsearch service has xpack.security.enabled=false -- unclear if this is actually consumed or vestigial from a different compose config
+    "CONNECTOR_CENSYS_ENRICHMENT_TOKEN", # confirmed live (still literally "NEED_TO_SET" there) -- not referenced anywhere in docker-compose.yml today, likely stale/vestigial
+  ]
+}
+
+variable "open_cti_host" {
+  description = "Per-environment, non-secret hostname OpenCTI is reached at (OPENCTI_HOST in open-cti/.env.example). Baked into env.deploy by open_cti.tf's user_data -- see open-cti/bootstrap.sh. Must be set to the real value in each environment's .tfvars before create_open_cti_instance is turned on there; the empty default is intentionally invalid so an unset value fails loudly (an empty OPENCTI_HOST breaks APP__BASE_URL) rather than silently deploying broken config."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_admin_email" {
+  description = "Per-environment, non-secret OpenCTI admin account email (OPENCTI_ADMIN_EMAIL). See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_smtp_hostname" {
+  description = "Per-environment, non-secret SMTP relay hostname OpenCTI sends mail through (SMTP_HOSTNAME). See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_censys_org_id" {
+  description = "Per-environment, non-secret Censys organization ID (CENSYS_ORG_ID) -- not a credential, just an account identifier, which is why it's not in open_cti_secret_keys/SSM. See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_qualys_api_username" {
+  description = "Per-environment, non-secret Qualys API username (QUALYS_API_USERNAME) -- the paired QUALYS_API_PASSWORD is a real secret and stays in SSM (open_cti_secret_keys); the username alone is not. See open_cti_host for how/when this is used."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_xtm_one_host" {
+  description = "Per-environment, non-secret hostname XTM One is reached at (XTM_ONE_HOST). Unlike open_cti_host and its siblings, bootstrap.sh does NOT fail closed on this being empty -- confirmed on 2026-08-17 that XTM One isn't actually active on stage-cd, so an empty value here is the expected/normal case, not a misconfiguration. Set it for real once XTM One is actually turned on for a given environment."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_xtm_one_admin_email" {
+  description = "Per-environment, non-secret XTM One admin account email (XTM_ONE_ADMIN_EMAIL). See open_cti_xtm_one_host -- same optional-until-XTM-One-is-active treatment."
+  type        = string
+  default     = ""
+}
+
+variable "open_cti_repo_url" {
+  description = "Git URL open-cti/refresh-repo.sh clones/pulls from on every boot -- the source of truth for bootstrap.sh, env.static, docker-compose.yml, rabbitmq.conf, and both systemd units, none of which are embedded in user_data or delivered via S3 anymore (see open_cti.tf's header comment on that decision). Defaults to this repo's current public URL, which needs no credentials. When this repo moves to the enterprise remote (already configured locally as `enterprise` -- https://github.com/cisa-vulnerability-management/asm-xfd.git) and stops being publicly cloneable, this needs to change AND refresh-repo.sh needs real git auth added -- see open-cti/STATUS.md for that plan."
+  type        = string
+  default     = "https://github.com/cisagov/XFD.git"
+}
+
+variable "open_cti_repo_branch" {
+  description = "Branch open-cti/refresh-repo.sh tracks -- a merge here reaches every instance's next boot, no CI push and no terraform apply required."
+  type        = string
+  default     = "develop"
+}
+
+variable "open_cti_db_username" {
+  description = "Dedicated Postgres role OpenCTI connects to the Crossfeed RDS DB as, via IAM database authentication (rds-db:connect) -- see aws_iam_role_policy.open_cti_rds_iam_auth in open_cti.tf. Deliberately separate from var.db_username (the worker/backend's own role), for least privilege. NOT Terraform-managed: this role, and the one-time `GRANT rds_iam TO <role>` it needs, must be created in Postgres itself, out-of-band -- there's no postgresql provider in this repo. Only used in the LZ (!is_dmz) branch; stage-cd has no DB connectivity of this kind."
+  type        = string
+  default     = "open_cti"
+}
+
 variable "db_accessor_instance_class" {
   description = "db_accessor_instance_class"
   type        = string
@@ -781,6 +941,12 @@ variable "ssm_pe_api_url" {
   description = "ssm_pe_api_url"
   type        = string
   default     = "/crossfeed/staging/PE_API_URL"
+}
+
+variable "ssm_mailer_arn" {
+  description = "SSM parameter holding the IAM role ARN that pe-mailer (email_reports.py) assumes to send via SES"
+  type        = string
+  default     = "/crossfeed/staging/MAILER_ARN"
 }
 
 variable "ssm_cf_api_key" {
@@ -989,4 +1155,22 @@ variable "ssm_dnsmonitor_client_secret" {
   description = "ssm_dnsmonitor_client_secret"
   type        = string
   default     = "/crossfeed/staging/DNSMONITOR_CLIENT_SECRET"
+}
+
+variable "ssm_flare_tenant_id" {
+  description = "ssm_flare_tenant_id"
+  type        = string
+  default     = "/crossfeed/staging/FLARE_TENANT_ID"
+}
+
+variable "ssm_flare_api_keys" {
+  description = "Comma-separated Flare API keys (SSM parameter path)"
+  type        = string
+  default     = "/crossfeed/staging/FLARE_API_KEYS"
+}
+
+variable "ssm_shodan_org_exception" {
+  description = "ssm_shodan_org_exception"
+  type        = string
+  default     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
 }

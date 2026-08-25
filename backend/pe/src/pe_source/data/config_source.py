@@ -7,6 +7,7 @@ import os
 # Third-Party Libraries
 import requests
 from requests.adapters import HTTPAdapter
+import shodan
 from urllib3.util.retry import Retry
 
 # Setup Logging
@@ -60,3 +61,16 @@ def get_dnsmonitor_token():
     except requests.exceptions.RequestException as err:
         LOGGER.error(f"Unexpected error occurred: {err}")
     return None
+
+
+def shodan_api_init():
+    """Connect to Shodan API using the single key assigned to this worker."""
+    api_key = os.environ.get("PE_SHODAN_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError(
+            "PE_SHODAN_API_KEY is not set; peScanController assigns one key per worker"
+        )
+
+    # Key is validated in peScanController; skip api.info() (1 rps Shodan limit).
+    LOGGER.info("Initialized Shodan API with PE_SHODAN_API_KEY")
+    return [shodan.Shodan(api_key)]

@@ -1,5 +1,6 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { ApiError } from 'aws-amplify/api';
 import { logger } from '@/utils/logger';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
@@ -58,37 +59,63 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     } as const;
   }, []);
 
-  const logout = useCallback(async () => {
-    setIsLoggingOut(true);
+  const logout = useCallback(
+    async (shouldReloadPage = true) => {
+      setIsLoggingOut(true);
 
-    // If the user has a token, reload at the end to reset app state
-    const shouldReload = !!token;
+      try {
+        // 1. Clear state first so usePersistentState flushes state cleanly
+        setToken(null);
+        setAuthUser(null);
 
-    try {
-      // Clear local storage and Amplify session (if any)
-      localStorage.clear();
+        // 2. Clear storage explicitly
+        localStorage.clear();
 
-      // Remove both cookies the backend may have set
-      cookies.remove('token', cookieOpts);
-      cookies.remove('crossfeed-token', cookieOpts);
+        // 3. Force-remove cookies across all variations
+        cookies.remove('token', cookieOpts);
+        cookies.remove('crossfeed-token', cookieOpts);
+        cookies.remove('token', { path: '/' });
+        cookies.remove('crossfeed-token', { path: '/' });
 
-      // Clear in-memory state
-      setAuthUser(null);
-      setToken(null);
-    } catch (error) {
-      logger.error(error);
-    } finally {
-      setIsLoggingOut(false);
-      if (shouldReload) {
-        window.location.reload();
+        // Extra safeguard: clear on window domain explicitly
+        cookies.remove('token', {
+          domain: window.location.hostname,
+          path: '/'
+        });
+        cookies.remove('crossfeed-token', {
+          domain: window.location.hostname,
+          path: '/'
+        });
+      } catch (error) {
+        logger.error(error);
+      } finally {
+        setIsLoggingOut(false);
+        // Only reload if NOT redirecting elsewhere
+        if (shouldReloadPage) {
+          window.location.reload();
+        }
       }
-    }
-  }, [cookies, cookieOpts, setToken, token]);
+    },
+    [cookies, cookieOpts, setToken]
+  );
 
   const handleError = useCallback(
-    async (in_error: Error) => {
+    async (
+      in_error: Error & { statusCode?: number; response?: { status?: number } }
+    ) => {
       logger.error(in_error);
-      if (in_error.message.includes('401')) {
+
+      // Amplify v6 REST errors (ApiError) carry the HTTP status on
+      // `response.statusCode`, not in `message` (unlike v5's axios-style
+      // "Request failed with status code 401" messages).
+      const statusCode =
+        in_error instanceof ApiError
+          ? in_error.response?.statusCode
+          : undefined;
+      const isUnauthorized =
+        statusCode === 401 || in_error.message?.includes('401');
+
+      if (isUnauthorized) {
         await logout();
         const next = encodeURIComponent(window.location.pathname || '/');
         window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
@@ -101,27 +128,37 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const { apiGet } = api;
 
   const getProfile = useCallback(async () => {
-    const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
+    try {
+      const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
 
-    // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
-    // Currently commented to meet "waiting room" needs and allow login for state selection
-    // and user terms acceptance for new users.
-    //
-    // This acts as a backup safeguard to alert users login is unavailable and log them out.
-    // If user is blocked due to maintenance, show alert and logout.
-    //
-    // if (user.login_blocked_by_maintenance) {
-    //   alert(
-    //     'Product has not officially been launched. Please check back again.'
-    //   );
-    //   await logout();
-    //   return;
-    // }
+      // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
+      // Currently commented to meet "waiting room" needs and allow login for state selection
+      // and user terms acceptance for new users.
+      //
+      // This acts as a backup safeguard to alert users login is unavailable and log them out.
+      // If user is blocked due to maintenance, show alert and logout.
+      //
+      // if (user.login_blocked_by_maintenance) {
+      //   alert(
+      //     'Product has not officially been launched. Please check back again.'
+      //   );
+      //   await logout();
+      //   return;
+      // }
 
-    setAuthUser({
-      ...user,
-      isRegistered: user.first_name !== ''
-    });
+      // Guard against non-error 401 payloads ({ detail: "Token has expired" })
+      if (!user || !user.id) {
+        throw new Error('401 Token has expired');
+      }
+
+      setAuthUser({
+        ...user,
+        isRegistered: user.first_name !== ''
+      });
+    } catch (err) {
+      // Allow handleError to catch and perform cleanup
+      setAuthUser(null);
+    }
   }, [apiGet]);
 
   const setProfile = useCallback(
@@ -140,33 +177,26 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     await getProfile();
   }, [token, getProfile]);
 
-  // SPA token update from cookies after SAML ACS redirect
+  // Guard cookie sync against active logout cycles
   useEffect(() => {
-    if (!token) {
+    if (!token && !isLoggingOut) {
       const cookieToken =
         cookies.get('token') || cookies.get('crossfeed-token');
       if (cookieToken) {
-        // Set token from cookie if we don't have one yet
         setToken(cookieToken);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, cookies]);
+  }, [token, cookies, isLoggingOut, setToken]);
 
-  // On first mount, try Cognito refresh (if enabled)
-  useEffect(() => {
-    refreshUser();
-    // eslint-disable-next-line
-  }, []);
-
-  // When token changes, either clear user or fetch profile
+  // Single effect for profile fetching when token changes
   useEffect(() => {
     if (!token) {
       setAuthUser(null);
-    } else {
+    } else if (!authUser) {
       getProfile();
     }
-  }, [token, getProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]); // Clean dependencies prevent infinite re-fetches
 
   const extendedOrg = useMemo(
     () => getExtendedOrg(org, authUser),

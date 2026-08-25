@@ -37,7 +37,7 @@ def run_dnsmonitor(orgs_list):
     all_orgs = get_orgs()
     if orgs_list == "all":
         orgs_list_final = [d for d in all_orgs if d.get("report_on")]
-    elif orgs_list == "demo":
+    elif orgs_list == "DEMO":
         orgs_list_final = [d for d in all_orgs if d.get("demo")]
     else:
         orgs_list = orgs_list.split(",")
@@ -60,7 +60,7 @@ def run_dnsmonitor(orgs_list):
         org_uid = org["organizations_uid"]
         org_code = org["cyhy_db_name"]
         LOGGER.info(
-            f"Running DNSMonitor on {org_code} ({org_idx+1} of {len(orgs_list_final)})"
+            f"Running DNSMonitor on {org_code} ({org_idx + 1} of {len(orgs_list_final)})"
         )
         # Get the DNSMonitor domains associated with this org
         org_domains = all_domains.loc[all_domains["org"] == org_code]

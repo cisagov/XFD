@@ -91,20 +91,28 @@ export const useApi = (onError?: OnError) => {
   const getToken = () => {
     const token = localStorage.getItem('token');
     try {
-      return token ? JSON.parse(token) : '';
+      return token ? JSON.parse(token) : token || '';
     } catch {
-      return '';
+      return token || '';
     }
   };
 
   const prepareInit = useCallback(async (init: any) => {
     const { headers, ...rest } = init;
+    const token = getToken();
+
     return {
       ...rest,
       headers: {
         ...baseHeaders, // put base first
         ...headers, // allow caller to override (e.g., Accept: text/csv)
-        Authorization: getToken()
+        ...(token
+          ? {
+              Authorization: token.startsWith('Bearer ')
+                ? token
+                : `Bearer ${token}`
+            }
+          : {})
       }
     };
   }, []);
@@ -116,21 +124,78 @@ export const useApi = (onError?: OnError) => {
         try {
           showLoading && setRequestCount((cnt) => cnt + 1);
           const options = await prepareInit(rest);
-          // const result = await method('crossfeed', path, options);
           const response = await method({ apiName: 'crossfeed', path, options })
             .response;
-          const result = await response.body.json();
+
+          const statusCode = response.statusCode ?? (response as any).status;
+
+          let result: any;
+          try {
+            result = await response.body.json();
+          } catch {
+            result = undefined;
+          }
+
+          // If status is 401, immediately throw standardized error
+          if (statusCode === 401) {
+            const error = new Error(
+              result?.detail ||
+                result?.message ||
+                `Request failed with status code 401`
+            );
+
+            throw Object.assign(error, {
+              statusCode: 401,
+              body: result,
+              response: {
+                status: 401,
+                headers: response.headers
+              }
+            });
+          }
+
           showLoading && setRequestCount((cnt) => cnt - 1);
           return result as T;
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          if (!isLocal) {
-            // Detection of blocks before API Gateway
-            try {
-              const status =
-                e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
+          // 1. Extract status code from various Amplify v6 error formats
+          const status =
+            e?.response?.statusCode ??
+            e?.response?.status ??
+            e?.status ??
+            e?.statusCode ??
+            (e?.message?.includes('401') ? 401 : undefined);
 
+          const errorDetail = (
+            e?.message ||
+            e?.body?.detail ||
+            e?.response?.data?.detail ||
+            ''
+          ).toLowerCase();
+
+          // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
+
+          // 2. Detect if this is an expired token:
+          //    - Explicit 401 status
+          //    - Error message referencing explicit token expiration or invalidity
+          const isAuthError =
+            status === 401 ||
+            errorDetail.includes('token has expired') ||
+            errorDetail.includes('jwt expired') ||
+            errorDetail.includes('invalid token') ||
+            errorDetail.includes('not authenticated');
+
+          if (isAuthError) {
+            // Standardize error shape so AuthContextProvider.handleError receives status 401
+            e.statusCode = 401;
+            if (!e.response) {
+              e.response = { status: 401 };
+            }
+          }
+
+          if (!isLocal) {
+            try {
               const headersRaw =
                 e?.response?.headers ??
                 e?.headers ??
@@ -160,7 +225,10 @@ export const useApi = (onError?: OnError) => {
             }
           }
 
-          onError && onError(e);
+          // Pass standardized error to AuthContextProvider
+          if (onError) {
+            await onError(e);
+          }
           throw e;
         }
       },
