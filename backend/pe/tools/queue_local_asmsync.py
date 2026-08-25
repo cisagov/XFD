@@ -16,6 +16,11 @@ def main() -> int:
         description="Start pe-asm-sync locally (Docker pe-worker)."
     )
     parser.add_argument(
+        "--phase",
+        default="import_s3",
+        help="Which phase of the ASM Sync remote script to run: import_s3 or enumerate.",
+    )
+    parser.add_argument(
         "--orgs",
         default="all",
         help="Comma-separated cyhy_db_name values or shortcut: all, demo, all-orgs, demo-orgs.",
@@ -36,6 +41,7 @@ def main() -> int:
 
     orgs = [org.strip() for org in args.orgs.split(",") if org.strip()]
     event = {
+        "phase": args.phase,
         "orgs": orgs,
         "taskCount": args.count,
         "local": True,

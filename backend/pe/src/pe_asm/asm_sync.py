@@ -1,11 +1,15 @@
 """A tool for gathering pe asm data.
 
 Usage:
-    pe-asm-sync [--log-level=LEVEL] [--orgs=ORGS]
+    pe-asm-sync PHASE [--log-level=LEVEL] [--orgs=ORGS]
 
 Options:
   -h --help                         Show this message.
   -v --version                      Show version information.
+  PHASE                             Which phase of the remote ASM Sync process to run. Valid
+                                    values are "import_s3" or "enumerate". "import_s3" upserts the
+                                    latest CyHy data from the S3 bucket. "enumerate" runs the part
+                                    of the script that enumerates assets from that latest CyHy data.
   -l --log-level=LEVEL              If specified, then the log level will be set to
                                     the specified value.  Valid values are "debug", "info",
                                     "warning", "error", and "critical".
@@ -25,6 +29,9 @@ from typing import Any, Dict
 import docopt
 from pe_asm._version import __version__
 from pe_asm.remote_step.asm_sync_remote import run_asm_sync_remote
+from pe_asm.remote_step.asm_sync_remote_helpers.import_cyhy_from_s3 import (
+    import_cyhy_from_s3,
+)
 import pe_reports
 from schema import And, Schema, SchemaError, Use
 
@@ -32,10 +39,18 @@ from schema import And, Schema, SchemaError, Use
 LOGGER = logging.getLogger(__name__)
 
 
-def run_asm_sync(orgs_list):
+def run_asm_sync(phase, orgs_list):
     """Run either the ASM Sync local or remote scripts."""
-    # Run the "remote" portion of the ASM Sync process
-    run_asm_sync_remote(orgs_list)
+    if phase == "import_s3":
+        # Import latest CyHy data from S3 and upsert into PE DB
+        import_cyhy_from_s3()
+    elif phase == "enumerate":
+        # Enumerate the latest CyHy data that's been brought in from S3
+        run_asm_sync_remote(orgs_list)
+    else:
+        LOGGER.error(
+            'Unsupported ASM Sync phase, options are "import_s3" or "enumerate"'
+        )
 
 
 def main():
@@ -72,6 +87,7 @@ def main():
     )
     # Run ASM Sync
     run_asm_sync(
+        validated_args["PHASE"],
         validated_args["--orgs"],
     )
     # Stop logging and clean up

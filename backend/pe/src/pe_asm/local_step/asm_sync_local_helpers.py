@@ -2,39 +2,19 @@
 
 # Standard Python Libraries
 import datetime
-from io import StringIO
 import logging
 import os
 from pathlib import Path
 
 # subprocess.run() calls use trusted inputs
 import subprocess  # nosec B404
-import sys
 import time
 
 # Third-Party Libraries
-from asm_sync_local_query import (
-    add_sector_hierachy,
-    insert_assets,
-    insert_contacts,
-    insert_cyhy_agencies,
-    insert_dotgov_domains,
-    insert_sector_org_relationship,
-    insert_sectors,
-    query_pe_orgs,
-    query_pe_sectors,
-    update_child_parent_orgs,
-    update_fceb_child_status,
-    update_scan_status,
-)
 import boto3
 from botocore.exceptions import ClientError
 import pandas as pd
-import psycopg2
-from psycopg2 import OperationalError
 from pymongo import MongoClient
-import requests
-from sshtunnel import SSHTunnelForwarder
 
 # Setup Logging
 main_log = logging.getLogger(__name__)
@@ -55,122 +35,6 @@ def get_ssm_parameter(parameter_name):
     except ClientError as e:
         main_log.error(f"Error retrieving SSM parameter {parameter_name}: {e}")
         raise
-
-
-def check_accessor_running():
-    """Check to make sure the Accessor is running."""
-    try:
-        # Kill all existing ssh connections
-        subprocess.run(  # nosec B603
-            ["/usr/bin/killall", "ssh"],
-            check=False,
-            timeout=30,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        time.sleep(1)
-        # Get current status of accessor
-        vmID = os.environ.get("PE_EC2_INST_ID")
-        main_log.info(
-            f"Checking if the Accessor is currently running (instance ID: {vmID})"
-        )
-        result = subprocess.run(  # nosec B603
-            [
-                "/usr/local/bin/aws",
-                "--profile",
-                "cool-dns-sesmanagesuppressionlist-cyber.dhs.gov",
-                "ec2",
-                "describe-instance-status",
-                "--instance-ids",
-                vmID,
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        checkAWS = result.stdout.split("\n")
-        checkAWS = checkAWS[3].split()
-        checkAWS = checkAWS[2]
-        if checkAWS == "running":
-            # If Accessor is running, connect a screen
-            start_ec2_connect = (Path.home() / ".bin" / "startEC2Connect").resolve(
-                strict=True
-            )
-            subprocess.run(  # nosec B603
-                [str(start_ec2_connect)],
-                check=True,
-                timeout=30,
-            )
-            main_log.info("The Accessor is running and a screen has been connected")
-        else:
-            # If Accessor isn't running, start it up
-            subprocess.run(  # nosec B603
-                [
-                    "/usr/local/bin/aws",
-                    "--profile",
-                    "cool-dns-sesmanagesuppressionlist-cyber.dhs.gov",
-                    "ec2",
-                    "start-instances",
-                    "--instance-ids",
-                    vmID,
-                ],
-                check=True,
-                timeout=30,
-            )
-            main_log.info("The Accessor was not running and needed to be started")
-            main_log.info("Waiting 2 minutes before attempting to access Accessor...")
-            time.sleep(120)
-            # Recursive call until Accessor is running
-            check_accessor_running()
-    except (BrokenPipeError, OSError):
-        sys.stderr.close()
-        main_log.error(
-            f"There was some abnormal operation related to stdout.{sys.stderr}"
-        )
-
-
-def pe_db_connect():
-    """Connect to PE database."""
-    # Check that Accessor is running and connect a screen
-    check_accessor_running()
-    time.sleep(3)
-    # Establish SSH tunnel to the staging environement
-    main_log.info("Setting up SSH tunnel")
-    server = SSHTunnelForwarder(
-        ("localhost", 9999),
-        ssh_username="ubuntu",
-        ssh_pkey=os.environ.get("PE_DB_PKEY_LOCATION"),
-        ssh_private_key_password=os.environ.get("PE_DB_PKEY_PASS"),
-        host_pkey_directories=[],
-        remote_bind_address=(
-            os.environ.get("PE_DB_HOST"),
-            int(os.environ.get("PE_DB_PORT")),
-        ),
-    )
-    server.start()
-    ssh_port = server.local_bind_port
-    main_log.info("SSH tunnel has been setup")
-    # Make connection to PE DB
-    main_log.info("Attempting connection to PE DB")
-    pe_db_conn = None
-    try:
-        pe_db_conn = psycopg2.connect(
-            host="localhost",
-            user=os.environ.get("PE_DB_USER"),
-            password=os.environ.get("PE_DB_PASSWORD"),
-            dbname=os.environ.get("PE_DB_DATABASE"),
-            port=ssh_port,
-        )
-        main_log.info("PE DB connection successful")
-    except OperationalError as err:
-        err_type, err_obj, traceback = sys.exc_info()
-        main_log.error(
-            "Database connection error: %s on line number: %s", err, traceback.tb_lineno
-        )
-        pe_db_conn = None
-    # Return PE DB connection
-    return pe_db_conn
 
 
 def cyhy_db_connect():
@@ -205,52 +69,6 @@ def cyhy_db_connect():
         main_log.error(
             "Failed connecting to the CyHy database. Make sure you have the ssh connection running"
         )
-
-
-def local_db_connect():
-    """Connect to local copy of PE database."""
-    # Make connection to PE DB
-    main_log.info("Attempting connection to local DB")
-    local_db_conn = None
-    try:
-        local_db_conn = psycopg2.connect(
-            host=os.environ.get("LOCAL_DB_HOST"),
-            user=os.environ.get("LOCAL_DB_USER"),
-            password=os.environ.get("LOCAL_DB_PASSWORD"),
-            dbname=os.environ.get("LOCAL_DB_DATABASE"),
-            port=os.environ.get("LOCAL_DB_PORT"),
-        )
-        main_log.info("Local DB connection successful")
-    except OperationalError as err:
-        err_type, err_obj, traceback = sys.exc_info()
-        main_log.error(
-            "Database connection error: %s on line number: %s", err, traceback.tb_lineno
-        )
-        local_db_conn = None
-    # Return local DB connection
-    return local_db_conn
-
-
-def dotgov_domains():
-    """Get list of dotgov domains from the GitHub repository."""
-    dotgov_url = (
-        "https://raw.githubusercontent.com/cisagov/dotgov-data/main/current-federal.csv"
-    )
-    response = requests.get(dotgov_url, timeout=60)
-    response.raise_for_status()
-    dataframe = pd.read_csv(StringIO(response.text))
-    dataframe = dataframe.rename(
-        columns={
-            "Domain name": "domain_name",
-            "Domain type": "domain_type",
-            "Organization name": "agency",
-            "Suborganization name": "organization",
-            "City": "city",
-            "State": "state",
-            "Security contact email": "security_contact_email",
-        }
-    )
-    return dataframe
 
 
 def retrieve_all_cyhy_data(cyhy_db):
@@ -401,161 +219,75 @@ def retrieve_all_cyhy_data(cyhy_db):
     main_log.info(f"Total organization assets retrieved from CyHy DB: {len(assets)}")
     main_log.info(f"Total sectors retrieved from CyHy DB: {len(sector_list)}")
 
-    # Convert JSON lists to dataframes
-    cyhy_agency_df = pd.DataFrame(cyhy_agencies)
+    # Convert output to dataframes
+    orgs_df = pd.DataFrame(cyhy_agencies)
     assets_df = pd.DataFrame(assets)
     contacts_df = pd.DataFrame(contact_list)
+    child_parent_df = pd.DataFrame(
+        child_parent_dict.items(), columns=["child", "parent"]
+    )
+    sectors_info_df = pd.DataFrame(sector_info_list)
+    sectors_df = pd.DataFrame(sector_list, columns=["sectors"])
 
     # Return processed data
     return [
+        orgs_df,
         assets_df,
-        child_parent_dict,
         contacts_df,
-        cyhy_agency_df,
-        sector_info_list,
-        sector_list,
+        child_parent_df,
+        sectors_info_df,
+        sectors_df,
     ]
 
 
-def insert_all_cyhy_data(
-    pe_db_conn,
+def upload_cyhy_data_to_s3(s3_client, bucket, current_date, local_file):
+    """Upload CyHy DB data file to S3 under asm_sync_local_runs/<curent_date>/<file_name>."""
+    try:
+        filename = os.path.basename(local_file)
+        s3_path = f"asm_sync_local_runs/{current_date}/{filename}"
+        s3_client.upload_file(local_file, bucket, s3_path)
+        main_log.info("Uploaded %s to s3://%s/%s", filename, bucket, s3_path)
+    except Exception as e:
+        main_log.error("Error uploading file to S3: %s", e)
+
+
+def upload_all_cyhy_data(
+    orgs_df,
     assets_df,
-    child_parent_dict,
     contacts_df,
-    cyhy_agency_df,
-    sector_info_list,
-    sector_list,
+    child_parent_df,
+    sectors_info_df,
+    sectors_df,
 ):
-    """Take all the ASM Sync data retrieved from the CyHy database and insert/update it into the PE database."""
-    db_pass = os.environ.get("PE_DB_PASSWORD_KEY")
-    # Insert all CyHy DB sector data into the PE DB
-    insert_sectors(pe_db_conn, db_pass, sector_info_list)
-    # Query all PE sectors
-    pe_sectors = query_pe_sectors(pe_db_conn)
-    # Create a list of sector ids where run_scorecards = True
-    pe_sectors["run_scorecards"] = pe_sectors["run_scorecards"].fillna(False)
-    scorecard_sectors = pe_sectors.loc[pe_sectors["run_scorecards"], "id"].tolist()
-
-    # Create a list of all orgs belonging to sectors that are flagged to run_scorecards
-    scorecard_orgs = []
-    for sector in sector_info_list:
-        if sector["id"] in scorecard_sectors:
-            scorecard_orgs += sector["children"]
-    # Add column marking scorecard orgs
-    cyhy_agency_df["scorecard"] = cyhy_agency_df["cyhy_db_name"].isin(scorecard_orgs)
-    # Insert CyHy DB asset data into the PE DB
-    insert_assets(pe_db_conn, assets_df)
-    # Deduplicate cyhy contact data
-    contacts_df.drop_duplicates(
-        subset=["org_id", "name", "contact_type", "email"],
-        inplace=True,
-        ignore_index=True,
-    )
-    # Insert CyHy DB contact data into PE DB
-    insert_contacts(pe_db_conn, contacts_df)
-    # Insert CyHy DB organziation data into the PE DB
-    insert_cyhy_agencies(pe_db_conn, db_pass, cyhy_agency_df)
-    # Query all PE organizations
-    pe_orgs = query_pe_orgs(pe_db_conn)
-    # Build sector child and sub-sector lists
-    sector_child_list = []
-    sub_sector_list = []
-    for sec in sector_info_list:
-        # save uid of the current sector
-        sector_uid = pe_sectors.loc[
-            pe_sectors["acronym"] == sec["acronym"], "sector_uid"
-        ].item()
-        # loop through this sector's children, they can be orgs or sectors
-        for child_agency in sec["children"]:
-            # If child is a sector
-            if child_agency in sector_list:
-                # ignore child if DOD
-                if child_agency == "DOD":
-                    continue
-                # append sector-sector relationship
-                sub_sector_list.append(
-                    (
-                        pe_sectors.loc[
-                            pe_sectors["acronym"] == child_agency, "sector_uid"
-                        ].item(),
-                        sector_uid,
-                    )
-                )
-            # if the child is an org
-            else:
-                # skip if no org_uid available ***
-                if (
-                    len(
-                        pe_orgs.loc[
-                            pe_orgs["cyhy_db_name"] == child_agency, "organizations_uid"
-                        ].index
-                    )
-                    == 0
-                ):
-                    continue
-                # grab the org_uid
-                child_uid = pe_orgs.loc[
-                    pe_orgs["cyhy_db_name"] == child_agency, "organizations_uid"
-                ].item()
-                # append to child_sector relationship list
-                if child_uid and sector_uid:
-                    sector_child_list.append(
-                        (
-                            sector_uid,
-                            child_uid,
-                            datetime.datetime.today().date(),
-                            datetime.datetime.today().date(),
-                        )
-                    )
-    # Insert sector-org relationships into the PE DB
-    insert_sector_org_relationship(pe_db_conn, sector_child_list)
-    # Add relationship between sectors to the PE DB, not allowing duplicate parents
-    child_list = []
-    for relationship in sub_sector_list:
-        if relationship[0] not in child_list:
-            add_sector_hierachy(pe_db_conn, relationship[0], relationship[1])
-            child_list.append(relationship[0])
-    main_log.info(
-        "Parent_sector_uid fields updated successfully using add_sector_hierarchy()"
-    )
-    # For each parent/child relationship,
-    # add the parent's org_uid to the child org
-    child_parent_ct = 0
-    scan_status_ct = 0
-    fceb_child_ct = 0
-    for child_name, parent_name in child_parent_dict.items():
-        # Get parent uid
-        parent_uid = pe_orgs.loc[
-            pe_orgs["cyhy_db_name"] == parent_name, "organizations_uid"
-        ].item()
-        # add parent uid to child org's record
-        update_child_parent_orgs(pe_db_conn, parent_uid, child_name)
-        child_parent_ct += 1
-        # Check if parent org is reported on
-        parent_report_on = pe_orgs.loc[
-            pe_orgs["cyhy_db_name"] == parent_name, "report_on"
-        ].item()
-        # Check if parent org is FCEB
-        parent_fceb = pe_orgs.loc[pe_orgs["cyhy_db_name"] == parent_name, "fceb"].item()
-        # Update child's run_scans field
-        if parent_report_on:
-            update_scan_status(pe_db_conn, child_name)
-            scan_status_ct += 1
-        # Update child's fceb_child field
-        if parent_fceb:
-            update_fceb_child_status(pe_db_conn, child_name)
-            fceb_child_ct += 1
-
-    main_log.info(
-        f"{child_parent_ct} child-parent relationships updated successfully using update_child_parent_orgs()"
-    )
-    main_log.info(
-        f"{scan_status_ct} scan statuses updated successfully using update_scan_status()"
-    )
-    main_log.info(
-        f"{fceb_child_ct} FCEB child statuses updated successfully using update_fceb_child_status()"
-    )
-
-    # Scrape dot gov domains and insert into P&E database
-    dotgov_df = dotgov_domains()
-    insert_dotgov_domains(pe_db_conn, dotgov_df)
+    """Take all the ASM Sync data retrieved from the CyHy database and upload it to the S3 bucket."""
+    # Create folder to save CyHy data from this run
+    curr_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    curr_file_dir = Path(__file__).resolve().parent
+    local_save_folder = curr_file_dir / "asm_sync_local_runs" / curr_date
+    local_save_folder.mkdir(parents=True, exist_ok=True)
+    # Save dataframes as local files for uploading
+    orgs_file = str(local_save_folder) + f"/cyhy_orgs_{curr_date}.csv"
+    assets_file = str(local_save_folder) + f"/cyhy_assets_{curr_date}.csv"
+    contacts_file = str(local_save_folder) + f"/cyhy_contacts_{curr_date}.csv"
+    child_parent_file = str(local_save_folder) + f"/cyhy_child_parent_{curr_date}.csv"
+    sectors_info_file = str(local_save_folder) + f"/cyhy_sectors_info_{curr_date}.csv"
+    sectors_file = str(local_save_folder) + f"/cyhy_sectors_{curr_date}.csv"
+    orgs_df.to_csv(orgs_file)
+    assets_df.to_csv(assets_file)
+    contacts_df.to_csv(contacts_file)
+    child_parent_df.to_csv(child_parent_file)
+    sectors_info_df.to_csv(sectors_info_file)
+    sectors_df.to_csv(sectors_file)
+    # Upload locally saved files to S3
+    s3_client = boto3.client("s3")
+    bucket = os.environ.get("PE_S3_BUCKET")
+    local_files = [
+        orgs_file,
+        assets_file,
+        contacts_file,
+        child_parent_file,
+        sectors_info_file,
+        sectors_file,
+    ]
+    for local_file in local_files:
+        upload_cyhy_data_to_s3(s3_client, bucket, curr_date, local_file)

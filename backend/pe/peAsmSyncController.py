@@ -5,6 +5,7 @@ from peScanController, peReportController, and peMailerController so scan orches
 
 Event payload:
     {
+        "phase": "import_s3",
         "orgs": ["all"],
         "taskCount": 1,
         "local": false
@@ -93,6 +94,7 @@ def chunk_asmsync_orgs(orgs_arg: str, task_count: int) -> List[str]:
 
 
 def start_fargate_asmsync_tasks(
+    phase: str,
     orgs_arg: str,
     worker_api_key: str,
 ) -> int:
@@ -105,12 +107,14 @@ def start_fargate_asmsync_tasks(
 
     key_environment = worker_key_env("asmsync", worker_api_key)
     environment = [
+        {"name": "PHASE", "value": phase},
         {"name": "ASMSYNC_ORGS", "value": orgs_arg},
         *[{"name": name, "value": value} for name, value in key_environment.items()],
     ]
 
     LOGGER.info(
-        "Starting Fargate ASM Sync task for orgs=%s with API key %s",
+        "Starting Fargate ASM Sync task for phase=%s orgs=%s with API key %s",
+        phase,
         orgs_arg,
         api_key_label(worker_api_key),
     )
@@ -152,6 +156,7 @@ def start_fargate_asmsync_tasks(
 
 
 def start_local_docker_asmsync_task(
+    phase: str,
     orgs_arg: str,
     worker_api_key: str,
 ) -> str:
@@ -166,6 +171,7 @@ def start_local_docker_asmsync_task(
         "IS_LOCAL": "true",
         "DJANGO_SETTINGS_MODULE": "pe_reports_django.settings",
         "DJANGO_ALLOW_ASYNC_UNSAFE": "true",
+        "PHASE": phase,
         "ASMSYNC_ORGS": orgs_arg,
         "DB_HOST": os.getenv(
             "PE_DB_HOST",
@@ -180,6 +186,9 @@ def start_local_docker_asmsync_task(
         ),
         "PE_API_KEY": os.getenv("PE_API_KEY", ""),
         "WHOIS_XML_KEY": os.getenv("WHOIS_XML_KEY", ""),
+        "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", ""),
+        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", ""),
+        "PE_S3_BUCKET": os.getenv("PE_S3_BUCKET", ""),
     }
     environment.update(worker_key_env("asmsync", worker_api_key))
 
@@ -210,9 +219,15 @@ def start_local_docker_asmsync_task(
 
 def run(event: Dict[str, Any]) -> Dict[str, Any]:
     """Start ASM Sync on Fargate or local Docker."""
+    phase = event.get("phase")
     orgs = event.get("orgs")
     task_count = int(event.get("taskCount", 1))
     local = is_local_mode(event)
+    if not phase:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "phase is required import_s3 or enumerate"}),
+        }
     if not orgs:
         return {
             "statusCode": 400,
@@ -245,6 +260,7 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
         if local:
             container_names.append(
                 start_local_docker_asmsync_task(
+                    phase,
                     chunk,
                     worker_api_key,
                 )
@@ -252,12 +268,14 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
             started += 1
         else:
             started += start_fargate_asmsync_tasks(
+                phase,
                 chunk,
                 worker_api_key,
             )
 
     body = {
         "message": "PE ASM Sync started",
+        "phase": phase,
         "orgs": orgs_arg,
         "tasksStarted": started,
         "local": local,

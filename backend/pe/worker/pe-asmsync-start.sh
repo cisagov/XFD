@@ -6,6 +6,7 @@ export PE_API_URL="${PE_API_URL:-http://127.0.0.1:8000}"
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-pe_reports_django.settings}"
 export DJANGO_ALLOW_ASYNC_UNSAFE="${DJANGO_ALLOW_ASYNC_UNSAFE:-true}"
 
+PHASE="${PHASE:?PHASE is required import_s3 or enumerate}"
 ASMSYNC_ORGS="${ASMSYNC_ORGS:-all}"
 
 cd /app/pe_reports_django_project
@@ -30,5 +31,5 @@ if ! curl -sf "${PE_API_URL}/apiv1/health" >/dev/null; then
   exit 1
 fi
 
-echo "Starting ASM Sync for orgs=${ASMSYNC_ORGS}..."
-exec pe-asm-sync --orgs="${ASMSYNC_ORGS}"
+echo "Starting ASM Sync ${PHASE} phase for orgs=${ASMSYNC_ORGS}..."
+exec pe-asm-sync "${PHASE}" --orgs="${ASMSYNC_ORGS}"

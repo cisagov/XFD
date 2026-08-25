@@ -6,9 +6,10 @@ PE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$PE_DIR/../.." && pwd)"
 COMPOSE=(docker compose -f "${REPO_ROOT}/docker-compose.yml" -f "${REPO_ROOT}/docker-compose.override.local.yml")
 
+PHASE="${PHASE:?PHASE is required import_s3 or enumerate}"
 ORGS="${ORGS:-all}"
 
-args=(--orgs "$ORGS" --print-names)
+args=(--phase "$PHASE" --orgs "$ORGS" --print-names)
 if [[ -n "${COUNT:-}" ]]; then
   args+=(--count "$COUNT")
 fi

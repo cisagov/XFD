@@ -194,6 +194,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
       },
       {
+        "name": "PE_S3_BUCKET",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_pe_s3_bucket.arn}"
+      },
+      {
         "name": "QUALYS_PASSWORD",
         "valueFrom": "${data.aws_ssm_parameter.qualys_password.arn}"
       },

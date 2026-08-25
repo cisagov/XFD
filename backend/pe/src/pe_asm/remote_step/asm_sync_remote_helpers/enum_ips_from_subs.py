@@ -36,7 +36,6 @@ def link_ip_from_domain(sub, root_uid, org_uid, data_source, conn):
         (DATE, ip_hash, ip, org_uid, sub, data_source, root_uid, None),
     )
     cur.fetchone()
-    # print(row)
     conn.commit()
     cur.close()
     return 1
