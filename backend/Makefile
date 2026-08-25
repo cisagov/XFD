@@ -56,7 +56,6 @@ pe-test:
 	  python -m unittest discover -s tests -v
 
 # Audit pinned PE worker dependencies for known CVEs
-# Temporarily ignoring vulns to deploy to staging-cd, will be addressed in sprint 35 (CRASM-4160)
 pe-requirements-audit:
 	python -m pip install -q pip-audit
 	pip-audit -r pe/requirements.txt
