@@ -321,7 +321,7 @@ class CredentialExposures(models.Model):
 
         managed = False
         db_table = "credential_exposures"
-        unique_together = (("breach_name", "email"),)
+        unique_together = (("breach_name", "email", "organizations_uid"),)
 
 
 class CveInfo(models.Model):

@@ -530,7 +530,7 @@ def test_invite_existing_user_by_global_view_should_not_work():
 @patch("xfd_api.api_methods.user.send_registration_approved_email")
 def test_register_approve_success(mock_email):
     """Test successful user registration approval."""
-    mock_email.return_value = "test"
+    mock_email.return_value = True
     current_user = User.objects.create(
         first_name="Admin",
         last_name="User",
@@ -546,19 +546,37 @@ def test_register_approve_success(mock_email):
         first_name="Test",
         last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        region_id="region-1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+    )
+    organization = Organization.objects.create(
+        name="Virginia Organization {}".format(secrets.token_hex(4)),
+        acronym="VA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="Virginia",
+        region_id="3",
     )
     # Mock email sending
     response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["body"] == "User registration approved."
+    assert data["already_approved"] is False
+    assert data["email_sent"] is True
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.state == "Virginia"
+    assert user_to_approve.region_id == "3"
+    assert user_to_approve.invite_pending is False
+    assert Role.objects.filter(
+        user=user_to_approve, organization=organization, approved=True, role="user"
+    ).exists()
     mock_email.assert_called_once_with(
         user_to_approve.email,
         subject="CISA CyHy Dashboard Account Approved",
@@ -592,14 +610,75 @@ def test_register_approve_already_approved_returns_200_message():
         date_approved=datetime.now(),
         approved_by=current_user,
     )
+    organization = Organization.objects.create(
+        name="Virginia Organization {}".format(secrets.token_hex(4)),
+        acronym="VA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="Virginia",
+        region_id="3",
+    )
 
     response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 200
     assert response.json()["body"] == "User registration already approved."
+    assert response.json()["already_approved"] is True
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.region_id == "region-1"
+    assert user_to_approve.state != "Virginia"
+    assert not Role.objects.filter(user=user_to_approve).exists()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.api_methods.user.send_registration_approved_email")
+def test_register_approve_succeeds_when_approval_email_fails(mock_email):
+    """Email-delivery failures do not undo a completed registration approval."""
+    mock_email.side_effect = Exception("SES unavailable")
+    current_user = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
+    )
+    user_to_approve = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+    )
+    organization = Organization.objects.create(
+        name="Virginia Organization {}".format(secrets.token_hex(4)),
+        acronym="VA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="Virginia",
+        region_id="3",
+    )
+
+    response = client.post(
+        "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["body"] == (
+        "User registration approved, but the approval email could not be sent."
+    )
+    assert response.json()["email_sent"] is False
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.date_approved is not None
+    assert Role.objects.filter(
+        user=user_to_approve, organization=organization, approved=True
+    ).exists()
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -627,11 +706,53 @@ def test_register_approve_unauthorized_region():
 
     response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "New York", "organization_id": str(uuid.uuid4())},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized region access."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_register_approve_rejects_organization_outside_selected_state():
+    """Approval cannot assign an organization outside the selected state."""
+    current_user = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
+    )
+    user_to_approve = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+    )
+    organization = Organization.objects.create(
+        name="California Organization {}".format(secrets.token_hex(4)),
+        acronym="CA{}".format(secrets.token_hex(4)),
+        root_domains=[],
+        ip_blocks=[],
+        is_passive=False,
+        state_name="California",
+        region_id="9",
+    )
+
+    response = client.post(
+        "/users/{}/register/approve".format(user_to_approve.id),
+        json={"state": "Virginia", "organization_id": str(organization.id)},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Organization does not match the selected state and region."
+    )
+    user_to_approve.refresh_from_db()
+    assert user_to_approve.date_approved is None
+    assert not Role.objects.filter(user=user_to_approve).exists()
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1447,6 +1568,62 @@ def test_update_user_v2_no_auth():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_approved_user_can_set_missing_own_state():
+    """An approved user may set their own state only when it is missing."""
+    user = User.objects.create(
+        first_name="Approved",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        invite_pending=False,
+        state=None,
+        region_id=None,
+        can_select_own_state=False,
+    )
+
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
+        json={"state": "Virginia"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert user.state == "Virginia"
+    assert user.region_id == "3"
+    assert user.can_select_own_state is False
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@pytest.mark.parametrize("state", ["Invalid State", ""])
+def test_update_user_v2_rejects_invalid_self_selected_state(state):
+    """A self-service state update must use a configured state."""
+    user = User.objects.create(
+        first_name="Pending",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        invite_pending=True,
+        state="Virginia",
+        region_id="3",
+        can_select_own_state=True,
+    )
+
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
+        json={"state": state},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid state."
+    user.refresh_from_db()
+    assert user.state == "Virginia"
+    assert user.region_id == "3"
+    assert user.can_select_own_state is True
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_non_existent_user():
     """Test that updating a non-existent user returns a 404."""
     global_admin = User.objects.create(
@@ -1661,7 +1838,7 @@ def test_update_user_v2_regional_admin_can_update_in_region_state():
         region_id="X1",
     )
 
-    payload = {"state": "NY"}
+    payload = {"state": "New York"}
 
     response = client.post(
         "/v2/update_user/{}".format(user.id),
@@ -1673,6 +1850,8 @@ def test_update_user_v2_regional_admin_can_update_in_region_state():
     )
 
     assert response.status_code == 200
+    assert response.json()["state"] == "New York"
+    assert response.json()["region_id"] == "2"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1700,17 +1879,25 @@ def test_update_user_v2_standard_user_cannot_update_name():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_standard_user_cannot_clear_invite_pending():
-    """Standard user should not be able to set invite_pending to false on themselves."""
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"can_select_own_state": False}, "can_select_own_state"),
+        ({"invite_pending": False}, "invite_pending"),
+    ],
+)
+def test_pending_standard_user_cannot_update_backend_controlled_state_fields(
+    payload, field
+):
+    """Only the state value may be self-updated while an invite is pending."""
     user = User.objects.create(
         first_name="Self",
         last_name="Invitee",
         email="{}@example.com".format(secrets.token_hex(4)),
         user_type=UserType.STANDARD,
         invite_pending=True,
+        can_select_own_state=True,
     )
-
-    payload = {"invite_pending": False}
 
     response = client.post(
         "/v2/update_user/{}".format(user.id),
@@ -1718,10 +1905,9 @@ def test_standard_user_cannot_clear_invite_pending():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "Unauthorized to update the following fields: invite_pending"
-    )
+    assert response.json()[
+        "detail"
+    ] == "Unauthorized to update the following fields: {}".format(field)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2040,7 +2226,7 @@ def test_global_user_updates_confirm_authorized_fields():
     )
     payload = {
         "region_id": "2",
-        "state": "NY",
+        "state": "New York",
         "first_name": "Updated",
         "last_name": "New",
         "date_approved": datetime.now().isoformat(),
@@ -2053,6 +2239,8 @@ def test_global_user_updates_confirm_authorized_fields():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 200
+    assert response.json()["state"] == "New York"
+    assert response.json()["region_id"] == "2"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

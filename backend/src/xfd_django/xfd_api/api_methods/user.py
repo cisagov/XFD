@@ -9,6 +9,7 @@ from typing import Optional
 # Third-Party Libraries
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.db.models import Prefetch
 from django.forms import model_to_dict
 from fastapi import HTTPException, status
@@ -502,6 +503,9 @@ def update_user_v2(
                 ),
             )
 
+        if "state" in requested_fields and updates["state"] not in REGION_STATE_MAP:
+            raise HTTPException(status_code=400, detail="Invalid state.")
+
         if "user_type" in requested_fields:
             if updates["user_type"] in settings.ALLOWED_ADMIN_ROLES:
                 email_value = (user.email or "").strip().lower()
@@ -584,9 +588,62 @@ def update_user_v2(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _validate_approval_request(user, approval_data, current_user):
+    """Validate approval state, organization, and requested user type."""
+    region_id = REGION_STATE_MAP.get(approval_data.state)
+    if not region_id:
+        raise HTTPException(status_code=400, detail="Invalid state.")
+
+    # Ensure authorizer's region matches the state being assigned.
+    if not matches_user_region(current_user, region_id):
+        raise HTTPException(status_code=403, detail="Unauthorized region access.")
+
+    try:
+        organization = Organization.objects.get(id=approval_data.organization_id)
+    except Organization.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+
+    if (
+        organization.state_name != approval_data.state
+        or organization.region_id != region_id
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Organization does not match the selected state and region.",
+        )
+
+    requested_user_type = (
+        approval_data.user_type.value if approval_data.user_type else None
+    )
+    _validate_requested_user_type(user, requested_user_type, current_user)
+    return region_id, organization, requested_user_type
+
+
+def _validate_requested_user_type(user, requested_user_type, current_user):
+    """Ensure only eligible global admins can change a user's type on approval."""
+    if not requested_user_type or requested_user_type == user.user_type:
+        return
+
+    if not is_global_write_admin(current_user):
+        raise HTTPException(
+            status_code=403, detail="Only global admins can update userType."
+        )
+
+    if requested_user_type in settings.ALLOWED_ADMIN_ROLES:
+        email_value = (user.email or "").strip().lower()
+        email_parts = email_value.split("@")
+        email_domain = email_parts[-1] if len(email_parts) == 2 else ""
+        allowed_admin_domains = get_allowed_admin_domains()
+        if allowed_admin_domains != ["*"] and email_domain not in allowed_admin_domains:
+            raise HTTPException(
+                status_code=403,
+                detail="User not authorized for requested user type.",
+            )
+
+
 # PUT: /users/{user_id}/register/approve
-def approve_user_registration(user_id, current_user):
-    """Approve a registered user."""
+def approve_user_registration(user_id, approval_data, current_user):
+    """Atomically complete a registered user's approval and organization assignment."""
     if not is_valid_uuid(user_id):
         raise HTTPException(status_code=404, detail="Invalid user ID.")
 
@@ -594,62 +651,93 @@ def approve_user_registration(user_id, current_user):
         raise HTTPException(status_code=403, detail="Users cannot approve themselves.")
 
     try:
-        # Retrieve the user by ID
         user = User.objects.get(id=user_id)
     except ObjectDoesNotExist:
         raise HTTPException(status_code=404, detail="User not found.")
 
     if current_user.invite_pending or not current_user.date_accepted_terms:
-        # Return 403 if user is unapproved or has not accepted terms
         raise HTTPException(status_code=403, detail="Account not fully activated.")
 
     if not (
         is_global_write_admin(current_user)
         or current_user.user_type == UserType.REGIONAL_ADMIN
     ):
-        # Return 403 if user is not global_write_admin or regional_admin
         raise HTTPException(
             status_code=403,
             detail="Only authorized admins can approve or deny users.",
         )
 
-    # Ensure authorizer's region matches the user's region
-    if not matches_user_region(current_user, user.region_id):
-        raise HTTPException(status_code=403, detail="Unauthorized region access.")
+    region_id, organization, requested_user_type = _validate_approval_request(
+        user, approval_data, current_user
+    )
 
-    # Check for race condition
-    if user.date_approved is not None and user.approved_by is not None:
-        return {
-            "status_code": 200,
-            "body": "User registration already approved.",
-        }
-    # Approve user
-    user.date_approved = datetime.now()
-    user.approved_by = current_user
-    user.first_login = True
-    user.save()
+    with transaction.atomic(using=user._state.db):
+        # Lock the user to avoid creating duplicate roles or approval emails.
+        user = User.objects.select_for_update().get(id=user_id)
+        already_approved = (
+            user.date_approved is not None and user.approved_by is not None
+        )
+        if already_approved:
+            return {
+                "status_code": 200,
+                "body": "User registration already approved.",
+                "already_approved": True,
+            }
 
-    # Send email notification
+        role, _ = Role.objects.get_or_create(
+            user=user,
+            organization=organization,
+            defaults={
+                "approved": True,
+                "role": "user",
+                "approved_by": current_user,
+                "created_by": current_user,
+            },
+        )
+        if not role.approved:
+            role.approved = True
+            role.approved_by = current_user
+            role.save(update_fields=["approved", "approved_by"])
+
+        user.state = approval_data.state
+        user.region_id = region_id
+        user.invite_pending = False
+        user.can_select_own_state = False
+        if requested_user_type:
+            user.user_type = requested_user_type
+        user.date_approved = datetime.now()
+        user.approved_by = current_user
+        user.first_login = True
+        user.save()
+
+    # Approval has committed; a notification failure must not make the user appear
+    # pending again or prevent them from signing in.
+    email_sent = True
     try:
-        send_registration_approved_email(
+        email_sent = send_registration_approved_email(
             user.email,
             subject="CISA CyHy Dashboard Account Approved",
             first_name=user.first_name,
             last_name=user.last_name,
             template="crossfeed_approval_notification.html",
         )
-
-    except HTTPException as http_exc:
-        raise http_exc
-
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail="Failed to send email: {}".format(str(e))
+        email_sent = False
+        LOGGER.exception(
+            "Registration approved for user %s, but the approval email failed to send: %s",
+            user.id,
+            e,
         )
 
     return {
         "status_code": 200,
-        "body": "User registration approved.",
+        "body": (
+            "User registration approved."
+            if email_sent
+            else "User registration approved, but the approval email could not be sent."
+        ),
+        "already_approved": False,
+        "email_sent": email_sent,
     }
 
 
