@@ -47,7 +47,7 @@ def get_cve_details(cve_list):
     source_uid = get_data_source_uid("Shodan")
     for idx, cve in enumerate(cve_list):
         # Call shodan API to get CVE info
-        LOGGER.info(f"Retrieving CVE details for {cve} ({idx+1} of {len(cve_list)})")
+        LOGGER.info(f"Retrieving CVE details for {cve} ({idx + 1} of {len(cve_list)})")
         cve_details = get_shodan_cve_info(cve)
         epss_score = round(cve_details.get("epss") * 100, 2)
         cvss_v2 = cve_details.get("cvss_v2")
