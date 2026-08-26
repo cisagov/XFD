@@ -145,8 +145,7 @@ resource "aws_instance" "was_reporting" {
 
   iam_instance_profile = aws_iam_instance_profile.was_reporting[0].id
 
-  # WAS-specific initialization can replace this payload later. Do not reuse
-  # open_cti_user_data here because it installs the OpenCTI Docker stack.
+  # WAS-specific initialization can replace this payload later.
   user_data                   = file("${path.module}/ssm-agent-install.sh")
   user_data_replace_on_change = false
 
