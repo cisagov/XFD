@@ -34,6 +34,7 @@ setup(
     install_requires=load_requirements(ROOT / "requirements.txt"),
     entry_points={
         "console_scripts": [
+            "was-mailer=was_mailer.email_reports:main",
             "was-report-batch=was_reports.batch_runner:main",
             "was-reports=was_reports.report_generator:main",
         ],

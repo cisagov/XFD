@@ -47,6 +47,9 @@ CREATE TABLE was_report_runs (
     scheduled_epoch        BIGINT,
     output_path            TEXT,
     artifact_type          VARCHAR(32),
+    emailed_at             TIMESTAMPTZ,
+    email_message_id       TEXT,
+    email_error            TEXT,
     started_at             TIMESTAMPTZ DEFAULT NOW(),
     completed_at           TIMESTAMPTZ,
     error_message          TEXT,
@@ -62,5 +65,4 @@ CREATE INDEX was_report_runs_status_idx
 
 CREATE INDEX was_report_runs_scheduled_epoch_idx
     ON was_report_runs (scheduled_epoch);
-
 

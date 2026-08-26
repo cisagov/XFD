@@ -32,6 +32,10 @@ class FakeCursor:
         """Return the configured row."""
         return self.row
 
+    def fetchall(self):
+        """Return configured rows for list queries."""
+        return self.row
+
 
 class FakeConnection:
     """Small connection test double for report run tests."""
@@ -126,6 +130,68 @@ class ReportRunTests(unittest.TestCase):
             conn.cursor_instance.parameters,
             (report_runs.FAILED, "Report generation failed.", None, None, 7),
         )
+
+    def test_mark_report_run_emailed_records_message_id(self) -> None:
+        """Record successful email delivery metadata."""
+        conn = FakeConnection()
+
+        report_runs.mark_report_run_emailed(
+            report_run_id=7,
+            message_id="message-id",
+            conn=conn,
+        )
+
+        self.assertTrue(conn.committed)
+        self.assertEqual(conn.cursor_instance.parameters, ("message-id", 7))
+
+    def test_mark_report_run_email_failed_records_error(self) -> None:
+        """Record email delivery failure metadata."""
+        conn = FakeConnection()
+
+        report_runs.mark_report_run_email_failed(
+            report_run_id=7,
+            error_message="delivery failed",
+            conn=conn,
+        )
+
+        self.assertTrue(conn.committed)
+        self.assertEqual(conn.cursor_instance.parameters, ("delivery failed", 7))
+
+    def test_list_report_runs_ready_for_email_excludes_failures(self) -> None:
+        """Return completed report runs that are ready to email."""
+        conn = FakeConnection(
+            row=[
+                (
+                    7,
+                    "TAG1",
+                    "/WAS_REPORT_GENERATION/docs/report.pdf",
+                    "password",
+                    "distro@example.gov",
+                    "tech@example.gov",
+                    "poc@example.gov",
+                )
+            ]
+        )
+
+        report_run_emails = report_runs.list_report_runs_ready_for_email(
+            conn=conn,
+            limit=5,
+        )
+
+        self.assertEqual(report_run_emails[0].id, 7)
+        self.assertIn("runs.email_error IS NULL", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (report_runs.COMPLETED, 5))
+
+    def test_list_report_runs_ready_for_email_can_retry_failures(self) -> None:
+        """Allow failed email runs to be selected for retry."""
+        conn = FakeConnection(row=[])
+
+        report_runs.list_report_runs_ready_for_email(
+            conn=conn,
+            include_previous_failures=True,
+        )
+
+        self.assertNotIn("runs.email_error IS NULL", conn.cursor_instance.query)
 
 
 if __name__ == "__main__":

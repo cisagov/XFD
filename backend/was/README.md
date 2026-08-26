@@ -38,6 +38,7 @@ export WAS_PASSWORD_LENGTH="24"
 export WAS_CONFIG_PATH="/app/was_config.txt"
 export WAS_LEGACY_ROOT="/WAS_REPORT_GENERATION"
 export WAS_OUTPUT_DIRECTORY="/WAS_REPORT_GENERATION/docs"
+export WAS_EMAIL_SOURCE="verified-sender@example.gov"
 ```
 
 Do not commit `.env`, `was_config.txt`, database passwords, Qualys credentials,
@@ -191,6 +192,13 @@ Build the image from `backend/was`:
 docker build -t was-reporting .
 ```
 
+Smoke test the container command routing without database or Qualys access:
+
+```bash
+docker run --rm was-reporting --help
+docker run --rm was-reporting was-reports --help
+```
+
 Run the scheduled report batch container:
 
 ```bash
@@ -204,6 +212,49 @@ docker run --rm \
 
 The mounted output directory is used by the legacy generator for report files
 and supporting artifacts.
+
+Run the WAS mailer for all completed report runs that have not been emailed:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v /local/output:/WAS_REPORT_GENERATION/docs:ro \
+  --entrypoint ./worker/was-mailer-start.sh \
+  was-reporting \
+  --all-ready
+```
+
+Smoke test the mailer without sending an email:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v /local/output:/WAS_REPORT_GENERATION/docs:ro \
+  --entrypoint ./worker/was-mailer-start.sh \
+  was-reporting \
+  --all-ready \
+  --test-recipients "operator@example.gov" \
+  --dry-run \
+  --limit 1
+```
+
+`--test-recipients` overrides stakeholder recipients and should be used for
+non-production validation. The mailer does not include the report password in
+the email body.
+
+Run the WAS mailer for one completed report run:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v /local/output:/WAS_REPORT_GENERATION/docs:ro \
+  --entrypoint ./worker/was-mailer-start.sh \
+  was-reporting \
+  --report-run-id 123
+```
+
+Use `--include-previous-failures` with `--all-ready` when retrying report runs
+that already have `email_error` populated.
 
 ## Developer Usage
 

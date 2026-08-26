@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -25,6 +25,19 @@ class ReportRun:
     status: str
     output_path: Optional[str] = None
     artifact_type: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ReportRunEmail:
+    """Completed report run and stakeholder email fields."""
+
+    id: int
+    stakeholder_tag: str
+    output_path: str
+    report_password: Optional[str]
+    distro_email: Optional[str]
+    tech_poc_email: Optional[str]
+    was_report_poc: Optional[str]
 
 
 def create_report_run(
@@ -170,6 +183,212 @@ def fail_report_run_by_id(report_run_id: int, error_message: str) -> None:
     conn = connect()
     try:
         fail_report_run(
+            report_run_id=report_run_id,
+            error_message=error_message,
+            conn=conn,
+        )
+    finally:
+        close(conn)
+
+
+def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail:
+    """Return completed report run details needed for email delivery."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                runs.id,
+                runs.stakeholder_tag,
+                runs.output_path,
+                stakeholders.report_password,
+                stakeholders.distro_email,
+                stakeholders.tech_poc_email,
+                stakeholders.was_report_poc
+            FROM was_report_runs AS runs
+            JOIN was_stakeholders AS stakeholders
+              ON stakeholders.tag = runs.stakeholder_tag
+            WHERE runs.id = %s
+              AND runs.status = %s
+              AND runs.output_path IS NOT NULL
+            """,
+            (report_run_id, COMPLETED),
+        )
+        row = cursor.fetchone()
+
+    if row is None:
+        raise KeyError(
+            "Completed report run {} with output path was not found.".format(
+                report_run_id
+            )
+        )
+
+    return ReportRunEmail(
+        id=row[0],
+        stakeholder_tag=row[1],
+        output_path=row[2],
+        report_password=row[3],
+        distro_email=row[4],
+        tech_poc_email=row[5],
+        was_report_poc=row[6],
+    )
+
+
+def list_report_runs_ready_for_email(
+    conn: connection,
+    limit: Optional[int] = None,
+    include_previous_failures: bool = False,
+) -> List[ReportRunEmail]:
+    """Return completed report runs that have not been emailed."""
+    query = """
+        SELECT
+            runs.id,
+            runs.stakeholder_tag,
+            runs.output_path,
+            stakeholders.report_password,
+            stakeholders.distro_email,
+            stakeholders.tech_poc_email,
+            stakeholders.was_report_poc
+        FROM was_report_runs AS runs
+        JOIN was_stakeholders AS stakeholders
+          ON stakeholders.tag = runs.stakeholder_tag
+        WHERE runs.status = %s
+          AND runs.output_path IS NOT NULL
+          AND runs.emailed_at IS NULL
+    """
+    parameters = [COMPLETED]
+
+    if not include_previous_failures:
+        query += " AND runs.email_error IS NULL"
+
+    query += " ORDER BY runs.completed_at ASC NULLS LAST, runs.id ASC"
+
+    if limit is not None:
+        query += " LIMIT %s"
+        parameters.append(limit)
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, tuple(parameters))
+        rows = cursor.fetchall()
+
+    report_runs = []
+    for row in rows:
+        report_runs.append(
+            ReportRunEmail(
+                id=row[0],
+                stakeholder_tag=row[1],
+                output_path=row[2],
+                report_password=row[3],
+                distro_email=row[4],
+                tech_poc_email=row[5],
+                was_report_poc=row[6],
+            )
+        )
+
+    return report_runs
+
+
+def get_report_run_email_by_id(report_run_id: int) -> ReportRunEmail:
+    """Return completed report run email details using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_report_run_email(report_run_id=report_run_id, conn=conn)
+    finally:
+        close(conn)
+
+
+def list_report_runs_ready_for_email_from_db(
+    limit: Optional[int] = None,
+    include_previous_failures: bool = False,
+) -> List[ReportRunEmail]:
+    """Return ready-to-email report runs using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_report_runs_ready_for_email(
+            conn=conn,
+            limit=limit,
+            include_previous_failures=include_previous_failures,
+        )
+    finally:
+        close(conn)
+
+
+def mark_report_run_emailed(
+    report_run_id: int,
+    message_id: str,
+    conn: connection,
+) -> None:
+    """Mark a report run as successfully emailed."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET emailed_at = NOW(),
+                    email_message_id = %s,
+                    email_error = NULL,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                (message_id, report_run_id),
+            )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def mark_report_run_email_failed(
+    report_run_id: int,
+    error_message: str,
+    conn: connection,
+) -> None:
+    """Record a report email delivery failure."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET email_error = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                (error_message, report_run_id),
+            )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def mark_report_run_emailed_by_id(report_run_id: int, message_id: str) -> None:
+    """Mark a report run emailed using a managed database connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        mark_report_run_emailed(
+            report_run_id=report_run_id,
+            message_id=message_id,
+            conn=conn,
+        )
+    finally:
+        close(conn)
+
+
+def mark_report_run_email_failed_by_id(
+    report_run_id: int,
+    error_message: str,
+) -> None:
+    """Record report email failure using a managed database connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        mark_report_run_email_failed(
             report_run_id=report_run_id,
             error_message=error_message,
             conn=conn,
