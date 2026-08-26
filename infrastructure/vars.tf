@@ -822,7 +822,7 @@ variable "create_was_reporting_instance" {
 variable "was_reporting_ami_id" {
   description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment."
   type        = string
-  default     = ""
+  default     = "ami-0fb0b230890ccd1e6"
 }
 
 variable "lz_was_reporting_ami_id" {
