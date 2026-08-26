@@ -78,8 +78,16 @@ resource "aws_iam_role_policy" "was_reporting_kms_decrypt" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["kms:Decrypt", "kms:DescribeKey"]
+      Action   = ["kms:Decrypt"]
       Resource = var.was_reporting_kms_key_arn
+      Condition = {
+        StringEquals = {
+          "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
+        }
+        StringLike = {
+          "kms:EncryptionContext:PARAMETER_ARN" = "arn:${var.aws_partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.was_reporting_ssm_path_prefix}/*"
+        }
+      }
     }]
   })
 }
@@ -206,4 +214,14 @@ resource "aws_instance" "was_reporting" {
       error_message = "The WAS reporting AMI for this environment must be set before enabling WAS reporting."
     }
   }
+
+  # The instance-profile reference already orders role/profile creation. These
+  # policy dependencies ensure boot-time SSM and configuration access exists
+  # before EC2 starts user_data.
+  depends_on = [
+    aws_iam_role_policy_attachment.was_reporting_ssm_core,
+    aws_iam_role_policy.was_reporting_ssm_read,
+    aws_iam_role_policy.was_reporting_kms_decrypt,
+    aws_iam_role_policy.was_reporting_rds_iam_auth,
+  ]
 }
