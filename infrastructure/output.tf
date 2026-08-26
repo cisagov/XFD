@@ -44,11 +44,11 @@ output "open_cti_backfill_script" {
 # }
 
 output "was_reporting_instance_id" {
-  description = "ID of the WAS reporting EC2 instance when enabled in the DMZ environment."
+  description = "ID of the WAS reporting EC2 instance when enabled."
   value       = try(aws_instance.was_reporting[0].id, null)
 }
 
 output "was_reporting_private_ip" {
-  description = "Private IP address of the WAS reporting EC2 instance when enabled in the DMZ environment."
+  description = "Private IP address of the WAS reporting EC2 instance when enabled."
   value       = try(aws_instance.was_reporting[0].private_ip, null)
 }

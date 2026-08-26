@@ -814,13 +814,19 @@ variable "ami_id" {
 }
 
 variable "create_was_reporting_instance" {
-  description = "Create the WAS reporting EC2 instance. The instance is only created in the DMZ environment."
+  description = "Whether to create or manage the WAS reporting EC2 instance."
   type        = bool
   default     = false
 }
 
 variable "was_reporting_ami_id" {
-  description = "ID of the approved AMI for the WAS reporting EC2 instance."
+  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment."
+  type        = string
+  default     = ""
+}
+
+variable "lz_was_reporting_ami_id" {
+  description = "AMI ID for a new WAS reporting EC2 instance in Landing Zone environments."
   type        = string
   default     = ""
 }
@@ -855,45 +861,33 @@ variable "was_reporting_delete_volume_on_termination" {
 }
 
 variable "was_reporting_subnet_id" {
-  description = "ID of an approved DMZ subnet for WAS reporting. When empty, the existing DMZ backend subnet is used."
+  description = "ID of the approved, pre-existing DMZ subnet for WAS reporting."
   type        = string
   default     = ""
 }
 
-variable "was_reporting_iam_instance_profile_name" {
-  description = "Name of the approved, pre-existing IAM instance profile for WAS reporting."
+variable "was_reporting_security_group_id" {
+  description = "ID of the approved, pre-existing DMZ security group for WAS reporting."
   type        = string
   default     = ""
+}
+
+variable "was_reporting_ssm_path_prefix" {
+  description = "SSM Parameter Store path prefix containing WAS reporting configuration and secrets."
+  type        = string
+  default     = "/crossfeed/staging/was-reporting"
+}
+
+variable "was_reporting_db_username" {
+  description = "Dedicated Postgres role used by WAS reporting with IAM database authentication in Landing Zone environments."
+  type        = string
+  default     = "was_reporting"
 }
 
 variable "was_reporting_approved_security_group_ids" {
   description = "Additional approved security group IDs to attach to the WAS reporting instance."
   type        = list(string)
   default     = []
-}
-
-variable "was_reporting_ingress_rules" {
-  description = "Approved ingress rules for WAS reporting. Leave empty to deny all inbound traffic."
-  type = list(object({
-    description = string
-    from_port   = number
-    to_port     = number
-    protocol    = string
-    cidr_blocks = list(string)
-  }))
-  default = []
-}
-
-variable "was_reporting_egress_rules" {
-  description = "Approved egress rules for WAS reporting. Leave empty to deny all outbound traffic."
-  type = list(object({
-    description = string
-    from_port   = number
-    to_port     = number
-    protocol    = string
-    cidr_blocks = list(string)
-  }))
-  default = []
 }
 
 variable "was_reporting_tags" {
