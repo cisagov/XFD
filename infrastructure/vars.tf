@@ -820,15 +820,15 @@ variable "create_was_reporting_instance" {
 }
 
 variable "was_reporting_ami_id" {
-  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment."
+  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment. Initially matches the OpenCTI DMZ AMI but can evolve independently."
   type        = string
   default     = "ami-0fb0b230890ccd1e6"
 }
 
 variable "lz_was_reporting_ami_id" {
-  description = "AMI ID for a new WAS reporting EC2 instance in Landing Zone environments."
+  description = "AMI ID for the WAS reporting EC2 instance in Landing Zone environments. Initially matches the OpenCTI Landing Zone AMI but can evolve independently."
   type        = string
-  default     = ""
+  default     = "ami-035b0309a54bd5b23"
 }
 
 variable "was_reporting_instance_type" {
@@ -873,9 +873,27 @@ variable "was_reporting_security_group_id" {
 }
 
 variable "was_reporting_ssm_path_prefix" {
-  description = "SSM Parameter Store path prefix containing WAS reporting configuration and secrets."
+  description = "Optional SSM hierarchy override for WAS reporting. When null, it is derived from the deployment stage."
   type        = string
-  default     = "/crossfeed/staging/was-reporting"
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.was_reporting_ssm_path_prefix == null || can(regex("^/[^/]+(/[^/]+)+/?$", var.was_reporting_ssm_path_prefix))
+    error_message = "was_reporting_ssm_path_prefix must be null or an absolute hierarchical SSM path."
+  }
+}
+
+variable "was_reporting_kms_key_arn" {
+  description = "Optional customer-managed KMS key ARN used to encrypt WAS reporting parameters."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.was_reporting_kms_key_arn == null || can(regex("^arn:[^:]+:kms:[^:]+:[0-9]{12}:key/.+$", var.was_reporting_kms_key_arn))
+    error_message = "was_reporting_kms_key_arn must be null or a valid KMS key ARN."
+  }
 }
 
 variable "was_reporting_db_username" {

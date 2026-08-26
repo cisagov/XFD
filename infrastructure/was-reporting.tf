@@ -2,6 +2,14 @@
 # structure in open_cti.tf without installing the OpenCTI workload.
 
 locals {
+  # staging-cd shares the staging Parameter Store namespace; other stages use
+  # their own namespace unless an explicit override is supplied.
+  was_reporting_ssm_stage = var.stage == "staging-cd" ? "staging" : var.stage
+  was_reporting_ssm_path_prefix = trimsuffix(coalesce(
+    var.was_reporting_ssm_path_prefix,
+    "/crossfeed/${local.was_reporting_ssm_stage}/was-reporting",
+  ), "/")
+
   was_reporting_tags = merge({
     Project         = var.project
     Stage           = var.stage
@@ -41,12 +49,6 @@ resource "aws_iam_role_policy_attachment" "was_reporting_ssm_core" {
   policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_role_policy_attachment" "was_reporting_ssm_service" {
-  count      = var.create_was_reporting_instance ? 1 : 0
-  role       = aws_iam_role.was_reporting[0].name
-  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
-}
-
 # Restrict Parameter Store reads to WAS reporting's own hierarchy.
 resource "aws_iam_role_policy" "was_reporting_ssm_read" {
   count = var.create_was_reporting_instance ? 1 : 0
@@ -61,7 +63,23 @@ resource "aws_iam_role_policy" "was_reporting_ssm_read" {
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
       ]
-      Resource = "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${var.was_reporting_ssm_path_prefix}*"
+      Resource = "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${local.was_reporting_ssm_path_prefix}/*"
+    }]
+  })
+}
+
+# Parameter Store values encrypted with a customer-managed key need a
+# separate, narrowly scoped decrypt grant. No policy is created when unset.
+resource "aws_iam_role_policy" "was_reporting_kms_decrypt" {
+  count = var.create_was_reporting_instance && var.was_reporting_kms_key_arn != null ? 1 : 0
+  name  = "crossfeed-was-reporting-${var.stage}-kms-decrypt"
+  role  = aws_iam_role.was_reporting[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["kms:Decrypt", "kms:DescribeKey"]
+      Resource = var.was_reporting_kms_key_arn
     }]
   })
 }
@@ -70,11 +88,25 @@ resource "aws_iam_role_policy" "was_reporting_ssm_read" {
 data "aws_subnet" "was_reporting" {
   count = var.create_was_reporting_instance && var.is_dmz ? 1 : 0
   id    = var.was_reporting_subnet_id
+
+  lifecycle {
+    precondition {
+      condition     = trimspace(var.was_reporting_subnet_id) != ""
+      error_message = "was_reporting_subnet_id must be set when WAS reporting is enabled in a DMZ environment."
+    }
+  }
 }
 
 data "aws_security_group" "was_reporting" {
   count = var.create_was_reporting_instance && var.is_dmz ? 1 : 0
   id    = var.was_reporting_security_group_id
+
+  lifecycle {
+    precondition {
+      condition     = trimspace(var.was_reporting_security_group_id) != ""
+      error_message = "was_reporting_security_group_id must be set when WAS reporting is enabled in a DMZ environment."
+    }
+  }
 }
 
 # Landing Zone deployments create an egress-only security group. SSM is
@@ -129,7 +161,9 @@ resource "aws_iam_role_policy" "was_reporting_rds_iam_auth" {
 }
 
 resource "aws_instance" "was_reporting" {
-  count                       = var.create_was_reporting_instance ? 1 : 0
+  count = var.create_was_reporting_instance ? 1 : 0
+  # These currently match OpenCTI's approved base AMIs, but remain separate so
+  # either workload can change AMIs independently in the future.
   ami                         = var.is_dmz ? var.was_reporting_ami_id : var.lz_was_reporting_ami_id
   instance_type               = var.was_reporting_instance_type
   associate_public_ip_address = false
@@ -165,16 +199,11 @@ resource "aws_instance" "was_reporting" {
   volume_tags = local.was_reporting_tags
 
   lifecycle {
-    ignore_changes  = [ami]
-    prevent_destroy = true
-  }
+    ignore_changes = [ami]
 
-  depends_on = [
-    aws_iam_role.was_reporting,
-    aws_iam_instance_profile.was_reporting,
-    aws_iam_role_policy_attachment.was_reporting_ssm_core,
-    aws_iam_role_policy_attachment.was_reporting_ssm_service,
-    aws_iam_role_policy.was_reporting_ssm_read,
-    aws_iam_role_policy.was_reporting_rds_iam_auth,
-  ]
+    precondition {
+      condition     = trimspace(var.is_dmz ? var.was_reporting_ami_id : var.lz_was_reporting_ami_id) != ""
+      error_message = "The WAS reporting AMI for this environment must be set before enabling WAS reporting."
+    }
+  }
 }
