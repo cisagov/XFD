@@ -132,6 +132,8 @@ repos:
         additional_dependencies:
           - types-requests
           - types-retry
+          - types-PyYAML
+          - types-psycopg2
           - redis==5.2.0
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.10.1

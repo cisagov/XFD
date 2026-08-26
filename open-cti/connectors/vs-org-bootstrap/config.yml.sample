@@ -1,0 +1,57 @@
+# Connector D — VS Organization & CIDR Bootstrap
+#
+# See ../../OpenCTI-connector.md §7d for the design this implements, and §10 for the discipline
+# (idempotency, marking/attribution, scoping) this config exists to enforce.
+#
+# Copy to config.yml for local runs (docker-compose.yml drives the containerized version purely
+# from env vars instead — see README.md).
+
+opencti:
+  url: 'http://localhost:8080'
+  token: 'ChangeMe'
+
+connector:
+  id: 'ChangeMe-generate-a-uuid4'
+  name: 'VS Organization & CIDR Bootstrap'
+  scope: 'identity,location'
+  type: 'EXTERNAL_IMPORT'
+  confidence_level: 75
+  log_level: 'info'
+  # ISO 8601 duration. Deliberately slower than Connectors A/C -- org/CIDR data churns far less
+  # than scan findings (OpenCTI-connector.md §7d). Start conservative; tighten once vs_org_sync's
+  # own real cadence is confirmed (§6).
+  duration_period: 'PT6H'
+
+vs_org_bootstrap:
+  # --- mini_data_lake connectivity (OpenCTI-connector.md §2) ---
+  db_host: 'ChangeMe'
+  db_port: 5432
+  db_name: 'mini_data_lake'
+  db_user: 'open_cti'
+  # IAM database authentication, not a static password -- see §2. When true, db_password is
+  # ignored and a short-lived token is generated per connection via boto3/STS.
+  db_use_iam_auth: true
+  db_password: ''
+  aws_region: 'us-gov-west-1'
+
+  # --- dev/test discipline (§9) ---
+  # When true, skip mini_data_lake entirely and load tests/fixtures/*.json instead. Mirrors the
+  # IS_LOCAL convention already used throughout backend/src/xfd_django/xfd_api/tasks/.
+  is_local: false
+  local_fixture_dir: './tests/fixtures'
+
+  # Comma-separated org acronym allowlist. REQUIRED to be non-empty outside of a deliberate
+  # production run -- see §9c. Empty string here means "no orgs," not "all orgs": this connector
+  # refuses to run unscoped by accident (see src/config.py).
+  org_acronym_allowlist: ''
+  # Explicit opt-in to remove the allowlist requirement for a real production run.
+  allow_unscoped_run: false
+  max_rows_per_run: 5000
+
+  # --- attribution / marking (§10c) ---
+  author_name: 'CISA VulnScanning'
+  # Deliberately left unset. This is a real, undecided policy question (§10c) -- the connector
+  # refuses to start without an explicit value here rather than silently defaulting to something
+  # like TLP:CLEAR that's very unlikely to be right for this data. Set to a marking definition
+  # name/STIX ID once the policy call is made.
+  tlp_marking: ''

@@ -1,0 +1,5 @@
+boto3==1.34.162
+psycopg2-binary==2.9.9
+pycti==7.260824.0
+python-dateutil==2.9.0.post0
+stix2==3.0.2

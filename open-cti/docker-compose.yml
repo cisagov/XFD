@@ -422,6 +422,46 @@ services:
       - QUALYS_CVE_ENRICHMENT_PASSWORD=${QUALYS_API_PASSWORD}
     restart: always
 
+  ###########################
+  # VS CUSTOM CONNECTORS    #
+  # See connectors/*/README.md and ../OpenCTI-connector.md for design/build order
+  # (§8: this one first -- Connectors A/C both depend on it for org Identity
+  # resolution).
+  ###########################
+
+  connector-vs-org-bootstrap:
+    build: ./connectors/vs-org-bootstrap
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      # NOT YET WIRED: needs a real OpenCTI service-account token delivered the same
+      # way every other connector's *_API_KEY is (bootstrap.sh + an SSM SecureString +
+      # var.open_cti_secret_keys in infrastructure/vars.tf) -- deliberately not added
+      # here since bootstrap.sh has unrelated in-flight edits; see OpenCTI-connector.md
+      # next steps.
+      - OPENCTI_TOKEN=${CONNECTOR_VS_ORG_BOOTSTRAP_API_KEY}
+      - CONNECTOR_ID=d9479ad9-6787-471f-a31c-9e4d0288f289
+      - CONNECTOR_NAME=VS Organization & CIDR Bootstrap
+      - CONNECTOR_TYPE=EXTERNAL_IMPORT
+      - CONNECTOR_SCOPE=identity,location
+      - CONNECTOR_LOG_LEVEL=info
+      - CONNECTOR_DURATION_PERIOD=PT6H
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- also NOT YET WIRED.
+      # IAM DB auth means no password secret is needed, but DB_HOST/AWS_REGION still
+      # need to reach this container via env.static once that plumbing exists; see
+      # open_cti_db_access/open_cti_rds_iam_auth in infrastructure/open_cti.tf for
+      # the connectivity this assumes.
+      - VS_ORG_BOOTSTRAP_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      - VS_ORG_BOOTSTRAP_DB_NAME=mini_data_lake
+      - VS_ORG_BOOTSTRAP_DB_USER=open_cti
+      - VS_ORG_BOOTSTRAP_DB_USE_IAM_AUTH=true
+      - VS_ORG_BOOTSTRAP_AWS_REGION=${AWS_REGION}
+      # §9c -- empty on purpose; a real value (or ALLOW_UNSCOPED_RUN=true) must be set
+      # explicitly, dev or production, per config.py's fail-closed validation.
+      - VS_ORG_BOOTSTRAP_ORG_ACRONYM_ALLOWLIST=${VS_ORG_BOOTSTRAP_ORG_ACRONYM_ALLOWLIST:-}
+      - VS_ORG_BOOTSTRAP_ALLOW_UNSCOPED_RUN=${VS_ORG_BOOTSTRAP_ALLOW_UNSCOPED_RUN:-false}
+      # §10c -- deliberately empty; real data-handling policy decision still pending.
+      - VS_ORG_BOOTSTRAP_TLP_MARKING=${VS_ORG_BOOTSTRAP_TLP_MARKING:-}
+    restart: always
 
   ###########################
   # OPENCTI DEFAULT DATA    #
