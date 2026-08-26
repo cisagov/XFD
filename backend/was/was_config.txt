@@ -1,0 +1,9 @@
+[info]
+
+[was_files]
+dailyReportsFilePath = $was_share_drive/WAS_TRACKER_DailyReports_UpdatedDailyl.xlsx
+customerDataFilePath = $was_share_drive/WAS_TRACKER_CustomerData_UpdatedDailyl.xlsx
+dailywaslog = $was_share_drive/WAS_Tools/update_tracker/dailywas.log
+powerAutomateTriggers = $was_share_drive/Report_Mailer
+specialCasesFilePath = $was_share_drive/WAS_Special_cases.xlsx
+#reportmailerfilepath = $was_share_drive/Report_Mailer

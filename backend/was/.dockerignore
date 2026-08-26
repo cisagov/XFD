@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+cd_WAS_update/
+.env
+was_config.txt
+*.log
+Reports/
+Report_Mailer/

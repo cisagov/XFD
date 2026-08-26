@@ -1,34 +1,20 @@
 """Stakeholder model for the WAS application."""
 
-# Standard Python Libraries
-import os
-from string import printable
-
 # Third-Party Libraries
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-# ============================================================
-# Password character constraints
-# ============================================================
-
-BANNED_CHARACTERS = ["'"]
-PASSWORD_CHARACTER_SET = printable.strip()
-for character in BANNED_CHARACTERS:
-    PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET.replace(character, "")
-
-# TODO: Consider moving to SSM or environment variable for flexibility.
-PASSWORD_LENGTH = os.environ.get("WAS_PASSWORD_LENGTH")
+# First-Party Libraries
+from was_reports.utils.passwords import validate_report_password as validate_password
 
 
 def validate_report_password(value: str):
     """Ensure the report_password contains only allowed characters."""
-    for ch in value:
-        if ch not in PASSWORD_CHARACTER_SET:
-            raise ValidationError(
-                f"Character '{ch}' is not allowed in report_password."
-            )
+    try:
+        validate_password(value)
+    except ValueError as error:
+        raise ValidationError(str(error)) from error
 
 
 # ============================================================
