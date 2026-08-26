@@ -27,4 +27,6 @@ CENSYS_ORG_ID="${censys_org_id}"
 QUALYS_API_USERNAME="${qualys_api_username}"
 XTM_ONE_HOST="${xtm_one_host}"
 XTM_ONE_ADMIN_EMAIL="${xtm_one_admin_email}"
+VS_ORG_BOOTSTRAP_DB_HOST="${vs_org_bootstrap_db_host}"
+VS_ORG_BOOTSTRAP_AWS_REGION="${vs_org_bootstrap_aws_region}"
 ENV_DEPLOY_EOF

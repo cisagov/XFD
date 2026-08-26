@@ -435,8 +435,7 @@ services:
       - OPENCTI_URL=http://opencti:8080
       # NOT YET WIRED: needs a real OpenCTI service-account token delivered the same
       # way every other connector's *_API_KEY is (bootstrap.sh + an SSM SecureString +
-      # var.open_cti_secret_keys in infrastructure/vars.tf) -- deliberately not added
-      # here since bootstrap.sh has unrelated in-flight edits; see OpenCTI-connector.md
+      # var.open_cti_secret_keys in infrastructure/vars.tf). See OpenCTI-connector.md
       # next steps.
       - OPENCTI_TOKEN=${CONNECTOR_VS_ORG_BOOTSTRAP_API_KEY}
       - CONNECTOR_ID=d9479ad9-6787-471f-a31c-9e4d0288f289
@@ -445,16 +444,22 @@ services:
       - CONNECTOR_SCOPE=identity,location
       - CONNECTOR_LOG_LEVEL=info
       - CONNECTOR_DURATION_PERIOD=PT6H
-      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- also NOT YET WIRED.
-      # IAM DB auth means no password secret is needed, but DB_HOST/AWS_REGION still
-      # need to reach this container via env.static once that plumbing exists; see
-      # open_cti_db_access/open_cti_rds_iam_auth in infrastructure/open_cti.tf for
-      # the connectivity this assumes.
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- IAM auth proven
+      # end-to-end 2026-08-26 (role, rds_iam grant, table grants, real token
+      # generation all confirmed). DB_HOST/AWS_REGION flow from Terraform
+      # (aws_db_instance.db.address/var.aws_region) via env.deploy -- see
+      # infrastructure/open_cti_user_data_env.sh.tpl and open-cti/bootstrap.sh --
+      # deliberately not env.static, since a DB endpoint is per-environment, not
+      # something that belongs in a file meant to be identical everywhere.
       - VS_ORG_BOOTSTRAP_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      # TODO: confirm this literal name against the real instance
+      # (current_database() via crossfeed-staging-bastion) -- "mini_data_lake" is
+      # the Django settings/connector default, not yet independently verified as
+      # the real deployed database name.
       - VS_ORG_BOOTSTRAP_DB_NAME=mini_data_lake
       - VS_ORG_BOOTSTRAP_DB_USER=open_cti
       - VS_ORG_BOOTSTRAP_DB_USE_IAM_AUTH=true
-      - VS_ORG_BOOTSTRAP_AWS_REGION=${AWS_REGION}
+      - VS_ORG_BOOTSTRAP_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
       # §9c -- empty on purpose; a real value (or ALLOW_UNSCOPED_RUN=true) must be set
       # explicitly, dev or production, per config.py's fail-closed validation.
       - VS_ORG_BOOTSTRAP_ORG_ACRONYM_ALLOWLIST=${VS_ORG_BOOTSTRAP_ORG_ACRONYM_ALLOWLIST:-}

@@ -227,6 +227,12 @@ locals {
       qualys_api_username = var.open_cti_qualys_api_username
       xtm_one_host        = var.open_cti_xtm_one_host
       xtm_one_admin_email = var.open_cti_xtm_one_admin_email
+      # Neither of these is a secret, and both are already Terraform-known per-environment
+      # values -- no reason to ever hand-write a real hostname into a committed file (env.static
+      # is meant to be identical across every environment; a DB endpoint by definition isn't).
+      # See OpenCTI-connector.md §2 for the connector code that consumes these via bootstrap.sh.
+      vs_org_bootstrap_db_host    = aws_db_instance.db.address
+      vs_org_bootstrap_aws_region = var.aws_region
     }),
     "",
     "cat > /opt/open-cti/install-deps.sh <<'INSTALL_DEPS_EOF'",

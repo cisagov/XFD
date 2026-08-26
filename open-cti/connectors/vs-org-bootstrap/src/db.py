@@ -6,14 +6,11 @@ backend/src/xfd_django/xfd_api/tasks/utils/query_redshift.py's load_test_data().
 OpenCTI-connector.md §9a.
 
 Table/column names below are taken from backend/src/xfd_django/xfd_mini_dl/models.py -- see
-OpenCTI-connector.md §7d for the line references. One genuine unknown, flagged rather than
-guessed past: Sector.organizations is a plain Django ManyToManyField with no `through` model
-(models.py ~L2450), so its join table is Django's *default* naming convention
-(`sector_organizations`, columns `sector_id`/`organization_id`) rather than something confirmed
-by reading an explicit model class the way every other table in this file is. Confirm this against
-the real schema during the ground-truthing session (OpenCTI-connector.md §10, next steps) before
-trusting it in production -- get_membership_query() below is the one thing in this file to
-double-check first if sector membership comes back empty against a real DB.
+OpenCTI-connector.md §7d for the line references. Sector.organizations is a plain Django
+ManyToManyField with no `through` model (models.py ~L2450), so its join table was initially a
+guess at Django's default naming convention rather than something read off an explicit model
+class -- confirmed against the real schema (2026-08-26) as `sector_organizations`, columns
+`sector_id`/`organization_id`, exactly as guessed.
 """
 
 # Standard Python Libraries
@@ -158,10 +155,8 @@ class VsOrgBootstrapRepository:
     ) -> Dict[str, List[str]]:
         if not org_acronyms:
             return {}
-        # See module docstring: sector_organizations/sector_id/organization_id is Django's
-        # *default* M2M join-table naming, not confirmed by reading an explicit model class the
-        # way every other query in this file is. Verify against the real schema first if this
-        # comes back empty.
+        # sector_organizations/sector_id/organization_id confirmed against the real schema
+        # (see module docstring) -- Django's default M2M join-table naming, as guessed.
         query = """
             SELECT s.acronym AS sector_acronym, o.acronym AS org_acronym
             FROM sector_organizations so

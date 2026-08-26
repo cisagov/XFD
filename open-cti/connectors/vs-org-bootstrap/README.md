@@ -73,9 +73,6 @@ does this correctly; running it directly outside Docker, `cd` into this director
   built-in "Datasets" seeder) likely already seeded a default sector/location taxonomy —
   `connector.py`'s `_process()` has a `TODO` marking where a look-up-by-name pass needs to go
   before this is safe to run against a real instance with real data.
-- **`sector_organizations` join table name** (`db.py`) is Django's *default* M2M naming
-  convention, not confirmed by reading an explicit model class the way every other query in that
-  file is — verify against the real schema first if sector membership comes back empty.
 - **State growth:** the `part_of_relationship_ids`/`located_at_relationship_ids`/
   `cidr_relationship_ids` maps in connector state grow with the number of distinct external keys
   ever seen and never shrink. Fine at VS's scale (hundreds of orgs, thousands of CIDRs at most),
