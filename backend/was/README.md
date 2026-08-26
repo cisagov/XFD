@@ -22,6 +22,9 @@ stakeholder lookup, and report password management.
 - `src/was_reports/utils/passwords.py` generates and validates WAS report
   passwords.
 - `worker/was-report-start.sh` runs the scheduled report batch command.
+- `reporting.py` is a compatibility wrapper for `was-report-batch`; it no
+  longer owns XLSX tracker orchestration, nested Docker execution, or DynamoDB
+  password lookup.
 
 ## Required Environment Variables
 

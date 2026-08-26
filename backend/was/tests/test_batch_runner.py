@@ -1,6 +1,7 @@
 """Tests for the scheduled WAS batch runner."""
 
 # Standard Python Libraries
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -100,6 +101,27 @@ class BatchRunnerTests(unittest.TestCase):
             ],
         )
 
+    def test_summarize_report_failure_excludes_command_arguments(self) -> None:
+        """Store legacy process failures without command arguments or passwords."""
+        exception = subprocess.CalledProcessError(
+            returncode=2,
+            cmd=["legacy", "--encrypt", "secret-password"],
+        )
+
+        message = batch_runner.summarize_report_failure(exception)
+
+        self.assertEqual(message, "Report generation failed with exit code 2.")
+        self.assertNotIn("secret-password", message)
+        self.assertNotIn("--encrypt", message)
+
+    def test_summarize_report_failure_handles_missing_files(self) -> None:
+        """Store a bounded message for missing report files."""
+        message = batch_runner.summarize_report_failure(
+            FileNotFoundError("/tmp/report.pdf")
+        )
+
+        self.assertEqual(message, "Required report file was not found.")
+
     @patch("was_reports.batch_runner.report_generator.main")
     @patch("was_reports.batch_runner.complete_report_run_by_id")
     @patch("was_reports.batch_runner.create_report_run_for_tag")
@@ -158,7 +180,13 @@ class BatchRunnerTests(unittest.TestCase):
             ReportRun(id=1, stakeholder_tag="TAG1", status="running"),
             ReportRun(id=2, stakeholder_tag="TAG2", status="running"),
         ]
-        mock_report_main.side_effect = [RuntimeError("failed"), 0]
+        mock_report_main.side_effect = [
+            subprocess.CalledProcessError(
+                returncode=2,
+                cmd=["legacy", "--encrypt", "secret-password"],
+            ),
+            0,
+        ]
 
         failed_count = batch_runner.run_due_reports(
             config_path="/app/was_config.txt",
@@ -174,7 +202,7 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertEqual(mock_complete_run.call_count, 1)
         mock_fail_run.assert_called_once_with(
             report_run_id=1,
-            error_message="Report generation failed.",
+            error_message="Report generation failed with exit code 2.",
         )
 
 

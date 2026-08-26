@@ -4,6 +4,7 @@
 import argparse
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -24,6 +25,21 @@ LOGGER = logging.getLogger(__name__)
 def current_epoch_seconds() -> int:
     """Return the current UTC epoch timestamp in seconds."""
     return int(datetime.now(timezone.utc).timestamp())
+
+
+def summarize_report_failure(exception: Exception) -> str:
+    """Return a safe report failure summary for database storage."""
+    if isinstance(exception, subprocess.CalledProcessError):
+        return "Report generation failed with exit code {}.".format(
+            exception.returncode
+        )
+
+    if isinstance(exception, FileNotFoundError):
+        return "Required report file was not found."
+
+    return "{} occurred during report generation.".format(
+        type(exception).__name__
+    )
 
 
 def build_report_arguments(
@@ -106,11 +122,11 @@ def run_due_reports(
                 ),
                 artifact_type="pdf",
             )
-        except Exception:
+        except Exception as exception:
             failed_count += 1
             fail_report_run_by_id(
                 report_run_id=report_run.id,
-                error_message="Report generation failed.",
+                error_message=summarize_report_failure(exception),
             )
             LOGGER.exception(
                 "WAS report generation failed for stakeholder tag %s",
