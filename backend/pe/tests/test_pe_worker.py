@@ -7,11 +7,21 @@ from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 from worker.pe_worker import (
+    build_command,
     extend_message_visibility,
     parse_org,
     queue_confirmed_empty,
     receive_message,
 )
+
+
+class BuildCommandTests(unittest.TestCase):
+    """Verify supported services are dispatched by the generic worker."""
+
+    def test_asmsync_is_rejected(self):
+        """Require ASM Sync jobs to use the dedicated controller."""
+        with self.assertRaisesRegex(ValueError, "Unsupported SERVICE_TYPE"):
+            build_command("asmsync", "DHS")
 
 
 class ParseOrgTests(unittest.TestCase):

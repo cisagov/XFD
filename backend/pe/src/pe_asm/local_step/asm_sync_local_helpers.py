@@ -1,7 +1,9 @@
 """All helper functions needed for the ASM Sync local process."""
 
 # Standard Python Libraries
+import base64
 import datetime
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -13,11 +15,12 @@ import time
 # Third-Party Libraries
 import boto3
 from botocore.exceptions import ClientError
+from cryptography.fernet import Fernet
 import pandas as pd
 from pymongo import MongoClient
 
 # Setup Logging
-main_log = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 def get_ssm_parameter(parameter_name):
@@ -33,7 +36,7 @@ def get_ssm_parameter(parameter_name):
         # Extract and return the value
         return response["Parameter"]["Value"]
     except ClientError as e:
-        main_log.error(f"Error retrieving SSM parameter {parameter_name}: {e}")
+        LOGGER.error(f"Error retrieving SSM parameter {parameter_name}: {e}")
         raise
 
 
@@ -41,7 +44,7 @@ def cyhy_db_connect():
     """Connect to CyHy Mongo database."""
     try:
         # Create screen to make SSH connection to CyHy env
-        main_log.info("Creating screen to connect to CyHy DB")
+        LOGGER.info("Creating screen to connect to CyHy DB")
         screen_connect_cyhy = (Path.home() / ".bin" / "screenConnectCyHy").resolve(
             strict=True
         )
@@ -50,10 +53,10 @@ def cyhy_db_connect():
             check=True,
             timeout=30,
         )
-        main_log.info("Screen to connect to CyHy DB has been created")
+        LOGGER.info("Screen to connect to CyHy DB has been created")
         time.sleep(3)
         # Make connection to CyHy DB
-        main_log.info("Attempting connection to CyHy DB")
+        LOGGER.info("Attempting connection to CyHy DB")
         host = os.environ.get("CYHY_DB_HOST")
         user = os.environ.get("CYHY_DB_USER")
         password = os.environ.get("CYHY_DB_PASSWORD")
@@ -61,12 +64,12 @@ def cyhy_db_connect():
         dbname = os.environ.get("CYHY_DB_DATABASE")
         cyhy_conn_string = f"mongodb://{user}:{password}@{host}:{port}/{dbname}"
         mongo_client = MongoClient(cyhy_conn_string)
-        main_log.info("CyHy DB connection successful")
+        LOGGER.info("CyHy DB connection successful")
         # Return cyhy database object
         return mongo_client["cyhy"]
     except Exception as e:
-        main_log.error(e)
-        main_log.error(
+        LOGGER.error(e)
+        LOGGER.error(
             "Failed connecting to the CyHy database. Make sure you have the ssh connection running"
         )
 
@@ -79,7 +82,7 @@ def retrieve_all_cyhy_data(cyhy_db):
     fceb_doc = collection.find(fceb_query)
     for row in fceb_doc:
         fceb_list = row["children"]
-    main_log.info("Retrieved FCEB list from CyHy DB")
+    LOGGER.info("Retrieved FCEB list from CyHy DB")
     # Start retrieving organization data from CyHy DB
     cyhy_request_data = collection.find()
     # Create return variables
@@ -214,10 +217,10 @@ def retrieve_all_cyhy_data(cyhy_db):
                 sector_info_list.append(sector_dict)
 
     # Log stats
-    main_log.info("Retrieved bulk data from CyHy DB")
-    main_log.info(f"Total organizations retrieved from CyHyDB: {len(cyhy_agencies)}")
-    main_log.info(f"Total organization assets retrieved from CyHy DB: {len(assets)}")
-    main_log.info(f"Total sectors retrieved from CyHy DB: {len(sector_list)}")
+    LOGGER.info("Retrieved bulk data from CyHy DB")
+    LOGGER.info(f"Total organizations retrieved from CyHyDB: {len(cyhy_agencies)}")
+    LOGGER.info(f"Total organization assets retrieved from CyHy DB: {len(assets)}")
+    LOGGER.info(f"Total sectors retrieved from CyHy DB: {len(sector_list)}")
 
     # Convert output to dataframes
     orgs_df = pd.DataFrame(cyhy_agencies)
@@ -240,15 +243,21 @@ def retrieve_all_cyhy_data(cyhy_db):
     ]
 
 
+def encrypt_string(value: str, passphrase: str) -> str:
+    """Encrypt a string using a passphrase."""
+    key = base64.urlsafe_b64encode(hashlib.sha256(passphrase.encode("utf-8")).digest())
+    return Fernet(key).encrypt(value.encode("utf-8")).decode("utf-8")
+
+
 def upload_cyhy_data_to_s3(s3_client, bucket, current_date, local_file):
     """Upload CyHy DB data file to S3 under asm_sync_local_runs/<curent_date>/<file_name>."""
     try:
         filename = os.path.basename(local_file)
         s3_path = f"asm_sync_local_runs/{current_date}/{filename}"
         s3_client.upload_file(local_file, bucket, s3_path)
-        main_log.info("Uploaded %s to s3://%s/%s", filename, bucket, s3_path)
+        LOGGER.info("Uploaded %s to s3://%s/%s", filename, bucket, s3_path)
     except Exception as e:
-        main_log.error("Error uploading file to S3: %s", e)
+        LOGGER.error("Error uploading file to S3: %s", e)
 
 
 def upload_all_cyhy_data(

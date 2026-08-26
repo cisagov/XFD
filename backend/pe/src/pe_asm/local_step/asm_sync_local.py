@@ -13,6 +13,7 @@ import time
 # Third-Party Libraries
 from asm_sync_local_helpers import (
     cyhy_db_connect,
+    encrypt_string,
     get_ssm_parameter,
     retrieve_all_cyhy_data,
     upload_all_cyhy_data,
@@ -27,31 +28,22 @@ logging.basicConfig(
     datefmt="%m/%d/%Y %I:%M:%S",
     level="INFO",
 )
-main_log = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 def run_asm_sync_local():
     """Run the ASM sync step that needs to occur locally."""
     # Load all required parameters from user input/SSM parameter store
-    cyhy_db_pkey_loc = input(
-        "Enter filepath to your private key for the CyHy DB (e.g. /Users/<user>/.ssh/<pkey>): "
-    )
-    cyhy_db_pkey_pass = input(
-        "Enter the password to your private key for the CyHy DB (leave blank if no password): "
-    )
-    pe_s3_bucket = input("Enter the name of P&E's S3 bucket: ")
     param_dict = {
         # CYHY DB
         "cyhy_db_host": "localhost",
-        "cyhy_db_database": "cyhy",
-        "cyhy_db_user": "cyhy_ops",
+        "cyhy_db_database": "/crossfeed/staging/CYHY_DB_NAME",
+        "cyhy_db_user": "/crossfeed/staging/CYHY_DB_USERNAME",
         "cyhy_db_password": "/crossfeed/staging-cd/CYHY_DB_CONN_DB_PASS",
         "cyhy_db_port": "27017",
-        "cyhy_db_pkey_location": cyhy_db_pkey_loc,
-        "cyhy_db_pkey_pass": cyhy_db_pkey_pass,
-        "pe_s3_bucket": pe_s3_bucket,
-        # WHOISXML
-        "whoisxml_key": "/crossfeed/staging/WHOIS_XML_KEY",
+        # S3
+        "pe_encrypt_phrase": "/crossfeed/staging/PE_DB_PASSWORD_KEY",
+        "pe_s3_bucket": "/crossfeed/staging/PE_S3_BUCKET",
     }
     for param in param_dict.keys():
         curr_param_val = param_dict.get(param)
@@ -62,16 +54,15 @@ def run_asm_sync_local():
         # Make var an env var for easy access
         os.environ[param.upper()] = param_dict[param]
 
-    main_log.info("")
+    LOGGER.info("")
     main_start_time = time.time()
-    main_log.info("=== *** ASM Sync Local Step Starting *** ===")
-
+    LOGGER.info("=== *** ASM Sync Local Step Starting *** ===")
     # Connect to the CyHy database
-    main_log.info(">>> Establishing connection to CyHy Database")
+    LOGGER.info(">>> Establishing connection to CyHy Database")
     cyhy_db_conn = cyhy_db_connect()
-    main_log.info(">>> CyHy Database connection established")
+    LOGGER.info(">>> CyHy Database connection established")
     # Retrieve and process all neccessary data from the CyHy DB
-    main_log.info(">>> CyHy DB Data Retrieval Starting")
+    LOGGER.info(">>> CyHy DB Data Retrieval Starting")
     [
         cyhy_orgs_df,
         cyhy_assets_df,
@@ -80,10 +71,14 @@ def run_asm_sync_local():
         cyhy_sectors_info_df,
         cyhy_sectors_df,
     ] = retrieve_all_cyhy_data(cyhy_db_conn)
-    main_log.info(">>> CyHy DB Data Retrieval Complete")
-
+    LOGGER.info(">>> CyHy DB Data Retrieval Complete")
+    # Encrypt the password column
+    encrypt_phrase = os.environ.get("PE_ENCRYPT_PHRASE")
+    cyhy_orgs_df["password"] = cyhy_orgs_df["password"].apply(
+        lambda value: encrypt_string(value, encrypt_phrase)
+    )
     # Upload all processed CyHy data to S3 bucket (no PE DB access from local machine)
-    main_log.info(">>> CyHy Data Upload to S3 Starting")
+    LOGGER.info(">>> CyHy Data Upload to S3 Starting")
     upload_all_cyhy_data(
         cyhy_orgs_df,
         cyhy_assets_df,
@@ -92,18 +87,18 @@ def run_asm_sync_local():
         cyhy_sectors_info_df,
         cyhy_sectors_df,
     )
-    main_log.info(">>> CyHy Data Upload to S3 Complete")
-
+    LOGGER.info(">>> CyHy Data Upload to S3 Complete")
+    # Close connection to CyHy DB
     subprocess.run(  # nosec B603
         ["/usr/bin/killall", "SCREEN"],
         check=True,
         timeout=30,
     )
     main_end_time = time.time()
-    main_log.info(
+    LOGGER.info(
         f"Execution time for ASM sync local step: {str(datetime.timedelta(seconds=(main_end_time - main_start_time)))} (H:M:S)"
     )
-    main_log.info("=== *** ASM Sync Local Step Complete *** ===")
+    LOGGER.info("=== *** ASM Sync Local Step Complete *** ===")
 
 
 def main():

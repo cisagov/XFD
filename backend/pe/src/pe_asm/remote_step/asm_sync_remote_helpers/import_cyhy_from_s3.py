@@ -2,7 +2,9 @@
 
 # Standard Python Libraries
 import ast
+import base64
 import datetime
+import hashlib
 from io import StringIO
 import logging
 import os
@@ -10,6 +12,7 @@ from pathlib import Path
 
 # Third-Party Libraries
 import boto3
+from cryptography.fernet import Fernet, InvalidToken
 import pandas as pd
 from pe_asm.remote_step.asm_sync_remote_query import (
     add_sector_hierachy,
@@ -44,6 +47,19 @@ def download_cyhy_data_from_s3(s3_client, bucket, s3_file_path, local_folder):
         )
     except Exception as e:
         LOGGER.error("Error downloading file from S3: %s", e)
+
+
+def decrypt_string(encrypted_value: str, passphrase: str) -> str:
+    """Decrypt a string using the passphrase used during encryption."""
+    key = base64.urlsafe_b64encode(hashlib.sha256(passphrase.encode("utf-8")).digest())
+    try:
+        decrypted_value = Fernet(key).decrypt(encrypted_value.encode("utf-8"))
+    except InvalidToken as exception:
+        raise ValueError(
+            "Decryption failed because the passphrase is incorrect or encrypted value was modified."
+        ) from exception
+
+    return decrypted_value.decode("utf-8")
 
 
 def dotgov_domains():
@@ -260,6 +276,10 @@ def import_cyhy_from_s3():
     )
     # Additional formatting
     orgs_df["county_fips"] = orgs_df["county_fips"].fillna("")
+    decrypt_phrase = os.environ.get("PE_DB_PASSWORD_KEY")
+    orgs_df["password"] = orgs_df["password"].apply(
+        lambda value: decrypt_string(value, decrypt_phrase)
+    )
     child_parent_dict = dict(zip(child_parent_df["child"], child_parent_df["parent"]))
     sectors_info_df["children"] = sectors_info_df["children"].apply(
         lambda value: ast.literal_eval(value) if pd.notna(value) else []

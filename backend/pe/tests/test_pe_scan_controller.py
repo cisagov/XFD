@@ -83,11 +83,10 @@ class ResolveScansTests(unittest.TestCase):
         self.assertEqual(scans[0]["scan"], "flare_events")
         self.assertGreaterEqual(scans[0]["count"], 1)
 
-    def test_catalog_includes_asmsync(self):
-        """Verify asmsync uses the canonical lowercase service identifier."""
-        scans = resolve_scans(["asmsync"])
-
-        self.assertEqual(scans[0]["scan"], "asmsync")
+    def test_asmsync_is_rejected(self):
+        """Require ASM Sync requests to use the dedicated controller."""
+        with self.assertRaises(ValueError):
+            resolve_scans(["asmsync"])
 
     def test_legacy_asmsync_casing_is_rejected(self):
         """Reject the obsolete camel-case service identifier."""

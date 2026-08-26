@@ -137,9 +137,6 @@ def build_command(service_type: str, org: str) -> list[str]:
         return ["pe-source", "shodan_top_cves"]
     if "mailer" in service_type:
         return ["pe-mailer", "--orgs={}".format(org)]
-    if "asmsync" in service_type:
-        asm_sync = shutil.which("pe-asm-sync") or "pe-asm-sync"
-        return [asm_sync, "--orgs={}".format(org)]
     if "shodan" in service_type:
         return ["pe-source", "shodan", "--orgs={}".format(org)]
     if "dnsmonitor" in service_type:

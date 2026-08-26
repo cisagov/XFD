@@ -12,6 +12,8 @@ LOCAL_STEP_PATH = Path(__file__).resolve().parents[1] / "src" / "pe_asm" / "loca
 sys.path.insert(0, str(LOCAL_STEP_PATH))
 
 # Third-Party Libraries
+import pandas as pd
+
 with patch("os.makedirs"), patch("logging.basicConfig"):
     # Third-Party Libraries
     import asm_sync_local  # noqa: E402  pylint: disable=wrong-import-position
@@ -24,14 +26,15 @@ class RunAsmSyncLocalTests(unittest.TestCase):
     def test_retrieves_and_uploads_all_datasets(self):
         """Pass all six retrieved dataframes to the S3 upload helper."""
         cyhy_connection = MagicMock(name="cyhy_connection")
-        cyhy_results = [
-            MagicMock(name="dataframe_{}".format(index)) for index in range(6)
+        organizations_dataframe = pd.DataFrame(
+            {"password": ["first-password", "second-password"]}
+        )
+        cyhy_results = [organizations_dataframe] + [
+            MagicMock(name="dataframe_{}".format(index)) for index in range(1, 6)
         ]
-        input_values = ["/keys/cyhy.pem", "key-password", "reports-bucket"]
         environment_after_run = {}
 
         with (
-            patch("builtins.input", side_effect=input_values) as input_mock,
             patch.object(
                 asm_sync_local,
                 "get_ssm_parameter",
@@ -45,6 +48,13 @@ class RunAsmSyncLocalTests(unittest.TestCase):
                 "retrieve_all_cyhy_data",
                 return_value=cyhy_results,
             ) as retrieve_mock,
+            patch.object(
+                asm_sync_local,
+                "encrypt_string",
+                side_effect=lambda value, passphrase: "encrypted:{}:{}".format(
+                    passphrase, value
+                ),
+            ) as encrypt_mock,
             patch.object(asm_sync_local, "upload_all_cyhy_data") as upload_mock,
             patch.object(asm_sync_local.time, "time", return_value=100.0),
             patch.object(asm_sync_local.subprocess, "run") as subprocess_mock,
@@ -52,13 +62,13 @@ class RunAsmSyncLocalTests(unittest.TestCase):
         ):
             asm_sync_local.run_asm_sync_local()
             environment_after_run = {
-                "CYHY_DB_PKEY_LOCATION": os.environ["CYHY_DB_PKEY_LOCATION"],
+                "CYHY_DB_DATABASE": os.environ["CYHY_DB_DATABASE"],
+                "CYHY_DB_USER": os.environ["CYHY_DB_USER"],
+                "PE_ENCRYPT_PHRASE": os.environ["PE_ENCRYPT_PHRASE"],
                 "PE_S3_BUCKET": os.environ["PE_S3_BUCKET"],
-                "WHOISXML_KEY": os.environ["WHOISXML_KEY"],
             }
 
-        self.assertEqual(input_mock.call_count, 3)
-        self.assertEqual(ssm_mock.call_count, 2)
+        self.assertEqual(ssm_mock.call_count, 5)
         connect_mock.assert_called_once_with()
         retrieve_mock.assert_called_once_with(cyhy_connection)
         upload_mock.assert_called_once_with(*cyhy_results)
@@ -66,12 +76,40 @@ class RunAsmSyncLocalTests(unittest.TestCase):
             ["/usr/bin/killall", "SCREEN"], check=True, timeout=30
         )
         self.assertEqual(
-            environment_after_run["CYHY_DB_PKEY_LOCATION"], "/keys/cyhy.pem"
+            encrypt_mock.call_args_list,
+            [
+                call(
+                    "first-password",
+                    "resolved:/crossfeed/staging/PE_DB_PASSWORD_KEY",
+                ),
+                call(
+                    "second-password",
+                    "resolved:/crossfeed/staging/PE_DB_PASSWORD_KEY",
+                ),
+            ],
         )
-        self.assertEqual(environment_after_run["PE_S3_BUCKET"], "reports-bucket")
         self.assertEqual(
-            environment_after_run["WHOISXML_KEY"],
-            "resolved:/crossfeed/staging/WHOIS_XML_KEY",
+            organizations_dataframe["password"].tolist(),
+            [
+                "encrypted:resolved:/crossfeed/staging/PE_DB_PASSWORD_KEY:first-password",
+                "encrypted:resolved:/crossfeed/staging/PE_DB_PASSWORD_KEY:second-password",
+            ],
+        )
+        self.assertEqual(
+            environment_after_run["CYHY_DB_DATABASE"],
+            "resolved:/crossfeed/staging/CYHY_DB_NAME",
+        )
+        self.assertEqual(
+            environment_after_run["CYHY_DB_USER"],
+            "resolved:/crossfeed/staging/CYHY_DB_USERNAME",
+        )
+        self.assertEqual(
+            environment_after_run["PE_ENCRYPT_PHRASE"],
+            "resolved:/crossfeed/staging/PE_DB_PASSWORD_KEY",
+        )
+        self.assertEqual(
+            environment_after_run["PE_S3_BUCKET"],
+            "resolved:/crossfeed/staging/PE_S3_BUCKET",
         )
 
 
@@ -114,6 +152,27 @@ class GetSsmParameterTests(unittest.TestCase):
 
         with self.assertRaises(asm_sync_local_helpers.ClientError):
             asm_sync_local_helpers.get_ssm_parameter("/crossfeed/missing")
+
+
+class EncryptStringTests(unittest.TestCase):
+    """Verify organization passwords are encrypted with the supplied phrase."""
+
+    def test_encrypts_value_with_fernet(self):
+        """Return ciphertext that decrypts with the derived Fernet key."""
+        passphrase = "_".join(("test", "passphrase"))
+        encrypted_value = asm_sync_local_helpers.encrypt_string(
+            "organization-password", passphrase
+        )
+        key = asm_sync_local_helpers.base64.urlsafe_b64encode(
+            asm_sync_local_helpers.hashlib.sha256(passphrase.encode("utf-8")).digest()
+        )
+
+        decrypted_value = asm_sync_local_helpers.Fernet(key).decrypt(
+            encrypted_value.encode("utf-8")
+        )
+
+        self.assertNotEqual(encrypted_value, "organization-password")
+        self.assertEqual(decrypted_value.decode("utf-8"), "organization-password")
 
 
 class CyhyDatabaseConnectionTests(unittest.TestCase):

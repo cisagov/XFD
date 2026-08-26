@@ -27,9 +27,132 @@ with (
         enum_ips_from_subs,
         enum_subs_from_ips,
         enum_subs_from_roots,
+        import_cyhy_from_s3,
         shodan_dedupe,
         upsert_cyhy_cidrs,
     )
+
+
+class DecryptStringTests(unittest.TestCase):
+    """Verify encrypted organization passwords can be recovered safely."""
+
+    @staticmethod
+    def encrypt_test_value(value, passphrase):
+        """Create ciphertext compatible with the production decryption helper."""
+        key = import_cyhy_from_s3.base64.urlsafe_b64encode(
+            import_cyhy_from_s3.hashlib.sha256(passphrase.encode("utf-8")).digest()
+        )
+        return (
+            import_cyhy_from_s3.Fernet(key)
+            .encrypt(value.encode("utf-8"))
+            .decode("utf-8")
+        )
+
+    def test_decrypts_value_with_matching_passphrase(self):
+        """Decrypt ciphertext created with the matching passphrase."""
+        passphrase = "_".join(("test", "passphrase"))
+        encrypted_value = self.encrypt_test_value("organization-password", passphrase)
+
+        result = import_cyhy_from_s3.decrypt_string(encrypted_value, passphrase)
+
+        self.assertEqual(result, "organization-password")
+
+    def test_rejects_incorrect_passphrase(self):
+        """Raise a controlled error when authentication fails."""
+        encrypted_value = self.encrypt_test_value(
+            "organization-password", "correct-passphrase"
+        )
+
+        with self.assertRaisesRegex(ValueError, "Decryption failed"):
+            import_cyhy_from_s3.decrypt_string(encrypted_value, "incorrect-passphrase")
+
+
+class ImportCyhyFromS3Tests(unittest.TestCase):
+    """Verify imported organization passwords are decrypted before insertion."""
+
+    def test_decrypts_organization_passwords_before_insert(self):
+        """Replace encrypted dataframe values before calling the database importer."""
+        organizations_dataframe = pd.DataFrame(
+            {
+                "county_fips": [None, "001"],
+                "password": ["encrypted-one", "encrypted-two"],
+            }
+        )
+        assets_dataframe = pd.DataFrame()
+        contacts_dataframe = pd.DataFrame()
+        child_parent_dataframe = pd.DataFrame(
+            {"child": ["CHILD"], "parent": ["PARENT"]}
+        )
+        sectors_info_dataframe = pd.DataFrame(
+            {"children": ["[]"], "password": ["sector-password"]}
+        )
+        sectors_dataframe = pd.DataFrame({"sectors": ["SECTOR"]})
+        dataframes = [
+            organizations_dataframe,
+            assets_dataframe,
+            contacts_dataframe,
+            child_parent_dataframe,
+            sectors_info_dataframe,
+            sectors_dataframe,
+        ]
+        connection = MagicMock(name="connection")
+
+        with (
+            patch.object(import_cyhy_from_s3.Path, "mkdir"),
+            patch.object(import_cyhy_from_s3, "download_cyhy_data_from_s3"),
+            patch.object(
+                import_cyhy_from_s3.pd,
+                "read_csv",
+                side_effect=dataframes,
+            ),
+            patch.object(
+                import_cyhy_from_s3,
+                "decrypt_string",
+                side_effect=lambda value, passphrase: "decrypted:{}:{}".format(
+                    passphrase, value
+                ),
+            ) as decrypt_mock,
+            patch.object(import_cyhy_from_s3, "connect", return_value=connection),
+            patch.object(import_cyhy_from_s3, "insert_all_cyhy_data") as insert_mock,
+            patch.object(
+                import_cyhy_from_s3, "identify_org_asset_changes"
+            ) as changes_mock,
+            patch.object(import_cyhy_from_s3.boto3, "client"),
+            patch.dict(
+                os.environ,
+                {
+                    "PE_S3_BUCKET": "reports-bucket",
+                    "PE_DB_PASSWORD_KEY": "decryption-passphrase",
+                },
+                clear=False,
+            ),
+        ):
+            import_cyhy_from_s3.import_cyhy_from_s3()
+
+        self.assertEqual(
+            decrypt_mock.call_args_list,
+            [
+                call("encrypted-one", "decryption-passphrase"),
+                call("encrypted-two", "decryption-passphrase"),
+            ],
+        )
+        self.assertEqual(
+            organizations_dataframe["password"].tolist(),
+            [
+                "decrypted:decryption-passphrase:encrypted-one",
+                "decrypted:decryption-passphrase:encrypted-two",
+            ],
+        )
+        insert_mock.assert_called_once_with(
+            connection,
+            assets_dataframe,
+            {"CHILD": "PARENT"},
+            contacts_dataframe,
+            organizations_dataframe,
+            sectors_info_dataframe.to_dict(orient="records"),
+            ["SECTOR"],
+        )
+        changes_mock.assert_called_once_with(connection)
 
 
 class RunAsmSyncRemoteTests(unittest.TestCase):

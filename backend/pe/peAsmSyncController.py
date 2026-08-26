@@ -180,6 +180,7 @@ def start_local_docker_asmsync_task(
         "PE_DB_NAME": os.getenv("PE_DB_NAME", "pe"),
         "PE_DB_USERNAME": os.getenv("PE_DB_USERNAME", "pe"),
         "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD", ""),
+        "PE_DB_PASSWORD_KEY": os.getenv("PE_DB_PASSWORD_KEY", ""),
         "PE_API_URL": os.getenv(
             "PE_API_URL",
             "http://127.0.0.1:8000",
