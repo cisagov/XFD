@@ -66,6 +66,39 @@ python3 -m src.main
 (Must run as a module — `src/main.py` uses relative imports. The Dockerfile's `ENTRYPOINT` already
 does this correctly; running it directly outside Docker, `cd` into this directory first.)
 
+## TLS interception (Zscaler) — required manual, per-instance setup, not git-managed
+
+If this connector's build fails with `pip` complaining about a "self-signed certificate in
+certificate chain," it means the network this instance sits behind (Zscaler, confirmed on the
+CAWS-staging box) TLS-inspects outbound HTTPS and re-signs it with an org root CA. The EC2 host
+already trusts that CA; a fresh Docker build container doesn't inherit it, and neither does the
+running container at runtime (`boto3`'s AWS calls and `pycti`'s GraphQL client to `OPENCTI_URL`
+would hit the identical failure the moment the container starts, not just `pip install` at build
+time) — which is why the Dockerfile installs it into the image's own CA bundle (Debian's
+`update-ca-certificates`, appending rather than replacing, so normal public-CA verification still
+works for anything that isn't actually Zscaler-intercepted) and sets `PIP_CERT`/
+`REQUESTS_CA_BUNDLE`/`AWS_CA_BUNDLE`/`SSL_CERT_FILE` to point at the combined result for both.
+
+**The cert itself never touches this repo, not even untracked.** `docker-compose.yml` declares a
+named build context (`additional_contexts: zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}`)
+and the Dockerfile pulls from it directly (`COPY --from=zscaler_cert`) — the file lives in
+`/opt/open-cti` (this stack's runtime state, same place `.env`/`env.deploy` already live, and
+distinct from `/opt/open-cti-repo`, the replaceable git checkout) and is never read from or
+written into any path git tracks. Requires BuildKit; there's a known regression for
+`additional_contexts` in Compose 2.24.0 specifically (docker/compose#11351) — confirm
+`docker compose build` actually resolves it on your Compose version before trusting this blindly.
+
+This is real infrastructure setup specific to a *network*, not to this codebase — same category
+as the `open_cti` DB role/grant or the OpenCTI API token: manual, out-of-band, done once per
+instance rather than automated. A genuinely new instance needs this step too; it's not a
+one-time fix for all environments:
+
+```bash
+mkdir -p /opt/open-cti/tls
+cp /home/ec2-user/tmp/zscaler.pem /opt/open-cti/tls/zscaler.pem
+docker compose --env-file /opt/open-cti/.env up -d --build
+```
+
 ## Known gaps / things to verify before this is production-ready
 
 - **Sector/Location collision risk (§7d/§6):** this connector currently creates

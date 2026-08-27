@@ -129,12 +129,37 @@ repos:
     rev: v1.5.1
     hooks:
       - id: mypy
+        # Excludes both VS connectors below. Each has its own
+        # config/db/mapping/connector module under a bare `src` package
+        # (OpenCTI-connector.md §10i: built structurally identical on purpose) --
+        # checking them in one mypy invocation (this hook's repo-wide sweep, or the
+        # two connectors against each other) fails with "Duplicate module named
+        # 'src...'", since mypy keys its module graph by dotted name, not file path,
+        # and both connectors resolve to the same names (`src.db`, `src.mapping`,
+        # ...). Checked independently below instead -- same per-subtree scoping this
+        # file already uses for the backend-only flake8 hook (T20/print-statements)
+        # further up.
+        exclude: ^open-cti/connectors/(vs-org-bootstrap|vs-ticket-ingestion)/
         additional_dependencies:
           - types-requests
           - types-retry
           - types-PyYAML
           - types-psycopg2
+          - types-python-dateutil
           - redis==5.2.0
+      - id: mypy
+        name: "mypy (connector: vs-org-bootstrap)"
+        files: ^open-cti/connectors/vs-org-bootstrap/
+        additional_dependencies:
+          - types-PyYAML
+          - types-psycopg2
+      - id: mypy
+        name: "mypy (connector: vs-ticket-ingestion)"
+        files: ^open-cti/connectors/vs-ticket-ingestion/
+        additional_dependencies:
+          - types-PyYAML
+          - types-psycopg2
+          - types-python-dateutil
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.10.1
     hooks:
