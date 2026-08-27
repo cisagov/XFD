@@ -2,7 +2,6 @@
 
 # Standard Python Libraries
 import logging
-import os
 from typing import Dict
 
 # Third-Party Libraries
@@ -10,15 +9,15 @@ import psycopg2
 from psycopg2 import OperationalError
 from psycopg2.extensions import connection
 
+# First-Party Libraries
+from was_reports.utils.env import getenv, require_env
+
 LOGGER = logging.getLogger(__name__)
 
 
 def _require_environment_variable(name: str) -> str:
     """Return a required environment variable or raise a clear error."""
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError("Missing required environment variable: {}".format(name))
-    return value
+    return require_env(name)
 
 
 def database_config() -> Dict[str, str]:
@@ -28,8 +27,8 @@ def database_config() -> Dict[str, str]:
         "database": _require_environment_variable("WAS_DB_NAME"),
         "user": _require_environment_variable("WAS_DB_USERNAME"),
         "password": _require_environment_variable("WAS_DB_PASSWORD"),
-        "port": os.environ.get("WAS_DB_PORT", "5432"),
-        "sslmode": os.environ.get("WAS_DB_SSLMODE", "require"),
+        "port": getenv("WAS_DB_PORT", "5432"),
+        "sslmode": getenv("WAS_DB_SSLMODE", "require"),
     }
 
 

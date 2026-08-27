@@ -1,6 +1,7 @@
 """Tests for the WAS report generator CLI boundary."""
 
 # Standard Python Libraries
+import os
 import subprocess
 import tempfile
 import unittest
@@ -140,6 +141,26 @@ class ReportGeneratorTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0)
         self.assertIsInstance(result, subprocess.CompletedProcess)
+
+    def test_prepare_legacy_config_can_generate_config_from_environment(self) -> None:
+        """Generate a legacy config file from WAS environment constants."""
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "was_config.txt"
+            with patch.object(report_generator, "LEGACY_CONFIG_PATH", config_path):
+                with patch.dict(
+                    os.environ,
+                    {
+                        "WAS_QUALYS_USERNAME": "user",
+                        "WAS_QUALYS_PASSWORD": "secret",
+                        "WAS_QUALYS_HOSTNAME": "qualys.example",
+                    },
+                ):
+                    report_generator.prepare_legacy_config(config_path)
+
+            config_text = config_path.read_text(encoding="utf-8")
+
+        self.assertIn("username = user", config_text)
+        self.assertIn("hostname = qualys.example", config_text)
 
     @patch("was_reports.report_generator.run_legacy_report")
     def test_generate_report_verifies_expected_output(self, mock_run_report) -> None:

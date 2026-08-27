@@ -3,29 +3,38 @@
 # Standard Python Libraries
 import argparse
 import logging
-import os
 import sys
+from datetime import date
 from pathlib import Path
 from typing import List, Optional
 
 # First-Party Libraries
-from was_mailer.message import build_report_email, recipient_addresses
+from was_mailer.message import (
+    build_assignee_digest_email,
+    build_report_email,
+    parse_email_addresses,
+    recipient_addresses,
+    unique_addresses,
+)
+from was_reports.data.daily_report_tracker import (
+    list_ready_assignee_digests_from_db,
+    mark_assignee_digest_emailed,
+    mark_assignee_digest_failed,
+)
 from was_reports.data.report_runs import (
     get_report_run_email_by_id,
     list_report_runs_ready_for_email_from_db,
     mark_report_run_email_failed_by_id,
     mark_report_run_emailed_by_id,
 )
+from was_reports.utils.env import getenv, require_env
 
 LOGGER = logging.getLogger(__name__)
 
 
 def require_environment_variable(name: str) -> str:
     """Return a required environment variable value."""
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError("Missing required environment variable: {}".format(name))
-    return value
+    return require_env(name)
 
 
 def send_message(ses_client, message) -> str:
@@ -85,6 +94,107 @@ def send_report_run_email(
         raise error
 
 
+def send_assignee_digest_email(
+    assignee_digest,
+    source_email: str,
+    override_recipients: Optional[str] = None,
+    dry_run: bool = False,
+    ses_client=None,
+) -> Optional[str]:
+    """Send one WAS daily tracker assignee digest email."""
+    if override_recipients:
+        recipients = unique_addresses(parse_email_addresses(override_recipients))
+    else:
+        recipients = unique_addresses(parse_email_addresses(assignee_digest.email))
+
+    message = build_assignee_digest_email(
+        source_email=source_email,
+        recipients=recipients,
+        assignee_digest=assignee_digest,
+    )
+
+    if dry_run:
+        LOGGER.info(
+            "Dry run enabled; WAS assignee digest for assignee id %s was not sent.",
+            assignee_digest.assignee_id,
+        )
+        return None
+
+    try:
+        if ses_client is not None:
+            client = ses_client
+        else:
+            import boto3
+
+            client = boto3.client("ses")
+        message_id = send_message(client, message)
+        mark_assignee_digest_success_for_dates(assignee_digest, message_id)
+        return message_id
+    except Exception as error:
+        mark_assignee_digest_failure_for_dates(
+            assignee_digest=assignee_digest,
+            error_message="WAS assignee digest email delivery failed.",
+        )
+        LOGGER.exception(
+            "WAS assignee digest email delivery failed for assignee id %s",
+            assignee_digest.assignee_id,
+        )
+        raise error
+
+
+def mark_assignee_digest_success_for_dates(assignee_digest, message_id: str) -> None:
+    """Mark all pull dates in one assignee digest as emailed."""
+    from was_reports.utils.database import close, connect
+
+    pull_dates = unique_digest_dates(assignee_digest)
+    conn = connect()
+    try:
+        for pull_date in pull_dates:
+            mark_assignee_digest_emailed(
+                conn=conn,
+                assignee_id=assignee_digest.assignee_id,
+                data_pull_date=pull_date,
+                message_id=message_id,
+            )
+    finally:
+        close(conn)
+
+
+def mark_assignee_digest_failure_for_dates(
+    assignee_digest,
+    error_message: str,
+) -> None:
+    """Mark all pull dates in one assignee digest with email failure."""
+    from was_reports.utils.database import close, connect
+
+    pull_dates = unique_digest_dates(assignee_digest)
+    conn = connect()
+    try:
+        for pull_date in pull_dates:
+            mark_assignee_digest_failed(
+                conn=conn,
+                assignee_id=assignee_digest.assignee_id,
+                data_pull_date=pull_date,
+                error_message=error_message,
+            )
+    finally:
+        close(conn)
+
+
+def unique_digest_dates(assignee_digest) -> List[date]:
+    """Return unique data pull dates for one assignee digest."""
+    pull_dates = []
+    seen_dates = set()
+    for tracker_row in assignee_digest.rows:
+        if tracker_row.data_pull_date is None:
+            continue
+        if tracker_row.data_pull_date in seen_dates:
+            continue
+        seen_dates.add(tracker_row.data_pull_date)
+        pull_dates.append(tracker_row.data_pull_date)
+    return pull_dates
+
+
 def send_ready_report_emails(
     source_email: str,
     override_recipients: Optional[str] = None,
@@ -112,6 +222,33 @@ def send_ready_report_emails(
     return sent_count
 
 
+def send_ready_assignee_digests(
+    source_email: str,
+    override_recipients: Optional[str] = None,
+    dry_run: bool = False,
+    data_pull_date: Optional[date] = None,
+    limit: Optional[int] = None,
+) -> int:
+    """Send ready WAS daily tracker assignee digests through SES."""
+    digests = list_ready_assignee_digests_from_db(
+        data_pull_date=data_pull_date,
+        limit=limit,
+    )
+    sent_count = 0
+
+    for digest in digests:
+        message_id = send_assignee_digest_email(
+            assignee_digest=digest,
+            source_email=source_email,
+            override_recipients=override_recipients,
+            dry_run=dry_run,
+        )
+        if message_id or dry_run:
+            sent_count += 1
+
+    return sent_count
+
+
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse WAS mailer command line arguments."""
     parser = argparse.ArgumentParser(
@@ -128,9 +265,14 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Email all completed report runs that have not been emailed.",
     )
+    run_selection.add_argument(
+        "--assignee-digests",
+        action="store_true",
+        help="Email daily tracker assignment digests to assignees.",
+    )
     parser.add_argument(
         "--source-email",
-        default=os.environ.get("WAS_EMAIL_SOURCE"),
+        default=getenv("WAS_EMAIL_SOURCE"),
         help="Verified SES sender email address.",
     )
     parser.add_argument(
@@ -152,6 +294,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Retry report runs with a previous email error.",
     )
+    parser.add_argument(
+        "--data-pull-date",
+        type=date.fromisoformat,
+        help="Tracker pull date for assignee digests, formatted YYYY-MM-DD.",
+    )
     return parser.parse_args(argv)
 
 
@@ -170,6 +317,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             dry_run=args.dry_run,
             limit=args.limit,
             include_previous_failures=args.include_previous_failures,
+        )
+    elif args.assignee_digests:
+        send_ready_assignee_digests(
+            source_email=source_email,
+            override_recipients=args.test_recipients,
+            dry_run=args.dry_run,
+            data_pull_date=args.data_pull_date,
+            limit=args.limit,
         )
     else:
         send_report_run_email(

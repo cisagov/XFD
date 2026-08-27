@@ -1,29 +1,31 @@
-from set_up import CUSTOMER_DATA
+"""Stakeholder scan metadata update helpers for the WAS tracker."""
 
+# Standard Python Libraries
 from datetime import datetime, timezone
 import time
-from was_dynamodb.attribute import Attribute
-from botocore.exceptions import ClientError
+
+# First-Party Libraries
+from was_reports.data.stakeholders import update_scan_metadata_for_tag
 
 
 def update_customer_data(tag, last_scan, next_scan, app_count):
-    # Parse the string into a datetime object
-    last_scan_dt = datetime.strptime(last_scan, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    next_scan_dt = datetime.strptime(next_scan, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    # Convert the datetime object to a Unix timestamp (seconds since epoch)
-    last_scan_timestamp = int(last_scan_dt.timestamp())
-    next_scan_timestamp = int(next_scan_dt.timestamp())
-    partition_key = Attribute("Tag", tag).to_dict()
-    attributes = [
-        Attribute("Next Scheduled", str(next_scan_timestamp)),
-        Attribute("Last Scanned", str(last_scan_timestamp)),
-        Attribute("# of Web Apps", str(app_count)),
-        Attribute("# of Web Apps Last Updated", str(time.time().__floor__())),
-    ]
-    attributes_dict = {}
-    for attribute in attributes:
-        attributes_dict = attributes_dict | attribute.to_dict()
+    """Update stakeholder scan dates and web app counts in Postgres."""
+    last_scan_dt = datetime.strptime(
+        last_scan,
+        "%Y-%m-%dT%H:%M:%SZ",
+    ).replace(tzinfo=timezone.utc)
+    next_scan_dt = datetime.strptime(
+        next_scan,
+        "%Y-%m-%dT%H:%M:%SZ",
+    ).replace(tzinfo=timezone.utc)
+
     try:
-        CUSTOMER_DATA.update_item(partition_key, attributes_dict)
-    except ClientError:
-        print(f"WARNING: Unable to update scan dates / app count for {tag}")
+        update_scan_metadata_for_tag(
+            tag=tag,
+            last_scanned=int(last_scan_dt.timestamp()),
+            next_scheduled=int(next_scan_dt.timestamp()),
+            num_web_apps=app_count,
+            web_apps_last_updated=int(time.time()),
+        )
+    except Exception:
+        print("WARNING: Unable to update scan dates / app count for {}".format(tag))

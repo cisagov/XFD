@@ -1,28 +1,36 @@
-
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-import pandas as pd
-# from lxml import etree
 from lxml.builder import E
 from lxml.objectify import ObjectifiedElement, fromstring
 from models.stakeholder import Stakeholder
-from set_up import dailyReportsFilePath, log_exception, qgc
+from set_up import log_exception, qgc
+from was_reports.data.daily_report_tracker import (
+    latest_tracker_pull_date,
+    recent_schedule_ids,
+)
+from was_reports.utils.database import close, connect
 from utils.qualys_api_search.search_utils import (make_stakeholder_info,
                                                   nextdate_for_adhoc)
 
 VERBOSE = True
 RESULTS_LIMIT = 50
-TRACKER = pd.read_excel(dailyReportsFilePath)
 
-# get the most recent date on the sheet minus 48 hours
+# get the most recent date in the tracker minus 48 hours
 # scan time limit 24 hrs, go back extra time to ensure all scans are picked up
-INPUT_DATE_DT = TRACKER['DataPullDate'].max() - timedelta(hours=48)
+conn = connect()
+try:
+    INPUT_DATE_DT = latest_tracker_pull_date(conn) - timedelta(hours=48)
+    PREVIOUS_IDS = recent_schedule_ids(conn, INPUT_DATE_DT)
+finally:
+    close(conn)
+
 INPUT_DATE = INPUT_DATE_DT.strftime(
     '%Y-%m-%dT%H:%M:%SZ')  # qualys api datetime format
 # INPUT_DATE = INPUT_DATE_DT.strftime('%Y-%m-%d')
 
-def get_tag_id(tag_name:str)->int:
+
+def get_tag_id(tag_name: str) -> int:
     endpoint = 'search/am/tag'
     method = 'post'
     req = E.ServiceRequest(
@@ -35,7 +43,7 @@ def get_tag_id(tag_name:str)->int:
     try:
         return int(res_xml.data.Tag.id.text)
     except (AttributeError, ValueError):
-        raise ValueError(f"Tag ID not found for tag name: {tag_name}")
+        raise ValueError("Tag ID not found for tag name: {}".format(tag_name))
 
 
 def search_schedules():
@@ -66,14 +74,13 @@ def search_schedules():
             E.Criteria(INPUT_DATE.split('T')[0], field='lastScan.launchedDate',
                        operator='GREATER'),
             # E.Criteria('FINISHED, ERROR',
-                    #    field='lastScan.status', operator='IN'),
+            #            field='lastScan.status', operator='IN'),
             E.Criteria('RUNNING', field='lastScan.status', operator='NOT EQUALS'),
             # E.Criteria('FINISHED', field='lastScan.status', operator='IN'),
             # E.Criteria('ERROR', field='lastScan.status', operator='IN'),
             E.Criteria('VULNERABILITY', field='type', operator='EQUALS')
         )
     )
-    from lxml import etree
     # print(etree.tostring(req, pretty_print=True).decode("utf-8"))
     # xml_bytes = etree.tostring(
     # req,
@@ -82,17 +89,13 @@ def search_schedules():
     # encoding="UTF-8"
     # )
     # print(xml_bytes)
-    print(f"Last Tracker Day: {INPUT_DATE}")
+    print("Last Tracker Day: {}".format(INPUT_DATE))
     print("getting finished schedules from qualys...")
-    # count = RESULTS_LIMIT
-    # store schedules already on the tracker
-    previous_days = TRACKER[TRACKER['DataPullDate'] >= INPUT_DATE_DT]
-    previous_ids = [id for id in previous_days['Schedule ID']]
     stakeholders = {}  # dictionary to map tags to stakeholder objects
     has_more: bool = True
     while has_more:
         # while count >= RESULTS_LIMIT:
-        print(f"Fetching offset {offset}...")
+        print("Fetching offset {}...".format(offset))
 
         res_str: str = qgc.request(
             SEARCH_ENDPOINT, req, http_method="post")
@@ -107,12 +110,12 @@ def search_schedules():
         # count = res_xml.count
         for schedule in res_xml.data.WasScanSchedule:
             # print(etree.tostring(schedule, pretty_print=True).decode("utf-8"))
-            if schedule.id not in previous_ids:
+            schedule_id = int(schedule.id.text)
+            if schedule_id not in PREVIOUS_IDS:
                 tag, name = make_stakeholder_info(schedule.name.text)
                 # tag_id: int = schedule.target.tags.included.tagList.list.Tag.id
                 tag_id: int = get_tag_id(tag)
                 # launched_date: str = schedule.lastScan.launchedDate.text
-                schedule_id: int = schedule.id
                 cadence = schedule.scheduling.occurrenceType.text
                 try:
                     next_scan_date: str = schedule.nextLaunchDate.text
@@ -120,10 +123,17 @@ def search_schedules():
                     next_scan_date: str = nextdate_for_adhoc(tag, name)
                 if tag not in stakeholders:
                     # stakeholders[tag] = Stakeholder(name, tag_id, next_scan_date, launched_date, schedule_id, cadence)
-                    stakeholders[tag] = Stakeholder(name, tag_id, next_scan_date, INPUT_DATE, schedule_id, cadence)
+                    stakeholders[tag] = Stakeholder(
+                        name,
+                        tag_id,
+                        next_scan_date,
+                        INPUT_DATE,
+                        schedule_id,
+                        cadence,
+                    )
 
             else:
-                print(f"Skipping duplicate: {schedule.name.text}")
+                print("Skipping duplicate: {}".format(schedule.name.text))
     print("Schedules found successfully")
-    print(f"There are {len(stakeholders)} reports today")
+    print("There are {} reports today".format(len(stakeholders)))
     return stakeholders

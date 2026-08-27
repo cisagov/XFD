@@ -11,15 +11,29 @@ if [ "${1:-}" = "was-reports" ] && { [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h
   exec was-reports "$@"
 fi
 
-if [ ! -f "${WAS_CONFIG_PATH:-/app/was_config.txt}" ]; then
-  echo "WAS config file not found at ${WAS_CONFIG_PATH:-/app/was_config.txt}" >&2
-  echo "Mount was_config.txt into the container, or set WAS_CONFIG_PATH." >&2
-  exit 1
-fi
-
 if [ "${1:-}" = "was-reports" ]; then
   shift
   exec was-reports "$@"
+fi
+
+if [ "${1:-}" = "was-export-xml" ]; then
+  shift
+  exec was-export-xml "$@"
+fi
+
+if [ "${1:-}" = "was-special-cases" ]; then
+  shift
+  exec was-special-cases "$@"
+fi
+
+if [ "${1:-}" = "was-tracker" ]; then
+  shift
+  exec was-tracker "$@"
+fi
+
+if [ "${1:-}" = "was-update-tracker" ]; then
+  shift
+  exec was-update-tracker "$@"
 fi
 
 exec was-report-batch "$@"

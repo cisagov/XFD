@@ -32,6 +32,6 @@ RUN pip install --no-cache-dir --no-deps . \
   && chmod +x worker/*.sh
 
 ENV PYTHONPATH=/app/src:/app
-ENV WAS_CONFIG_PATH=/app/was_config.txt
+ENV WAS_CONFIG_PATH=/WAS_REPORT_GENERATION/docs/was_config.txt
 
 ENTRYPOINT ["./worker/was-report-start.sh"]

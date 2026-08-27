@@ -28,6 +28,20 @@ class Stakeholder:
     retired: bool = False
 
 
+@dataclass(frozen=True)
+class StakeholderDetails:
+    """Stakeholder fields required by the WAS daily tracker."""
+
+    tag: str
+    was_report_poc: Optional[str] = None
+    tech_poc_email: Optional[str] = None
+    distro_email: Optional[str] = None
+    comments: Optional[str] = None
+    report_password: Optional[str] = None
+    manual_report: bool = False
+    fceb: bool = False
+
+
 def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
     """Return a stakeholder record by tag."""
     with conn.cursor() as cursor:
@@ -45,6 +59,115 @@ def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
         return None
 
     return Stakeholder(tag=row[0], report_password=row[1])
+
+
+def get_stakeholder_details(
+    tag: str,
+    conn: connection,
+) -> Optional[StakeholderDetails]:
+    """Return stakeholder fields required by the daily tracker."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                tag,
+                was_report_poc,
+                tech_poc_email,
+                distro_email,
+                comments,
+                report_password,
+                manual_report,
+                fceb
+            FROM was_stakeholders
+            WHERE tag = %s
+            """,
+            (tag,),
+        )
+        row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return StakeholderDetails(
+        tag=row[0],
+        was_report_poc=row[1],
+        tech_poc_email=row[2],
+        distro_email=row[3],
+        comments=row[4],
+        report_password=row[5],
+        manual_report=bool(row[6]),
+        fceb=bool(row[7]),
+    )
+
+
+def get_stakeholder_details_by_tag(tag: str) -> Optional[StakeholderDetails]:
+    """Return stakeholder tracker details using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_stakeholder_details(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def update_scan_metadata(
+    tag: str,
+    last_scanned: int,
+    next_scheduled: int,
+    num_web_apps: int,
+    web_apps_last_updated: int,
+    conn: connection,
+) -> None:
+    """Update scan dates and web app counts for a stakeholder."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_stakeholders
+                SET last_scanned = %s,
+                    next_scheduled = %s,
+                    num_web_apps = %s,
+                    web_apps_last_updated = %s,
+                    updated_at = NOW()
+                WHERE tag = %s
+                """,
+                (
+                    last_scanned,
+                    next_scheduled,
+                    num_web_apps,
+                    web_apps_last_updated,
+                    tag,
+                ),
+            )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_scan_metadata_for_tag(
+    tag: str,
+    last_scanned: int,
+    next_scheduled: int,
+    num_web_apps: int,
+    web_apps_last_updated: int,
+) -> None:
+    """Update scan metadata using a managed database connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        update_scan_metadata(
+            tag=tag,
+            last_scanned=last_scanned,
+            next_scheduled=next_scheduled,
+            num_web_apps=num_web_apps,
+            web_apps_last_updated=web_apps_last_updated,
+            conn=conn,
+        )
+    finally:
+        close(conn)
 
 
 def list_due_stakeholders(

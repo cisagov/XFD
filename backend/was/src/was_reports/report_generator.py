@@ -2,13 +2,17 @@
 
 # Standard Python Libraries
 import argparse
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
 
+from was_reports.utils.env import getenv
+from was_reports.utils.qualys_config import (
+    ensure_qualys_config_file,
+    validate_qualys_config,
+)
 from was_reports.utils.outputs import expected_pdf_output_path, require_output_file
 
 LEGACY_CONFIG_PATH = Path("/WAS_REPORT_GENERATION/docs/was_config.txt")
@@ -70,17 +74,15 @@ def rotate_report_password(stakeholder_tag: str) -> str:
 
 def prepare_legacy_config(config_path: Path) -> None:
     """Place the Qualys config where the legacy creator currently expects it."""
-    if not config_path.exists():
-        raise FileNotFoundError(
-            "WAS config file not found at {}.".format(str(config_path))
-        )
+    ensured_config_path = ensure_qualys_config_file(config_path)
+    validate_qualys_config(ensured_config_path)
 
     LEGACY_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    if config_path.resolve() == LEGACY_CONFIG_PATH:
+    if ensured_config_path.resolve() == LEGACY_CONFIG_PATH.resolve():
         return
 
-    shutil.copyfile(str(config_path), str(LEGACY_CONFIG_PATH))
+    shutil.copyfile(str(ensured_config_path), str(LEGACY_CONFIG_PATH))
 
 
 def build_legacy_command(
@@ -147,11 +149,11 @@ def generate_report(
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command line arguments for WAS report generation."""
-    default_config_path = os.environ.get(
+    default_config_path = getenv(
         "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
     )
-    default_legacy_root = os.environ.get("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
-    default_output_directory = os.environ.get(
+    default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
+    default_output_directory = getenv(
         "WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"
     )
 

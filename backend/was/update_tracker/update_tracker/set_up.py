@@ -1,38 +1,28 @@
 import qualysapi
-from openpyxl import load_workbook
 import logging
 import traceback
 from configparser import ConfigParser
 from pathlib import Path
-from was_dynamodb.dynamodb import DynamoDB
 from os import environ
+from was_reports.utils.env import load_env_file
+from was_reports.utils.qualys_config import ensure_qualys_config_file
 
-WAS_CONFIG_PATH = Path(__file__).resolve().parents[2] / 'was_config.txt'
+load_env_file()
+
+WAS_CONFIG_PATH = ensure_qualys_config_file(
+    Path(environ.get(
+        "WAS_CONFIG_PATH",
+        str(Path(__file__).resolve().parents[2] / 'was_config.txt'),
+    ))
+)
 
 config = ConfigParser()
 config.read(WAS_CONFIG_PATH)
 
 LOGFILE_PATH = config.get('was_files', 'dailywaslog')
 
-# POWERA_FOLDER = config.get('was_files', 'powerAutomateTriggers')
-
-# get excel file paths
-dailyReportsFilePath = config.get('was_files', 'dailyReportsFilePath')
-# customerDataFilePath = config.get('was_files', 'customerDataFilePath')
-
 # Set up Qualys API connection
 qgc = qualysapi.connect(WAS_CONFIG_PATH)
-
-# estbalish database connection
-CUSTOMER_DATA = DynamoDB(
-    environ.get("STAKEHOLDERS_TABLE_NAME"), environ.get("PROD_PROFILE")
-)
-
-# load workbooks
-dailyReportsTracker = load_workbook(dailyReportsFilePath)
-DAILY_REPORTS = dailyReportsTracker.active
-
-specialCasesFilePath = config.get('was_files', 'specialCasesFilePath')
 
 
 # set up logging

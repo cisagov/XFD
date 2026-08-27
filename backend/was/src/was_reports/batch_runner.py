@@ -3,7 +3,6 @@
 # Standard Python Libraries
 import argparse
 import logging
-import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -17,6 +16,7 @@ from was_reports.data.report_runs import (
     fail_report_run_by_id,
 )
 from was_reports.data.stakeholders import list_due_stakeholders_for_report
+from was_reports.utils.env import getenv
 from was_reports.utils.outputs import expected_pdf_output_path
 
 LOGGER = logging.getLogger(__name__)
@@ -140,8 +140,10 @@ def run_due_reports(
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command line arguments for scheduled WAS reports."""
-    default_config_path = os.environ.get("WAS_CONFIG_PATH", "/app/was_config.txt")
-    default_legacy_root = os.environ.get("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
+    default_config_path = getenv(
+        "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
+    )
+    default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
 
     parser = argparse.ArgumentParser(
         description="Generate WAS reports for stakeholders whose schedule is due."
@@ -199,7 +201,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-directory",
-        default=os.environ.get("WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"),
+        default=getenv("WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"),
         help="Directory where generated WAS PDF reports are written.",
     )
     return parser.parse_args(argv)

@@ -1,168 +1,200 @@
-from datetime import datetime, timezone
-import pytz
-from data.special_reqs import ASSIGNEES
-from utils.tracker_operations.webapp_operations import webapp_count, delete_webapp
-from data.search_customer_data import get_customer_data, get_dynamo_value
-from data.update_customer_data import update_customer_data
-from set_up import DAILY_REPORTS, dailyReportsTracker, dailyReportsFilePath
+"""Postgres-backed daily WAS tracker updates."""
 
-CURRENT_DAY = datetime.today().strftime('%m/%d/%y')
-CURRENT_DAY = datetime.strptime(CURRENT_DAY, '%m/%d/%y')
+# Standard Python Libraries
+from datetime import datetime, timezone
+
+# Third-Party Libraries
+import pytz
+
+# First-Party Libraries
+from data.search_customer_data import get_customer_data, get_dynamo_value
+from data.special_reqs import ASSIGNEES
+from data.update_customer_data import update_customer_data
+from utils.tracker_operations.webapp_operations import delete_webapp, webapp_count
+from was_reports.assignments import round_robin_assignee
+from was_reports.data.assignees import upsert_assignee
+from was_reports.data.daily_report_tracker import (
+    DailyReportTrackerRow,
+    insert_daily_report_tracker_row,
+)
+from was_reports.utils.database import close, connect
+
+CURRENT_DAY = datetime.today().strftime("%m/%d/%y")
+CURRENT_DAY = datetime.strptime(CURRENT_DAY, "%m/%d/%y").date()
 
 
 def update_tracker(tracker_items, delete_apps):
-    """
-    updates the tracker excel file
+    """Write WAS daily tracker rows to Postgres."""
+    if not ASSIGNEES:
+        raise RuntimeError("No active WAS assignees are configured.")
 
-    Parameters
-    ----------
-    tracker_items : list
-        list of tracker_item objects
-    delete_apps : bool
-        default True, use False for testing purposes to avoid webapp deletion
-    """
-    item_count = 0
-    assignee = 0
     apps_to_delete = []
-    scans_per_assignee = len(tracker_items) / len(ASSIGNEES)
-    DAILY_REPORTS.insert_rows(3, 2)
-    for item in tracker_items:
-        populate_row(item, assignee)
-        if item.removed_nws and not item.fceb:
-            for app in item.removed_nws.split("<br>"):
-                if app:
-                    apps_to_delete.append(app)
-        item_count += 1
-        if item_count >= (assignee + 1) * scans_per_assignee:
-            assignee += 1
-    DAILY_REPORTS.delete_rows(3)
-    dailyReportsTracker.save(dailyReportsFilePath)
+    conn = connect()
+    try:
+        for item_index, item in enumerate(tracker_items):
+            assignee_name = current_assignee_name(item_index)
+            tracker_row = populate_row(item, assignee_name, conn)
+            insert_daily_report_tracker_row(row=tracker_row, conn=conn)
+            if item.removed_nws and not item.fceb:
+                for app in item.removed_nws.split("<br>"):
+                    if app:
+                        apps_to_delete.append(app)
+    finally:
+        close(conn)
+
     if delete_apps:
         for webapp in apps_to_delete:
             delete_webapp(webapp)
     else:
         print("WEBAPP DELETION SET TO FALSE")
-    # set off powerautomate flow
-    # file = open(str(POWERA_FOLDER) + '/dailywas.txt', 'w')
-    # file.write('tracker updated')
-    # file.close()
 
 
-def populate_row(item, assignee):
-    """
-    populates one row of the excel tracker file
+def current_assignee_name(item_index):
+    """Return the current assignee name using round-robin distribution."""
+    return round_robin_assignee(ASSIGNEES, item_index)
 
-    Parameters
-    ----------
-    item : tracker_item
-        tracker_item object holding all necessary report info
-    assignee : int
-        index representing which analyst from the ASSIGNEES list will be responsible for the report
-    """
-    print(f"Adding {item.tag} to tracker")
+
+def populate_row(item, assignee_name, conn):
+    """Build one Postgres tracker row from one legacy tracker item."""
+    print("Adding {} to tracker".format(item.tag))
     no_error = True
-    DAILY_REPORTS['S3'] = int(item.schedule_id)
+    report_scan_notes = item.manual
+    legacy_password = None
+    poc = None
+    poc_email = None
+    customer_notes = None
+
     try:
         stakeholder = get_customer_data(item.tag)
         if get_dynamo_value(stakeholder, "Report Password"):
-            DAILY_REPORTS['R3'] = 'STATIC PASSWORD'
+            legacy_password = "STATIC PASSWORD"
     except KeyError:
         print(
-            f"WARNING: possible naming error / typos.  setting {item.tag} as manual")
-        DAILY_REPORTS['G3'] = "MANUAL"
+            "WARNING: possible naming error / typos. setting {} as manual".format(
+                item.tag
+            )
+        )
+        report_scan_notes = "MANUAL"
         no_error = False
-    
-    
 
-    DAILY_REPORTS['A3'] = CURRENT_DAY
-    DAILY_REPORTS['A3'].number_format = 'm/d/yy'
-    DAILY_REPORTS['B3'] = item.tag
-    DAILY_REPORTS['C3'] = item.scan_name
-    # reverse order to match up letter groups
-    DAILY_REPORTS['D3'] = ASSIGNEES[::-1][assignee]
-    DAILY_REPORTS['E3'] = item.status
-    DAILY_REPORTS['F3'] = item.result
-    DAILY_REPORTS['G3'] = item.manual
-    #
-    # skip column H for confirmation of manual report delivery
-    #
-    DAILY_REPORTS['I3'] = convert_qualys_dt(item.launched_date)
-    DAILY_REPORTS['J3'] = convert_qualys_dt(item.next_scan_date)
+    scan_start_date = convert_qualys_dt(item.launched_date)
+    next_scan_date = convert_qualys_dt(item.next_scan_date)
+
     try:
-        # DAILY_REPORTS['K3'], DAILY_REPORTS['L3'], DAILY_REPORTS['M3'], DAILY_REPORTS['N3'] = get_customer_data(
-        #     item.tag)
         tech_poc_email = get_dynamo_value(stakeholder, "Tech POC Email")
         distro_email = get_dynamo_value(stakeholder, "Distro Email")
-
-        DAILY_REPORTS['K3'] = get_dynamo_value(stakeholder, "WAS Report POC")
-        DAILY_REPORTS['L3'] = f"{tech_poc_email}; {distro_email}" if tech_poc_email and distro_email else tech_poc_email or distro_email
-        DAILY_REPORTS['M3'] = get_dynamo_value(stakeholder, "Comments")
+        poc = get_dynamo_value(stakeholder, "WAS Report POC")
+        poc_email = combined_email_value(tech_poc_email, distro_email)
+        customer_notes = get_dynamo_value(stakeholder, "Comments")
     except UnboundLocalError:
         print(
-            f"WARNING: possible naming error / typos.  setting {item.tag} as manual")
-        DAILY_REPORTS['G3'] = "MANUAL"
+            "WARNING: possible naming error / typos. setting {} as manual".format(
+                item.tag
+            )
+        )
+        report_scan_notes = "MANUAL"
         no_error = False
+
     try:
         num_apps = webapp_count(item.tag)
     except AttributeError:
         num_apps = 0
         print(
-            f"WARNING: No webapps for {item.tag}.  setting {item.tag} as manual")
-        DAILY_REPORTS['G3'] = "MANUAL"
+            "WARNING: No webapps for {}. setting {} as manual".format(
+                item.tag,
+                item.tag,
+            )
+        )
+        report_scan_notes = "MANUAL"
         no_error = False
+
+    nws, template, report_scan_notes = tracker_result_fields(
+        item=item,
+        num_apps=num_apps,
+        no_error=no_error,
+        report_scan_notes=report_scan_notes,
+    )
+    assignee = upsert_assignee(name=assignee_name, conn=conn)
+    update_customer_data(
+        item.tag,
+        item.launched_date,
+        item.next_scan_date,
+        num_apps,
+    )
+
+    return DailyReportTrackerRow(
+        data_pull_date=CURRENT_DAY,
+        tag=item.tag,
+        scan_name=item.scan_name,
+        assignee_id=assignee.id,
+        assignee=assignee.name,
+        status=item.status,
+        result=item.result,
+        report_scan_notes=report_scan_notes,
+        scan_start_date=scan_start_date,
+        next_scan_date=next_scan_date,
+        poc=poc,
+        poc_email=poc_email,
+        customer_notes=customer_notes,
+        nws=nws,
+        template=template,
+        recent_nws=item.recent_nws,
+        remove_nws=item.removed_nws,
+        legacy_password=legacy_password,
+        schedule_id=int(item.schedule_id),
+        qualys_error=item.qualys_errors,
+    )
+
+
+def combined_email_value(tech_poc_email, distro_email):
+    """Return the legacy combined POC email field."""
+    if tech_poc_email and distro_email:
+        return "{}; {}".format(tech_poc_email, distro_email)
+    return tech_poc_email or distro_email
+
+
+def tracker_result_fields(item, num_apps, no_error, report_scan_notes):
+    """Return the NWS, template, and notes values for a tracker row."""
+    template = None
+    nws = None
     if item.nws:
         recent = len(item.recent_nws.split("<br>")) - 1
         removed = len(item.removed_nws.split("<br>")) - 1
-        DAILY_REPORTS['N3'] = f"{num_apps}, {recent}, {removed}"
+        nws = "{}, {}, {}".format(num_apps, recent, removed)
         if num_apps == removed:
             if item.fceb:
-                DAILY_REPORTS['O3'] = 'FCEB All NWS'
+                template = "FCEB All NWS"
             else:
-                DAILY_REPORTS['O3'] = 'Deactivated'
-                DAILY_REPORTS['G3'] = 'DEACTIVATE'
+                template = "Deactivated"
+                report_scan_notes = "DEACTIVATE"
         elif num_apps == recent:
             if item.fceb:
-                DAILY_REPORTS['O3'] = 'FCEB All NWS'
+                template = "FCEB All NWS"
             else:
-                DAILY_REPORTS['O3'] = 'All NWS'
+                template = "All NWS"
         elif removed > 0:
             if item.fceb:
-                DAILY_REPORTS['O3'] = 'FCEB Action Required'
+                template = "FCEB Action Required"
             else:
-                DAILY_REPORTS['O3'] = 'Targets Removed'
+                template = "Targets Removed"
         else:
             if item.fceb:
-                DAILY_REPORTS['O3'] = 'FCEB Action Required'
+                template = "FCEB Action Required"
             else:
-                DAILY_REPORTS['O3'] = 'Action Required'
+                template = "Action Required"
     elif no_error and item.scan_name:
-        DAILY_REPORTS['N3'] = num_apps
-        DAILY_REPORTS['O3'] = 'Results'
-    DAILY_REPORTS['P3'] = item.recent_nws
-    DAILY_REPORTS['Q3'] = item.removed_nws
-    DAILY_REPORTS['T3'] = item.qualys_errors
-    DAILY_REPORTS.insert_rows(3)
-    update_customer_data(item.tag, item.launched_date, item.next_scan_date, num_apps)
+        nws = str(num_apps)
+        template = "Results"
+    return nws, template, report_scan_notes
+
 
 def convert_qualys_dt(scan_date):
-    """
-    converts time zone on qualys datetime strings
-
-    Parameters
-    ----------
-    scan_date : str
-        date in qualys format 2024-08-01T00:00:00Z
-
-    Returns
-    -------
-    datestr : str
-        subtracted 4 hours to account for qualys scanner timezone
-        format 8/1/2024
-    """
+    """Convert a Qualys UTC datetime string to an Eastern date."""
     scan_date = datetime.strptime(
-        scan_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        scan_date,
+        "%Y-%m-%dT%H:%M:%SZ",
+    ).replace(tzinfo=timezone.utc)
 
     tz = pytz.timezone("US/Eastern")
     scan_date_tz = scan_date.astimezone(tz)
-    datestr = scan_date_tz.strftime("%-m/%-d/%Y")
-    return datestr
+    return scan_date_tz.date()

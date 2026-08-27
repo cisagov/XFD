@@ -1,10 +1,13 @@
-import pandas as pd
-from os import environ
-from set_up import specialCasesFilePath
+"""Special requirement lists for the WAS update tracker."""
 
+# First-Party Libraries
+from was_reports.data.assignees import list_active_assignee_names
+from was_reports.data.special_cases import list_active_special_case_names
+from was_reports.utils.database import close, connect
 
-# Load the Excel file
-xls = pd.ExcelFile(specialCasesFilePath)
-
-ASSIGNEES = [item[0] for item in xls.parse(sheet_name='Assignees').values.tolist()]
-KEEP_NWS = [item[0] for item in xls.parse(sheet_name='No NWS Deletions').values.tolist()]
+conn = connect()
+try:
+    ASSIGNEES = list_active_assignee_names(conn)
+    KEEP_NWS = list_active_special_case_names(conn)
+finally:
+    close(conn)

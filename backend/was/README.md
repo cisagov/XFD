@@ -11,12 +11,33 @@ stakeholder lookup, and report password management.
 - `was-reports` generates or manages one stakeholder report.
 - `src/was_reports/report_generator.py` validates CLI input and calls the
   legacy report creator.
+- `src/was_reports/qualys_client.py` provides the WAS-owned Qualys API client
+  boundary that future report internals should use.
+- `src/was_reports/report_data.py` contains migrated Qualys report-data helpers
+  for tag lookup, app counts, report creation, XML download, status checks, and
+  temporary report cleanup.
+- `src/was_reports/detail_reports.py` contains migrated detail-report download
+  and polling helpers.
+- `src/was_reports/pdf_helpers.py` contains migrated detail-report PDF
+  post-processing helpers.
 - `was_report/WAS_report_creator.py` still performs Qualys data retrieval,
   transformation, PDF creation, and PDF encryption.
-- `src/was_reports/data/stakeholders.py` reads and updates stakeholder report
-  passwords in Postgres.
+- `src/was_reports/data/stakeholders.py` reads stakeholder report metadata and
+  updates scan status fields in Postgres.
 - `src/was_reports/data/report_runs.py` records scheduled report execution
   status in Postgres.
+- `src/was_reports/data/daily_report_tracker.py` records daily tracker rows and
+  assignee digest email status in Postgres.
+- `src/was_reports/data/assignees.py` reads and maintains report assignees in
+  Postgres.
+- `src/was_reports/data/special_cases.py` reads active special-case tag values
+  from Postgres for upstream tracker logic.
+- `src/was_reports/tracker_csv.py` exports tracker rows as CSV for email
+  attachments or operator review.
+- `src/was_reports/assignments.py` assigns tracker rows to active assignees
+  using round-robin distribution.
+- `update_tracker/update_tracker` now writes daily tracker output to
+  `was_daily_report_tracker` instead of saving the daily tracker XLSX file.
 - `src/was_reports/utils/database.py` creates Postgres connections from
   environment variables.
 - `src/was_reports/utils/passwords.py` generates and validates WAS report
@@ -26,26 +47,54 @@ stakeholder lookup, and report password management.
   longer owns XLSX tracker orchestration, nested Docker execution, or DynamoDB
   password lookup.
 
-## Required Environment Variables
+## Local Environment File
 
-Set these values before running report generation or password management:
+Create a local `.env` file from the checked-in template:
 
 ```bash
-export WAS_DB_HOST="your-rds-endpoint"
-export WAS_DB_NAME="was"
-export WAS_DB_USERNAME="was_app"
-export WAS_DB_PASSWORD="your-password"
-export WAS_DB_PORT="5432"
-export WAS_DB_SSLMODE="require"
-export WAS_PASSWORD_LENGTH="24"
-export WAS_CONFIG_PATH="/app/was_config.txt"
-export WAS_LEGACY_ROOT="/WAS_REPORT_GENERATION"
-export WAS_OUTPUT_DIRECTORY="/WAS_REPORT_GENERATION/docs"
-export WAS_EMAIL_SOURCE="verified-sender@example.gov"
+cd backend/was
+./scripts/create-local-env.sh
+```
+
+The script copies `dev.env` to `.env`, sets local file permissions to `600`, and
+refuses to overwrite an existing `.env`. Replace all placeholder values before
+running WAS.
+
+`dev.env` documents the required constants:
+
+```bash
+WAS_DB_HOST=replace-me-rds-endpoint
+WAS_DB_NAME=was
+WAS_DB_USERNAME=was_app
+WAS_DB_PASSWORD=replace-me
+WAS_DB_PORT=5432
+WAS_DB_SSLMODE=require
+WAS_QUALYS_USERNAME=replace-me
+WAS_QUALYS_PASSWORD=replace-me
+WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
+WAS_SHARE_DRIVE=/WAS_REPORT_GENERATION
+WAS_CONFIG_PATH=/WAS_REPORT_GENERATION/docs/was_config.txt
+WAS_LEGACY_ROOT=/WAS_REPORT_GENERATION
+WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
+WAS_DAILY_WAS_LOG=/WAS_REPORT_GENERATION/WAS_Tools/update_tracker/dailywas.log
+WAS_PASSWORD_LENGTH=24
+WAS_EMAIL_SOURCE=verified-sender@example.gov
 ```
 
 Do not commit `.env`, `was_config.txt`, database passwords, Qualys credentials,
 or generated reports.
+
+The modern WAS code reads constants from `backend/was/.env` during local
+execution. In a container, pass the same file with `docker run --env-file .env`.
+For legacy compatibility, WAS generates `was_config.txt` at `WAS_CONFIG_PATH`
+from `WAS_QUALYS_USERNAME`, `WAS_QUALYS_PASSWORD`, and `WAS_QUALYS_HOSTNAME`
+when that config file does not already exist.
+`WAS_SHARE_DRIVE` represents the original shared-drive root. In the container
+it defaults to `/WAS_REPORT_GENERATION`, which is the working directory created
+for legacy-compatible WAS files.
+When present, `WAS_DAILY_WAS_LOG` is also written into the generated legacy
+`[was_files]` section. Daily tracker, customer data, and special-case XLSX paths
+are no longer required by the active tracker workflow.
 
 ## Install Locally
 
@@ -76,7 +125,6 @@ Generate all due stakeholder reports from `was_stakeholders.next_scheduled`:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   --create-missing-password
@@ -87,7 +135,6 @@ Limit a test run to one due stakeholder:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   --create-missing-password \
@@ -105,12 +152,10 @@ Generate a report using an existing stakeholder password from Postgres:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" \
-  --config-path /app/was_config.txt \
   --legacy-root /WAS_REPORT_GENERATION
 ```
 
@@ -119,13 +164,11 @@ Generate a report and create a stakeholder password if one does not exist:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" \
   --create-missing-password \
-  --config-path /app/was_config.txt \
   --legacy-root /WAS_REPORT_GENERATION
 ```
 
@@ -134,13 +177,11 @@ Allow an unencrypted output only when intentionally approved:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" \
   --allow-unencrypted \
-  --config-path /app/was_config.txt \
   --legacy-root /WAS_REPORT_GENERATION
 ```
 
@@ -155,7 +196,6 @@ Create a missing password for a stakeholder during report generation:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   was-reports \
@@ -167,7 +207,6 @@ Change an existing stakeholder password by generating a new password:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" --change-password
@@ -207,7 +246,6 @@ Run the scheduled report batch container:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/path/was_config.txt:/app/was_config.txt:ro \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   --create-missing-password
@@ -259,6 +297,138 @@ docker run --rm \
 Use `--include-previous-failures` with `--all-ready` when retrying report runs
 that already have `email_error` populated.
 
+### Send Assignee Tracker Digests
+
+Assignee tracker digest emails use `was_assignees.email`. Populate that field
+before enabling production delivery. `--test-recipients` should be used for
+validation because it overrides the assignee email recipients.
+Each digest includes a CSV attachment containing that assignee's tracker rows.
+
+Apply the existing database update script before using this command against an
+already-created WAS database:
+
+```bash
+PGPASSWORD="$WAS_DB_PASSWORD" psql \
+  --host "$WAS_DB_HOST" \
+  --port "$WAS_DB_PORT" \
+  --username "$WAS_DB_USERNAME" \
+  --dbname "$WAS_DB_NAME" \
+  -f schema/updates/006_add_assignee_email_fields.sql
+```
+
+Send unsent tracker rows grouped by assignee:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  --entrypoint ./worker/was-mailer-start.sh \
+  was-reporting \
+  --assignee-digests
+```
+
+Dry run assignee digests for one pull date:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  --entrypoint ./worker/was-mailer-start.sh \
+  was-reporting \
+  --assignee-digests \
+  --data-pull-date "2026-08-26" \
+  --test-recipients "operator@example.gov" \
+  --dry-run
+```
+
+### Manage Special Cases
+
+`was_special_cases` stores active tag values that should bypass automatic NWS
+deletion logic. The initial seeded values are `CROSSFEED`, `CBOE`, and `SCCCS`.
+
+Apply the special-case table update against an already-created WAS database:
+
+```bash
+PGPASSWORD="$WAS_DB_PASSWORD" psql \
+  --host "$WAS_DB_HOST" \
+  --port "$WAS_DB_PORT" \
+  --username "$WAS_DB_USERNAME" \
+  --dbname "$WAS_DB_NAME" \
+  -f schema/updates/007_create_was_special_cases.sql
+```
+
+List active special cases:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-special-cases list
+```
+
+Add or reactivate a special case:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-special-cases add "CUSTOMER_TAG"
+```
+
+Deactivate a special case without deleting history:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-special-cases remove "CUSTOMER_TAG"
+```
+
+### Export Tracker CSV
+
+Export tracker rows from Postgres to CSV:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v "$(pwd)/local-output:/output" \
+  was-reporting \
+  was-tracker export-csv \
+  --output /output/was-daily-tracker.csv
+```
+
+Export one pull date:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v "$(pwd)/local-output:/output" \
+  was-reporting \
+  was-tracker export-csv \
+  --data-pull-date "2026-08-26" \
+  --output /output/was-daily-tracker-2026-08-26.csv
+```
+
+### Update Daily Tracker
+
+Run the Qualys daily tracker update and write tracker rows to Postgres. This
+default command is non-destructive and does not delete Qualys web applications:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-update-tracker
+```
+
+Run the same workflow and allow Qualys web application deletions identified by
+the NWS removal workflow:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-update-tracker --delete-apps
+```
+
 ## Developer Usage
 
 Developers can run `was-reports` directly after installing the package locally.
@@ -267,6 +437,42 @@ container commands.
 
 ```bash
 was-reports --tag "CUSTOMER_TAG" --change-password
+```
+
+## Export Sanitized XML
+
+Export the legacy XML-only report for one stakeholder from the container. The
+command removes Qualys company and user metadata before writing the file.
+
+```bash
+mkdir -p local-output
+docker run --rm \
+  --env-file .env \
+  -v "$(pwd)/local-output:/output" \
+  was-reporting \
+  was-export-xml \
+  --tag "REPLACE_WITH_CUSTOMER_TAG" \
+  --filename "customer-report.xml" \
+  --output-directory /output
+```
+
+The tag value should be quoted. Replace `REPLACE_WITH_CUSTOMER_TAG` with the
+stakeholder tag stored in Qualys.
+
+## Makefile Shortcuts
+
+Run these from `backend/was`:
+
+```bash
+make build
+make test
+make lint
+make xml-help
+make special-cases
+make tracker-csv
+make update-tracker
+make update-tracker-delete-apps
+make assignee-digests
 ```
 
 ## Validate
@@ -295,8 +501,12 @@ bash -n backend/was/worker/was-report-start.sh
 
 ## Migration Notes
 
-- DynamoDB stakeholder password lookup is being replaced by Postgres
-  `was_stakeholders.report_password`.
+- DynamoDB stakeholder lookups in the active report and daily tracker paths are
+  replaced by Postgres `was_stakeholders`.
+- The daily tracker XLSX output path is replaced by Postgres
+  `was_daily_report_tracker`.
+- The legacy `No NWS Deletions` special-cases workbook is replaced by Postgres
+  `was_special_cases`.
 - The current password model is stakeholder-level, not per-report.
 - The legacy PDF generator has not yet been rewritten to ReportLab.
 - The next refactor should split Qualys retrieval, report transformation, PDF

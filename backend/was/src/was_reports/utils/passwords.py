@@ -1,10 +1,12 @@
 """Password helpers for WAS PDF report encryption."""
 
 # Standard Python Libraries
-import os
 import secrets
 import string
 from typing import Iterable
+
+# First-Party Libraries
+from was_reports.utils.env import getenv
 
 BANNED_PASSWORD_CHARACTERS = frozenset(["'", ",", "-"])
 DEFAULT_PASSWORD_LENGTH = 24
@@ -18,7 +20,7 @@ PASSWORD_CHARACTER_SET = "".join(
 
 def password_length_from_environment() -> int:
     """Return the configured WAS password length."""
-    raw_length = os.environ.get("WAS_PASSWORD_LENGTH")
+    raw_length = getenv("WAS_PASSWORD_LENGTH")
     if not raw_length:
         return DEFAULT_PASSWORD_LENGTH
 

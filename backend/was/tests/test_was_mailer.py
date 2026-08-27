@@ -3,15 +3,21 @@
 # Standard Python Libraries
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 # First-Party Libraries
 from was_mailer import email_reports
 from was_mailer.message import (
+    build_assignee_digest_email,
     build_report_email,
     parse_email_addresses,
     recipient_addresses,
+)
+from was_reports.data.daily_report_tracker import (
+    AssigneeDigest,
+    DailyReportTrackerRow,
 )
 from was_reports.data.report_runs import ReportRunEmail
 
@@ -79,6 +85,42 @@ class WasMailerTests(unittest.TestCase):
                     stakeholder_tag="TAG1",
                     report_path=report_path,
                 )
+
+    def test_build_assignee_digest_email_lists_tracker_rows(self) -> None:
+        """Build a plain text assignee assignment digest."""
+        digest = AssigneeDigest(
+            assignee_id=3,
+            assignee="Analyst",
+            email="analyst@example.gov",
+            rows=[
+                DailyReportTrackerRow(
+                    data_pull_date=date(2026, 8, 26),
+                    tag="TAG1",
+                    scan_name="Scan 1",
+                    status="Finished",
+                    result="Successful",
+                    template="Results",
+                    next_scan_date=date(2026, 9, 25),
+                )
+            ],
+        )
+
+        message = build_assignee_digest_email(
+            source_email="sender@example.gov",
+            recipients=["analyst@example.gov"],
+            assignee_digest=digest,
+        )
+
+        self.assertEqual(message["To"], "analyst@example.gov")
+        self.assertEqual(
+            message["Subject"],
+            "WAS Daily Tracker Assignments for Analyst",
+        )
+        body = message.get_body(preferencelist=("plain",)).get_content()
+
+        self.assertIn("TAG1", body)
+        self.assertNotIn("password123", body)
+        self.assertIn("was-daily-tracker-analyst.csv", message.as_string())
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
     @patch("was_mailer.email_reports.get_report_run_email_by_id")
@@ -253,6 +295,61 @@ class WasMailerTests(unittest.TestCase):
             limit=1,
             include_previous_failures=False,
         )
+
+    @patch("was_mailer.email_reports.send_ready_assignee_digests")
+    def test_main_assignee_digests_routes_to_digest_mode(
+        self,
+        mock_send_digests,
+    ) -> None:
+        """Route assignee digest CLI mode to the digest mailer."""
+        exit_code = email_reports.main(
+            [
+                "--assignee-digests",
+                "--source-email",
+                "sender@example.gov",
+                "--test-recipients",
+                "test@example.gov",
+                "--dry-run",
+                "--data-pull-date",
+                "2026-08-26",
+                "--limit",
+                "5",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_send_digests.assert_called_once_with(
+            source_email="sender@example.gov",
+            override_recipients="test@example.gov",
+            dry_run=True,
+            data_pull_date=date(2026, 8, 26),
+            limit=5,
+        )
+
+    @patch("was_mailer.email_reports.mark_assignee_digest_success_for_dates")
+    def test_send_assignee_digest_email_sends_with_ses(
+        self,
+        mock_mark_success,
+    ) -> None:
+        """Send an assignee digest through SES."""
+        digest = AssigneeDigest(
+            assignee_id=3,
+            assignee="Analyst",
+            email="analyst@example.gov",
+            rows=[DailyReportTrackerRow(data_pull_date=date(2026, 8, 26))],
+        )
+        ses_client = Mock()
+        ses_client.send_raw_email.return_value = {"MessageId": "message-id"}
+
+        message_id = email_reports.send_assignee_digest_email(
+            assignee_digest=digest,
+            source_email="sender@example.gov",
+            ses_client=ses_client,
+        )
+
+        self.assertEqual(message_id, "message-id")
+        self.assertEqual(ses_client.send_raw_email.call_count, 1)
+        mock_mark_success.assert_called_once_with(digest, "message-id")
 
 
 if __name__ == "__main__":

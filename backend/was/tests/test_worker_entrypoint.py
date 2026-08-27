@@ -17,6 +17,10 @@ class WorkerEntrypointTests(unittest.TestCase):
             directory_path = Path(directory)
             batch_command = directory_path / "was-report-batch"
             reports_command = directory_path / "was-reports"
+            xml_export_command = directory_path / "was-export-xml"
+            special_cases_command = directory_path / "was-special-cases"
+            tracker_command = directory_path / "was-tracker"
+            update_tracker_command = directory_path / "was-update-tracker"
             config_path = directory_path / "was_config.txt"
 
             batch_command.write_text(
@@ -27,8 +31,28 @@ class WorkerEntrypointTests(unittest.TestCase):
                 "#!/bin/sh\necho reports \"$@\"\n",
                 encoding="utf-8",
             )
+            xml_export_command.write_text(
+                "#!/bin/sh\necho export-xml \"$@\"\n",
+                encoding="utf-8",
+            )
+            special_cases_command.write_text(
+                "#!/bin/sh\necho special-cases \"$@\"\n",
+                encoding="utf-8",
+            )
+            tracker_command.write_text(
+                "#!/bin/sh\necho tracker \"$@\"\n",
+                encoding="utf-8",
+            )
+            update_tracker_command.write_text(
+                "#!/bin/sh\necho update-tracker \"$@\"\n",
+                encoding="utf-8",
+            )
             batch_command.chmod(0o755)
             reports_command.chmod(0o755)
+            xml_export_command.chmod(0o755)
+            special_cases_command.chmod(0o755)
+            tracker_command.chmod(0o755)
+            update_tracker_command.chmod(0o755)
 
             if config_exists:
                 config_path.write_text("[info]\n", encoding="utf-8")
@@ -62,22 +86,56 @@ class WorkerEntrypointTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("reports --help", result.stdout)
 
-    def test_single_report_routes_after_config_check(self) -> None:
-        """Route single report commands when config exists."""
+    def test_single_report_routes_to_single_report_command(self) -> None:
+        """Route single report commands to the single report CLI."""
         result = self.run_entrypoint(
             ["was-reports", "--tag", "TAG1", "--change-password"],
-            config_exists=True,
         )
 
         self.assertEqual(result.returncode, 0)
         self.assertIn("reports --tag TAG1 --change-password", result.stdout)
 
-    def test_missing_config_fails_non_help_commands(self) -> None:
-        """Reject report commands when config is missing."""
+    def test_batch_command_routes_without_config_file(self) -> None:
+        """Route batch commands because config can be generated from .env."""
         result = self.run_entrypoint(["--limit", "1"])
 
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("WAS config file not found", result.stderr)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("batch --limit 1", result.stdout)
+
+    def test_xml_export_routes_to_xml_export_command(self) -> None:
+        """Route XML export arguments to the XML export CLI."""
+        result = self.run_entrypoint(
+            ["was-export-xml", "--tag", "TAG1", "--filename", "tag1.xml"],
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(
+            "export-xml --tag TAG1 --filename tag1.xml",
+            result.stdout,
+        )
+
+    def test_special_cases_routes_to_special_cases_command(self) -> None:
+        """Route special case commands to the special case CLI."""
+        result = self.run_entrypoint(["was-special-cases", "list"])
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("special-cases list", result.stdout)
+
+    def test_tracker_routes_to_tracker_command(self) -> None:
+        """Route tracker commands to the tracker CLI."""
+        result = self.run_entrypoint(
+            ["was-tracker", "export-csv", "--output", "/tmp/tracker.csv"],
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("tracker export-csv --output /tmp/tracker.csv", result.stdout)
+
+    def test_update_tracker_routes_to_update_tracker_command(self) -> None:
+        """Route update tracker commands to the update tracker CLI."""
+        result = self.run_entrypoint(["was-update-tracker", "--delete-apps"])
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("update-tracker --delete-apps", result.stdout)
 
 
 if __name__ == "__main__":
