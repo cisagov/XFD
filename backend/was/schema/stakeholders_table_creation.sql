@@ -76,6 +76,17 @@ CREATE TABLE was_assignees (
     updated_at               TIMESTAMPTZ DEFAULT NOW()
 );
 
+INSERT INTO was_assignees (name)
+VALUES
+    ('Mina Salehi'),
+    ('Tenesa Ellis'),
+    ('Brycen Ford'),
+    ('Zack Cogswell'),
+    ('Justin Rothfleisch'),
+    ('Oscar Saunders'),
+    ('Wale Ojelabi')
+ON CONFLICT (name) DO NOTHING;
+
 CREATE TABLE was_daily_report_tracker (
     id                       BIGSERIAL PRIMARY KEY,
     source_row_number        INTEGER,
@@ -123,6 +134,13 @@ CREATE INDEX was_daily_report_tracker_next_scan_date_idx
 
 CREATE INDEX was_daily_report_tracker_schedule_id_idx
     ON was_daily_report_tracker (schedule_id);
+
+CREATE INDEX was_daily_report_tracker_assignee_email_idx
+    ON was_daily_report_tracker (
+        assignee_id,
+        data_pull_date,
+        assignee_emailed_at
+    );
 
 CREATE TABLE was_special_cases (
     id                       BIGSERIAL PRIMARY KEY,
