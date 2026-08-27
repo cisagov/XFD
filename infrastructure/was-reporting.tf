@@ -2,6 +2,10 @@
 # structure in open_cti.tf without installing the OpenCTI workload.
 
 locals {
+  # WAS reporting is a DMZ-only workload. Using this local for every resource
+  # guarantees the feature flag is a no-op in Landing Zone environments.
+  create_was_reporting_instance = var.is_dmz && var.create_was_reporting_instance
+
   # staging-cd shares the staging Parameter Store namespace; other stages use
   # their own namespace unless an explicit override is supplied.
   was_reporting_ssm_stage = var.stage == "staging-cd" ? "staging" : var.stage
@@ -21,7 +25,7 @@ locals {
 }
 
 resource "aws_iam_role" "was_reporting" {
-  count = var.create_was_reporting_instance ? 1 : 0
+  count = local.create_was_reporting_instance ? 1 : 0
   name  = "crossfeed-was-reporting-${var.stage}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -37,21 +41,21 @@ resource "aws_iam_role" "was_reporting" {
 }
 
 resource "aws_iam_instance_profile" "was_reporting" {
-  count = var.create_was_reporting_instance ? 1 : 0
+  count = local.create_was_reporting_instance ? 1 : 0
   name  = "crossfeed-was-reporting-${var.stage}"
   role  = aws_iam_role.was_reporting[0].id
 }
 
 # SSM Session Manager is the administration path; no SSH ingress is needed.
 resource "aws_iam_role_policy_attachment" "was_reporting_ssm_core" {
-  count      = var.create_was_reporting_instance ? 1 : 0
+  count      = local.create_was_reporting_instance ? 1 : 0
   role       = aws_iam_role.was_reporting[0].name
   policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 # Restrict Parameter Store reads to WAS reporting's own hierarchy.
 resource "aws_iam_role_policy" "was_reporting_ssm_read" {
-  count = var.create_was_reporting_instance ? 1 : 0
+  count = local.create_was_reporting_instance ? 1 : 0
   name  = "crossfeed-was-reporting-${var.stage}-ssm-read"
   role  = aws_iam_role.was_reporting[0].id
   policy = jsonencode({
@@ -71,7 +75,7 @@ resource "aws_iam_role_policy" "was_reporting_ssm_read" {
 # Parameter Store values encrypted with a customer-managed key need a
 # separate, narrowly scoped decrypt grant. No policy is created when unset.
 resource "aws_iam_role_policy" "was_reporting_kms_decrypt" {
-  count = var.create_was_reporting_instance && var.was_reporting_kms_key_arn != null ? 1 : 0
+  count = local.create_was_reporting_instance && var.was_reporting_kms_key_arn != null ? 1 : 0
   name  = "crossfeed-was-reporting-${var.stage}-kms-decrypt"
   role  = aws_iam_role.was_reporting[0].id
   policy = jsonencode({
@@ -94,7 +98,7 @@ resource "aws_iam_role_policy" "was_reporting_kms_decrypt" {
 
 # DMZ deployments adopt an approved, pre-existing subnet and security group.
 data "aws_subnet" "was_reporting" {
-  count = var.create_was_reporting_instance && var.is_dmz ? 1 : 0
+  count = local.create_was_reporting_instance ? 1 : 0
   id    = var.was_reporting_subnet_id
 
   lifecycle {
@@ -106,7 +110,7 @@ data "aws_subnet" "was_reporting" {
 }
 
 data "aws_security_group" "was_reporting" {
-  count = var.create_was_reporting_instance && var.is_dmz ? 1 : 0
+  count = local.create_was_reporting_instance ? 1 : 0
   id    = var.was_reporting_security_group_id
 
   lifecycle {
@@ -117,71 +121,17 @@ data "aws_security_group" "was_reporting" {
   }
 }
 
-# Landing Zone deployments create an egress-only security group. SSM is
-# outbound initiated, so no inbound rule is required.
-resource "aws_security_group" "was_reporting_lz" {
-  count       = var.create_was_reporting_instance && !var.is_dmz ? 1 : 0
-  name        = "crossfeed-was-reporting-${var.stage}"
-  description = "WAS reporting EC2 (Landing Zone) -- egress only"
-  vpc_id      = data.aws_ssm_parameter.vpc_id[0].value
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = local.was_reporting_tags
-}
-
-# This group is attached to RDS and scopes access to the WAS host's SG.
-resource "aws_security_group" "was_reporting_db_access" {
-  count       = var.create_was_reporting_instance && !var.is_dmz ? 1 : 0
-  name        = "crossfeed-was-reporting-db-access-${var.stage}"
-  description = "Allows the WAS reporting EC2 instance to reach Crossfeed Postgres"
-  vpc_id      = data.aws_ssm_parameter.vpc_id[0].value
-
-  ingress {
-    description     = "Postgres from WAS reporting EC2"
-    from_port       = var.db_port
-    to_port         = var.db_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.was_reporting_lz[0].id]
-  }
-
-  tags = local.was_reporting_tags
-}
-
-# The matching Postgres role and GRANT rds_iam are created out of band.
-resource "aws_iam_role_policy" "was_reporting_rds_iam_auth" {
-  count = var.create_was_reporting_instance && !var.is_dmz ? 1 : 0
-  name  = "crossfeed-was-reporting-${var.stage}-rds-iam-auth"
-  role  = aws_iam_role.was_reporting[0].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["rds-db:connect"]
-      Resource = "arn:${var.aws_partition}:rds-db:${var.aws_region}:${data.aws_caller_identity.current.account_id}:dbuser:${aws_db_instance.db.resource_id}/${var.was_reporting_db_username}"
-    }]
-  })
-}
-
 resource "aws_instance" "was_reporting" {
-  count = var.create_was_reporting_instance ? 1 : 0
-  # These currently match OpenCTI's approved base AMIs, but remain separate so
+  count = local.create_was_reporting_instance ? 1 : 0
+  # This currently matches OpenCTI's approved DMZ AMI, but remains separate so
   # either workload can change AMIs independently in the future.
-  ami                         = var.is_dmz ? var.was_reporting_ami_id : var.lz_was_reporting_ami_id
+  ami                         = var.was_reporting_ami_id
   instance_type               = var.was_reporting_instance_type
   associate_public_ip_address = false
 
-  subnet_id = var.is_dmz ? data.aws_subnet.was_reporting[0].id : data.aws_ssm_parameter.subnet_backend_id[0].value
-  vpc_security_group_ids = var.is_dmz ? concat(
+  subnet_id = data.aws_subnet.was_reporting[0].id
+  vpc_security_group_ids = concat(
     [data.aws_security_group.was_reporting[0].id],
-    var.was_reporting_approved_security_group_ids,
-    ) : concat(
-    [aws_security_group.was_reporting_lz[0].id],
     var.was_reporting_approved_security_group_ids,
   )
 
@@ -210,8 +160,8 @@ resource "aws_instance" "was_reporting" {
     ignore_changes = [ami]
 
     precondition {
-      condition     = trimspace(var.is_dmz ? var.was_reporting_ami_id : var.lz_was_reporting_ami_id) != ""
-      error_message = "The WAS reporting AMI for this environment must be set before enabling WAS reporting."
+      condition     = trimspace(var.was_reporting_ami_id) != ""
+      error_message = "was_reporting_ami_id must be set before enabling WAS reporting."
     }
   }
 
@@ -222,6 +172,5 @@ resource "aws_instance" "was_reporting" {
     aws_iam_role_policy_attachment.was_reporting_ssm_core,
     aws_iam_role_policy.was_reporting_ssm_read,
     aws_iam_role_policy.was_reporting_kms_decrypt,
-    aws_iam_role_policy.was_reporting_rds_iam_auth,
   ]
 }

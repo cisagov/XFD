@@ -79,7 +79,6 @@ resource "aws_db_instance" "db" {
   vpc_security_group_ids = compact([
     var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id,
     (var.create_open_cti_instance && !var.is_dmz) ? aws_security_group.open_cti_db_access[0].id : null,
-    (var.create_was_reporting_instance && !var.is_dmz) ? aws_security_group.was_reporting_db_access[0].id : null,
   ])
 
   tags = {

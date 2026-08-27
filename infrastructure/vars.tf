@@ -814,7 +814,7 @@ variable "ami_id" {
 }
 
 variable "create_was_reporting_instance" {
-  description = "Whether to create or manage the WAS reporting EC2 instance."
+  description = "Whether to create or manage the WAS reporting EC2 instance. Ignored outside DMZ environments."
   type        = bool
   default     = false
 }
@@ -823,12 +823,6 @@ variable "was_reporting_ami_id" {
   description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment. Initially matches the OpenCTI DMZ AMI but can evolve independently."
   type        = string
   default     = "ami-0fb0b230890ccd1e6"
-}
-
-variable "lz_was_reporting_ami_id" {
-  description = "AMI ID for the WAS reporting EC2 instance in Landing Zone environments. Initially matches the OpenCTI Landing Zone AMI but can evolve independently."
-  type        = string
-  default     = "ami-035b0309a54bd5b23"
 }
 
 variable "was_reporting_instance_type" {
@@ -894,12 +888,6 @@ variable "was_reporting_kms_key_arn" {
     condition     = var.was_reporting_kms_key_arn == null || can(regex("^arn:[^:]+:kms:[^:]+:[0-9]{12}:key/.+$", var.was_reporting_kms_key_arn))
     error_message = "was_reporting_kms_key_arn must be null or a valid KMS key ARN."
   }
-}
-
-variable "was_reporting_db_username" {
-  description = "Dedicated Postgres role used by WAS reporting with IAM database authentication in Landing Zone environments."
-  type        = string
-  default     = "was_reporting"
 }
 
 variable "was_reporting_approved_security_group_ids" {
