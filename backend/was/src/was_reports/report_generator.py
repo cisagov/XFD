@@ -5,6 +5,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -147,6 +148,35 @@ def generate_report(
     return require_output_file(output_path)
 
 
+def generate_extracted_report(
+    stakeholder_tag: str,
+    config_path: Path,
+    legacy_root: Path,
+    workspace_root: Path,
+    output_directory: Path,
+    python_executable: str,
+    report_password: str,
+) -> Path:
+    """Run the opt-in extracted pipeline and return its encrypted PDF."""
+    from was_reports.qualys_client import create_qualys_client
+    from was_reports.report_service import generate_encrypted_report
+    from was_reports.utils.qualys_config import load_qualys_credentials
+
+    credentials = load_qualys_credentials(config_path)
+    client = create_qualys_client(config_path)
+    return generate_encrypted_report(
+        client=client,
+        credentials=credentials,
+        stakeholder_tag=stakeholder_tag,
+        legacy_root=legacy_root,
+        workspace_root=workspace_root,
+        output_directory=output_directory,
+        python_executable=python_executable,
+        current_time=datetime.now(timezone.utc),
+        report_password=report_password,
+    )
+
+
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command line arguments for WAS report generation."""
     default_config_path = getenv(
@@ -155,6 +185,9 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
     default_output_directory = getenv(
         "WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"
+    )
+    default_workspace_root = getenv(
+        "WAS_WORKSPACE_ROOT", "/tmp/was-report-workspaces"
     )
 
     parser = argparse.ArgumentParser(
@@ -168,6 +201,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-password",
+        "--encrypt",
+        dest="report_password",
         help="Password used to encrypt the PDF report.",
     )
     parser.add_argument(
@@ -205,6 +240,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         default=default_output_directory,
         help="Directory where generated WAS PDF reports are written.",
     )
+    parser.add_argument(
+        "--workspace-root",
+        default=default_workspace_root,
+        help="Temporary root for isolated extracted-pipeline workspaces.",
+    )
+    parser.add_argument(
+        "--use-extracted-pipeline",
+        action="store_true",
+        help="Opt in to the extracted WAS pipeline instead of the legacy script.",
+    )
     return parser.parse_args(argv)
 
 
@@ -225,6 +270,22 @@ def main(argv: Optional[List[str]] = None) -> int:
         allow_unencrypted=args.allow_unencrypted,
         create_missing_password=args.create_missing_password,
     )
+    if args.use_extracted_pipeline:
+        if args.allow_unencrypted:
+            raise ValueError(
+                "The extracted WAS pipeline requires PDF encryption."
+            )
+        generate_extracted_report(
+            stakeholder_tag=stakeholder_tag,
+            config_path=config_path,
+            legacy_root=legacy_root,
+            workspace_root=Path(args.workspace_root),
+            output_directory=Path(args.output_directory),
+            python_executable=args.python_executable,
+            report_password=report_password,
+        )
+        return 0
+
     generate_report(
         stakeholder_tag=stakeholder_tag,
         config_path=config_path,

@@ -10,7 +10,8 @@ stakeholder lookup, and report password management.
 - `was-report-batch` is the default container command for scheduled reports.
 - `was-reports` generates or manages one stakeholder report.
 - `src/was_reports/report_generator.py` validates CLI input and calls the
-  legacy report creator.
+  legacy report creator by default. An explicit migration-test flag can call
+  the extracted pipeline without changing production routing.
 - `src/was_reports/qualys_client.py` provides the WAS-owned Qualys API client
   boundary that future report internals should use.
 - `src/was_reports/report_data.py` contains migrated Qualys report-data helpers
@@ -76,6 +77,7 @@ WAS_SHARE_DRIVE=/WAS_REPORT_GENERATION
 WAS_CONFIG_PATH=/WAS_REPORT_GENERATION/docs/was_config.txt
 WAS_LEGACY_ROOT=/WAS_REPORT_GENERATION
 WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
+WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
 WAS_DAILY_WAS_LOG=/WAS_REPORT_GENERATION/WAS_Tools/update_tracker/dailywas.log
 WAS_PASSWORD_LENGTH=24
 WAS_EMAIL_SOURCE=verified-sender@example.gov
@@ -158,6 +160,63 @@ docker run --rm \
   --tag "CUSTOMER_TAG" \
   --legacy-root /WAS_REPORT_GENERATION
 ```
+
+Run the extracted pipeline only for controlled equivalence testing. This keeps
+the same stakeholder tag and encryption-password inputs used by the legacy
+workflow, but adds an explicit opt-in flag:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v "$(pwd)/local-output:/WAS_REPORT_GENERATION/docs" \
+  was-reporting \
+  was-reports \
+  -t "CUSTOMER_TAG" \
+  --encrypt "TEST_PASSWORD" \
+  --use-extracted-pipeline
+```
+
+Do not place a production password directly in interactive shell history.
+Normal operation should continue resolving the stakeholder password from
+Postgres by omitting `--encrypt`. The extracted route always requires
+encryption and deletes its isolated temporary workspace after completion.
+
+Before Qualys credentials are available, run the offline container smoke test.
+It uses representative XML with the real Mustache template, static report
+assets, chart generators, XeLaTeX compiler, and PikePDF encryption:
+
+```bash
+mkdir -p local-output/offline-smoke
+docker run --rm \
+  -v "$(pwd):/workspace:ro" \
+  -v "$(pwd)/local-output/offline-smoke:/offline-output" \
+  --entrypoint python \
+  was-reporting:extracted-validation \
+  /workspace/scripts/offline_pipeline_smoke.py \
+  --legacy-root /WAS_REPORT_GENERATION \
+  --fixture /workspace/tests/fixtures/was_report_sample.xml \
+  --output-directory /offline-output
+```
+
+This test does not call Qualys or Postgres. A successful result proves local
+artifact generation, template compilation, encryption, and publication, but it
+does not prove live API compatibility or production data equivalence.
+
+When both live reports are available, compare them without placing the report
+password on the command line:
+
+```bash
+read -s WAS_REPORT_COMPARISON_PASSWORD
+export WAS_REPORT_COMPARISON_PASSWORD
+was-compare-reports /path/to/legacy.pdf /path/to/extracted.pdf
+unset WAS_REPORT_COMPARISON_PASSWORD
+```
+
+The command compares encryption state, page count, page dimensions, normalized
+page text hashes, selected metadata, and embedded attachment names and hashes.
+It recognizes both document names-tree attachments and page-level attachment
+annotations produced by XeLaTeX `attachfile2`. It never writes a decrypted
+report to disk or prints the password.
 
 Generate a report and create a stakeholder password if one does not exist:
 
@@ -459,6 +518,83 @@ docker run --rm \
 The tag value should be quoted. Replace `REPLACE_WITH_CUSTOMER_TAG` with the
 stakeholder tag stored in Qualys.
 
+## List WAS Stakeholders
+
+List the child tags under `WAS_CUSTOMERS` with each tag's Qualys web
+application count:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-inventory
+```
+
+The command is read-only and prints stable tab-separated output with tag,
+description, and web application count columns.
+
+## Qualys Administration
+
+The original tag, false-positive, reactivation, and deletion workflows are
+available through the guarded `was-admin` command. These commands modify
+Qualys state, are not part of scheduled report generation, and require an
+explicit confirmation argument. They accept validated values directly instead
+of reading operator-managed CSV files.
+
+Add or remove a stakeholder tag from one exact web application URL:
+
+```bash
+docker run --rm --env-file .env was-reporting was-admin \
+  add-tag \
+  --url "https://REPLACE_WITH_WEB_APPLICATION_URL" \
+  --tag "REPLACE_WITH_QUALYS_TAG" \
+  --confirm
+
+docker run --rm --env-file .env was-reporting was-admin \
+  remove-tag \
+  --url "https://REPLACE_WITH_WEB_APPLICATION_URL" \
+  --tag "REPLACE_WITH_QUALYS_TAG" \
+  --confirm
+```
+
+Mark one finding as a false positive. Do not place sensitive data in the
+comment because the comment is stored by Qualys:
+
+```bash
+docker run --rm --env-file .env was-reporting was-admin \
+  false-positive \
+  --finding-id "REPLACE_WITH_FINDING_ID" \
+  --comment "REPLACE_WITH_APPROVED_JUSTIFICATION" \
+  --confirm
+```
+
+Reactivate one web application and set one or more tags. Repeat `--tag` for
+each tag that must be present:
+
+```bash
+docker run --rm --env-file .env was-reporting was-admin \
+  reactivate \
+  --url "https://REPLACE_WITH_WEB_APPLICATION_URL" \
+  --tag "REPLACE_WITH_QUALYS_TAG" \
+  --tag "REPLACE_WITH_ADDITIONAL_QUALYS_TAG" \
+  --confirm
+```
+
+Deleting a web application also removes it from the Qualys subscription. The
+operator must repeat the exact URL in `--confirm-url`:
+
+```bash
+docker run --rm --env-file .env was-reporting was-admin \
+  delete-webapp \
+  --url "https://REPLACE_WITH_WEB_APPLICATION_URL" \
+  --confirm-url "https://REPLACE_WITH_WEB_APPLICATION_URL"
+```
+
+Use only approved nonproduction targets until the commands have completed live
+Qualys validation. Container output records whether the requested operation
+completed, but durable centralized audit-log retention depends on the final ECS
+logging configuration.
+
 ## Makefile Shortcuts
 
 Run these from `backend/was`:
@@ -468,6 +604,8 @@ make build
 make test
 make lint
 make xml-help
+make inventory
+make admin-help
 make special-cases
 make tracker-csv
 make update-tracker

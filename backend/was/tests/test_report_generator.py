@@ -36,6 +36,15 @@ class ReportGeneratorTests(unittest.TestCase):
             ],
         )
 
+    def test_parse_args_accepts_legacy_encrypt_alias(self) -> None:
+        """Accept the observed legacy password flag at the modern CLI boundary."""
+        arguments = report_generator.parse_args(
+            ["-t", "TEST_TAG", "--encrypt", "password"]
+        )
+
+        self.assertEqual(arguments.tag, "TEST_TAG")
+        self.assertEqual(arguments.report_password, "password")
+
     def test_resolve_report_password_prefers_argument(self) -> None:
         """Use the explicit CLI password before querying Postgres."""
         password = report_generator.resolve_report_password(
@@ -186,6 +195,82 @@ class ReportGeneratorTests(unittest.TestCase):
 
         self.assertEqual(result, output_path)
         self.assertEqual(mock_run_report.call_count, 1)
+
+    @patch("was_reports.report_generator.generate_report")
+    @patch("was_reports.report_generator.generate_extracted_report")
+    def test_main_routes_only_explicit_opt_in_to_extracted_pipeline(
+        self,
+        mock_extracted_report,
+        mock_legacy_report,
+    ) -> None:
+        """Keep legacy default while allowing an explicit extracted test run."""
+        exit_code = report_generator.main(
+            [
+                "-t",
+                "TEST_TAG",
+                "--encrypt",
+                "SecurePassword123!",
+                "--use-extracted-pipeline",
+                "--config-path",
+                "/config/was_config.txt",
+                "--legacy-root",
+                "/WAS_REPORT_GENERATION",
+                "--output-directory",
+                "/reports",
+                "--workspace-root",
+                "/tmp/workspaces",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_legacy_report.assert_not_called()
+        mock_extracted_report.assert_called_once_with(
+            stakeholder_tag="TEST_TAG",
+            config_path=Path("/config/was_config.txt"),
+            legacy_root=Path("/WAS_REPORT_GENERATION"),
+            workspace_root=Path("/tmp/workspaces"),
+            output_directory=Path("/reports"),
+            python_executable=report_generator.sys.executable,
+            report_password="SecurePassword123!",
+        )
+
+    @patch("was_reports.report_generator.generate_report")
+    @patch("was_reports.report_generator.generate_extracted_report")
+    def test_main_preserves_legacy_default_route(
+        self,
+        mock_extracted_report,
+        mock_legacy_report,
+    ) -> None:
+        """Continue using the original creator unless the opt-in flag is set."""
+        exit_code = report_generator.main(
+            ["-t", "TEST_TAG", "--encrypt", "SecurePassword123!"]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_extracted_report.assert_not_called()
+        mock_legacy_report.assert_called_once()
+
+    @patch("was_reports.report_generator.generate_extracted_report")
+    def test_extracted_pipeline_rejects_unencrypted_mode(
+        self,
+        mock_extracted_report,
+    ) -> None:
+        """Fail closed instead of publishing an unencrypted extracted report."""
+        with patch(
+            "was_reports.report_generator.lookup_report_password",
+            return_value=None,
+        ):
+            with self.assertRaises(ValueError):
+                report_generator.main(
+                    [
+                        "-t",
+                        "TEST_TAG",
+                        "--allow-unencrypted",
+                        "--use-extracted-pipeline",
+                    ]
+                )
+
+        mock_extracted_report.assert_not_called()
 
 
 if __name__ == "__main__":

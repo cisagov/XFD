@@ -21,6 +21,16 @@ if [ "${1:-}" = "was-export-xml" ]; then
   exec was-export-xml "$@"
 fi
 
+if [ "${1:-}" = "was-inventory" ]; then
+  shift
+  exec was-inventory "$@"
+fi
+
+if [ "${1:-}" = "was-admin" ]; then
+  shift
+  exec was-admin "$@"
+fi
+
 if [ "${1:-}" = "was-special-cases" ]; then
   shift
   exec was-special-cases "$@"

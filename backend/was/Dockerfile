@@ -12,6 +12,8 @@ RUN apt-get update \
     libpq5 \
     qpdf \
     texlive-fonts-recommended \
+    texlive-latex-extra \
+    texlive-plain-generic \
     texlive-xetex \
   && rm -rf /var/lib/apt/lists/*
 

@@ -18,6 +18,8 @@ class WorkerEntrypointTests(unittest.TestCase):
             batch_command = directory_path / "was-report-batch"
             reports_command = directory_path / "was-reports"
             xml_export_command = directory_path / "was-export-xml"
+            inventory_command = directory_path / "was-inventory"
+            admin_command = directory_path / "was-admin"
             special_cases_command = directory_path / "was-special-cases"
             tracker_command = directory_path / "was-tracker"
             update_tracker_command = directory_path / "was-update-tracker"
@@ -35,6 +37,14 @@ class WorkerEntrypointTests(unittest.TestCase):
                 "#!/bin/sh\necho export-xml \"$@\"\n",
                 encoding="utf-8",
             )
+            inventory_command.write_text(
+                "#!/bin/sh\necho inventory \"$@\"\n",
+                encoding="utf-8",
+            )
+            admin_command.write_text(
+                "#!/bin/sh\necho admin \"$@\"\n",
+                encoding="utf-8",
+            )
             special_cases_command.write_text(
                 "#!/bin/sh\necho special-cases \"$@\"\n",
                 encoding="utf-8",
@@ -50,6 +60,8 @@ class WorkerEntrypointTests(unittest.TestCase):
             batch_command.chmod(0o755)
             reports_command.chmod(0o755)
             xml_export_command.chmod(0o755)
+            inventory_command.chmod(0o755)
+            admin_command.chmod(0o755)
             special_cases_command.chmod(0o755)
             tracker_command.chmod(0o755)
             update_tracker_command.chmod(0o755)
@@ -111,6 +123,33 @@ class WorkerEntrypointTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn(
             "export-xml --tag TAG1 --filename tag1.xml",
+            result.stdout,
+        )
+
+    def test_inventory_routes_to_inventory_command(self) -> None:
+        """Route inventory arguments to the inventory CLI."""
+        result = self.run_entrypoint(["was-inventory"])
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("inventory", result.stdout)
+
+    def test_admin_routes_to_admin_command(self) -> None:
+        """Route guarded Qualys administration commands to their CLI."""
+        result = self.run_entrypoint(
+            [
+                "was-admin",
+                "add-tag",
+                "--url",
+                "https://example.gov",
+                "--tag",
+                "TAG1",
+                "--confirm",
+            ]
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(
+            "admin add-tag --url https://example.gov --tag TAG1 --confirm",
             result.stdout,
         )
 

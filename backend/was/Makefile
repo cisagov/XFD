@@ -6,7 +6,7 @@ ENV_FILE ?= .env
 OUTPUT_DIR ?= $(PWD)/local-output
 TRACKER_CSV ?= $(OUTPUT_DIR)/was-daily-tracker.csv
 
-.PHONY: install test lint build help report-help xml-help mailer-help special-cases tracker-csv update-tracker update-tracker-delete-apps assignee-digests
+.PHONY: install test lint build help report-help xml-help inventory admin-help mailer-help special-cases tracker-csv update-tracker update-tracker-delete-apps assignee-digests
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -29,6 +29,12 @@ report-help:
 
 xml-help:
 	docker run --rm $(IMAGE) was-export-xml --help
+
+inventory:
+	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-inventory
+
+admin-help:
+	docker run --rm $(IMAGE) was-admin --help
 
 mailer-help:
 	docker run --rm --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --help

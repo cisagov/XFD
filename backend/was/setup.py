@@ -34,10 +34,13 @@ setup(
     install_requires=load_requirements(ROOT / "requirements.txt"),
     entry_points={
         "console_scripts": [
+            "was-admin=was_reports.admin_cli:main",
             "was-mailer=was_mailer.email_reports:main",
+            "was-compare-reports=was_reports.report_comparison:main",
             "was-report-batch=was_reports.batch_runner:main",
             "was-reports=was_reports.report_generator:main",
             "was-export-xml=was_reports.xml_export_cli:main",
+            "was-inventory=was_reports.inventory_cli:main",
             "was-special-cases=was_reports.special_cases_cli:main",
             "was-tracker=was_reports.tracker_cli:main",
             "was-update-tracker=was_reports.update_tracker_cli:main",

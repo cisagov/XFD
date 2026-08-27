@@ -2,7 +2,7 @@
 
 # Standard Python Libraries
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 # Third-Party Libraries
 from lxml import etree, objectify
@@ -13,6 +13,7 @@ from was_reports.qualys_client import QualysClient, QualysRequest
 
 WEBAPP_REPORT_TEMPLATE_ID = "1994875"
 DETAIL_REPORT_TEMPLATE_ID = "2201149"
+CUSTOMER_PARENT_TAG = "WAS_CUSTOMERS"
 
 
 def xml_to_string(root) -> str:
@@ -79,6 +80,56 @@ def count_webapps(client: QualysClient, tag_name: str) -> int:
         )
     )
     return parse_count(response_xml)
+
+
+def build_customer_tags_payload(
+    parent_tag_name: str = CUSTOMER_PARENT_TAG,
+) -> str:
+    """Build the Qualys request for child stakeholder tags."""
+    root = E.ServiceRequest(
+        E.preferences(E.limitResults("1000")),
+        E.filters(
+            E.Criteria(
+                str(parent_tag_name),
+                field="name",
+                operator="EQUALS",
+            ),
+        ),
+    )
+    return xml_to_string(root)
+
+
+def parse_customer_tags(response_xml: str) -> Dict[str, str]:
+    """Return stakeholder tag names mapped to their descriptions."""
+    root = objectify.fromstring(response_xml.encode())
+    parent_tags = root.xpath("./data/Tag")
+    if not parent_tags:
+        raise LookupError("Qualys did not return the WAS customer parent tag.")
+
+    customer_tags: Dict[str, str] = {}
+    for tag in parent_tags[0].xpath("./children/list/Tag"):
+        tag_name = str(tag.name)
+        description_elements = tag.xpath("./description")
+        description = (
+            str(description_elements[0]) if description_elements else tag_name
+        )
+        customer_tags[tag_name] = description
+    return customer_tags
+
+
+def list_customer_tags(
+    client: QualysClient,
+    parent_tag_name: str = CUSTOMER_PARENT_TAG,
+) -> Dict[str, str]:
+    """Return Qualys child tags under the WAS customer parent tag."""
+    response_xml = client.request(
+        QualysRequest(
+            endpoint="/search/am/tag",
+            payload=build_customer_tags_payload(parent_tag_name),
+            http_method="POST",
+        )
+    )
+    return parse_customer_tags(response_xml)
 
 
 def load_report_template(template_path: Path):

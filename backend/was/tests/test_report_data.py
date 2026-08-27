@@ -147,6 +147,47 @@ class ReportDataTests(unittest.TestCase):
         self.assertEqual(connection.calls[0]["http_method"], "POST")
         self.assertIn("tags.name", connection.calls[0]["payload"])
 
+    def test_list_customer_tags_returns_child_tag_descriptions(self) -> None:
+        """List child stakeholder tags beneath the WAS customer parent tag."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <data>
+                        <Tag>
+                            <name>WAS_CUSTOMERS</name>
+                            <children>
+                                <list>
+                                    <Tag>
+                                        <name>TAG_A</name>
+                                        <description>Agency A</description>
+                                    </Tag>
+                                    <Tag><name>TAG_B</name></Tag>
+                                </list>
+                            </children>
+                        </Tag>
+                    </data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        client = QualysClient(connection)
+
+        tags = report_data.list_customer_tags(client)
+
+        self.assertEqual(tags, {"TAG_A": "Agency A", "TAG_B": "TAG_B"})
+        self.assertEqual(connection.calls[0]["endpoint"], "/search/am/tag")
+        self.assertEqual(connection.calls[0]["http_method"], "POST")
+        self.assertIn("WAS_CUSTOMERS", connection.calls[0]["payload"])
+        self.assertIn("limitResults", connection.calls[0]["payload"])
+
+    def test_parse_customer_tags_rejects_missing_parent(self) -> None:
+        """Reject a Qualys response without the expected parent tag."""
+        with self.assertRaises(LookupError):
+            report_data.parse_customer_tags(
+                "<ServiceResponse><data /></ServiceResponse>"
+            )
+
     def test_create_webapp_xml_report_returns_report_id(self) -> None:
         """Create an XML report and return the Qualys report ID."""
         connection = FakeConnection(
