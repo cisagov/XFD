@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import report_data
-from was_reports.qualys_client import QualysClient
+from was_reports.qualys import report_data
+from was_reports.qualys.qualys_client import QualysClient
 
 
 class FakeConnection:

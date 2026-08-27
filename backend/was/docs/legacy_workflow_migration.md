@@ -11,7 +11,7 @@ rewrite.
   explicitly started.
 - Move functionality into WAS-owned modules under `src/was_reports` or
   `src/was_mailer`.
-- Keep Qualys data calls behind `was_reports.qualys_client`.
+- Keep Qualys data calls behind `was_reports.qualys.qualys_client`.
 - Keep stakeholder, scheduling, report-run, and password state in Postgres.
 - Keep mutating Qualys operations separate from scheduled report generation.
 - Add tests before replacing legacy behavior.
@@ -40,28 +40,28 @@ retired.
 
 | Legacy Step | Legacy Function | Target Module | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Validate operator arguments | `main` | `was_reports.report_generator` | Started | Current CLI validates the tag and accepts the observed `-t` and `--encrypt` inputs. `--use-extracted-pipeline` is an explicit equivalence-test opt-in; legacy remains the default. |
-| Count web applications | `app_count` | `was_reports.report_retrieval` | Started | Included in the tested WAS-owned retrieval sequence. Production still delegates to the legacy creator until transformation migration is ready. |
-| Resolve Qualys tag ID | `get_tag_id` | `was_reports.report_retrieval` | Started | Included in the tested WAS-owned retrieval sequence. Production still delegates to the legacy creator until transformation migration is ready. |
-| Create detail report when app count is below threshold | `create_details_report` | `was_reports.report_retrieval` | Started | The legacy threshold of fewer than 35 web applications is preserved in the tested retrieval sequence. |
-| Download detail report PDF | `download_report` | `was_reports.detail_reports` | Started | Direct download and post-processing are called by the WAS-owned retrieval sequence. Production cutover remains pending. |
-| Watermark detail report | `watermarker` | `was_reports.pdf_helpers` | Started | Migrated helper exists. It is not yet wired into the legacy execution path. |
-| Remove first page from detail report | `unfirstpagify` | `was_reports.pdf_helpers` | Started | Migrated helper exists. It is not yet wired into the legacy execution path. |
-| Redact Qualys detail PDF | `qualys_redact` | `was_reports.pdf_helpers` | Started | Migrated helper wraps `redact_qualys.py`. It is not yet wired into the legacy execution path. |
-| Create XML web application report | `create_webapp_report_v2` | `was_reports.report_retrieval` | Started | Included in the tested retrieval sequence. Template ID remains fixed for compatibility. |
-| Download XML report | `get_report` | `was_reports.report_retrieval` | Started | Included in the tested retrieval sequence with cleanup on download or downstream processing failures. |
-| Parse XML findings | `csv_genner`, finding classes | `was_reports.report_transformer` | Started | Finding and QID models are extracted with representative XML fixture coverage. Production cutover remains pending. |
-| Generate CSV artifacts | `csv_genner` | `was_reports.report_transformer` | Started | Legacy filenames, columns, fixed-finding exclusion, severity list, age list, and payload formatting are preserved in tests. |
-| Calculate graph and summary metrics | `get_summary_info`, `totalgraphgen`, `qid_counter`, `percent_donut` | `was_reports.report_metrics` | Started | Global summary, severity totals, status counts, group and OWASP mappings, cumulative monthly trends, colors, and fixed percentage are fixture-tested. |
-| Retrieve report-card finding ages | `max_age` | `was_reports.finding_ages` | Started | Critical and urgent searches preserve the tag, active-status, severity, false-positive, and one-result filters. Missing severities are handled independently instead of hiding an available age. Production cutover remains pending. |
-| Render graph images | `owasp_graph_gen`, `vulnsbygroupgraphgen`, `percent_donut`, `plot_histogram`, `monthly_trend` | `was_reports.chart_renderer` | Started | All five active PNG outputs retain legacy filenames, labels, colors, dimensions, and ordering. Deterministic render tests verify valid PNG artifacts and figure cleanup. Production cutover remains pending. |
-| Generate attachment artifacts | `webapp_vuln_table`, `app_overview_table`, `return_links`, `return_emails`, `return_rejects`, `get_ssn_and_cc` | `was_reports.report_artifacts` | Started | XML-derived CSV attachments and the two filtered Qualys sensitive-finding queries preserve legacy filenames and report-template inputs. Production cutover remains pending. |
-| Assemble report template data | `get_summary_info`, `generate_full` | `was_reports.report_template_data` | Started | All Mustache placeholders are assembled from extracted metrics and artifact filenames, including legacy colors, severity totals, report-card age positions, and the fewer-than-35-app detail attachment rule. Production cutover remains pending. |
-| Generate report body | `mustache_generate`, `generate_full` | `was_reports.latex_renderer` | Started | Mustache rendering, legacy filename construction, HTML entity decoding, LaTeX escaping, and title-width thresholds are extracted. Template-data assembly and production cutover remain pending. |
-| Compile PDF | `generate_pdf`, `cleanup` | `was_reports.latex_renderer` | Started | Runs two checked XeLaTeX passes and removes only known temporary files. The Docker image retains `texlive-xetex`; production cutover remains pending. |
-| Orchestrate extracted report pipeline | `generate_full` and active `main` path | `was_reports.report_service` | Started | Connects managed Qualys retrieval, CSV transformation, metrics, charts, attachments, finding ages, template assembly, LaTeX rendering, and atomic password encryption. Each run uses a private legacy-root copy, and a nonblocking report lock prevents duplicate same-tag/date writes. Production cutover and live equivalence validation remain pending. |
-| Delete temporary Qualys report | `delete_report` | `was_reports.report_retrieval` | Started | Context-managed retrieval guarantees cleanup after downstream processing. Production cutover remains pending. |
-| Encrypt final PDF | `encrypt_pdf` | `was_reports.pdf_security` | Started | Validates the stored password and atomically replaces the unencrypted PDF with PikePDF revision-4 owner and user encryption. Failure preserves the original file. Production cutover remains pending. |
+| Validate operator arguments | `main` | `was_reports.commands.report_generator` | Started | Current CLI validates the tag and accepts the observed `-t` and `--encrypt` inputs. `--use-extracted-pipeline` is an explicit equivalence-test opt-in; legacy remains the default. |
+| Count web applications | `app_count` | `was_reports.reporting.report_retrieval` | Started | Included in the tested WAS-owned retrieval sequence. Production still delegates to the legacy creator until transformation migration is ready. |
+| Resolve Qualys tag ID | `get_tag_id` | `was_reports.reporting.report_retrieval` | Started | Included in the tested WAS-owned retrieval sequence. Production still delegates to the legacy creator until transformation migration is ready. |
+| Create detail report when app count is below threshold | `create_details_report` | `was_reports.reporting.report_retrieval` | Started | The legacy threshold of fewer than 35 web applications is preserved in the tested retrieval sequence. |
+| Download detail report PDF | `download_report` | `was_reports.reporting.detail_reports` | Started | Direct download and post-processing are called by the WAS-owned retrieval sequence. Production cutover remains pending. |
+| Watermark detail report | `watermarker` | `was_reports.reporting.pdf_helpers` | Started | Migrated helper exists. It is not yet wired into the legacy execution path. |
+| Remove first page from detail report | `unfirstpagify` | `was_reports.reporting.pdf_helpers` | Started | Migrated helper exists. It is not yet wired into the legacy execution path. |
+| Redact Qualys detail PDF | `qualys_redact` | `was_reports.reporting.pdf_helpers` | Started | Migrated helper wraps `redact_qualys.py`. It is not yet wired into the legacy execution path. |
+| Create XML web application report | `create_webapp_report_v2` | `was_reports.reporting.report_retrieval` | Started | Included in the tested retrieval sequence. Template ID remains fixed for compatibility. |
+| Download XML report | `get_report` | `was_reports.reporting.report_retrieval` | Started | Included in the tested retrieval sequence with cleanup on download or downstream processing failures. |
+| Parse XML findings | `csv_genner`, finding classes | `was_reports.reporting.report_transformer` | Started | Finding and QID models are extracted with representative XML fixture coverage. Production cutover remains pending. |
+| Generate CSV artifacts | `csv_genner` | `was_reports.reporting.report_transformer` | Started | Legacy filenames, columns, fixed-finding exclusion, severity list, age list, and payload formatting are preserved in tests. |
+| Calculate graph and summary metrics | `get_summary_info`, `totalgraphgen`, `qid_counter`, `percent_donut` | `was_reports.reporting.report_metrics` | Started | Global summary, severity totals, status counts, group and OWASP mappings, cumulative monthly trends, colors, and fixed percentage are fixture-tested. |
+| Retrieve report-card finding ages | `max_age` | `was_reports.qualys.finding_ages` | Started | Critical and urgent searches preserve the tag, active-status, severity, false-positive, and one-result filters. Missing severities are handled independently instead of hiding an available age. Production cutover remains pending. |
+| Render graph images | `owasp_graph_gen`, `vulnsbygroupgraphgen`, `percent_donut`, `plot_histogram`, `monthly_trend` | `was_reports.reporting.chart_renderer` | Started | All five active PNG outputs retain legacy filenames, labels, colors, dimensions, and ordering. Deterministic render tests verify valid PNG artifacts and figure cleanup. Production cutover remains pending. |
+| Generate attachment artifacts | `webapp_vuln_table`, `app_overview_table`, `return_links`, `return_emails`, `return_rejects`, `get_ssn_and_cc` | `was_reports.reporting.report_artifacts` | Started | XML-derived CSV attachments and the two filtered Qualys sensitive-finding queries preserve legacy filenames and report-template inputs. Production cutover remains pending. |
+| Assemble report template data | `get_summary_info`, `generate_full` | `was_reports.reporting.report_template_data` | Started | All Mustache placeholders are assembled from extracted metrics and artifact filenames, including legacy colors, severity totals, report-card age positions, and the fewer-than-35-app detail attachment rule. Production cutover remains pending. |
+| Generate report body | `mustache_generate`, `generate_full` | `was_reports.reporting.latex_renderer` | Started | Mustache rendering, legacy filename construction, HTML entity decoding, LaTeX escaping, and title-width thresholds are extracted. Template-data assembly and production cutover remain pending. |
+| Compile PDF | `generate_pdf`, `cleanup` | `was_reports.reporting.latex_renderer` | Started | Runs two checked XeLaTeX passes and removes only known temporary files. The Docker image retains `texlive-xetex`; production cutover remains pending. |
+| Orchestrate extracted report pipeline | `generate_full` and active `main` path | `was_reports.reporting.report_service` | Started | Connects managed Qualys retrieval, CSV transformation, metrics, charts, attachments, finding ages, template assembly, LaTeX rendering, and atomic password encryption. Each run uses a private legacy-root copy, and a nonblocking report lock prevents duplicate same-tag/date writes. Production cutover and live equivalence validation remain pending. |
+| Delete temporary Qualys report | `delete_report` | `was_reports.reporting.report_retrieval` | Started | Context-managed retrieval guarantees cleanup after downstream processing. Production cutover remains pending. |
+| Encrypt final PDF | `encrypt_pdf` | `was_reports.reporting.pdf_security` | Started | Validates the stored password and atomically replaces the unencrypted PDF with PikePDF revision-4 owner and user encryption. Failure preserves the original file. Production cutover remains pending. |
 
 ## Original Alternate Workflows
 
@@ -100,7 +100,7 @@ than scheduled batch behavior.
 ## Next Migration Order
 
 1. Move read-only Qualys calls used by normal report generation behind
-   `was_reports.qualys_client`.
+   `was_reports.qualys.qualys_client`.
 2. Add XML fixtures for report creation, report download, app count, tag lookup,
    and web app search responses.
 3. Extract report-data retrieval into a service that returns raw XML and detail

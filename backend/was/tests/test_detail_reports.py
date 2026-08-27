@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 # First-Party Libraries
-from was_reports import detail_reports
-from was_reports.qualys_client import QualysClient
+from was_reports.qualys.qualys_client import QualysClient
+from was_reports.reporting import detail_reports
 from was_reports.utils.qualys_config import QualysCredentials
 
 
@@ -168,7 +168,7 @@ class DetailReportsTests(unittest.TestCase):
         )
         self.assertTrue(session.response.raise_for_status_called)
 
-    @patch("was_reports.detail_reports.post_process_detail_pdf")
+    @patch("was_reports.reporting.detail_reports.post_process_detail_pdf")
     def test_download_and_process_detail_report_runs_full_flow(
         self,
         mock_post_process,

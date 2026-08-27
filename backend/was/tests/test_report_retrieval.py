@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 # First-Party Libraries
-from was_reports import report_retrieval
+from was_reports.reporting import report_retrieval
 from was_reports.utils.qualys_config import QualysCredentials
 
 
@@ -24,11 +24,15 @@ class ReportRetrievalTests(unittest.TestCase):
         self.legacy_root = Path("/legacy")
         self.output_directory = Path("/output")
 
-    @patch("was_reports.report_retrieval.report_data.get_report_xml")
-    @patch("was_reports.report_retrieval.report_data.create_webapp_xml_report")
-    @patch("was_reports.report_retrieval.report_data.create_detail_pdf_report")
-    @patch("was_reports.report_retrieval.report_data.get_tag_id")
-    @patch("was_reports.report_retrieval.report_data.count_webapps")
+    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_detail_pdf_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
     def test_retrieve_source_data_includes_detail_pdf_below_limit(
         self,
         mock_count_webapps,
@@ -65,11 +69,15 @@ class ReportRetrievalTests(unittest.TestCase):
         )
         detail_downloader.assert_called_once()
 
-    @patch("was_reports.report_retrieval.report_data.get_report_xml")
-    @patch("was_reports.report_retrieval.report_data.create_webapp_xml_report")
-    @patch("was_reports.report_retrieval.report_data.create_detail_pdf_report")
-    @patch("was_reports.report_retrieval.report_data.get_tag_id")
-    @patch("was_reports.report_retrieval.report_data.count_webapps")
+    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_detail_pdf_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
     def test_retrieve_source_data_skips_detail_pdf_at_limit(
         self,
         mock_count_webapps,
@@ -99,7 +107,7 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_create_detail_report.assert_not_called()
         detail_downloader.assert_not_called()
 
-    @patch("was_reports.report_retrieval.report_data.count_webapps")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
     def test_retrieve_source_data_rejects_empty_tag(
         self,
         mock_count_webapps,
@@ -117,11 +125,13 @@ class ReportRetrievalTests(unittest.TestCase):
                 python_executable="python3",
             )
 
-    @patch("was_reports.report_retrieval.report_data.delete_report")
-    @patch("was_reports.report_retrieval.report_data.get_report_xml")
-    @patch("was_reports.report_retrieval.report_data.create_webapp_xml_report")
-    @patch("was_reports.report_retrieval.report_data.get_tag_id")
-    @patch("was_reports.report_retrieval.report_data.count_webapps")
+    @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
+    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
     def test_retrieve_source_data_cleans_up_failed_xml_download(
         self,
         mock_count_webapps,
@@ -148,8 +158,8 @@ class ReportRetrievalTests(unittest.TestCase):
 
         mock_delete_report.assert_called_once_with(self.client, "xml-789")
 
-    @patch("was_reports.report_retrieval.report_data.delete_report")
-    @patch("was_reports.report_retrieval.retrieve_report_source_data")
+    @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
+    @patch("was_reports.reporting.report_retrieval.retrieve_report_source_data")
     def test_managed_source_data_cleans_up_after_processing_error(
         self,
         mock_retrieve_source_data,

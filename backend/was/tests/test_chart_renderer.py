@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from PIL import Image
 
 # First-Party Libraries
-from was_reports import chart_renderer, report_metrics
+from was_reports.reporting import chart_renderer, report_metrics
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_metrics.xml"
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0)

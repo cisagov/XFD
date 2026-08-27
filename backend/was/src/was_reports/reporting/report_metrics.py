@@ -10,7 +10,10 @@ from typing import Dict, Tuple, Union
 from dateutil.relativedelta import relativedelta
 
 # First-Party Libraries
-from was_reports.report_transformer import QUALYS_DATETIME_FORMAT, parse_report
+from was_reports.reporting.report_transformer import (
+    QUALYS_DATETIME_FORMAT,
+    parse_report,
+)
 
 GROUP_LABELS = {
     "PATH": "Path Disclosure",

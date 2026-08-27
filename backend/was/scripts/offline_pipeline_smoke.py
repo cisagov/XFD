@@ -14,7 +14,7 @@ from lxml import etree
 from pikepdf import PasswordError, Pdf
 
 # First-Party Libraries
-from was_reports import (
+from was_reports.reporting import (
     chart_renderer,
     latex_renderer,
     pdf_security,

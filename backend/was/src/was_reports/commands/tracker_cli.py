@@ -11,7 +11,7 @@ from typing import List, Optional
 from was_reports.data.daily_report_tracker import (
     list_tracker_rows_for_export_from_db,
 )
-from was_reports.tracker_csv import write_tracker_csv
+from was_reports.tracker.tracker_csv import write_tracker_csv
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:

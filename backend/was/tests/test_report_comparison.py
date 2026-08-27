@@ -9,7 +9,7 @@ from pathlib import Path
 from pikepdf import Array, Dictionary, Encryption, Name, Pdf, String
 
 # First-Party Libraries
-from was_reports import report_comparison
+from was_reports.reporting import report_comparison
 
 PASSWORD = "ComparisonPassword123!"
 

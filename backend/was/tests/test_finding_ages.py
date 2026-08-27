@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from unittest.mock import Mock
 
 # First-Party Libraries
-from was_reports import finding_ages
+from was_reports.qualys import finding_ages
 
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0, tzinfo=timezone.utc)
 

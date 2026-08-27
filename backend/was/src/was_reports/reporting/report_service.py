@@ -6,20 +6,22 @@ from datetime import datetime
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import (
+from was_reports.qualys import finding_ages, report_data
+from was_reports.qualys.qualys_client import QualysClient
+from was_reports.reporting import (
     chart_renderer,
-    finding_ages,
     latex_renderer,
     report_artifacts,
-    report_data,
     report_metrics,
     report_retrieval,
     report_template_data,
     report_transformer,
     report_workspace,
 )
-from was_reports.pdf_security import encrypt_pdf_in_place, publish_encrypted_pdf
-from was_reports.qualys_client import QualysClient
+from was_reports.reporting.pdf_security import (
+    encrypt_pdf_in_place,
+    publish_encrypted_pdf,
+)
 from was_reports.utils.qualys_config import QualysCredentials
 
 

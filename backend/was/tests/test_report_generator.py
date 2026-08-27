@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 # First-Party Libraries
-from was_reports import report_generator
+from was_reports.commands import report_generator
 
 
 class ReportGeneratorTests(unittest.TestCase):
@@ -55,7 +55,7 @@ class ReportGeneratorTests(unittest.TestCase):
 
         self.assertEqual(password, "from-cli")
 
-    @patch("was_reports.report_generator.lookup_report_password")
+    @patch("was_reports.commands.report_generator.lookup_report_password")
     def test_resolve_report_password_reads_postgres(self, mock_password) -> None:
         """Read report password from Postgres when no CLI password is supplied."""
         mock_password.return_value = "from-db"
@@ -69,7 +69,7 @@ class ReportGeneratorTests(unittest.TestCase):
         self.assertEqual(password, "from-db")
         mock_password.assert_called_once_with("TEST_TAG")
 
-    @patch("was_reports.report_generator.lookup_report_password")
+    @patch("was_reports.commands.report_generator.lookup_report_password")
     def test_resolve_report_password_requires_password(self, mock_password) -> None:
         """Fail closed when no password is available."""
         mock_password.return_value = None
@@ -81,7 +81,7 @@ class ReportGeneratorTests(unittest.TestCase):
                 allow_unencrypted=False,
             )
 
-    @patch("was_reports.report_generator.lookup_report_password")
+    @patch("was_reports.commands.report_generator.lookup_report_password")
     def test_resolve_report_password_allows_unencrypted(self, mock_password) -> None:
         """Pass N/A to legacy creator when unencrypted output is allowed."""
         mock_password.return_value = None
@@ -94,8 +94,8 @@ class ReportGeneratorTests(unittest.TestCase):
 
         self.assertEqual(password, "N/A")
 
-    @patch("was_reports.report_generator.lookup_report_password")
-    @patch("was_reports.report_generator.create_report_password")
+    @patch("was_reports.commands.report_generator.lookup_report_password")
+    @patch("was_reports.commands.report_generator.create_report_password")
     def test_resolve_report_password_can_create_missing_password(
         self, mock_create_password, mock_lookup_password
     ) -> None:
@@ -113,7 +113,7 @@ class ReportGeneratorTests(unittest.TestCase):
         self.assertEqual(password, "created-password")
         mock_create_password.assert_called_once_with("TEST_TAG")
 
-    @patch("was_reports.report_generator.rotate_report_password")
+    @patch("was_reports.commands.report_generator.rotate_report_password")
     def test_main_can_rotate_password_without_running_report(
         self, mock_rotate_password
     ) -> None:
@@ -171,7 +171,7 @@ class ReportGeneratorTests(unittest.TestCase):
         self.assertIn("username = user", config_text)
         self.assertIn("hostname = qualys.example", config_text)
 
-    @patch("was_reports.report_generator.run_legacy_report")
+    @patch("was_reports.commands.report_generator.run_legacy_report")
     def test_generate_report_verifies_expected_output(self, mock_run_report) -> None:
         """Return the verified output path after legacy generation."""
         with tempfile.TemporaryDirectory() as directory:
@@ -179,9 +179,9 @@ class ReportGeneratorTests(unittest.TestCase):
             output_path = output_directory / "TEST_TAG_report_2026-08-25.pdf"
             output_path.write_text("pdf", encoding="utf-8")
 
-            with patch("was_reports.report_generator.prepare_legacy_config"):
+            with patch("was_reports.commands.report_generator.prepare_legacy_config"):
                 with patch(
-                    "was_reports.report_generator.expected_pdf_output_path"
+                    "was_reports.commands.report_generator.expected_pdf_output_path"
                 ) as mock_expected:
                     mock_expected.return_value = output_path
                     result = report_generator.generate_report(
@@ -196,8 +196,8 @@ class ReportGeneratorTests(unittest.TestCase):
         self.assertEqual(result, output_path)
         self.assertEqual(mock_run_report.call_count, 1)
 
-    @patch("was_reports.report_generator.generate_report")
-    @patch("was_reports.report_generator.generate_extracted_report")
+    @patch("was_reports.commands.report_generator.generate_report")
+    @patch("was_reports.commands.report_generator.generate_extracted_report")
     def test_main_routes_only_explicit_opt_in_to_extracted_pipeline(
         self,
         mock_extracted_report,
@@ -234,8 +234,8 @@ class ReportGeneratorTests(unittest.TestCase):
             report_password="SecurePassword123!",
         )
 
-    @patch("was_reports.report_generator.generate_report")
-    @patch("was_reports.report_generator.generate_extracted_report")
+    @patch("was_reports.commands.report_generator.generate_report")
+    @patch("was_reports.commands.report_generator.generate_extracted_report")
     def test_main_preserves_legacy_default_route(
         self,
         mock_extracted_report,
@@ -250,14 +250,14 @@ class ReportGeneratorTests(unittest.TestCase):
         mock_extracted_report.assert_not_called()
         mock_legacy_report.assert_called_once()
 
-    @patch("was_reports.report_generator.generate_extracted_report")
+    @patch("was_reports.commands.report_generator.generate_extracted_report")
     def test_extracted_pipeline_rejects_unencrypted_mode(
         self,
         mock_extracted_report,
     ) -> None:
         """Fail closed instead of publishing an unencrypted extracted report."""
         with patch(
-            "was_reports.report_generator.lookup_report_password",
+            "was_reports.commands.report_generator.lookup_report_password",
             return_value=None,
         ):
             with self.assertRaises(ValueError):

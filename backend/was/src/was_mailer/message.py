@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 # First-Party Libraries
-from was_reports.tracker_csv import tracker_rows_to_csv_text
+from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
 
 
 def parse_email_addresses(raw_addresses: str | None) -> List[str]:

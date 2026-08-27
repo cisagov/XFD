@@ -13,8 +13,8 @@ from lxml import etree, objectify
 from lxml.builder import E
 
 # First-Party Libraries
-from was_reports.qualys_client import QualysClient, QualysRequest
-from was_reports.report_transformer import parse_report
+from was_reports.qualys.qualys_client import QualysClient, QualysRequest
+from was_reports.reporting.report_transformer import parse_report
 
 LINKS_CRAWLED_QID = "150009"
 EMAILS_FOUND_QID = "150054"

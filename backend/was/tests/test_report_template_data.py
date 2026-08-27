@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import report_template_data
-from was_reports.report_artifacts import ReportArtifactResult
+from was_reports.reporting import report_template_data
+from was_reports.reporting.report_artifacts import ReportArtifactResult
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_metrics.xml"
 TEMPLATE_PATH = Path(__file__).parents[1] / "was_report" / "NEW_BIG.mustache"

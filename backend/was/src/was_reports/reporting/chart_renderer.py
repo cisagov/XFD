@@ -19,7 +19,7 @@ import pandas as pd  # noqa: E402
 import seaborn as sns  # noqa: E402
 
 # First-Party Libraries
-from was_reports.report_metrics import (  # noqa: E402
+from was_reports.reporting.report_metrics import (  # noqa: E402
     FindingMetrics,
     GROUP_LABELS,
     OWASP_LABELS,

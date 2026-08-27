@@ -9,7 +9,7 @@ from lxml import etree, objectify
 from lxml.builder import E
 
 # First-Party Libraries
-from was_reports.qualys_client import QualysClient, QualysRequest
+from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 
 WEBAPP_REPORT_TEMPLATE_ID = "1994875"
 DETAIL_REPORT_TEMPLATE_ID = "2201149"

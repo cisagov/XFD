@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import report_metrics
+from was_reports.reporting import report_metrics
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_metrics.xml"
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0)

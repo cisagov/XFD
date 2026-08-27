@@ -11,7 +11,7 @@ from data.search_customer_data import get_customer_data, get_dynamo_value
 from data.special_reqs import ASSIGNEES
 from data.update_customer_data import update_customer_data
 from utils.tracker_operations.webapp_operations import delete_webapp, webapp_count
-from was_reports.assignments import round_robin_assignee
+from was_reports.tracker.assignments import round_robin_assignee
 from was_reports.data.assignees import upsert_assignee
 from was_reports.data.daily_report_tracker import (
     DailyReportTrackerRow,

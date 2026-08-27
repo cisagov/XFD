@@ -22,7 +22,7 @@ def load_reporting_module():
 class ReportingWrapperTests(unittest.TestCase):
     """Validate top-level reporting compatibility behavior."""
 
-    @patch("was_reports.batch_runner.main")
+    @patch("was_reports.commands.batch_runner.main")
     def test_reporting_main_delegates_to_batch_runner(self, mock_batch_main) -> None:
         """Delegate scheduled report execution to the package batch runner."""
         mock_batch_main.return_value = 0

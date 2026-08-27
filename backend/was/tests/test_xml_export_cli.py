@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from lxml import etree
 
 # First-Party Libraries
-from was_reports import xml_export_cli
+from was_reports.commands import xml_export_cli
 
 
 REPORT_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -51,10 +51,10 @@ class XmlExportCliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             xml_export_cli.resolve_output_path(Path("/output"), "../report.xml")
 
-    @patch("was_reports.xml_export_cli.delete_report")
-    @patch("was_reports.xml_export_cli.get_report_xml")
-    @patch("was_reports.xml_export_cli.create_webapp_xml_report")
-    @patch("was_reports.xml_export_cli.get_tag_id")
+    @patch("was_reports.commands.xml_export_cli.delete_report")
+    @patch("was_reports.commands.xml_export_cli.get_report_xml")
+    @patch("was_reports.commands.xml_export_cli.create_webapp_xml_report")
+    @patch("was_reports.commands.xml_export_cli.get_tag_id")
     def test_export_xml_report_writes_output_and_deletes_temporary_report(
         self,
         mock_get_tag_id,
@@ -83,10 +83,10 @@ class XmlExportCliTests(unittest.TestCase):
         self.assertNotIn("USER_INFO", exported_xml)
         mock_delete_report.assert_called_once_with(unittest.mock.ANY, "456")
 
-    @patch("was_reports.xml_export_cli.delete_report")
-    @patch("was_reports.xml_export_cli.get_report_xml")
-    @patch("was_reports.xml_export_cli.create_webapp_xml_report")
-    @patch("was_reports.xml_export_cli.get_tag_id")
+    @patch("was_reports.commands.xml_export_cli.delete_report")
+    @patch("was_reports.commands.xml_export_cli.get_report_xml")
+    @patch("was_reports.commands.xml_export_cli.create_webapp_xml_report")
+    @patch("was_reports.commands.xml_export_cli.get_tag_id")
     def test_export_xml_report_cleans_up_after_download_failure(
         self,
         mock_get_tag_id,

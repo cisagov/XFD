@@ -8,7 +8,7 @@ from unittest.mock import Mock
 from lxml import etree
 
 # First-Party Libraries
-from was_reports.qualys_admin import (
+from was_reports.qualys.qualys_admin import (
     build_delete_webapp_payload,
     build_false_positive_payload,
     build_reactivate_webapp_payload,
@@ -20,7 +20,7 @@ from was_reports.qualys_admin import (
     reactivate_webapp,
     update_webapp_tag,
 )
-from was_reports.qualys_client import QualysRequest
+from was_reports.qualys.qualys_client import QualysRequest
 
 
 SUCCESS_RESPONSE = "<ServiceResponse><responseCode>SUCCESS</responseCode></ServiceResponse>"

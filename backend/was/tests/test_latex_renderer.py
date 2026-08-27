@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import latex_renderer
+from was_reports.reporting import latex_renderer
 
 
 class LatexRendererTests(unittest.TestCase):

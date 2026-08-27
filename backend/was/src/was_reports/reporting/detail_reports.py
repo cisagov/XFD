@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Callable, Optional
 
 # First-Party Libraries
-from was_reports import report_data
-from was_reports.pdf_helpers import post_process_detail_pdf
-from was_reports.qualys_client import QualysClient
+from was_reports.qualys import report_data
+from was_reports.qualys.qualys_client import QualysClient
+from was_reports.reporting.pdf_helpers import post_process_detail_pdf
 from was_reports.utils.qualys_config import QualysCredentials
 
 DETAIL_POLL_SECONDS = 30

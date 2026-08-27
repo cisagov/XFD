@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import report_workspace
+from was_reports.reporting import report_workspace
 
 
 class ReportWorkspaceTests(unittest.TestCase):

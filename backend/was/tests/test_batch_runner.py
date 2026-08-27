@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 # First-Party Libraries
-from was_reports import batch_runner
+from was_reports.commands import batch_runner
 from was_reports.data.report_runs import ReportRun
 from was_reports.data.stakeholders import Stakeholder, list_due_stakeholders
 
@@ -122,10 +122,10 @@ class BatchRunnerTests(unittest.TestCase):
 
         self.assertEqual(message, "Required report file was not found.")
 
-    @patch("was_reports.batch_runner.report_generator.main")
-    @patch("was_reports.batch_runner.complete_report_run_by_id")
-    @patch("was_reports.batch_runner.create_report_run_for_tag")
-    @patch("was_reports.batch_runner.list_due_stakeholders_for_report")
+    @patch("was_reports.commands.batch_runner.report_generator.main")
+    @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
+    @patch("was_reports.commands.batch_runner.create_report_run_for_tag")
+    @patch("was_reports.commands.batch_runner.list_due_stakeholders_for_report")
     def test_run_due_reports_generates_each_due_report(
         self,
         mock_list_stakeholders,
@@ -156,12 +156,12 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertEqual(mock_create_run.call_count, 2)
         self.assertEqual(mock_complete_run.call_count, 2)
 
-    @patch("was_reports.batch_runner.report_generator.main")
-    @patch("was_reports.batch_runner.fail_report_run_by_id")
-    @patch("was_reports.batch_runner.complete_report_run_by_id")
-    @patch("was_reports.batch_runner.create_report_run_for_tag")
-    @patch("was_reports.batch_runner.LOGGER.exception")
-    @patch("was_reports.batch_runner.list_due_stakeholders_for_report")
+    @patch("was_reports.commands.batch_runner.report_generator.main")
+    @patch("was_reports.commands.batch_runner.fail_report_run_by_id")
+    @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
+    @patch("was_reports.commands.batch_runner.create_report_run_for_tag")
+    @patch("was_reports.commands.batch_runner.LOGGER.exception")
+    @patch("was_reports.commands.batch_runner.list_due_stakeholders_for_report")
     def test_run_due_reports_can_continue_after_failure(
         self,
         mock_list_stakeholders,

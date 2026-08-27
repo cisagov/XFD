@@ -4,7 +4,7 @@
 import unittest
 
 # First-Party Libraries
-from was_reports.assignments import round_robin_assignee
+from was_reports.tracker.assignments import round_robin_assignee
 
 
 class AssignmentTests(unittest.TestCase):

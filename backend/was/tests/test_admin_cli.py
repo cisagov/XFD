@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, call, patch
 
 # First-Party Libraries
-from was_reports import admin_cli
+from was_reports.commands import admin_cli
 
 
 class AdminCliTests(unittest.TestCase):
@@ -47,9 +47,9 @@ class AdminCliTests(unittest.TestCase):
         with self.assertRaises(argparse.ArgumentTypeError):
             admin_cli.validate_webapp_url("https://user:secret@example.gov")
 
-    @patch("was_reports.admin_cli.update_webapp_tag")
-    @patch("was_reports.admin_cli.get_tag_id")
-    @patch("was_reports.admin_cli.find_webapp_id")
+    @patch("was_reports.commands.admin_cli.update_webapp_tag")
+    @patch("was_reports.commands.admin_cli.get_tag_id")
+    @patch("was_reports.commands.admin_cli.find_webapp_id")
     def test_add_tag_resolves_webapp_and_tag_ids(
         self,
         mock_find_webapp_id,
@@ -83,8 +83,8 @@ class AdminCliTests(unittest.TestCase):
             "add",
         )
 
-    @patch("was_reports.admin_cli.reactivate_webapp")
-    @patch("was_reports.admin_cli.get_tag_id")
+    @patch("was_reports.commands.admin_cli.reactivate_webapp")
+    @patch("was_reports.commands.admin_cli.get_tag_id")
     def test_reactivate_resolves_each_repeated_tag(
         self,
         mock_get_tag_id,
@@ -118,9 +118,9 @@ class AdminCliTests(unittest.TestCase):
             ["100", "200"],
         )
 
-    @patch("was_reports.admin_cli.execute_command")
-    @patch("was_reports.admin_cli.create_qualys_client")
-    @patch("was_reports.admin_cli.prepare_legacy_config")
+    @patch("was_reports.commands.admin_cli.execute_command")
+    @patch("was_reports.commands.admin_cli.create_qualys_client")
+    @patch("was_reports.commands.admin_cli.prepare_legacy_config")
     def test_main_prepares_configuration_before_calling_qualys(
         self,
         mock_prepare_config,
@@ -148,8 +148,8 @@ class AdminCliTests(unittest.TestCase):
         mock_create_client.assert_called_once()
         mock_execute_command.assert_called_once()
 
-    @patch("was_reports.admin_cli.create_qualys_client")
-    @patch("was_reports.admin_cli.prepare_legacy_config")
+    @patch("was_reports.commands.admin_cli.create_qualys_client")
+    @patch("was_reports.commands.admin_cli.prepare_legacy_config")
     def test_main_rejects_unconfirmed_operation_before_client_creation(
         self,
         mock_prepare_config,

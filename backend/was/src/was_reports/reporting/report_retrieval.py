@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Callable, Iterator, Optional
 
 # First-Party Libraries
-from was_reports import detail_reports, report_data
-from was_reports.qualys_client import QualysClient
+from was_reports.qualys import report_data
+from was_reports.qualys.qualys_client import QualysClient
+from was_reports.reporting import detail_reports
 from was_reports.utils.qualys_config import QualysCredentials
 
 DETAIL_REPORT_WEBAPP_LIMIT = 35

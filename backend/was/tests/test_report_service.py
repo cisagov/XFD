@@ -8,9 +8,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 # First-Party Libraries
-from was_reports import (
+from was_reports.qualys import finding_ages
+from was_reports.reporting import (
     chart_renderer,
-    finding_ages,
     latex_renderer,
     report_artifacts,
     report_retrieval,
@@ -40,15 +40,25 @@ class ReportServiceTests(unittest.TestCase):
             output_directory=Path("/output"),
         )
 
-    @patch("was_reports.report_service.latex_renderer.render_report_pdf")
-    @patch("was_reports.report_service.report_template_data.build_template_data")
-    @patch("was_reports.report_service.finding_ages.retrieve_finding_ages")
-    @patch("was_reports.report_service.report_artifacts.generate_report_artifacts")
-    @patch("was_reports.report_service.chart_renderer.render_report_charts")
-    @patch("was_reports.report_service.report_metrics.calculate_finding_metrics")
-    @patch("was_reports.report_service.report_transformer.transform_report_to_csv")
-    @patch("was_reports.report_service.report_retrieval.managed_report_source_data")
-    @patch("was_reports.report_service.resolve_organization_name")
+    @patch("was_reports.reporting.report_service.latex_renderer.render_report_pdf")
+    @patch(
+        "was_reports.reporting.report_service.report_template_data.build_template_data"
+    )
+    @patch("was_reports.reporting.report_service.finding_ages.retrieve_finding_ages")
+    @patch(
+        "was_reports.reporting.report_service.report_artifacts.generate_report_artifacts"
+    )
+    @patch("was_reports.reporting.report_service.chart_renderer.render_report_charts")
+    @patch(
+        "was_reports.reporting.report_service.report_metrics.calculate_finding_metrics"
+    )
+    @patch(
+        "was_reports.reporting.report_service.report_transformer.transform_report_to_csv"
+    )
+    @patch(
+        "was_reports.reporting.report_service.report_retrieval.managed_report_source_data"
+    )
+    @patch("was_reports.reporting.report_service.resolve_organization_name")
     def test_generate_unencrypted_report_connects_extracted_modules(
         self,
         mock_resolve_name,
@@ -129,7 +139,7 @@ class ReportServiceTests(unittest.TestCase):
         self.assertEqual(template_arguments["finding_ages"].critical_days, 10)
         mock_render.assert_called_once()
 
-    @patch("was_reports.report_service.report_data.list_customer_tags")
+    @patch("was_reports.reporting.report_service.report_data.list_customer_tags")
     def test_resolve_organization_name_falls_back_to_tag(
         self,
         mock_list_customer_tags,
@@ -144,11 +154,15 @@ class ReportServiceTests(unittest.TestCase):
 
         self.assertEqual(result, "CUSTOMER")
 
-    @patch("was_reports.report_service.publish_encrypted_pdf")
-    @patch("was_reports.report_service.encrypt_pdf_in_place")
-    @patch("was_reports.report_service.generate_unencrypted_report")
-    @patch("was_reports.report_service.report_workspace.isolated_report_workspace")
-    @patch("was_reports.report_service.report_workspace.report_output_lock")
+    @patch("was_reports.reporting.report_service.publish_encrypted_pdf")
+    @patch("was_reports.reporting.report_service.encrypt_pdf_in_place")
+    @patch("was_reports.reporting.report_service.generate_unencrypted_report")
+    @patch(
+        "was_reports.reporting.report_service.report_workspace.isolated_report_workspace"
+    )
+    @patch(
+        "was_reports.reporting.report_service.report_workspace.report_output_lock"
+    )
     def test_generate_encrypted_report_uses_lock_and_private_workspace(
         self,
         mock_output_lock,

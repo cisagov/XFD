@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 # First-Party Libraries
-from was_reports import report_artifacts
+from was_reports.reporting import report_artifacts
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_artifacts.xml"
 SENSITIVE_RESPONSE = """<ServiceResponse><data><Finding><resultList><list>

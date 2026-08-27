@@ -8,7 +8,7 @@ from lxml import etree
 from lxml.builder import E
 
 # First-Party Libraries
-from was_reports.qualys_client import QualysClient, QualysRequest
+from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 
 
 def _serialize_xml(root: etree._Element) -> str:

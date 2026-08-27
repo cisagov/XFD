@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterator, TextIO
 
 # First-Party Libraries
-from was_reports.latex_renderer import validate_filename_component
+from was_reports.reporting.latex_renderer import validate_filename_component
 
 
 @contextmanager

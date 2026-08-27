@@ -9,18 +9,17 @@ stakeholder lookup, and report password management.
 
 - `was-report-batch` is the default container command for scheduled reports.
 - `was-reports` generates or manages one stakeholder report.
-- `src/was_reports/report_generator.py` validates CLI input and calls the
+- `src/was_reports/commands` contains container command implementations. The
+  report generator validates CLI input and calls the
   legacy report creator by default. An explicit migration-test flag can call
   the extracted pipeline without changing production routing.
-- `src/was_reports/qualys_client.py` provides the WAS-owned Qualys API client
-  boundary that future report internals should use.
-- `src/was_reports/report_data.py` contains migrated Qualys report-data helpers
+- `src/was_reports/qualys` provides the WAS-owned Qualys API boundary and
+  migrated report-data helpers
   for tag lookup, app counts, report creation, XML download, status checks, and
   temporary report cleanup.
-- `src/was_reports/detail_reports.py` contains migrated detail-report download
-  and polling helpers.
-- `src/was_reports/pdf_helpers.py` contains migrated detail-report PDF
-  post-processing helpers.
+- `src/was_reports/reporting` contains report retrieval, transformation,
+  metrics, artifacts, charts, LaTeX rendering, PDF security, and comparison.
+- `src/was_reports/tracker` contains assignee allocation and CSV export logic.
 - `was_report/WAS_report_creator.py` still performs Qualys data retrieval,
   transformation, PDF creation, and PDF encryption.
 - `src/was_reports/data/stakeholders.py` reads stakeholder report metadata and
@@ -33,9 +32,9 @@ stakeholder lookup, and report password management.
   Postgres.
 - `src/was_reports/data/special_cases.py` reads active special-case tag values
   from Postgres for upstream tracker logic.
-- `src/was_reports/tracker_csv.py` exports tracker rows as CSV for email
+- `src/was_reports/tracker/tracker_csv.py` exports tracker rows as CSV for email
   attachments or operator review.
-- `src/was_reports/assignments.py` assigns tracker rows to active assignees
+- `src/was_reports/tracker/assignments.py` assigns tracker rows to active assignees
   using round-robin distribution.
 - `update_tracker/update_tracker` now writes daily tracker output to
   `was_daily_report_tracker` instead of saving the daily tracker XLSX file.
@@ -627,7 +626,7 @@ Run syntax checks:
 
 ```bash
 ./cd_WAS_update/bin/python -m py_compile \
-  backend/was/src/was_reports/report_generator.py \
+  backend/was/src/was_reports/commands/report_generator.py \
   backend/was/src/was_reports/data/stakeholders.py \
   backend/was/src/was_reports/utils/passwords.py \
   backend/was/src/was_reports/utils/database.py \

@@ -7,14 +7,14 @@ from contextlib import redirect_stdout
 from unittest.mock import Mock, call, patch
 
 # First-Party Libraries
-from was_reports import inventory_cli
+from was_reports.commands import inventory_cli
 
 
 class InventoryCliTests(unittest.TestCase):
     """Validate inventory collection and operator output."""
 
-    @patch("was_reports.inventory_cli.count_webapps")
-    @patch("was_reports.inventory_cli.list_customer_tags")
+    @patch("was_reports.commands.inventory_cli.count_webapps")
+    @patch("was_reports.commands.inventory_cli.list_customer_tags")
     def test_get_inventory_sorts_tags_and_counts_webapps(
         self,
         mock_list_tags,
@@ -57,10 +57,10 @@ class InventoryCliTests(unittest.TestCase):
             "TAG_A\tAgency A\t3\n",
         )
 
-    @patch("was_reports.inventory_cli.print_inventory")
-    @patch("was_reports.inventory_cli.get_inventory")
-    @patch("was_reports.inventory_cli.create_qualys_client")
-    @patch("was_reports.inventory_cli.prepare_legacy_config")
+    @patch("was_reports.commands.inventory_cli.print_inventory")
+    @patch("was_reports.commands.inventory_cli.get_inventory")
+    @patch("was_reports.commands.inventory_cli.create_qualys_client")
+    @patch("was_reports.commands.inventory_cli.prepare_legacy_config")
     def test_main_prepares_config_and_prints_inventory(
         self,
         mock_prepare_config,

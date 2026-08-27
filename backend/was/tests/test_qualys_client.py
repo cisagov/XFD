@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports.qualys_client import (
+from was_reports.qualys.qualys_client import (
     QualysClient,
     QualysRequest,
     create_qualys_client,

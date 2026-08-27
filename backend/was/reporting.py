@@ -4,7 +4,7 @@
 The legacy implementation in this file read the daily tracker workbook,
 started nested Docker containers, and retrieved static passwords from
 DynamoDB. The containerized WAS path now uses Postgres scheduling and delegates
-to `was_reports.batch_runner`.
+to `was_reports.commands.batch_runner`.
 """
 
 # Standard Python Libraries
@@ -12,7 +12,7 @@ import sys
 from typing import List, Optional
 
 # First-Party Libraries
-from was_reports.batch_runner import main as batch_main
+from was_reports.commands.batch_runner import main as batch_main
 
 
 def main(argv: Optional[List[str]] = None) -> int:

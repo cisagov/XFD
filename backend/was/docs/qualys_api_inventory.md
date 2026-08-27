@@ -16,7 +16,7 @@ Keep this file updated whenever WAS API usage changes.
 - `was-report-batch` selects due stakeholders from Postgres and delegates one
   report at a time to `was-reports`.
 - `was-reports` still executes the legacy report creator as a subprocess.
-- `was_reports.qualys_client` is the WAS-owned API boundary for new or migrated
+- `was_reports.qualys.qualys_client` is the WAS-owned API boundary for new or migrated
   Qualys calls.
 - The legacy report output format remains unchanged until the later ReportLab
   migration phase.
@@ -47,7 +47,7 @@ These calls support detail-report PDF attachments created by the legacy script.
 ## Migrated API Boundary Coverage
 
 The following legacy call patterns now have WAS-owned wrappers in
-`was_reports.report_data`. These wrappers are covered by unit tests but are not
+`was_reports.qualys.report_data`. These wrappers are covered by unit tests but are not
 yet wired into the legacy report execution path.
 
 | Legacy Function | Migrated Function |
@@ -92,7 +92,7 @@ boundary before the legacy script is retired.
   clients inside functions so tests do not connect to Qualys.
 - Some report downloads use direct `requests.Session` authentication instead of
   the `qualysapi` connection. This should be consolidated behind
-  `was_reports.qualys_client`.
+  `was_reports.qualys.qualys_client`.
 - Several Qualys endpoints mutate assets or delete records. Those should be
   migrated into separate administrative paths with explicit authorization,
   audit logging, and restricted operator access.

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 # First-Party Libraries
-from was_reports import report_generator
+from was_reports.commands import report_generator
 from was_reports.data.report_runs import (
     complete_report_run_by_id,
     create_report_run_for_tag,

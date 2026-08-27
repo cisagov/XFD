@@ -11,7 +11,7 @@ from lxml import etree, objectify
 from lxml.builder import E
 
 # First-Party Libraries
-from was_reports.qualys_client import QualysClient, QualysRequest
+from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 
 FINDING_SEARCH_ENDPOINT = "search/was/finding"
 ACTIVE_FINDING_STATUSES = "ACTIVE, NEW, REOPENED"

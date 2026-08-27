@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 # First-Party Libraries
-from was_reports import update_tracker_cli
+from was_reports.commands import update_tracker_cli
 
 
 class UpdateTrackerCliTests(unittest.TestCase):
@@ -72,7 +72,7 @@ class UpdateTrackerCliTests(unittest.TestCase):
 
         self.assertEqual(calls, [True])
 
-    @patch("was_reports.update_tracker_cli.run_update_tracker")
+    @patch("was_reports.commands.update_tracker_cli.run_update_tracker")
     def test_main_runs_update_tracker(self, mock_run_update_tracker) -> None:
         """Run the update tracker from parsed arguments."""
         exit_code = update_tracker_cli.main(["--delete-apps"])

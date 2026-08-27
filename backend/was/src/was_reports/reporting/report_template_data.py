@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Dict, Mapping, Optional, Set, Union
 
 # First-Party Libraries
-from was_reports import latex_renderer, report_metrics
-from was_reports.report_artifacts import ReportArtifactResult
+from was_reports.reporting import latex_renderer, report_metrics
+from was_reports.reporting.report_artifacts import ReportArtifactResult
 
 REQUIRED_TEMPLATE_FIELDS: Set[str] = {
     "AppOverviewCSV",

@@ -10,15 +10,15 @@ from typing import List, Optional
 from lxml import etree, objectify
 
 # First-Party Libraries
-from was_reports.qualys_client import QualysClient, create_qualys_client
-from was_reports.report_data import (
+from was_reports.commands.report_generator import prepare_legacy_config
+from was_reports.commands.report_generator import validate_stakeholder_tag
+from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
+from was_reports.qualys.report_data import (
     create_webapp_xml_report,
     delete_report,
     get_report_xml,
     get_tag_id,
 )
-from was_reports.report_generator import prepare_legacy_config
-from was_reports.report_generator import validate_stakeholder_tag
 from was_reports.utils.env import getenv
 
 

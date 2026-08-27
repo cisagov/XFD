@@ -8,16 +8,16 @@ from typing import List, Optional
 from urllib.parse import urlsplit
 
 # First-Party Libraries
-from was_reports.qualys_admin import (
+from was_reports.qualys.qualys_admin import (
     delete_webapp,
     find_webapp_id,
     mark_false_positive,
     reactivate_webapp,
     update_webapp_tag,
 )
-from was_reports.qualys_client import QualysClient, create_qualys_client
-from was_reports.report_data import get_tag_id
-from was_reports.report_generator import prepare_legacy_config
+from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
+from was_reports.qualys.report_data import get_tag_id
+from was_reports.commands.report_generator import prepare_legacy_config
 from was_reports.utils.env import getenv
 
 

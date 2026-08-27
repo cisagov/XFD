@@ -158,8 +158,8 @@ def generate_extracted_report(
     report_password: str,
 ) -> Path:
     """Run the opt-in extracted pipeline and return its encrypted PDF."""
-    from was_reports.qualys_client import create_qualys_client
-    from was_reports.report_service import generate_encrypted_report
+    from was_reports.qualys.qualys_client import create_qualys_client
+    from was_reports.reporting.report_service import generate_encrypted_report
     from was_reports.utils.qualys_config import load_qualys_credentials
 
     credentials = load_qualys_credentials(config_path)

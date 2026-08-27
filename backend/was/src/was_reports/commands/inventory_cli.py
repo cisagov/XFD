@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import List, Optional
 
 # First-Party Libraries
-from was_reports.qualys_client import QualysClient, create_qualys_client
-from was_reports.report_data import count_webapps, list_customer_tags
-from was_reports.report_generator import prepare_legacy_config
+from was_reports.commands.report_generator import prepare_legacy_config
+from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
+from was_reports.qualys.report_data import count_webapps, list_customer_tags
 from was_reports.utils.env import getenv
 
 

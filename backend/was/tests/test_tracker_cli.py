@@ -9,9 +9,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 # First-Party Libraries
-from was_reports import tracker_cli
+from was_reports.commands import tracker_cli
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
-from was_reports.tracker_csv import (
+from was_reports.tracker.tracker_csv import (
     CSV_HEADERS,
     tracker_row_to_csv,
     write_tracker_csv,
@@ -73,8 +73,10 @@ class TrackerCliTests(unittest.TestCase):
         self.assertEqual(rows[1][0], "2026-08-26")
         self.assertEqual(rows[1][1], "TAG1")
 
-    @patch("was_reports.tracker_cli.write_tracker_csv")
-    @patch("was_reports.tracker_cli.list_tracker_rows_for_export_from_db")
+    @patch("was_reports.commands.tracker_cli.write_tracker_csv")
+    @patch(
+        "was_reports.commands.tracker_cli.list_tracker_rows_for_export_from_db"
+    )
     def test_export_csv_queries_database_and_writes_file(
         self,
         mock_list_rows,

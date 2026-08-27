@@ -10,7 +10,7 @@ from unittest.mock import patch
 from pikepdf import PasswordError, Pdf
 
 # First-Party Libraries
-from was_reports import pdf_security
+from was_reports.reporting import pdf_security
 
 
 class PdfSecurityTests(unittest.TestCase):
@@ -46,7 +46,7 @@ class PdfSecurityTests(unittest.TestCase):
             self.create_pdf(pdf_path)
             original_content = pdf_path.read_bytes()
 
-            with patch("was_reports.pdf_security.Pdf.open") as mock_open:
+            with patch("was_reports.reporting.pdf_security.Pdf.open") as mock_open:
                 mock_open.side_effect = RuntimeError("encryption failed")
                 with self.assertRaises(RuntimeError):
                     pdf_security.encrypt_pdf_in_place(

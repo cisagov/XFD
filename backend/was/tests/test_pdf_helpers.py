@@ -7,15 +7,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 # First-Party Libraries
-from was_reports import pdf_helpers
+from was_reports.reporting import pdf_helpers
 
 
 class PdfHelperTests(unittest.TestCase):
     """Validate PDF helper orchestration behavior."""
 
-    @patch("was_reports.pdf_helpers.remove_first_page")
-    @patch("was_reports.pdf_helpers.apply_watermark")
-    @patch("was_reports.pdf_helpers.redact_qualys_pdf")
+    @patch("was_reports.reporting.pdf_helpers.remove_first_page")
+    @patch("was_reports.reporting.pdf_helpers.apply_watermark")
+    @patch("was_reports.reporting.pdf_helpers.redact_qualys_pdf")
     def test_post_process_detail_pdf_removes_redacted_file(
         self,
         mock_redact,

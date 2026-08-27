@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # First-Party Libraries
-from was_reports import report_transformer
+from was_reports.reporting import report_transformer
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_sample.xml"
 
