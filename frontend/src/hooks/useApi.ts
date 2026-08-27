@@ -1,11 +1,4 @@
 import { useState, useCallback, useMemo } from 'react';
-import { post, get, del } from 'aws-amplify/api';
-import {
-  ApiInput,
-  Operation,
-  RestApiOptionsBase,
-  RestApiResponse
-} from '@aws-amplify/api-rest/dist/esm/types';
 // import { useMatomo } from '@datapunt/matomo-tracker-react';
 
 const baseHeaders: HeadersInit = {
@@ -13,16 +6,17 @@ const baseHeaders: HeadersInit = {
   Accept: 'application/json'
 };
 
-type ApiMethod = (
-  input: ApiInput<RestApiOptionsBase>
-) => Operation<RestApiResponse>;
+type ApiMethod = 'GET' | 'POST' | 'DELETE';
 type OnError = (e: Error) => Promise<void>;
 
 const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
+const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
+  /\/$/,
+  ''
+);
 
 /**
- * Normalize header-ish shapes to a lower-cased plain object.
- * Amplify error shapes vary across versions/adapters.
+ * Normalize header-ish shapes to support both Fetch Headers and plain objects.
  */
 const normalizeHeaders = (header: any): Record<string, string> => {
   if (!header) return {};
@@ -124,14 +118,33 @@ export const useApi = (onError?: OnError) => {
         try {
           showLoading && setRequestCount((cnt) => cnt + 1);
           const options = await prepareInit(rest);
-          const response = await method({ apiName: 'crossfeed', path, options })
-            .response;
+          const {
+            body,
+            response: includeResponse,
+            responseType,
+            withCredentials
+          } = options;
+          const requestPath = path.startsWith('/') ? path : `/${path}`;
+          const response = await fetch(`${apiBaseUrl}${requestPath}`, {
+            method,
+            headers: options.headers,
+            body:
+              body === undefined ||
+              body instanceof FormData ||
+              typeof body === 'string'
+                ? body
+                : JSON.stringify(body),
+            credentials: withCredentials ? 'include' : undefined
+          });
 
-          const statusCode = response.statusCode ?? (response as any).status;
+          const statusCode = response.status;
 
           let result: any;
           try {
-            result = await response.body.json();
+            result =
+              responseType === 'blob'
+                ? await response.blob()
+                : await response.json();
           } catch {
             result = undefined;
           }
@@ -154,12 +167,30 @@ export const useApi = (onError?: OnError) => {
             });
           }
 
+          if (!response.ok) {
+            const error = new Error(
+              result?.detail ||
+                result?.message ||
+                `Request failed with status code ${statusCode}`
+            );
+            throw Object.assign(error, {
+              statusCode,
+              body: result,
+              response: { status: statusCode, headers: response.headers }
+            });
+          }
+
           showLoading && setRequestCount((cnt) => cnt - 1);
+          if (includeResponse) {
+            return {
+              data: result,
+              headers: Object.fromEntries(response.headers.entries())
+            } as T;
+          }
           return result as T;
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          // 1. Extract status code from various Amplify v6 error formats
           const status =
             e?.response?.statusCode ??
             e?.response?.status ??
@@ -237,9 +268,9 @@ export const useApi = (onError?: OnError) => {
   );
 
   const api = {
-    apiGet: useMemo(() => apiMethod(get), [apiMethod]),
-    apiPost: useMemo(() => apiMethod(post), [apiMethod]),
-    apiDelete: useMemo(() => apiMethod(del), [apiMethod])
+    apiGet: useMemo(() => apiMethod('GET'), [apiMethod]),
+    apiPost: useMemo(() => apiMethod('POST'), [apiMethod]),
+    apiDelete: useMemo(() => apiMethod('DELETE'), [apiMethod])
   };
 
   return {
