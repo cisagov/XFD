@@ -201,10 +201,13 @@ peScanController:
       # EventBridge evaluates in UTC by default.
 
       # Have adjusted the cron expressions below to run at the
-      # desired local time (EST/EDT).
+      # desired local time in EDT.
 
-      # Will base cron jobs on eastern time zone in the future
-      # once IAM policy issue is resolved.
+      # Cron jobs running after 1:59 AM will vary by 1 hour
+      # depending on whether DST is in effect.
+
+      # EST = UTC-5
+      # EDT = UTC-4
 
     # ORGS:
       # "all" - load is handled by one container.
@@ -239,7 +242,7 @@ peScanController:
     - schedule:
         name: pe-flare-events-semi-monthly
         description: "Semi-monthly flare events scan"
-        # Runs the 1st and 16th of every month at 4:00 AM EST/EDT
+        # Runs the 1st and 16th of every month at 12:00 AM EST/EDT
         rate: cron(0 4 1,16 * ? *)
         enabled: true
         input:
@@ -249,7 +252,7 @@ peScanController:
     - schedule:
         name: pe-flare-leaked-credentials-semi-monthly
         description: "Semi-monthly flare leaked credentials scan"
-        # Runs the 1st and 16th of every month at 10:00 AM EST/EDT
+        # Runs the 1st and 16th of every month at 5:00 AM EST/6:00 AM EDT
         rate: cron(0 10 1,16 * ? *)
         enabled: true
         input:
@@ -269,10 +272,8 @@ peScanController:
     - schedule:
         name: pe-shodan-top-cves-semi-monthly
         description: "Semi-monthly shodan top CVEs scan"
-        # Runs the 1st and 20th of every month at 1:00 PM EST/EDT
-        # Revert back to 1st and 16th of every month at 8:00 AM EST/EDT
-        # after the first run of this task on 2024-08-20.
-        rate: cron(0 17 1,20 * ? *)
+        # Runs the 1st and 16th of every month at 5:00 AM EST/6:00 AM EDT
+        rate: cron(0 10 1,16 * ? *)
         enabled: true
         input:
           scans: ["shodan_top_cves"]
