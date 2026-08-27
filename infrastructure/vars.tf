@@ -814,7 +814,7 @@ variable "ami_id" {
 }
 
 variable "create_was_reporting_instance" {
-  description = "Whether to create or manage the WAS reporting EC2 instance. Ignored outside DMZ environments."
+  description = "Whether to create or manage the WAS reporting EC2 instance."
   type        = bool
   default     = false
 }
@@ -826,9 +826,9 @@ variable "was_reporting_ami_id" {
 }
 
 variable "was_reporting_instance_type" {
-  description = "EC2 instance type for the WAS reporting instance."
+  description = "EC2 instance type for the WAS reporting instance. Initially matches the P&E EC2 instance but can evolve independently."
   type        = string
-  default     = "t3.medium"
+  default     = "m5.4xlarge"
 }
 
 variable "was_reporting_root_volume_size" {
@@ -848,58 +848,16 @@ variable "was_reporting_root_volume_type" {
   default     = "gp3"
 }
 
-variable "was_reporting_delete_volume_on_termination" {
-  description = "Whether to delete the WAS reporting root volume when the instance is terminated."
-  type        = bool
-  default     = true
-}
-
 variable "was_reporting_subnet_id" {
-  description = "ID of the approved, pre-existing DMZ subnet for WAS reporting."
+  description = "ID of the existing DMZ subnet for WAS reporting. Initially matches the P&E EC2 subnet but can evolve independently."
   type        = string
-  default     = ""
+  default     = "subnet-0b1b2c61141354e25"
 }
 
 variable "was_reporting_security_group_id" {
-  description = "ID of the approved, pre-existing DMZ security group for WAS reporting."
+  description = "ID of the existing DMZ security group for WAS reporting. Initially matches the P&E EC2 security group but can evolve independently."
   type        = string
-  default     = ""
-}
-
-variable "was_reporting_ssm_path_prefix" {
-  description = "Optional SSM hierarchy override for WAS reporting. When null, it is derived from the deployment stage."
-  type        = string
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = var.was_reporting_ssm_path_prefix == null || can(regex("^/[^/]+(/[^/]+)+/?$", var.was_reporting_ssm_path_prefix))
-    error_message = "was_reporting_ssm_path_prefix must be null or an absolute hierarchical SSM path."
-  }
-}
-
-variable "was_reporting_kms_key_arn" {
-  description = "Optional customer-managed KMS key ARN used to encrypt WAS reporting parameters."
-  type        = string
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = var.was_reporting_kms_key_arn == null || can(regex("^arn:[^:]+:kms:[^:]+:[0-9]{12}:key/.+$", var.was_reporting_kms_key_arn))
-    error_message = "was_reporting_kms_key_arn must be null or a valid KMS key ARN."
-  }
-}
-
-variable "was_reporting_approved_security_group_ids" {
-  description = "Additional approved security group IDs to attach to the WAS reporting instance."
-  type        = list(string)
-  default     = []
-}
-
-variable "was_reporting_tags" {
-  description = "Environment-specific tags to merge with the standard WAS reporting resource tags."
-  type        = map(string)
-  default     = {}
+  default     = "sg-0947bc9960c82a0b2"
 }
 
 variable "cloudtrail_name" {
