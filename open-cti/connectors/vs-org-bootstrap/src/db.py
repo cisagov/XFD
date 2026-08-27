@@ -122,12 +122,17 @@ class VsOrgBootstrapRepository:
         # Filtered by the org acronym allowlist (§9c) and, when present, Organization.updated_at
         # (§7d -- the one table in this whole architecture with a real watermark column, no
         # LatestPortScan/Ticket-style gotchas).
+        # `acronym = ANY(NULL)` evaluates to NULL (not TRUE) in Postgres -- verified against a
+        # real instance -- so without the explicit "IS NULL OR" branch, an unscoped run
+        # (ALLOW_UNSCOPED_RUN=true, empty allowlist -> acronyms param is None) would silently
+        # return zero organizations instead of all of them. Found before this was ever actually
+        # exercised, not from a live failure.
         query = """
             SELECT id, acronym, name, retired, stakeholder, vs_stakeholder, type,
                    state, state_name, county, county_fips, state_fips, country, country_name,
                    location_id, parent_id, updated_at
             FROM organization
-            WHERE acronym = ANY(%(acronyms)s)
+            WHERE (%(acronyms)s IS NULL OR acronym = ANY(%(acronyms)s))
               AND (%(since)s IS NULL OR updated_at > %(since)s)
             ORDER BY updated_at
             LIMIT %(limit)s
@@ -176,11 +181,17 @@ class VsOrgBootstrapRepository:
     def _fetch_locations_live(self, conn, location_ids: List[str]) -> Dict[str, Dict]:
         if not location_ids:
             return {}
+        # location.id is a native Postgres uuid column; psycopg2 adapts a Python list of
+        # id strings to a text[] array by default, and Postgres won't implicitly compare
+        # uuid = ANY(text[]) -- "operator does not exist: uuid = text", hit for real on a live
+        # run, not caught by the mapping-only tests (fixtures never round-trip through
+        # psycopg2's actual type adaptation). Explicit cast needed; the other three ANY()
+        # queries in this file all compare acronym (varchar), which doesn't have this problem.
         query = """
             SELECT id, name, country_abrv, country, county, county_fips, gnis_id,
                    state_abrv, state
             FROM location
-            WHERE id = ANY(%(ids)s)
+            WHERE id = ANY(%(ids)s::uuid[])
         """
         with conn.cursor() as cur:
             cur.execute(query, {"ids": location_ids})

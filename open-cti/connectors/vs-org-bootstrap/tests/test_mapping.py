@@ -203,6 +203,37 @@ def test_relationship_id_changes_with_stop_time_when_not_pinned(
     assert open_rel.id != closed_rel.id
 
 
+def test_build_owns_cidr_drops_stop_time_when_not_strictly_after_start_time(
+    author_id, marking_id, org_stix_id, cidr_stix_id
+):
+    """A same-day open+close must not crash.
+
+    CidrOrgs.first_seen/last_seen are DateField (date-only) -- caught for real at full
+    production scale (13k+ orgs, 2026-08-27), where STIX 2.1's strict stop_time > start_time
+    constraint rejected the equal-timestamps case outright.
+    """
+    same_day = mapping.build_owns_cidr(
+        org_stix_id,
+        cidr_stix_id,
+        author_id,
+        marking_id,
+        first_seen="2026-08-27",
+        last_seen_or_stop="2026-08-27",
+    )
+    assert not hasattr(same_day, "stop_time")
+    assert same_day.start_time is not None  # start_time itself is still preserved
+
+    stop_before_start = mapping.build_owns_cidr(
+        org_stix_id,
+        cidr_stix_id,
+        author_id,
+        marking_id,
+        first_seen="2026-08-27",
+        last_seen_or_stop="2026-08-20",
+    )
+    assert not hasattr(stop_before_start, "stop_time")
+
+
 def test_dedupe_bundle_objects_collapses_repeated_ids(author_id, marking_id):
     """Two STIX objects sharing an id must collapse to one in dedupe_bundle_objects()."""
     org_row = load_fixture("organizations.json")[0]

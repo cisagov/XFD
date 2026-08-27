@@ -5,6 +5,7 @@ Identity by acronym against what this connector creates. Build/deploy order: thi
 """
 
 # Standard Python Libraries
+import datetime
 import logging
 from typing import Dict, Optional
 
@@ -81,11 +82,17 @@ class VsOrgBootstrapConnector:
                 since_updated_at=state.get("last_updated_at_watermark")
             )
             new_watermark = self._process(data, state)
-        except Exception:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except
             # §10e: don't let one bad run corrupt state -- log and let the next scheduled tick
             # retry from the last confirmed watermark rather than partially advancing it.
+            # connector_logger is pycti's own AppLogger, not a stdlib logging.Logger -- verified
+            # against the installed source after this call itself crashed with "unexpected
+            # keyword argument 'exc_info'" while trying to log a real error (worse than not
+            # catching at all, since it masked the original exception). AppLogger.error() takes
+            # (message, meta=None) and always passes exc_info=1 to the underlying logger
+            # internally, so the traceback is captured automatically either way.
             self.helper.connector_logger.error(
-                "VS Org Bootstrap run failed", exc_info=True
+                "VS Org Bootstrap run failed", meta={"error": str(e)}
             )
             return
 
@@ -189,33 +196,61 @@ class VsOrgBootstrapConnector:
                 )
 
         # --- CIDRs + ownership relationships ---
+        # §10e says one bad row shouldn't sink an entire poll's bundle -- this loop is where
+        # that was actually just tested for real: a single malformed CIDR (a same-day
+        # open+close, see mapping.build_owns_cidr) previously aborted the *whole* run, at full
+        # production scale (13k+ orgs), not just that one org. Isolated per-row instead of
+        # relying on run()'s top-level catch, which only protects state from a failed run, not
+        # one run's success from a single bad row within it.
         for cidr_row in data.cidrs:
             org_acronym = cidr_row.get("organization_acronym")
             if org_acronym not in org_stix_by_acronym:
                 continue
-            cidr_obj = mapping.map_cidr_observable(cidr_row["network"])
-            objects.append(cidr_obj)
-            objects.append(
-                self._cidr_relationship(
+            try:
+                cidr_obj = mapping.map_cidr_observable(cidr_row["network"])
+                relationship = self._cidr_relationship(
                     state, org_stix_by_acronym[org_acronym], cidr_obj.id, cidr_row
                 )
-            )
+            except Exception as e:  # pylint: disable=broad-except
+                self.helper.connector_logger.warning(
+                    f"Skipping CIDR {cidr_row.get('network')!r} for org {org_acronym!r}: {e}"
+                )
+                continue
+            objects.append(cidr_obj)
+            objects.append(relationship)
 
         objects = mapping.dedupe_bundle_objects(objects)
         bundle = self.helper.stix2_create_bundle(objects)
         self.helper.send_stix2_bundle(bundle, update=True)
 
+        # connector_logger is pycti's AppLogger, not a stdlib logging.Logger -- it takes
+        # (message, meta=None), not lazy %-style formatting with extra positional args (same
+        # class of mistake as the exc_info bug above; found the same way, by it crashing on a
+        # real run). Pre-format the message into one string instead.
         self.helper.connector_logger.info(
-            "Sent %d objects (%d orgs, %d sectors, %d CIDRs)",
-            len(objects),
-            len(data.organizations),
-            len(data.sectors),
-            len(data.cidrs),
+            f"Sent {len(objects)} objects "
+            f"({len(data.organizations)} orgs, {len(data.sectors)} sectors, "
+            f"{len(data.cidrs)} CIDRs)"
         )
 
-        return max(
+        watermark = max(
             (org["updated_at"] for org in data.organizations if org.get("updated_at")),
             default=None,
+        )
+        # Same live-vs-fixture type gap as mapping.normalize_timestamp() -- psycopg2 returns a
+        # real datetime.datetime for organization.updated_at (a timestamptz column), but our
+        # IS_LOCAL fixtures store it as a JSON/ISO string already. pycti's set_state() does a
+        # plain json.dumps(state) with no datetime support, so a raw datetime here crashes for
+        # real on a live run ("Object of type datetime is not JSON serializable") -- not caught
+        # by fixture-based tests for the same reason the UUID/date bugs weren't.
+        # isinstance, not hasattr -- mypy can verify the None branch is unreachable through
+        # isinstance narrowing, which it can't do for a hasattr() guard (a real limitation, not
+        # a runtime bug: hasattr(None, "isoformat") is correctly False at runtime either way,
+        # proven by the test suite, but mypy flagged this as a real pre-commit blocker).
+        return (
+            watermark.isoformat()
+            if isinstance(watermark, datetime.datetime)
+            else watermark
         )
 
     # ------------------------------------------------------------------

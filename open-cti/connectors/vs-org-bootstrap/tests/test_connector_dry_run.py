@@ -9,13 +9,14 @@ to be for updates (like a CIDR retiring) to land on the same object instead of a
 """
 
 # Standard Python Libraries
-import logging
 import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Third-Party Libraries
+from pycti.utils.opencti_logger import logger as pycti_logger
+
 # First-Party
 from src.config import Config  # noqa: E402
 from src.connector import VsOrgBootstrapConnector  # noqa: E402
@@ -25,11 +26,20 @@ class StubHelper:
     """Just enough of OpenCTIConnectorHelper's surface for _process() to run against.
 
     send_stix2_bundle captures instead of transmitting -- the network/queue boundary itself.
+
+    connector_logger deliberately uses pycti's *real* AppLogger, not a plain stdlib
+    logging.getLogger() -- a stdlib logger would have silently accepted the old
+    connector_logger.error(msg, exc_info=True) and connector_logger.info(msg, %s-args) calls
+    that crashed for real on a live run (AppLogger.error/info only take (message, meta=None), no
+    lazy %%-formatting, no exc_info kwarg). Using the real class here means this dry-run test
+    would have caught both bugs before they ever reached a real connector run.
     """
 
     def __init__(self):
         """Start with an empty capture list -- nothing has been "sent" yet."""
-        self.connector_logger = logging.getLogger("stub_helper")
+        self.connector_logger = pycti_logger(level=20, json_logging=False)(
+            "stub_helper"
+        )
         self.sent_bundles = []
 
     @staticmethod
@@ -158,6 +168,69 @@ def test_cidr_relationship_id_stays_pinned_when_current_flips_but_stop_time_upda
     assert (
         "stop_time" in rel_obj
     )  # ...and the content that changed rides along on that same id
+
+
+def test_process_watermark_is_json_serializable_for_real_datetime_objects():
+    """Prove the watermark fix against what psycopg2 actually returns, not just fixture strings.
+
+    organization.updated_at is a timestamptz column -- psycopg2 hands back a real
+    datetime.datetime for it on a live run, but every fixture in this suite stores it as an
+    already-JSON-safe ISO string, so this specific bug ("Object of type datetime is not JSON
+    serializable" from pycti's set_state() -> json.dumps()) was invisible to every other test
+    here. Override the fixture data with a real datetime, the way live data actually looks.
+    """
+    # Standard Python Libraries
+    import datetime
+    import json
+
+    connector = build_test_connector()
+    data = connector.repository.fetch(since_updated_at=None)
+    for org in data.organizations:
+        org["updated_at"] = datetime.datetime(
+            2026, 8, 21, 9, 30, tzinfo=datetime.timezone.utc
+        )
+
+    watermark = connector._process(data, {})
+
+    assert isinstance(watermark, str)
+    json.dumps({"last_updated_at_watermark": watermark})  # must not raise
+
+
+def test_one_bad_cidr_does_not_abort_the_whole_run():
+    """§10e's row-isolation promise, actually exercised.
+
+    One malformed CIDR previously aborted _process() entirely -- at full production scale, a
+    single bad row meant *zero* orgs got sent that run, not just the offending one. Uses an
+    invalid network string here (a different failure mode than the stop_time bug that first
+    surfaced this) specifically to prove the isolation is general-purpose, not a fix narrowly
+    scoped to that one bug.
+    """
+    # Standard Python Libraries
+    import json
+
+    connector = build_test_connector()
+    data = connector.repository.fetch(since_updated_at=None)
+    data.cidrs.append(
+        {
+            "network": "not-a-valid-cidr",
+            "organization_acronym": data.organizations[0]["acronym"],
+            "first_seen": "2026-01-01",
+            "last_seen": "2026-01-01",
+            "current": True,
+        }
+    )
+
+    watermark = connector._process(data, {})
+
+    assert watermark is not None  # the run completed, it didn't raise
+    bundle = json.loads(connector.helper.sent_bundles[-1])
+    networks_sent = [
+        obj["value"]
+        for obj in bundle["objects"]
+        if obj["type"] in ("ipv4-addr", "ipv6-addr")
+    ]
+    assert "not-a-valid-cidr" not in networks_sent  # the bad one was skipped
+    assert "198.51.100.0/24" in networks_sent  # the good ones still went out
 
 
 def mapping_org_id(connector, data, acronym):

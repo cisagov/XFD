@@ -237,9 +237,20 @@ def build_owns_cidr(
     Carries the CidrOrgs.first_seen/current lifecycle (§7d) as native start_time/stop_time --
     stop_time set only once CidrOrgs.current has flipped to False (retired). Same idempotency
     caveat as every relationship in this file: see _relationship_id.
+
+    CidrOrgs.first_seen/last_seen are DateField (date-only, see mapping.normalize_timestamp) --
+    a CIDR first observed and marked non-current within the same calendar day normalizes to the
+    *same* midnight-UTC timestamp for both. STIX 2.1 requires stop_time strictly later than
+    start_time (verified: equal values raise ValueError, not just stop < start), so that case
+    would otherwise crash the entire run over one CIDR -- caught for real at full production
+    scale (13k+ orgs), not a theoretical edge case. Date-only precision genuinely can't
+    distinguish "opened and closed same day" from "still open," so dropping stop_time (treating
+    it as not-yet-confirmed-closed) is the honest choice here, not a workaround.
     """
     start_time = normalize_timestamp(first_seen)
     stop_time = normalize_timestamp(last_seen_or_stop)
+    if start_time is not None and stop_time is not None and stop_time <= start_time:
+        stop_time = None
     rel_id = _relationship_id(
         "related-to", org_id, cidr_observable_id, start_time, stop_time, existing_id
     )

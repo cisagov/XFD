@@ -430,7 +430,16 @@ services:
   ###########################
 
   connector-vs-org-bootstrap:
-    build: ./connectors/vs-org-bootstrap
+    build:
+      context: ./connectors/vs-org-bootstrap
+      # Zscaler root CA, referenced directly from runtime state (/opt/open-cti,
+      # never the replaceable git checkout) via a named build context -- never
+      # copied into the repo. See connectors/vs-org-bootstrap/README.md "TLS
+      # interception". Requires BuildKit; there's a known regression for this in
+      # Compose 2.24.0 (docker/compose#11351) -- confirm this actually resolves
+      # on `docker compose build` before trusting it blindly.
+      additional_contexts:
+        - "zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}"
     environment:
       - OPENCTI_URL=http://opencti:8080
       # NOT YET WIRED: needs a real OpenCTI service-account token delivered the same
