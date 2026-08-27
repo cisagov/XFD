@@ -149,24 +149,6 @@ export const useApi = (onError?: OnError) => {
             result = undefined;
           }
 
-          // If status is 401, immediately throw standardized error
-          if (statusCode === 401) {
-            const error = new Error(
-              result?.detail ||
-                result?.message ||
-                `Request failed with status code 401`
-            );
-
-            throw Object.assign(error, {
-              statusCode: 401,
-              body: result,
-              response: {
-                status: 401,
-                headers: response.headers
-              }
-            });
-          }
-
           if (!response.ok) {
             const error = new Error(
               result?.detail ||
