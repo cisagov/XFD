@@ -56,7 +56,7 @@ class Config:
             "VS_ORG_BOOTSTRAP_DB_NAME",
             ["vs_org_bootstrap", "db_name"],
             self.raw,
-            default="mini_data_lake",
+            default="cyhy_mini_data_lake_staging",
         )
         self.db_user = get_config_variable(
             "VS_ORG_BOOTSTRAP_DB_USER",

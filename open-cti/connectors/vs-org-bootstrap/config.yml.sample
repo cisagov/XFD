@@ -26,7 +26,7 @@ vs_org_bootstrap:
   # --- mini_data_lake connectivity (OpenCTI-connector.md §2) ---
   db_host: 'ChangeMe'
   db_port: 5432
-  db_name: 'mini_data_lake'
+  db_name: 'cyhy_mini_data_lake_staging'
   db_user: 'open_cti'
   # IAM database authentication, not a static password -- see §2. When true, db_password is
   # ignored and a short-lived token is generated per connection via boto3/STS.

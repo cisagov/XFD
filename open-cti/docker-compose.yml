@@ -461,11 +461,12 @@ services:
       # deliberately not env.static, since a DB endpoint is per-environment, not
       # something that belongs in a file meant to be identical everywhere.
       - VS_ORG_BOOTSTRAP_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
-      # TODO: confirm this literal name against the real instance
-      # (current_database() via crossfeed-staging-bastion) -- "mini_data_lake" is
-      # the Django settings/connector default, not yet independently verified as
-      # the real deployed database name.
-      - VS_ORG_BOOTSTRAP_DB_NAME=mini_data_lake
+      # Confirmed (2026-08-27) via current_database() through
+      # crossfeed-staging-bastion -- the real deployed name, not the Django
+      # settings/connector default ("mini_data_lake", kept as the architectural
+      # name for this data store throughout comments/docs; this is just the
+      # literal staging Postgres identifier).
+      - VS_ORG_BOOTSTRAP_DB_NAME=cyhy_mini_data_lake_staging
       - VS_ORG_BOOTSTRAP_DB_USER=open_cti
       - VS_ORG_BOOTSTRAP_DB_USE_IAM_AUTH=true
       - VS_ORG_BOOTSTRAP_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
