@@ -1174,3 +1174,9 @@ variable "ssm_shodan_org_exception" {
   type        = string
   default     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
 }
+
+variable "ssm_pe_s3_bucket" {
+  description = "ssm_pe_s3_bucket"
+  type        = string
+  default     = "/crossfeed/staging/PE_S3_BUCKET"
+}

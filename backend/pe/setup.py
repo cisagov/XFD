@@ -31,6 +31,10 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     package_data={
+        "pe_asm": [
+            "remote_step/asm_sync_remote_helpers/*",
+            "remote_step/*",
+        ],
         "pe_source": ["dnstwist/*.dict"],
         "pe_reports": [
             "assets/*",
@@ -48,6 +52,7 @@ setup(
             "pe-source=pe_source.pe_scripts:main",
             "pe-reports=pe_reports.report_generator:main",
             "pe-mailer=pe_mailer.email_reports:main",
+            "pe-asm-sync=pe_asm.asm_sync:main",
         ],
     },
     python_requires=">=3.10",
