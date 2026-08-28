@@ -46,7 +46,7 @@ def get_tag_id(tag_name: str) -> int:
         raise ValueError("Tag ID not found for tag name: {}".format(tag_name))
 
 
-def search_schedules():
+def search_schedules(stakeholder_tag=None):
     """
     Searches the qualys api for schedules finished after the input date
 
@@ -55,6 +55,11 @@ def search_schedules():
     AttributeError
         If there are no finished schedules that match the criteria
         If the schedule is inactive
+
+    Parameters
+    ----------
+    stakeholder_tag : str, optional
+        exact stakeholder tag to process during schedule discovery
 
     Returns
     -------
@@ -113,6 +118,8 @@ def search_schedules():
             schedule_id = int(schedule.id.text)
             if schedule_id not in PREVIOUS_IDS:
                 tag, name = make_stakeholder_info(schedule.name.text)
+                if stakeholder_tag is not None and tag != stakeholder_tag:
+                    continue
                 # tag_id: int = schedule.target.tags.included.tagList.list.Tag.id
                 tag_id: int = get_tag_id(tag)
                 # launched_date: str = schedule.lastScan.launchedDate.text

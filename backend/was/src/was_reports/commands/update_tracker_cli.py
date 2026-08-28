@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 
 UPDATE_TRACKER_ROOT = (
-    Path(__file__).resolve().parents[2] / "update_tracker" / "update_tracker"
+    Path(__file__).resolve().parents[3] / "update_tracker" / "update_tracker"
 )
 
 
@@ -31,23 +31,43 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
             "The default is non-destructive."
         ),
     )
+    parser.add_argument(
+        "-t",
+        "--tag",
+        help=(
+            "Process only the exact stakeholder tag after discovering recent "
+            "Qualys schedules."
+        ),
+    )
     return parser.parse_args(argv)
 
 
-def run_update_tracker(delete_apps: bool) -> None:
+def run_update_tracker(
+    delete_apps: bool,
+    stakeholder_tag: Optional[str] = None,
+) -> None:
     """Run the legacy update tracker workflow."""
     ensure_update_tracker_path()
 
     # First-Party Libraries
     from main import main as update_tracker_main
 
-    update_tracker_main(delete_apps=delete_apps)
+    update_tracker_main(
+        delete_apps=delete_apps,
+        stakeholder_tag=stakeholder_tag,
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS update tracker CLI."""
     args = parse_args(argv)
-    run_update_tracker(delete_apps=args.delete_apps)
+    stakeholder_tag = args.tag.strip() if args.tag else None
+    if args.tag and not stakeholder_tag:
+        raise ValueError("Stakeholder tag must not be empty.")
+    run_update_tracker(
+        delete_apps=args.delete_apps,
+        stakeholder_tag=stakeholder_tag,
+    )
     return 0
 
 

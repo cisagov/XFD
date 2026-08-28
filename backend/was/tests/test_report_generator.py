@@ -15,13 +15,12 @@ from was_reports.commands import report_generator
 class ReportGeneratorTests(unittest.TestCase):
     """Validate legacy command construction and input handling."""
 
-    def test_build_legacy_command_includes_tag_and_password(self) -> None:
-        """Build the legacy creator command without shell interpolation."""
+    def test_build_legacy_command_excludes_password(self) -> None:
+        """Keep the report password out of child process arguments."""
         command = report_generator.build_legacy_command(
             python_executable="python3",
             script_path=Path("/app/was_report/WAS_report_creator.py"),
             stakeholder_tag="TEST_TAG",
-            report_password="password",
         )
 
         self.assertEqual(
@@ -31,10 +30,50 @@ class ReportGeneratorTests(unittest.TestCase):
                 "/app/was_report/WAS_report_creator.py",
                 "-t",
                 "TEST_TAG",
-                "--encrypt",
-                "password",
             ],
         )
+
+    def test_build_legacy_input_answers_encryption_prompts(self) -> None:
+        """Provide the password through standard input for the frozen script."""
+        legacy_input = report_generator.build_legacy_input("child-password")
+
+        self.assertEqual(legacy_input, "Y\nchild-password\n")
+
+    def test_build_legacy_input_can_skip_encryption(self) -> None:
+        """Decline legacy encryption when unencrypted output was approved."""
+        legacy_input = report_generator.build_legacy_input("N/A")
+
+        self.assertEqual(legacy_input, "N\n")
+
+    @patch("was_reports.commands.report_generator.subprocess.run")
+    def test_run_legacy_report_passes_password_only_through_standard_input(
+        self,
+        mock_subprocess_run,
+    ) -> None:
+        """Keep the password out of process arguments and environment."""
+        mock_subprocess_run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            legacy_root = Path(directory)
+            script_path = legacy_root / "WAS_report_creator.py"
+            script_path.write_text("print('ok')", encoding="utf-8")
+            report_generator.run_legacy_report(
+                python_executable="python3",
+                legacy_root=legacy_root,
+                stakeholder_tag="TEST_TAG",
+                report_password="child-password",
+            )
+
+        command = mock_subprocess_run.call_args.args[0]
+        self.assertNotIn("child-password", command)
+        self.assertNotIn("--encrypt", command)
+        self.assertEqual(
+            mock_subprocess_run.call_args.kwargs["input"],
+            "Y\nchild-password\n",
+        )
+        self.assertTrue(mock_subprocess_run.call_args.kwargs["text"])
 
     def test_parse_args_accepts_legacy_encrypt_alias(self) -> None:
         """Accept the observed legacy password flag at the modern CLI boundary."""

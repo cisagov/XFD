@@ -6,6 +6,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
+# Third-Party Libraries
+from requests import Response
+from requests.exceptions import HTTPError
+
 # First-Party Libraries
 from was_reports.reporting import report_artifacts
 
@@ -16,6 +20,18 @@ SENSITIVE_RESPONSE = """<ServiceResponse><data><Finding><resultList><list>
 </PayloadInstance></list></payloads></Result></list></resultList></Finding>
 </data></ServiceResponse>"""
 EMPTY_RESPONSE = "<ServiceResponse><data /></ServiceResponse>"
+UNSUPPORTED_MODULE_RESPONSE = """<ServiceResponse>
+<responseCode>OTHER_ERROR</responseCode>
+<responseErrorDetails><errorMessage>{}</errorMessage></responseErrorDetails>
+</ServiceResponse>""".format(report_artifacts.UNSUPPORTED_MODULE_MESSAGE)
+
+
+def build_http_error(status_code: int, response_body: str) -> HTTPError:
+    """Build an HTTP error containing a Qualys XML response."""
+    response = Response()
+    response.status_code = status_code
+    response._content = response_body.encode()
+    return HTTPError(response=response)
 
 
 class ReportArtifactTests(unittest.TestCase):
@@ -90,6 +106,45 @@ class ReportArtifactTests(unittest.TestCase):
         self.assertIn("SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND", output_text)
         self.assertIn("https://example.gov/sensitive,123-45-6789", output_text)
         self.assertIn("No Credit Card data found.", output_text)
+
+    def test_sensitive_data_unsupported_module_logs_and_continues(self) -> None:
+        """Mark unavailable data and continue for the known Qualys response."""
+        client = Mock()
+        client.request.side_effect = [
+            build_http_error(400, UNSUPPORTED_MODULE_RESPONSE),
+            build_http_error(400, UNSUPPORTED_MODULE_RESPONSE),
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            asset_directory = Path(directory)
+            with self.assertLogs(report_artifacts.LOGGER, level="WARNING") as logs:
+                filename = report_artifacts.write_sensitive_data_attachment(
+                    client,
+                    "CUSTOMER",
+                    asset_directory,
+                )
+            output_text = (asset_directory / filename).read_text()
+
+        self.assertEqual(client.request.call_count, 2)
+        self.assertEqual(len(logs.output), 2)
+        self.assertIn("SSN data unavailable from Qualys.", output_text)
+        self.assertIn("Credit Card data unavailable from Qualys.", output_text)
+
+    def test_sensitive_data_unexpected_http_error_is_raised(self) -> None:
+        """Do not suppress Qualys errors outside the approved fallback."""
+        client = Mock()
+        client.request.side_effect = build_http_error(
+            500,
+            UNSUPPORTED_MODULE_RESPONSE,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(HTTPError):
+                report_artifacts.write_sensitive_data_attachment(
+                    client,
+                    "CUSTOMER",
+                    Path(directory),
+                )
 
     def test_generate_report_artifacts_returns_all_filenames(self) -> None:
         """Create every active attachment through one orchestration call."""

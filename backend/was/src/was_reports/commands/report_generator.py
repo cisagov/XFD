@@ -90,17 +90,21 @@ def build_legacy_command(
     python_executable: str,
     script_path: Path,
     stakeholder_tag: str,
-    report_password: str,
 ) -> List[str]:
-    """Build the legacy WAS report creator command."""
+    """Build the legacy command without placing its password in arguments."""
     return [
         python_executable,
         str(script_path),
         "-t",
         stakeholder_tag,
-        "--encrypt",
-        report_password,
     ]
+
+
+def build_legacy_input(report_password: str) -> str:
+    """Build responses for the frozen legacy encryption prompts."""
+    if report_password == "N/A":
+        return "N\n"
+    return "Y\n{}\n".format(report_password)
 
 
 def run_legacy_report(
@@ -120,9 +124,14 @@ def run_legacy_report(
         python_executable=python_executable,
         script_path=script_path,
         stakeholder_tag=stakeholder_tag,
-        report_password=report_password,
     )
-    return subprocess.run(command, cwd=str(legacy_root), check=True)
+    return subprocess.run(
+        command,
+        cwd=str(legacy_root),
+        check=True,
+        input=build_legacy_input(report_password),
+        text=True,
+    )
 
 
 def generate_report(

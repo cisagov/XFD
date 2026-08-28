@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import base64
 import csv
+import logging
 from dataclasses import dataclass
 from itertools import zip_longest
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import List, Sequence, Tuple, Union
 # Third-Party Libraries
 from lxml import etree, objectify
 from lxml.builder import E
+from requests.exceptions import HTTPError
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
@@ -22,6 +24,11 @@ REJECTED_LINKS_QID = "150041"
 SSN_QIDS = ("150034", "150603")
 CREDIT_CARD_QIDS = ("150033", "150080")
 SENSITIVE_FINDING_ENDPOINT = "/search/was/finding"
+UNSUPPORTED_MODULE_MESSAGE = (
+    "An error occurred during activation request processing. "
+    "Module is not supported for this agent."
+)
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -201,17 +208,60 @@ def retrieve_sensitive_findings(
     return parse_sensitive_findings(response_xml)
 
 
+def is_unsupported_module_error(error: HTTPError) -> bool:
+    """Return whether Qualys rejected a request for an unsupported module."""
+    response = error.response
+    if response is None or response.status_code != 400 or not response.content:
+        return False
+    try:
+        root = etree.fromstring(response.content)
+    except etree.XMLSyntaxError:
+        return False
+    messages = root.xpath("./responseErrorDetails/errorMessage/text()")
+    return (
+        bool(messages)
+        and str(messages[0]).strip() == UNSUPPORTED_MODULE_MESSAGE
+    )
+
+
+def retrieve_sensitive_findings_or_unavailable(
+    client: QualysClient,
+    stakeholder_tag: str,
+    qids: Sequence[str],
+    finding_label: str,
+) -> Tuple[List[str], List[str]]:
+    """Return findings or an unavailable marker for the known Qualys error."""
+    try:
+        return retrieve_sensitive_findings(client, stakeholder_tag, qids)
+    except HTTPError as error:
+        if not is_unsupported_module_error(error):
+            raise
+        LOGGER.warning(
+            "Qualys %s finding data is unavailable for stakeholder %s because "
+            "the scanner agent does not support the required module.",
+            finding_label,
+            stakeholder_tag,
+        )
+        return ["{} data unavailable from Qualys.".format(finding_label)], []
+
+
 def write_sensitive_data_attachment(
     client: QualysClient,
     stakeholder_tag: str,
     asset_directory: Path,
 ) -> str:
     """Write the legacy SSN and credit-card findings attachment."""
-    ssn_links, ssn_values = retrieve_sensitive_findings(
-        client, stakeholder_tag, SSN_QIDS
+    ssn_links, ssn_values = retrieve_sensitive_findings_or_unavailable(
+        client,
+        stakeholder_tag,
+        SSN_QIDS,
+        "SSN",
     )
-    card_links, card_values = retrieve_sensitive_findings(
-        client, stakeholder_tag, CREDIT_CARD_QIDS
+    card_links, card_values = retrieve_sensitive_findings_or_unavailable(
+        client,
+        stakeholder_tag,
+        CREDIT_CARD_QIDS,
+        "Credit Card",
     )
     if not ssn_links:
         ssn_links.append("No SSN data found.")
