@@ -68,11 +68,27 @@ This only ever affects a poll with **no existing watermark** — once one exists
 is ignored, deliberately. Clamping every ongoing poll to a rolling window would silently create a
 permanent gap: a still-open ticket whose last-seen timestamp never changes again would fall
 outside the window and then never get picked up, since the watermark only ever advances forward
-from here. Treat this as a dev-iteration-speed knob, or a deliberate "we're OK never ingesting
-tickets stale-open since before this cutoff" production decision — not a default to set without
-that tradeoff in mind. `VS_TICKET_INGESTION_MAX_ROWS_PER_RUN` (also tunable via
-`docker-compose.yml`) is the complementary, always-safe lever — it only paginates slower, it never
-skips data.
+from here.
+
+**That gap is real, not theoretical — measured against the live box (2026-08-28):** with a 60-day
+lookback, 413,925 real `is_open=true` tickets on `cyhy_mini_data_lake_staging` had a last-touch
+older than the cutoff. A plain lookback would have silently, permanently dropped every one of
+them, not "eventually" ingested them. The fix: the bootstrap poll (and *only* the bootstrap poll —
+`connector.run()` computes `is_first_run = state.get("last_seen_watermark") is None` and passes
+it straight through as `include_stale_open`) also pulls in every currently-open ticket regardless
+of how stale its last-touch date is, alongside whatever falls inside the lookback window. So
+`lookback_days` still controls "how much recent history to also pull on top of that," but no
+longer controls "whether currently-actionable findings get missed forever" — those two concerns
+used to be conflated in one knob, and aren't anymore. See `db.py`'s `_fetch_tickets_live()` for
+the query-level detail and the real-Postgres verification behind it.
+
+`VS_TICKET_INGESTION_MAX_ROWS_PER_RUN` (also tunable via `docker-compose.yml`) is the
+complementary, always-safe lever for both the lookback window and the stale-open backlog — it
+only paginates slower across multiple polls, it never skips data. Size it off the real numbers
+for your environment (`SELECT count(*) FROM ticket WHERE is_open = true AND
+COALESCE(closed_timestamp, updated_timestamp) <= now() - interval 'N days'` via
+`crossfeed-staging-bastion`, plus the in-window count) rather than guessing — a large stale-open
+count divided by a small row cap is a lot of daily polls before the backlog actually clears.
 
 ## Running it
 
