@@ -813,6 +813,53 @@ variable "ami_id" {
   default     = "ami-0a1445a13e666a557"
 }
 
+variable "create_was_reporting_instance" {
+  description = "Whether to create or manage the WAS reporting EC2 instance."
+  type        = bool
+  default     = false
+}
+
+variable "was_reporting_ami_id" {
+  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment. Initially matches the OpenCTI DMZ AMI but can evolve independently."
+  type        = string
+  default     = "ami-0fb0b230890ccd1e6"
+}
+
+variable "was_reporting_instance_type" {
+  description = "EC2 instance type for the WAS reporting instance. Initially matches the P&E EC2 instance but can evolve independently."
+  type        = string
+  default     = "m5.4xlarge"
+}
+
+variable "was_reporting_root_volume_size" {
+  description = "Size in GiB of the encrypted WAS reporting root volume."
+  type        = number
+  default     = 50
+
+  validation {
+    condition     = var.was_reporting_root_volume_size > 0
+    error_message = "The WAS reporting root volume size must be greater than zero."
+  }
+}
+
+variable "was_reporting_root_volume_type" {
+  description = "EBS volume type for the WAS reporting root volume."
+  type        = string
+  default     = "gp3"
+}
+
+variable "was_reporting_subnet_id" {
+  description = "ID of the existing DMZ subnet for WAS reporting. Initially matches the P&E EC2 subnet but can evolve independently."
+  type        = string
+  default     = "subnet-0b1b2c61141354e25"
+}
+
+variable "was_reporting_security_group_id" {
+  description = "ID of the existing DMZ security group for WAS reporting. Initially matches the P&E EC2 security group but can evolve independently."
+  type        = string
+  default     = "sg-0947bc9960c82a0b2"
+}
+
 variable "cloudtrail_name" {
   description = "cloudtrail_name"
   type        = string
