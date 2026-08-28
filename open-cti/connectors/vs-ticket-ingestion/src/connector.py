@@ -73,9 +73,14 @@ class VsTicketIngestionConnector:
         self.helper.connector_logger.info("Starting VS Ticket Ingestion run")
         state = self.helper.get_state() or {}
 
+        # is_first_run gates both _effective_since's lookback bound and the stale-open safety
+        # net below -- both only ever apply to the bootstrap poll, never an in-progress one.
+        is_first_run = state.get("last_seen_watermark") is None
         since_last_seen = self._effective_since(state)
         try:
-            data = self.repository.fetch(since_last_seen=since_last_seen)
+            data = self.repository.fetch(
+                since_last_seen=since_last_seen, include_stale_open=is_first_run
+            )
             new_watermark = self._process(data, state)
         except Exception as e:  # pylint: disable=broad-except
             # §10e/§10i: don't let one bad run corrupt state -- log and let the next scheduled
@@ -113,6 +118,15 @@ class VsTicketIngestionConnector:
         That's a real completeness cost, not just a delay, which is why `lookback_days` defaults
         to unset/None (§10c's same fail-closed instinct: don't silently start skipping data) and
         why this only ever touches the *first* poll, never an in-progress one.
+
+        **This alone is not enough**, discovered against real production numbers (2026-08-28):
+        413,925 real `is_open=true` tickets on the live box had a last-touch older than a 60-day
+        lookback -- not delayed, permanently excluded, since the watermark this method computes
+        can never move backward. `run()`'s `include_stale_open` flag (passed to
+        `repository.fetch()` alongside this value) is the actual fix for that gap -- see
+        `db._fetch_tickets_live()` for the query-level detail. This method's lookback bound still
+        controls what counts as "recent enough," `include_stale_open` is what keeps
+        currently-actionable-but-stale tickets from falling through that same crack.
         """
         watermark = state.get("last_seen_watermark")
         if watermark is not None or self.config.lookback_days is None:

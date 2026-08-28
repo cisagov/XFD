@@ -78,26 +78,38 @@ class VsTicketIngestionRepository:
         """Hold the config; connections are opened per-call, not cached (§10d)."""
         self.config = config
 
-    def fetch(self, since_last_seen: Optional[str]) -> TicketIngestionData:
-        """Fetch one run's worth of data, from fixtures (IS_LOCAL) or mini_data_lake."""
+    def fetch(
+        self, since_last_seen: Optional[str], include_stale_open: bool = False
+    ) -> TicketIngestionData:
+        """Fetch one run's worth of data, from fixtures (IS_LOCAL) or mini_data_lake.
+
+        `include_stale_open` is the bootstrap-only safety net (see connector.py's `run()` for
+        where it's computed) -- see `_fetch_tickets_live` for why it exists.
+        """
         if self.config.is_local:
             return self._fetch_local()
-        return self._fetch_live(since_last_seen)
+        return self._fetch_live(since_last_seen, include_stale_open)
 
     # ------------------------------------------------------------------
     # Live path
     # ------------------------------------------------------------------
 
-    def _fetch_live(self, since_last_seen: Optional[str]) -> TicketIngestionData:
+    def _fetch_live(
+        self, since_last_seen: Optional[str], include_stale_open: bool
+    ) -> TicketIngestionData:
         conn = get_connection(self.config)
         try:
             return TicketIngestionData(
-                tickets=self._fetch_tickets_live(conn, since_last_seen)
+                tickets=self._fetch_tickets_live(
+                    conn, since_last_seen, include_stale_open
+                )
             )
         finally:
             conn.close()
 
-    def _fetch_tickets_live(self, conn, since_last_seen: Optional[str]) -> List[Dict]:
+    def _fetch_tickets_live(
+        self, conn, since_last_seen: Optional[str], include_stale_open: bool
+    ) -> List[Dict]:
         # Explicit column projection (§10d) -- only what mapping.py actually maps to STIX.
         #
         # Incremental strategy (§7a): COALESCE(closed_timestamp, updated_timestamp), already
@@ -113,6 +125,25 @@ class VsTicketIngestionRepository:
         # (%(acronyms)s IS NULL OR ...) guard built in from the start, not added after a live
         # "returned zero rows" surprise -- that's what happened building connector D
         # (OpenCTI-connector.md §10i) with the exact same acronym = ANY(NULL) semantics.
+        #
+        # `include_stale_open` -- real production finding, not a hypothetical (2026-08-28):
+        # `VS_TICKET_INGESTION_LOOKBACK_DAYS` only bounds the very first query (no watermark
+        # yet); every query after that filters on `> watermark`, which only ever advances
+        # forward. A ticket whose last-touch predates the lookback cutoff at the moment of that
+        # first query is therefore not delayed -- it's permanently excluded, since the watermark
+        # can never move backward to re-examine it. Measured directly against the real
+        # cyhy_mini_data_lake_staging box: 413,925 tickets were `is_open = true` with a last-touch
+        # older than a 60-day lookback -- real, currently-actionable findings a plain lookback
+        # would have silently dropped forever, not "eventually" picked up. This flag, true only
+        # on the bootstrap run (state.get("last_seen_watermark") is None -- see connector.py),
+        # adds every currently-open ticket to that first query's candidate set regardless of how
+        # stale its last-touch date is, while leaving every later, steady-state poll unchanged.
+        # `t.is_open IS TRUE` (not `= true`) is deliberate: is_open is a nullable BooleanField,
+        # and a NULL must not count as "open" here. Verified against a real postgres:17 container
+        # (§9b Loop 4) before this touched the live box: bootstrap mode correctly includes a
+        # stale-but-open row and a recent row, correctly excludes a stale-*closed* row (no value
+        # ingesting a long-dead ticket) and a stale row with is_open IS NULL; with the flag off,
+        # behavior is byte-for-byte identical to the query before this fix existed.
         query = """
             SELECT t.id, t.cve_string, t.vuln_name, t.service_name, t.vuln_source,
                    t.ip_string, t.opened_timestamp, t.closed_timestamp, t.updated_timestamp,
@@ -125,6 +156,7 @@ class VsTicketIngestionRepository:
               AND (
                   %(since)s IS NULL
                   OR COALESCE(t.closed_timestamp, t.updated_timestamp) > %(since)s
+                  OR (%(include_stale_open)s AND t.is_open IS TRUE)
               )
             ORDER BY COALESCE(t.closed_timestamp, t.updated_timestamp)
             LIMIT %(limit)s
@@ -135,6 +167,7 @@ class VsTicketIngestionRepository:
                 {
                     "acronyms": self.config.org_acronym_allowlist or None,
                     "since": since_last_seen,
+                    "include_stale_open": include_stale_open,
                     "limit": self.config.max_rows_per_run,
                 },
             )

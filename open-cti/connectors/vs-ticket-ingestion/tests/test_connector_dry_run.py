@@ -61,6 +61,15 @@ class StubHelper:
         )
         self.sent_bundles = []
         self.api = _StubApi()
+        self._state = {}
+
+    def get_state(self):
+        """Return the current stored state, mirroring the real helper's equivalent method."""
+        return self._state
+
+    def set_state(self, state):
+        """Persist state, mirroring the real helper's equivalent method."""
+        self._state = state
 
     @staticmethod
     def stix2_create_bundle(items):
@@ -386,3 +395,29 @@ def test_config_lookback_days_parses_a_real_value():
         }
     )
     assert config.lookback_days == 14
+
+
+def test_run_marks_only_the_first_poll_as_bootstrap():
+    """run() must only mark the very first poll (no watermark yet) as the bootstrap one.
+
+    This is the actual fix for the 413,925-stale-open-ticket gap (§9c/§10i): the lookback bound
+    alone only controls what counts as "recent," `include_stale_open` is what keeps
+    currently-actionable-but-stale tickets from being permanently excluded. Spies on
+    repository.fetch() rather than db.py's SQL directly -- the query-level behavior itself was
+    verified against a real postgres:17 container (see connector.py's _effective_since
+    docstring and db.py's _fetch_tickets_live comments).
+    """
+    connector = build_test_connector()
+    calls = []
+    original_fetch = connector.repository.fetch
+
+    def spying_fetch(since_last_seen, include_stale_open=False):
+        calls.append(include_stale_open)
+        return original_fetch(since_last_seen, include_stale_open=include_stale_open)
+
+    connector.repository.fetch = spying_fetch
+
+    connector.run()  # no watermark yet -- bootstrap
+    connector.run()  # watermark now set -- steady-state
+
+    assert calls == [True, False]
