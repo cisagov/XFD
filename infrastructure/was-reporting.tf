@@ -54,9 +54,9 @@ resource "aws_iam_role_policy" "was_reporting_s3_reports" {
       {
         Effect = "Allow"
         Action = [
-          "s3:PutObject",
-          "s3:GetObject",
           "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:PutObject",
         ]
         Resource = "${aws_s3_bucket.reports_bucket.arn}/was_reports/*"
       }
