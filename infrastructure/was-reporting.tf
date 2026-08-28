@@ -43,6 +43,27 @@ resource "aws_iam_role_policy_attachment" "was_reporting_ssm_core" {
   policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy" "was_reporting_s3_reports" {
+  count = local.create_was_reporting_instance ? 1 : 0
+  name  = "crossfeed-was-reporting-${var.stage}-s3-reports"
+  role  = aws_iam_role.was_reporting[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:PutObject",
+        ]
+        Resource = "${aws_s3_bucket.reports_bucket.arn}/was_reports/*"
+      }
+    ]
+  })
+}
+
 # DMZ deployments adopt the same current subnet and security group values as
 # P&E, through independent WAS variables so they can diverge later.
 data "aws_security_group" "was_reporting" {
@@ -106,5 +127,6 @@ resource "aws_instance" "was_reporting" {
     aws_iam_role.was_reporting,
     aws_iam_instance_profile.was_reporting,
     aws_iam_role_policy_attachment.was_reporting_ssm_core,
+    aws_iam_role_policy.was_reporting_s3_reports,
   ]
 }
