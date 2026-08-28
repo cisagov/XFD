@@ -1,2 +1,5 @@
 [flake8]
 extend = ../../.flake8
+extend-exclude =
+    */was_reports/resources/pdf_redactor.py,
+    */was_reports/resources/redact_qualys.py

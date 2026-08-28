@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ServiceRequest>
+    <data>
+        <Report>
+            <name></name>
+            <format>XML</format>
+            <type>WAS_WEBAPP_REPORT</type>
+            <config>
+                <webAppReport>
+                    <target>
+                        <webapps>
+                            <WebApp>
+                              <id></id>
+                            </WebApp>
+                        </webapps>
+                    </target>
+                </webAppReport>
+            </config>
+            <template>
+                <id></id>
+            </template>
+        </Report>
+    </data>
+</ServiceRequest>

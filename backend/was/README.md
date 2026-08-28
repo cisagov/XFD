@@ -19,6 +19,9 @@ stakeholder lookup, and report password management.
   temporary report cleanup.
 - `src/was_reports/reporting` contains report retrieval, transformation,
   metrics, artifacts, charts, LaTeX rendering, PDF security, and comparison.
+- `src/was_reports/resources` contains the packaged report template, Qualys XML
+  templates, images, fonts, PDF backgrounds, watermark, and redaction helpers
+  required for the future legacy-directory cutover.
 - `src/was_reports/tracker` contains assignee allocation and CSV export logic.
 - `was_report/WAS_report_creator.py` still performs Qualys data retrieval,
   transformation, PDF creation, and PDF encryption.
@@ -179,6 +182,9 @@ Do not place a production password directly in interactive shell history.
 Normal operation should continue resolving the stakeholder password from
 Postgres by omitting `--encrypt`. The extracted route always requires
 encryption and deletes its isolated temporary workspace after completion.
+When the compatibility route invokes the legacy creator, it passes the
+resolved password through a child-only environment variable rather than a
+command-line argument. Operators should not set that internal variable.
 
 Before Qualys credentials are available, run the offline container smoke test.
 It uses representative XML with the real Mustache template, static report
@@ -216,6 +222,10 @@ page text hashes, selected metadata, and embedded attachment names and hashes.
 It recognizes both document names-tree attachments and page-level attachment
 annotations produced by XeLaTeX `attachfile2`. It never writes a decrypted
 report to disk or prints the password.
+
+Follow `docs/live_qualys_equivalence_runbook.md` for the complete approved
+nonproduction validation sequence, required test matrix, cleanup checks, and
+cutover criteria.
 
 Generate a report and create a stakeholder password if one does not exist:
 
@@ -475,6 +485,15 @@ docker run --rm \
   --env-file .env \
   was-reporting \
   was-update-tracker
+```
+
+Scope a non-destructive validation run to one exact stakeholder tag:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-update-tracker --tag "CUSTOMER_TAG"
 ```
 
 Run the same workflow and allow Qualys web application deletions identified by

@@ -29,7 +29,7 @@ active report-generation contract unless stakeholders explicitly restore them.
 | Report password creation | `was-reports --create-missing-password` | Started | Generates and stores customer report passwords in Postgres. |
 | Report password rotation | `was-reports --change-password` | Started | Generates a new password for the supplied stakeholder tag. |
 | Report email delivery | `was-mailer` | Started | Sends completed PDF report artifacts through SES-style email flow. |
-| Daily report tracker persistence | `was-update-tracker` | Started | Container command runs the legacy tracker flow and writes rows to Postgres. Qualys webapp deletion requires `--delete-apps`. |
+| Daily report tracker persistence | `was-update-tracker` | Started | Container command runs the legacy tracker flow and writes rows to Postgres. Optional `--tag` scopes scan retrieval and database writes after schedule discovery. Qualys webapp deletion requires `--delete-apps`. |
 | Daily tracker assignees | `was_reports.data.assignees` | Started | Lookup table, seed SQL, and upsert helper exist. |
 | Stakeholder inventory | `was-inventory` | Started | Lists child tags under `WAS_CUSTOMERS` and their web application counts. Live Qualys validation remains pending. |
 
@@ -40,7 +40,7 @@ retired.
 
 | Legacy Step | Legacy Function | Target Module | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Validate operator arguments | `main` | `was_reports.commands.report_generator` | Started | Current CLI validates the tag and accepts the observed `-t` and `--encrypt` inputs. `--use-extracted-pipeline` is an explicit equivalence-test opt-in; legacy remains the default. |
+| Validate operator arguments | `main` | `was_reports.commands.report_generator` | Started | Current CLI validates the tag and accepts the observed `-t` and `--encrypt` inputs. The compatibility subprocess receives its password through a child-only environment variable rather than process arguments. `--use-extracted-pipeline` is an explicit equivalence-test opt-in; legacy remains the default. |
 | Count web applications | `app_count` | `was_reports.reporting.report_retrieval` | Started | Included in the tested WAS-owned retrieval sequence. Production still delegates to the legacy creator until transformation migration is ready. |
 | Resolve Qualys tag ID | `get_tag_id` | `was_reports.reporting.report_retrieval` | Started | Included in the tested WAS-owned retrieval sequence. Production still delegates to the legacy creator until transformation migration is ready. |
 | Create detail report when app count is below threshold | `create_details_report` | `was_reports.reporting.report_retrieval` | Started | The legacy threshold of fewer than 35 web applications is preserved in the tested retrieval sequence. |
@@ -55,7 +55,7 @@ retired.
 | Calculate graph and summary metrics | `get_summary_info`, `totalgraphgen`, `qid_counter`, `percent_donut` | `was_reports.reporting.report_metrics` | Started | Global summary, severity totals, status counts, group and OWASP mappings, cumulative monthly trends, colors, and fixed percentage are fixture-tested. |
 | Retrieve report-card finding ages | `max_age` | `was_reports.qualys.finding_ages` | Started | Critical and urgent searches preserve the tag, active-status, severity, false-positive, and one-result filters. Missing severities are handled independently instead of hiding an available age. Production cutover remains pending. |
 | Render graph images | `owasp_graph_gen`, `vulnsbygroupgraphgen`, `percent_donut`, `plot_histogram`, `monthly_trend` | `was_reports.reporting.chart_renderer` | Started | All five active PNG outputs retain legacy filenames, labels, colors, dimensions, and ordering. Deterministic render tests verify valid PNG artifacts and figure cleanup. Production cutover remains pending. |
-| Generate attachment artifacts | `webapp_vuln_table`, `app_overview_table`, `return_links`, `return_emails`, `return_rejects`, `get_ssn_and_cc` | `was_reports.reporting.report_artifacts` | Started | XML-derived CSV attachments and the two filtered Qualys sensitive-finding queries preserve legacy filenames and report-template inputs. Production cutover remains pending. |
+| Generate attachment artifacts | `webapp_vuln_table`, `app_overview_table`, `return_links`, `return_emails`, `return_rejects`, `get_ssn_and_cc` | `was_reports.reporting.report_artifacts` | Started | XML-derived CSV attachments and the two filtered Qualys sensitive-finding queries preserve legacy filenames and report-template inputs. The known unsupported-module response now logs a warning and writes explicit unavailable markers in both paths. Production cutover remains pending. |
 | Assemble report template data | `get_summary_info`, `generate_full` | `was_reports.reporting.report_template_data` | Started | All Mustache placeholders are assembled from extracted metrics and artifact filenames, including legacy colors, severity totals, report-card age positions, and the fewer-than-35-app detail attachment rule. Production cutover remains pending. |
 | Generate report body | `mustache_generate`, `generate_full` | `was_reports.reporting.latex_renderer` | Started | Mustache rendering, legacy filename construction, HTML entity decoding, LaTeX escaping, and title-width thresholds are extracted. Template-data assembly and production cutover remain pending. |
 | Compile PDF | `generate_pdf`, `cleanup` | `was_reports.reporting.latex_renderer` | Started | Runs two checked XeLaTeX passes and removes only known temporary files. The Docker image retains `texlive-xetex`; production cutover remains pending. |
@@ -90,12 +90,12 @@ than scheduled batch behavior.
 
 | File | Purpose | Migration Status | Notes |
 | --- | --- | --- | --- |
-| `was_report/NEW_BIG.mustache` | LaTeX report template | Preserve | Must remain unchanged until the renderer migration. |
-| `was_report/assets/was_report.xml` | Qualys report request template | Pending | Move template ID and path handling into config or package data. |
-| `was_report/assets/was_report_details.xml` | Qualys detail report request template | Pending | Move template ID and path handling into config or package data. |
-| `was_report/redact_qualys.py` | Detail PDF redaction helper | Pending | Wrap in a testable PDF redaction boundary. |
-| `was_report/pdf_redactor.py` | PDF redaction implementation | Pending | Review dependency and behavior before moving. |
-| `was_report/assets/*` | PDF backgrounds, logos, and graph placeholders | Preserve | Required to keep current visual output. |
+| `was_report/NEW_BIG.mustache` | LaTeX report template | Copied | An unchanged package copy exists under `src/was_reports/resources`; the active legacy path remains unchanged. |
+| `was_report/assets/was_report.xml` | Qualys report request template | Copied | An unchanged package copy exists under `src/was_reports/resources/assets`; runtime cutover remains pending. |
+| `was_report/assets/was_report_details.xml` | Qualys detail report request template | Copied | An unchanged package copy exists under `src/was_reports/resources/assets`; runtime cutover remains pending. |
+| `was_report/redact_qualys.py` | Detail PDF redaction helper | Copied | An unchanged package copy exists for migration compatibility; replacement of the subprocess boundary remains pending. |
+| `was_report/pdf_redactor.py` | PDF redaction implementation | Copied | An unchanged package copy exists for migration compatibility; dependency review remains pending. |
+| `was_report/assets/*` | PDF backgrounds, logos, fonts, and graph placeholders | Copied | Package copies are staged in Docker under `/WAS_REPORT_RESOURCES`; the active legacy root remains unchanged. |
 
 ## Next Migration Order
 
@@ -124,7 +124,9 @@ than scheduled batch behavior.
   with `was-compare-reports` before changing the default route. The offline
   PDF contains all eight expected CSVs as page-level `/FileAttachment`
   annotations rather than a document `/EmbeddedFiles` names tree; the
-  comparator validates both representations.
+  comparator validates both representations. Follow
+  `docs/live_qualys_equivalence_runbook.md` for execution, evidence, failure,
+  and cutover requirements.
 
 Legacy `read_file()` CSV inputs are deprecated. Administrative capabilities
 that remain required should accept explicit validated arguments or query

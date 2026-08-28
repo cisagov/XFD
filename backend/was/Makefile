@@ -16,7 +16,9 @@ test:
 	cd $(REPO_ROOT) && PYTHONPATH=backend/was/src $(ROOT_PYTHON) -m unittest discover -s backend/was/tests
 
 lint:
-	cd $(REPO_ROOT) && $(ROOT_PYTHON) -m flake8 backend/was/src/was_reports backend/was/src/was_mailer backend/was/tests backend/was/update_tracker/update_tracker/set_up.py backend/was/update_tracker/update_tracker/data/search_customer_data.py backend/was/update_tracker/update_tracker/data/update_customer_data.py backend/was/update_tracker/update_tracker/data/special_reqs.py backend/was/update_tracker/update_tracker/utils/qualys_api_search/search_schedules.py backend/was/update_tracker/update_tracker/utils/tracker_operations/update_tracker.py
+	cd $(REPO_ROOT) && $(ROOT_PYTHON) -m flake8 \
+		--extend-exclude=backend/was/src/was_reports/resources/pdf_redactor.py,backend/was/src/was_reports/resources/redact_qualys.py \
+		backend/was/src/was_reports backend/was/src/was_mailer backend/was/tests backend/was/update_tracker/update_tracker/set_up.py backend/was/update_tracker/update_tracker/data/search_customer_data.py backend/was/update_tracker/update_tracker/data/update_customer_data.py backend/was/update_tracker/update_tracker/data/special_reqs.py backend/was/update_tracker/update_tracker/utils/qualys_api_search/search_schedules.py backend/was/update_tracker/update_tracker/utils/tracker_operations/update_tracker.py
 
 build:
 	docker build -t $(IMAGE) .

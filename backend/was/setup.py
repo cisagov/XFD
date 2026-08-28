@@ -31,6 +31,14 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     include_package_data=True,
+    package_data={
+        "was_reports.resources": [
+            "*.mustache",
+            "*.pdf",
+            "assets/*",
+            "assets/fonts/*",
+        ],
+    },
     install_requires=load_requirements(ROOT / "requirements.txt"),
     entry_points={
         "console_scripts": [
