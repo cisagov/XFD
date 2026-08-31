@@ -567,6 +567,48 @@ services:
       - VS_VULNSCAN_ENRICHMENT_TLP_MARKING=${VS_ORG_BOOTSTRAP_TLP_MARKING:-}
     restart: always
 
+  connector-vs-port-inventory:
+    build:
+      context: ./connectors/vs-port-inventory
+      # Same Zscaler root CA setup as the other VS connectors -- see their service
+      # comments above and connectors/vs-port-inventory/README.md "TLS interception".
+      # Property of the network, not of any one connector.
+      additional_contexts:
+        - "zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}"
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      # NOT YET WIRED: same as the other VS connectors -- needs a real OpenCTI
+      # service-account token delivered via bootstrap.sh + an SSM SecureString +
+      # var.open_cti_secret_keys.
+      - OPENCTI_TOKEN=${CONNECTOR_VS_PORT_INVENTORY_API_KEY}
+      - CONNECTOR_ID=8ca61ddd-f947-40f7-b4e0-505d61dc612b
+      - CONNECTOR_NAME=VS Port/Service Inventory
+      - CONNECTOR_TYPE=EXTERNAL_IMPORT
+      - CONNECTOR_SCOPE=ipv4-addr,ipv6-addr,network-traffic,software
+      - CONNECTOR_LOG_LEVEL=info
+      - CONNECTOR_DURATION_PERIOD=P1D
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- same DB_HOST/AWS_REGION
+      # already flowing from Terraform for connector-vs-org-bootstrap (env.deploy, not
+      # env.static -- see infrastructure/open_cti_user_data_env.sh.tpl and
+      # open-cti/bootstrap.sh).
+      - VS_PORT_INVENTORY_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      - VS_PORT_INVENTORY_DB_NAME=cyhy_mini_data_lake_staging
+      - VS_PORT_INVENTORY_DB_USER=open_cti
+      - VS_PORT_INVENTORY_DB_USE_IAM_AUTH=true
+      - VS_PORT_INVENTORY_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
+      # §9c -- empty on purpose; a real value (or ALLOW_UNSCOPED_RUN=true) must be set
+      # explicitly, dev or production, per config.py's fail-closed validation. Matters
+      # more here than for the other connectors -- this one always does a full poll of
+      # the in-scope table, never an incremental one, so an unscoped run means
+      # re-pulling and re-diffing the whole LatestPortScan table every single time.
+      - VS_PORT_INVENTORY_ORG_ACRONYM_ALLOWLIST=${VS_PORT_INVENTORY_ORG_ACRONYM_ALLOWLIST:-}
+      - VS_PORT_INVENTORY_ALLOW_UNSCOPED_RUN=${VS_PORT_INVENTORY_ALLOW_UNSCOPED_RUN:-false}
+      - VS_PORT_INVENTORY_MAX_ROWS_PER_RUN=${VS_PORT_INVENTORY_MAX_ROWS_PER_RUN:-5000}
+      # §10c -- must match VS_ORG_BOOTSTRAP_TLP_MARKING once the policy call is made;
+      # deliberately empty until then, same as the other VS connectors.
+      - VS_PORT_INVENTORY_TLP_MARKING=${VS_ORG_BOOTSTRAP_TLP_MARKING:-}
+    restart: always
+
   ###########################
   # OPENCTI DEFAULT DATA    #
   ###########################

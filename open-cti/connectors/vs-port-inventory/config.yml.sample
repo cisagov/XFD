@@ -1,0 +1,46 @@
+# Connector C — VS Port/Service Inventory
+#
+# See ../../OpenCTI-connector.md §7c for the design this implements, and §10 for the discipline
+# this config exists to enforce.
+#
+# Copy to config.yml for local runs (docker-compose.yml drives the containerized version purely
+# from env vars instead — see README.md).
+
+opencti:
+  url: 'http://localhost:8080'
+  token: 'ChangeMe'
+
+connector:
+  id: 'ChangeMe-generate-a-uuid4'
+  name: 'VS Port/Service Inventory'
+  scope: 'ipv4-addr,ipv6-addr,network-traffic,software'
+  type: 'EXTERNAL_IMPORT'
+  confidence_level: 75
+  log_level: 'info'
+  duration_period: 'P1D'
+
+vs_port_inventory:
+  # --- mini_data_lake connectivity (OpenCTI-connector.md §2) ---
+  db_host: 'ChangeMe'
+  db_port: 5432
+  db_name: 'cyhy_mini_data_lake_staging'
+  db_user: 'open_cti'
+  db_use_iam_auth: true
+  db_password: ''
+  aws_region: 'us-gov-west-1'
+
+  # --- dev/test discipline (§9) ---
+  is_local: false
+  local_fixture_dir: './tests/fixtures'
+
+  # §9c -- REQUIRED to be non-empty outside of a deliberate production run. This connector polls
+  # the *entire* in-scope table every run (§7c: no timestamp watermark is possible here), so an
+  # accidentally unscoped run is a much bigger deal than for connectors A/D's watermark-bounded
+  # polls -- every single manual dev run would re-pull and re-diff the whole LatestPortScan table.
+  org_acronym_allowlist: ''
+  allow_unscoped_run: false
+  max_rows_per_run: 5000
+
+  # --- attribution / marking (§10c) ---
+  author_name: 'CISA VulnScanning'
+  tlp_marking: ''
