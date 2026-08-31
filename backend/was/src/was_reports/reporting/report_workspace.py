@@ -1,28 +1,29 @@
 """Create isolated filesystems and locks for concurrent WAS reports."""
 
 # Standard Python Libraries
-import fcntl
-import shutil
-import tempfile
 from contextlib import contextmanager
 from datetime import date
+import fcntl
 from pathlib import Path
+import shutil
+import tempfile
 from typing import Iterator, TextIO
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting.latex_renderer import validate_filename_component
 
 
 @contextmanager
 def isolated_report_workspace(
-    legacy_root: Path,
+    resource_root: Path,
     workspace_root: Path,
     stakeholder_tag: str,
 ) -> Iterator[Path]:
-    """Yield a private legacy-root copy and delete it after report generation."""
-    if not legacy_root.is_dir():
+    """Yield a private resource copy and delete it after report generation."""
+    if not resource_root.is_dir():
         raise FileNotFoundError(
-            "Legacy WAS root not found at {}.".format(legacy_root)
+            "WAS report resource root not found at {}.".format(resource_root)
         )
     safe_tag = validate_filename_component(stakeholder_tag)
     workspace_root.mkdir(parents=True, exist_ok=True)
@@ -33,7 +34,7 @@ def isolated_report_workspace(
         )
     )
     try:
-        shutil.copytree(legacy_root, workspace_path, dirs_exist_ok=True)
+        shutil.copytree(resource_root, workspace_path, dirs_exist_ok=True)
         yield workspace_path
     finally:
         shutil.rmtree(workspace_path, ignore_errors=True)

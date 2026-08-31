@@ -2,21 +2,25 @@
 
 # Standard Python Libraries
 import argparse
-import shutil
-import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import shutil
+import subprocess  # nosec B404
+import sys
+from tempfile import gettempdir
 from typing import List, Optional
 
+# Third-Party Libraries
 from was_reports.utils.env import getenv
+from was_reports.utils.outputs import expected_pdf_output_path, require_output_file
 from was_reports.utils.qualys_config import (
     ensure_qualys_config_file,
     validate_qualys_config,
 )
-from was_reports.utils.outputs import expected_pdf_output_path, require_output_file
 
 LEGACY_CONFIG_PATH = Path("/WAS_REPORT_GENERATION/docs/was_config.txt")
+DEFAULT_WORKSPACE_ROOT = str(Path(gettempdir()) / "was-report-workspaces")
+UNENCRYPTED_SENTINEL = "N/A"
 
 
 def validate_stakeholder_tag(stakeholder_tag: str) -> str:
@@ -45,7 +49,7 @@ def resolve_report_password(
         return create_report_password(stakeholder_tag)
 
     if allow_unencrypted:
-        return "N/A"
+        return UNENCRYPTED_SENTINEL
 
     raise RuntimeError(
         "No report password found for stakeholder tag {}.".format(stakeholder_tag)
@@ -54,6 +58,7 @@ def resolve_report_password(
 
 def lookup_report_password(stakeholder_tag: str) -> Optional[str]:
     """Read a stakeholder report password from Postgres."""
+    # Third-Party Libraries
     from was_reports.data.stakeholders import get_report_password
 
     return get_report_password(stakeholder_tag)
@@ -61,6 +66,7 @@ def lookup_report_password(stakeholder_tag: str) -> Optional[str]:
 
 def create_report_password(stakeholder_tag: str) -> str:
     """Create and store a report password for a stakeholder tag."""
+    # Third-Party Libraries
     from was_reports.data.stakeholders import create_report_password_for_tag
 
     return create_report_password_for_tag(stakeholder_tag)
@@ -68,6 +74,7 @@ def create_report_password(stakeholder_tag: str) -> str:
 
 def rotate_report_password(stakeholder_tag: str) -> str:
     """Generate and store a new report password for a stakeholder tag."""
+    # Third-Party Libraries
     from was_reports.data.stakeholders import rotate_report_password_for_tag
 
     return rotate_report_password_for_tag(stakeholder_tag)
@@ -102,7 +109,7 @@ def build_legacy_command(
 
 def build_legacy_input(report_password: str) -> str:
     """Build responses for the frozen legacy encryption prompts."""
-    if report_password == "N/A":
+    if report_password == UNENCRYPTED_SENTINEL:
         return "N\n"
     return "Y\n{}\n".format(report_password)
 
@@ -125,7 +132,7 @@ def run_legacy_report(
         script_path=script_path,
         stakeholder_tag=stakeholder_tag,
     )
-    return subprocess.run(
+    return subprocess.run(  # nosec B603
         command,
         cwd=str(legacy_root),
         check=True,
@@ -157,16 +164,17 @@ def generate_report(
     return require_output_file(output_path)
 
 
-def generate_extracted_report(
+def generate_production_report(
     stakeholder_tag: str,
     config_path: Path,
-    legacy_root: Path,
+    resource_root: Path,
     workspace_root: Path,
     output_directory: Path,
     python_executable: str,
     report_password: str,
 ) -> Path:
-    """Run the opt-in extracted pipeline and return its encrypted PDF."""
+    """Run the production report pipeline and return its encrypted PDF."""
+    # Third-Party Libraries
     from was_reports.qualys.qualys_client import create_qualys_client
     from was_reports.reporting.report_service import generate_encrypted_report
     from was_reports.utils.qualys_config import load_qualys_credentials
@@ -177,7 +185,7 @@ def generate_extracted_report(
         client=client,
         credentials=credentials,
         stakeholder_tag=stakeholder_tag,
-        legacy_root=legacy_root,
+        resource_root=resource_root,
         workspace_root=workspace_root,
         output_directory=output_directory,
         python_executable=python_executable,
@@ -192,12 +200,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
     )
     default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
+    default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
     default_output_directory = getenv(
         "WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"
     )
-    default_workspace_root = getenv(
-        "WAS_WORKSPACE_ROOT", "/tmp/was-report-workspaces"
-    )
+    default_workspace_root = getenv("WAS_WORKSPACE_ROOT", DEFAULT_WORKSPACE_ROOT)
 
     parser = argparse.ArgumentParser(
         description="Generate a WAS PDF report for one stakeholder tag."
@@ -217,7 +224,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--allow-unencrypted",
         action="store_true",
-        help="Allow PDF generation without encryption when no password exists.",
+        help="Allow an unencrypted frozen-legacy comparison report.",
     )
     parser.add_argument(
         "--create-missing-password",
@@ -237,12 +244,17 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--legacy-root",
         default=default_legacy_root,
-        help="Directory containing WAS_report_creator.py and legacy assets.",
+        help="Directory containing the frozen WAS_report_creator.py.",
+    )
+    parser.add_argument(
+        "--resource-root",
+        default=default_resource_root,
+        help="Directory containing production WAS templates and report assets.",
     )
     parser.add_argument(
         "--python-executable",
         default=sys.executable,
-        help="Python executable used to run the legacy creator.",
+        help="Python executable used for report helper subprocesses.",
     )
     parser.add_argument(
         "--output-directory",
@@ -252,12 +264,17 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--workspace-root",
         default=default_workspace_root,
-        help="Temporary root for isolated extracted-pipeline workspaces.",
+        help="Temporary root for isolated production report workspaces.",
     )
     parser.add_argument(
         "--use-extracted-pipeline",
         action="store_true",
-        help="Opt in to the extracted WAS pipeline instead of the legacy script.",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--use-legacy-pipeline",
+        action="store_true",
+        help="Use the frozen legacy script for controlled report comparison.",
     )
     return parser.parse_args(argv)
 
@@ -268,6 +285,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     stakeholder_tag = validate_stakeholder_tag(args.tag)
     config_path = Path(args.config_path)
     legacy_root = Path(args.legacy_root)
+    resource_root = Path(args.resource_root)
 
     if args.change_password:
         rotate_report_password(stakeholder_tag)
@@ -279,27 +297,26 @@ def main(argv: Optional[List[str]] = None) -> int:
         allow_unencrypted=args.allow_unencrypted,
         create_missing_password=args.create_missing_password,
     )
-    if args.use_extracted_pipeline:
-        if args.allow_unencrypted:
-            raise ValueError(
-                "The extracted WAS pipeline requires PDF encryption."
-            )
-        generate_extracted_report(
+    if args.use_legacy_pipeline:
+        generate_report(
             stakeholder_tag=stakeholder_tag,
             config_path=config_path,
             legacy_root=legacy_root,
-            workspace_root=Path(args.workspace_root),
-            output_directory=Path(args.output_directory),
+            output_directory=args.output_directory,
             python_executable=args.python_executable,
             report_password=report_password,
         )
         return 0
 
-    generate_report(
+    if args.allow_unencrypted:
+        raise ValueError("The production WAS pipeline requires PDF encryption.")
+
+    generate_production_report(
         stakeholder_tag=stakeholder_tag,
         config_path=config_path,
-        legacy_root=legacy_root,
-        output_directory=args.output_directory,
+        resource_root=resource_root,
+        workspace_root=Path(args.workspace_root),
+        output_directory=Path(args.output_directory),
         python_executable=args.python_executable,
         report_password=report_password,
     )

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys import report_data
 from was_reports.qualys.qualys_client import QualysClient
@@ -31,7 +32,7 @@ def retrieve_report_source_data(
     client: QualysClient,
     stakeholder_tag: str,
     credentials: QualysCredentials,
-    legacy_root: Path,
+    resource_root: Path,
     output_directory: Path,
     python_executable: str,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
@@ -52,7 +53,7 @@ def retrieve_report_source_data(
             client=client,
             report_name=stakeholder_tag,
             target_id=tag_id,
-            template_path=legacy_root / "assets" / "was_report.xml",
+            template_path=resource_root / "assets" / "was_report.xml",
         )
         detail_pdf_path = detail_downloader(
             client=client,
@@ -60,7 +61,7 @@ def retrieve_report_source_data(
             filename=stakeholder_tag,
             credentials=credentials,
             output_directory=output_directory,
-            legacy_root=legacy_root,
+            resource_root=resource_root,
             from_webapp=False,
             python_executable=python_executable,
         )
@@ -69,7 +70,7 @@ def retrieve_report_source_data(
         client=client,
         report_name=stakeholder_tag,
         tag_id=tag_id,
-        template_path=legacy_root / "assets" / "was_report.xml",
+        template_path=resource_root / "assets" / "was_report.xml",
     )
     try:
         report_xml = report_data.get_report_xml(client, xml_report_id)
@@ -92,7 +93,7 @@ def managed_report_source_data(
     client: QualysClient,
     stakeholder_tag: str,
     credentials: QualysCredentials,
-    legacy_root: Path,
+    resource_root: Path,
     output_directory: Path,
     python_executable: str,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
@@ -102,7 +103,7 @@ def managed_report_source_data(
         client=client,
         stakeholder_tag=stakeholder_tag,
         credentials=credentials,
-        legacy_root=legacy_root,
+        resource_root=resource_root,
         output_directory=output_directory,
         python_executable=python_executable,
         detail_downloader=detail_downloader,

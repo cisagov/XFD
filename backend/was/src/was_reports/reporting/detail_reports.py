@@ -1,10 +1,11 @@
 """Qualys detail-report download and post-processing helpers."""
 
 # Standard Python Libraries
-import time
 from pathlib import Path
+import time
 from typing import Callable, Optional
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys import report_data
 from was_reports.qualys.qualys_client import QualysClient
@@ -87,7 +88,7 @@ def download_and_process_detail_report(
     filename: str,
     credentials: QualysCredentials,
     output_directory: Path,
-    legacy_root: Path,
+    resource_root: Path,
     from_webapp: bool = False,
     python_executable: str = "python",
     sleep_seconds: int = DETAIL_POLL_SECONDS,
@@ -104,7 +105,7 @@ def download_and_process_detail_report(
     output_path = detail_pdf_path(
         filename=filename,
         output_directory=output_directory,
-        asset_directory=legacy_root / "assets",
+        asset_directory=resource_root / "assets",
         from_webapp=from_webapp,
     )
     downloaded_path = download_detail_pdf(
@@ -116,8 +117,8 @@ def download_and_process_detail_report(
     post_process_detail_pdf(
         detail_path=downloaded_path,
         redacted_path=Path("{}_redacted.pdf".format(str(downloaded_path))),
-        watermark_path=legacy_root / "cisa_marker_new.pdf",
-        redactor_path=legacy_root / "redact_qualys.py",
+        watermark_path=resource_root / "cisa_marker_new.pdf",
+        redactor_path=resource_root / "redact_qualys.py",
         python_executable=python_executable,
     )
     return downloaded_path

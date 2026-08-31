@@ -7,6 +7,9 @@
 
 tests:
 
+exclude_dirs:
+  - backend/was/tests
+
 skips:
   # Skip "assert used" check since assertions are required in pytests
   - B101

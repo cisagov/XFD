@@ -1,10 +1,11 @@
 """Tests for WAS Qualys source-data retrieval orchestration."""
 
 # Standard Python Libraries
-import unittest
 from pathlib import Path
+import unittest
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import report_retrieval
 from was_reports.utils.qualys_config import QualysCredentials
@@ -21,7 +22,7 @@ class ReportRetrievalTests(unittest.TestCase):
             password="secret",
             hostname="qualys.example",
         )
-        self.legacy_root = Path("/legacy")
+        self.resource_root = Path("/resources")
         self.output_directory = Path("/output")
 
     @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
@@ -53,7 +54,7 @@ class ReportRetrievalTests(unittest.TestCase):
             client=self.client,
             stakeholder_tag="TAG",
             credentials=self.credentials,
-            legacy_root=self.legacy_root,
+            resource_root=self.resource_root,
             output_directory=self.output_directory,
             python_executable="python3",
             detail_downloader=detail_downloader,
@@ -97,7 +98,7 @@ class ReportRetrievalTests(unittest.TestCase):
             client=self.client,
             stakeholder_tag="TAG",
             credentials=self.credentials,
-            legacy_root=self.legacy_root,
+            resource_root=self.resource_root,
             output_directory=self.output_directory,
             python_executable="python3",
             detail_downloader=detail_downloader,
@@ -120,7 +121,7 @@ class ReportRetrievalTests(unittest.TestCase):
                 client=self.client,
                 stakeholder_tag="TAG",
                 credentials=self.credentials,
-                legacy_root=self.legacy_root,
+                resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
             )
@@ -151,7 +152,7 @@ class ReportRetrievalTests(unittest.TestCase):
                 client=self.client,
                 stakeholder_tag="TAG",
                 credentials=self.credentials,
-                legacy_root=self.legacy_root,
+                resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
             )
@@ -181,7 +182,7 @@ class ReportRetrievalTests(unittest.TestCase):
                 client=self.client,
                 stakeholder_tag="TAG",
                 credentials=self.credentials,
-                legacy_root=self.legacy_root,
+                resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
             ):

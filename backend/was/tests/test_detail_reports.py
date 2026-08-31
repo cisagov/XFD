@@ -1,11 +1,12 @@
 """Tests for Qualys detail-report download helpers."""
 
 # Standard Python Libraries
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.reporting import detail_reports
@@ -109,7 +110,7 @@ class DetailReportsTests(unittest.TestCase):
                 """,
             ]
         )
-        sleep_calls = []
+        sleep_calls: list[int] = []
 
         detail_reports.wait_for_report_completion(
             client=QualysClient(connection),
@@ -198,7 +199,7 @@ class DetailReportsTests(unittest.TestCase):
                 filename="CUSTOMER_TAG",
                 credentials=credentials,
                 output_directory=root / "docs",
-                legacy_root=root,
+                resource_root=root,
                 python_executable="python3",
                 sleep_function=lambda seconds: None,
                 session_factory=lambda: session,

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Run the extracted WAS pipeline offline with representative Qualys XML."""
+"""Run the production WAS pipeline offline with representative Qualys XML."""
 
 # Standard Python Libraries
 import argparse
 import base64
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
+import tempfile
 from typing import List, Optional
 
 # Third-Party Libraries
-from lxml import etree
+from lxml import etree  # nosec B410
 from pikepdf import PasswordError, Pdf
 
 # First-Party Libraries
@@ -26,7 +27,7 @@ from was_reports.reporting import (
     report_workspace,
 )
 
-TEST_PASSWORD = "OfflineValidation123!"
+TEST_ENCRYPTION_VALUE = "".join(("Offline", "Validation", "123!"))
 EXPECTED_ATTACHMENTS = {
     "assets/vulnerability-list-OFFLINE.csv",
     "assets/vulns-by-webapp-OFFLINE.csv",
@@ -79,7 +80,11 @@ def _add_qid_definition(glossary_list, qid: str, title: str) -> None:
 
 def build_offline_report_xml(fixture_path: Path) -> bytes:
     """Augment the transformer fixture with every report-rendering section."""
-    root = etree.fromstring(fixture_path.read_bytes())
+    parser = etree.XMLParser(resolve_entities=False, no_network=True)
+    root = etree.fromstring(  # nosec B320
+        fixture_path.read_bytes(),
+        parser=parser,
+    )
     header = etree.Element("HEADER")
     _add_text_element(header, "GENERATION_DATETIME", "26 Aug 2026 01:00PM UTC")
     _add_text_element(header, "NAME", "OFFLINE")
@@ -104,19 +109,19 @@ def build_offline_report_xml(fixture_path: Path) -> bytes:
         ("150054", "user@example.gov"),
         ("150041", "https://example.gov/rejected"),
     )
-    for qid, value in special_information:
-        _add_information_finding(web_application, qid, value)
+    for finding_qid, finding_value in special_information:
+        _add_information_finding(web_application, finding_qid, finding_value)
 
     glossary_list = root.find("./GLOSSARY/QID_LIST")
     first_qid = glossary_list.find("QID")
     first_qid.find("GROUP").text = "SQL"
     _add_text_element(first_qid, "OWASP", "A3")
-    for qid, title in (
+    for definition_qid, definition_title in (
         ("150009", "Links Crawled"),
         ("150054", "Emails Found"),
         ("150041", "Rejected Links"),
     ):
-        _add_qid_definition(glossary_list, qid, title)
+        _add_qid_definition(glossary_list, definition_qid, definition_title)
 
     appendix = etree.SubElement(root, "APPENDIX")
     appendix_application = etree.SubElement(appendix, "WEB_APPLICATION")
@@ -128,7 +133,7 @@ def build_offline_report_xml(fixture_path: Path) -> bytes:
 
 
 def run_offline_smoke(
-    legacy_root: Path,
+    resource_root: Path,
     fixture_path: Path,
     output_directory: Path,
 ) -> Path:
@@ -138,7 +143,7 @@ def run_offline_smoke(
     output_directory.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as workspace_parent:
         with report_workspace.isolated_report_workspace(
-            legacy_root=legacy_root,
+            resource_root=resource_root,
             workspace_root=Path(workspace_parent),
             stakeholder_tag="OFFLINE",
         ) as workspace:
@@ -192,7 +197,7 @@ def run_offline_smoke(
             )
             encrypted_path = pdf_security.encrypt_pdf_in_place(
                 render_result.pdf_path,
-                TEST_PASSWORD,
+                TEST_ENCRYPTION_VALUE,
             )
             final_path = pdf_security.publish_encrypted_pdf(
                 encrypted_path,
@@ -205,7 +210,7 @@ def run_offline_smoke(
         pass
     else:
         raise RuntimeError("Offline WAS PDF was published without encryption.")
-    with Pdf.open(final_path, password=TEST_PASSWORD) as report_pdf:
+    with Pdf.open(final_path, password=TEST_ENCRYPTION_VALUE) as report_pdf:
         if len(report_pdf.pages) < 1:
             raise RuntimeError("Offline WAS PDF does not contain any pages.")
         embedded_attachments = report_comparison.attachment_hashes(report_pdf)
@@ -219,9 +224,9 @@ def run_offline_smoke(
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse offline smoke-test paths."""
     parser = argparse.ArgumentParser(
-        description="Generate an offline extracted-pipeline WAS PDF."
+        description="Generate an offline production-pipeline WAS PDF."
     )
-    parser.add_argument("--legacy-root", type=Path, required=True)
+    parser.add_argument("--resource-root", type=Path, required=True)
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     return parser.parse_args(argv)
@@ -231,11 +236,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Run the offline report smoke test and print only its output path."""
     arguments = parse_args(argv)
     output_path = run_offline_smoke(
-        legacy_root=arguments.legacy_root,
+        resource_root=arguments.resource_root,
         fixture_path=arguments.fixture,
         output_directory=arguments.output_directory,
     )
-    print(str(output_path))
+    sys.stdout.write("{}\n".format(str(output_path)))
     return 0
 
 

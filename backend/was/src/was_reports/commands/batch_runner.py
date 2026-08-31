@@ -2,12 +2,15 @@
 
 # Standard Python Libraries
 import argparse
+from datetime import date, datetime, timezone
 import logging
-import subprocess
+from pathlib import Path
+import subprocess  # nosec B404
 import sys
-from datetime import datetime, timezone
+from tempfile import TemporaryDirectory, gettempdir
 from typing import List, Optional
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import report_generator
 from was_reports.data.report_runs import (
@@ -16,10 +19,18 @@ from was_reports.data.report_runs import (
     fail_report_run_by_id,
 )
 from was_reports.data.stakeholders import list_due_stakeholders_for_report
+from was_reports.storage.s3_reports import (
+    S3_STORAGE,
+    VALID_STORAGE_MODES,
+    delete_report,
+    resolve_storage_mode,
+    upload_report,
+)
 from was_reports.utils.env import getenv
 from was_reports.utils.outputs import expected_pdf_output_path
 
 LOGGER = logging.getLogger(__name__)
+DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
 
 
 def current_epoch_seconds() -> int:
@@ -37,19 +48,16 @@ def summarize_report_failure(exception: Exception) -> str:
     if isinstance(exception, FileNotFoundError):
         return "Required report file was not found."
 
-    return "{} occurred during report generation.".format(
-        type(exception).__name__
-    )
+    return "{} occurred during report generation.".format(type(exception).__name__)
 
 
 def build_report_arguments(
     stakeholder_tag: str,
     config_path: str,
-    legacy_root: str,
+    resource_root: str,
     output_directory: str,
     python_executable: str,
     create_missing_password: bool,
-    allow_unencrypted: bool,
 ) -> List[str]:
     """Build arguments for one WAS report generation call."""
     arguments = [
@@ -57,8 +65,8 @@ def build_report_arguments(
         stakeholder_tag,
         "--config-path",
         config_path,
-        "--legacy-root",
-        legacy_root,
+        "--resource-root",
+        resource_root,
         "--output-directory",
         output_directory,
         "--python-executable",
@@ -68,24 +76,22 @@ def build_report_arguments(
     if create_missing_password:
         arguments.append("--create-missing-password")
 
-    if allow_unencrypted:
-        arguments.append("--allow-unencrypted")
-
     return arguments
 
 
 def run_due_reports(
     config_path: str,
-    legacy_root: str,
+    resource_root: str,
     python_executable: str,
     current_epoch: int,
     create_missing_password: bool = False,
-    allow_unencrypted: bool = False,
     include_manual: bool = False,
     include_retired: bool = False,
     limit: Optional[int] = None,
     continue_on_error: bool = False,
     output_directory: str = "/WAS_REPORT_GENERATION/docs",
+    storage_mode: str = S3_STORAGE,
+    staging_directory: str = DEFAULT_STAGING_DIRECTORY,
 ) -> int:
     """Generate reports for all due stakeholders."""
     stakeholders = list_due_stakeholders_for_report(
@@ -95,35 +101,83 @@ def run_due_reports(
         limit=limit,
     )
     failed_count = 0
+    resolved_storage_mode = resolve_storage_mode(storage_mode)
 
     for stakeholder in stakeholders:
         report_run = create_report_run_for_tag(
             stakeholder_tag=stakeholder.tag,
             scheduled_epoch=stakeholder.next_scheduled,
         )
-        report_arguments = build_report_arguments(
-            stakeholder_tag=stakeholder.tag,
-            config_path=config_path,
-            legacy_root=legacy_root,
-            output_directory=output_directory,
-            python_executable=python_executable,
-            create_missing_password=create_missing_password,
-            allow_unencrypted=allow_unencrypted,
-        )
+        if report_run is None:
+            LOGGER.info(
+                "Skipping stakeholder tag %s because schedule %s is already claimed.",
+                stakeholder.tag,
+                stakeholder.next_scheduled,
+            )
+            continue
+        uploaded_reference = None
         try:
-            report_generator.main(report_arguments)
-            complete_report_run_by_id(
-                report_run.id,
-                output_path=str(
+            report_date = date.today()
+            if resolved_storage_mode == S3_STORAGE:
+                staging_root = Path(staging_directory)
+                staging_root.mkdir(parents=True, exist_ok=True)
+                with TemporaryDirectory(
+                    prefix="was-run-{}-".format(report_run.id),
+                    dir=str(staging_root),
+                ) as run_directory:
+                    report_arguments = build_report_arguments(
+                        stakeholder_tag=stakeholder.tag,
+                        config_path=config_path,
+                        resource_root=resource_root,
+                        output_directory=run_directory,
+                        python_executable=python_executable,
+                        create_missing_password=create_missing_password,
+                    )
+                    report_generator.main(report_arguments)
+                    local_output_path = expected_pdf_output_path(
+                        stakeholder_tag=stakeholder.tag,
+                        output_directory=run_directory,
+                        report_date=report_date,
+                    )
+                    output_reference = upload_report(
+                        report_path=local_output_path,
+                        stakeholder_tag=stakeholder.tag,
+                        report_date=report_date,
+                        report_run_id=report_run.id,
+                    )
+                    uploaded_reference = output_reference
+            else:
+                report_arguments = build_report_arguments(
+                    stakeholder_tag=stakeholder.tag,
+                    config_path=config_path,
+                    resource_root=resource_root,
+                    output_directory=output_directory,
+                    python_executable=python_executable,
+                    create_missing_password=create_missing_password,
+                )
+                report_generator.main(report_arguments)
+                output_reference = str(
                     expected_pdf_output_path(
                         stakeholder_tag=stakeholder.tag,
                         output_directory=output_directory,
+                        report_date=report_date,
                     )
-                ),
+                )
+            complete_report_run_by_id(
+                report_run.id,
+                output_path=output_reference,
                 artifact_type="pdf",
             )
         except Exception as exception:
             failed_count += 1
+            if uploaded_reference:
+                try:
+                    delete_report(uploaded_reference)
+                except Exception:
+                    LOGGER.exception(
+                        "Unable to remove orphaned WAS S3 report for run id %s",
+                        report_run.id,
+                    )
             fail_report_run_by_id(
                 report_run_id=report_run.id,
                 error_message=summarize_report_failure(exception),
@@ -143,7 +197,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     default_config_path = getenv(
         "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
     )
-    default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
+    default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
 
     parser = argparse.ArgumentParser(
         description="Generate WAS reports for stakeholders whose schedule is due."
@@ -154,14 +208,14 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Path to was_config.txt inside the container.",
     )
     parser.add_argument(
-        "--legacy-root",
-        default=default_legacy_root,
-        help="Directory containing WAS_report_creator.py and legacy assets.",
+        "--resource-root",
+        default=default_resource_root,
+        help="Directory containing production WAS templates and report assets.",
     )
     parser.add_argument(
         "--python-executable",
         default=sys.executable,
-        help="Python executable used to run the legacy creator.",
+        help="Python executable used for report helper subprocesses.",
     )
     parser.add_argument(
         "--current-epoch",
@@ -178,11 +232,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--create-missing-password",
         action="store_true",
         help="Create stakeholder report passwords when missing.",
-    )
-    parser.add_argument(
-        "--allow-unencrypted",
-        action="store_true",
-        help="Allow report generation without encryption when no password exists.",
     )
     parser.add_argument(
         "--include-manual",
@@ -204,6 +253,17 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         default=getenv("WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"),
         help="Directory where generated WAS PDF reports are written.",
     )
+    parser.add_argument(
+        "--storage-mode",
+        choices=VALID_STORAGE_MODES,
+        default=resolve_storage_mode(),
+        help="Store completed reports in S3 or retain them on local disk.",
+    )
+    parser.add_argument(
+        "--staging-directory",
+        default=getenv("WAS_REPORT_STAGING_DIRECTORY", DEFAULT_STAGING_DIRECTORY),
+        help="Temporary report directory used before S3 upload.",
+    )
     return parser.parse_args(argv)
 
 
@@ -213,16 +273,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
     failed_count = run_due_reports(
         config_path=args.config_path,
-        legacy_root=args.legacy_root,
+        resource_root=args.resource_root,
         python_executable=args.python_executable,
         current_epoch=args.current_epoch,
         create_missing_password=args.create_missing_password,
-        allow_unencrypted=args.allow_unencrypted,
         include_manual=args.include_manual,
         include_retired=args.include_retired,
         limit=args.limit,
         continue_on_error=args.continue_on_error,
         output_directory=args.output_directory,
+        storage_mode=args.storage_mode,
+        staging_directory=args.staging_directory,
     )
     if failed_count:
         return 1

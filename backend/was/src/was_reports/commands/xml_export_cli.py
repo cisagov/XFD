@@ -2,16 +2,18 @@
 
 # Standard Python Libraries
 import argparse
-import sys
 from pathlib import Path
+import sys
 from typing import List, Optional
 
 # Third-Party Libraries
-from lxml import etree, objectify
+from lxml import etree, objectify  # nosec B410
 
 # First-Party Libraries
-from was_reports.commands.report_generator import prepare_legacy_config
-from was_reports.commands.report_generator import validate_stakeholder_tag
+from was_reports.commands.report_generator import (
+    prepare_legacy_config,
+    validate_stakeholder_tag,
+)
 from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
 from was_reports.qualys.report_data import (
     create_webapp_xml_report,
@@ -24,7 +26,7 @@ from was_reports.utils.env import getenv
 
 def sanitize_report_xml(report_xml: str) -> bytes:
     """Remove Qualys company and user metadata from downloaded report XML."""
-    parser = objectify.makeparser(huge_tree=True)
+    parser = objectify.makeparser(resolve_entities=False, no_network=True)
     root = objectify.fromstring(report_xml.encode("utf-8"), parser=parser)
     header = root.find("HEADER")
     if header is None:
@@ -81,7 +83,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     default_config_path = getenv(
         "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
     )
-    default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
+    default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
     default_output_directory = getenv(
         "WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"
     )
@@ -105,9 +107,9 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Path to the generated Qualys configuration file.",
     )
     parser.add_argument(
-        "--legacy-root",
-        default=default_legacy_root,
-        help="Directory containing the legacy Qualys XML templates.",
+        "--resource-root",
+        default=default_resource_root,
+        help="Directory containing production Qualys XML templates.",
     )
     parser.add_argument(
         "--output-directory",
@@ -129,10 +131,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     export_xml_report(
         client=client,
         stakeholder_tag=stakeholder_tag,
-        template_path=Path(args.legacy_root) / "assets" / "was_report.xml",
+        template_path=Path(args.resource_root) / "assets" / "was_report.xml",
         output_path=output_path,
     )
-    print("XML report written to {}.".format(str(output_path)))
+    sys.stdout.write("XML report written to {}.\n".format(str(output_path)))
     return 0
 
 

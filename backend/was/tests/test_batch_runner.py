@@ -1,10 +1,13 @@
 """Tests for the scheduled WAS batch runner."""
 
 # Standard Python Libraries
+from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import batch_runner
 from was_reports.data.report_runs import ReportRun
@@ -77,11 +80,10 @@ class BatchRunnerTests(unittest.TestCase):
         arguments = batch_runner.build_report_arguments(
             stakeholder_tag="TAG1",
             config_path="/app/was_config.txt",
-            legacy_root="/WAS_REPORT_GENERATION",
+            resource_root="/WAS_REPORT_RESOURCES",
             output_directory="/WAS_REPORT_GENERATION/docs",
             python_executable="/usr/local/bin/python",
             create_missing_password=True,
-            allow_unencrypted=False,
         )
 
         self.assertEqual(
@@ -91,8 +93,8 @@ class BatchRunnerTests(unittest.TestCase):
                 "TAG1",
                 "--config-path",
                 "/app/was_config.txt",
-                "--legacy-root",
-                "/WAS_REPORT_GENERATION",
+                "--resource-root",
+                "/WAS_REPORT_RESOURCES",
                 "--output-directory",
                 "/WAS_REPORT_GENERATION/docs",
                 "--python-executable",
@@ -145,10 +147,11 @@ class BatchRunnerTests(unittest.TestCase):
 
         failed_count = batch_runner.run_due_reports(
             config_path="/app/was_config.txt",
-            legacy_root="/WAS_REPORT_GENERATION",
+            resource_root="/WAS_REPORT_RESOURCES",
             python_executable="/usr/local/bin/python",
             current_epoch=1720000001,
             create_missing_password=True,
+            storage_mode="local",
         )
 
         self.assertEqual(failed_count, 0)
@@ -190,10 +193,11 @@ class BatchRunnerTests(unittest.TestCase):
 
         failed_count = batch_runner.run_due_reports(
             config_path="/app/was_config.txt",
-            legacy_root="/WAS_REPORT_GENERATION",
+            resource_root="/WAS_REPORT_RESOURCES",
             python_executable="/usr/local/bin/python",
             current_epoch=1720000001,
             continue_on_error=True,
+            storage_mode="local",
         )
 
         self.assertEqual(failed_count, 1)
@@ -204,6 +208,129 @@ class BatchRunnerTests(unittest.TestCase):
             report_run_id=1,
             error_message="Report generation failed with exit code 2.",
         )
+
+    @patch("was_reports.commands.batch_runner.report_generator.main")
+    @patch("was_reports.commands.batch_runner.create_report_run_for_tag")
+    @patch("was_reports.commands.batch_runner.list_due_stakeholders_for_report")
+    def test_run_due_reports_skips_an_already_claimed_schedule(
+        self,
+        mock_list_stakeholders,
+        mock_create_run,
+        mock_report_main,
+    ) -> None:
+        """Do not generate a duplicate report claimed by another worker."""
+        mock_list_stakeholders.return_value = [
+            Stakeholder(tag="TAG1", report_password="password", next_scheduled=1)
+        ]
+        mock_create_run.return_value = None
+
+        failed_count = batch_runner.run_due_reports(
+            config_path="/app/was_config.txt",
+            resource_root="/WAS_REPORT_RESOURCES",
+            python_executable="/usr/local/bin/python",
+            current_epoch=1720000001,
+            storage_mode="local",
+        )
+
+        self.assertEqual(failed_count, 0)
+        mock_report_main.assert_not_called()
+
+    def test_run_due_reports_uploads_to_s3_and_stores_uri(self) -> None:
+        """Persist the S3 URI only after a successful report upload."""
+        stakeholder = Stakeholder(
+            tag="TAG1",
+            report_password="password",
+            next_scheduled=1,
+        )
+        report_run = ReportRun(id=42, stakeholder_tag="TAG1", status="running")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(
+                batch_runner,
+                "list_due_stakeholders_for_report",
+                return_value=[stakeholder],
+            ):
+                with patch.object(
+                    batch_runner,
+                    "create_report_run_for_tag",
+                    return_value=report_run,
+                ):
+                    with patch.object(batch_runner.report_generator, "main"):
+                        with patch.object(
+                            batch_runner,
+                            "upload_report",
+                            return_value="s3://reports/was_reports/report.pdf",
+                        ) as mock_upload:
+                            with patch.object(
+                                batch_runner,
+                                "complete_report_run_by_id",
+                            ) as mock_complete:
+                                failed_count = batch_runner.run_due_reports(
+                                    config_path="/app/was_config.txt",
+                                    resource_root="/WAS_REPORT_RESOURCES",
+                                    python_executable="/usr/local/bin/python",
+                                    current_epoch=1720000001,
+                                    storage_mode="s3",
+                                    staging_directory=directory,
+                                )
+
+        self.assertEqual(failed_count, 0)
+        uploaded_path = mock_upload.call_args.kwargs["report_path"]
+        self.assertIsInstance(uploaded_path, Path)
+        self.assertFalse(uploaded_path.parent.exists())
+        mock_complete.assert_called_once_with(
+            42,
+            output_path="s3://reports/was_reports/report.pdf",
+            artifact_type="pdf",
+        )
+
+    def test_run_due_reports_deletes_s3_object_when_completion_fails(self) -> None:
+        """Remove an uploaded object when its database completion update fails."""
+        stakeholder = Stakeholder(tag="TAG1", report_password="password")
+        report_run = ReportRun(id=42, stakeholder_tag="TAG1", status="running")
+        report_uri = "s3://reports/was_reports/2026-08-28/TAG1/42/report.pdf"
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(
+                batch_runner,
+                "list_due_stakeholders_for_report",
+                return_value=[stakeholder],
+            ):
+                with patch.object(
+                    batch_runner,
+                    "create_report_run_for_tag",
+                    return_value=report_run,
+                ):
+                    with patch.object(batch_runner.report_generator, "main"):
+                        with patch.object(
+                            batch_runner,
+                            "upload_report",
+                            return_value=report_uri,
+                        ):
+                            with patch.object(
+                                batch_runner,
+                                "complete_report_run_by_id",
+                                side_effect=RuntimeError("database failed"),
+                            ):
+                                with patch.object(
+                                    batch_runner,
+                                    "delete_report",
+                                ) as mock_delete:
+                                    with patch.object(
+                                        batch_runner,
+                                        "fail_report_run_by_id",
+                                    ):
+                                        with self.assertRaises(RuntimeError):
+                                            batch_runner.run_due_reports(
+                                                config_path="/app/was_config.txt",
+                                                resource_root=("/WAS_REPORT_RESOURCES"),
+                                                python_executable=(
+                                                    "/usr/local/bin/python"
+                                                ),
+                                                current_epoch=1720000001,
+                                                storage_mode="s3",
+                                                staging_directory=directory,
+                                            )
+
+        mock_delete.assert_called_once_with(report_uri)
 
 
 if __name__ == "__main__":

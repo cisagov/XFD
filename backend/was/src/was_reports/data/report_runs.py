@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 RUNNING = "running"
 COMPLETED = "completed"
 FAILED = "failed"
+EMAIL_PENDING = "pending"
+EMAIL_SENDING = "sending"
+EMAIL_SENT = "sent"
+EMAIL_FAILED = "failed"
 
 
 @dataclass(frozen=True)
@@ -23,8 +27,8 @@ class ReportRun:
     id: int
     stakeholder_tag: str
     status: str
-    output_path: Optional[str] = None
-    artifact_type: Optional[str] = None
+    output_path: str | None = None
+    artifact_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,18 +38,18 @@ class ReportRunEmail:
     id: int
     stakeholder_tag: str
     output_path: str
-    report_password: Optional[str]
-    distro_email: Optional[str]
-    tech_poc_email: Optional[str]
-    was_report_poc: Optional[str]
+    report_password: str | None
+    distro_email: str | None
+    tech_poc_email: str | None
+    was_report_poc: str | None
 
 
 def create_report_run(
     stakeholder_tag: str,
-    scheduled_epoch: Optional[int],
+    scheduled_epoch: int | None,
     conn: connection,
-) -> ReportRun:
-    """Create a running report execution record."""
+) -> ReportRun | None:
+    """Claim a scheduled execution and return its running report record."""
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -56,6 +60,10 @@ def create_report_run(
                     scheduled_epoch
                 )
                 VALUES (%s, %s, %s)
+                ON CONFLICT (stakeholder_tag, scheduled_epoch)
+                    WHERE scheduled_epoch IS NOT NULL
+                      AND status IN ('running', 'completed')
+                DO NOTHING
                 RETURNING id, stakeholder_tag, status
                 """,
                 (stakeholder_tag, RUNNING, scheduled_epoch),
@@ -66,14 +74,16 @@ def create_report_run(
         conn.rollback()
         raise
 
+    if row is None:
+        return None
     return ReportRun(id=row[0], stakeholder_tag=row[1], status=row[2])
 
 
 def complete_report_run(
     report_run_id: int,
     conn: connection,
-    output_path: Optional[str] = None,
-    artifact_type: Optional[str] = None,
+    output_path: str | None = None,
+    artifact_type: str | None = None,
 ) -> None:
     """Mark a report execution record as completed."""
     update_report_run_status(
@@ -105,9 +115,9 @@ def fail_report_run(
 def update_report_run_status(
     report_run_id: int,
     status: str,
-    error_message: Optional[str],
-    output_path: Optional[str],
-    artifact_type: Optional[str],
+    error_message: str | None,
+    output_path: str | None,
+    artifact_type: str | None,
     conn: connection,
 ) -> None:
     """Update report execution status and completion metadata."""
@@ -140,9 +150,10 @@ def update_report_run_status(
 
 def create_report_run_for_tag(
     stakeholder_tag: str,
-    scheduled_epoch: Optional[int],
-) -> ReportRun:
+    scheduled_epoch: int | None,
+) -> ReportRun | None:
     """Create a report execution record using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -158,10 +169,11 @@ def create_report_run_for_tag(
 
 def complete_report_run_by_id(
     report_run_id: int,
-    output_path: Optional[str] = None,
-    artifact_type: Optional[str] = None,
+    output_path: str | None = None,
+    artifact_type: str | None = None,
 ) -> None:
     """Complete a report execution record using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -178,6 +190,7 @@ def complete_report_run_by_id(
 
 def fail_report_run_by_id(report_run_id: int, error_message: str) -> None:
     """Fail a report execution record using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -210,6 +223,7 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
             WHERE runs.id = %s
               AND runs.status = %s
               AND runs.output_path IS NOT NULL
+              AND runs.emailed_at IS NULL
             """,
             (report_run_id, COMPLETED),
         )
@@ -235,9 +249,9 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
 
 def list_report_runs_ready_for_email(
     conn: connection,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     include_previous_failures: bool = False,
-) -> List[ReportRunEmail]:
+) -> list[ReportRunEmail]:
     """Return completed report runs that have not been emailed."""
     query = """
         SELECT
@@ -254,11 +268,16 @@ def list_report_runs_ready_for_email(
         WHERE runs.status = %s
           AND runs.output_path IS NOT NULL
           AND runs.emailed_at IS NULL
+          AND COALESCE(runs.email_status, %s) = ANY(%s)
     """
-    parameters = [COMPLETED]
-
-    if not include_previous_failures:
-        query += " AND runs.email_error IS NULL"
+    allowed_email_statuses = [EMAIL_PENDING]
+    if include_previous_failures:
+        allowed_email_statuses.append(EMAIL_FAILED)
+    parameters: list[object] = [
+        COMPLETED,
+        EMAIL_PENDING,
+        allowed_email_statuses,
+    ]
 
     query += " ORDER BY runs.completed_at ASC NULLS LAST, runs.id ASC"
 
@@ -287,8 +306,73 @@ def list_report_runs_ready_for_email(
     return report_runs
 
 
+def claim_report_run_email(
+    report_run_id: int,
+    conn: connection,
+    include_previous_failure: bool = False,
+) -> ReportRunEmail | None:
+    """Atomically claim one completed report run for email delivery."""
+    allowed_email_statuses = [EMAIL_PENDING]
+    if include_previous_failure:
+        allowed_email_statuses.append(EMAIL_FAILED)
+    query = """
+        WITH claimed AS (
+            UPDATE was_report_runs
+            SET email_status = %s,
+                email_claimed_at = NOW(),
+                email_error = NULL,
+                updated_at = NOW()
+            WHERE id = %s
+              AND status = %s
+              AND output_path IS NOT NULL
+              AND emailed_at IS NULL
+              AND COALESCE(email_status, %s) = ANY(%s)
+            RETURNING id, stakeholder_tag, output_path
+        )
+        SELECT
+            claimed.id,
+            claimed.stakeholder_tag,
+            claimed.output_path,
+            stakeholders.report_password,
+            stakeholders.distro_email,
+            stakeholders.tech_poc_email,
+            stakeholders.was_report_poc
+        FROM claimed
+        JOIN was_stakeholders AS stakeholders
+          ON stakeholders.tag = claimed.stakeholder_tag
+    """
+    parameters: list[object] = [
+        EMAIL_SENDING,
+        report_run_id,
+        COMPLETED,
+        EMAIL_PENDING,
+        allowed_email_statuses,
+    ]
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, tuple(parameters))
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is None:
+        return None
+    return ReportRunEmail(
+        id=row[0],
+        stakeholder_tag=row[1],
+        output_path=row[2],
+        report_password=row[3],
+        distro_email=row[4],
+        tech_poc_email=row[5],
+        was_report_poc=row[6],
+    )
+
+
 def get_report_run_email_by_id(report_run_id: int) -> ReportRunEmail:
     """Return completed report run email details using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -298,11 +382,31 @@ def get_report_run_email_by_id(report_run_id: int) -> ReportRunEmail:
         close(conn)
 
 
+def claim_report_run_email_by_id(
+    report_run_id: int,
+    include_previous_failure: bool = False,
+) -> ReportRunEmail | None:
+    """Atomically claim one report email using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return claim_report_run_email(
+            report_run_id=report_run_id,
+            conn=conn,
+            include_previous_failure=include_previous_failure,
+        )
+    finally:
+        close(conn)
+
+
 def list_report_runs_ready_for_email_from_db(
-    limit: Optional[int] = None,
+    limit: int | None = None,
     include_previous_failures: bool = False,
-) -> List[ReportRunEmail]:
+) -> list[ReportRunEmail]:
     """Return ready-to-email report runs using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -330,11 +434,18 @@ def mark_report_run_emailed(
                 SET emailed_at = NOW(),
                     email_message_id = %s,
                     email_error = NULL,
+                    email_status = %s,
+                    email_claimed_at = NULL,
                     updated_at = NOW()
                 WHERE id = %s
+                  AND email_status = %s
+                RETURNING id
                 """,
-                (message_id, report_run_id),
+                (message_id, EMAIL_SENT, report_run_id, EMAIL_SENDING),
             )
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError("WAS report email claim was not active.")
             conn.commit()
     except Exception:
         conn.rollback()
@@ -353,11 +464,18 @@ def mark_report_run_email_failed(
                 """
                 UPDATE was_report_runs
                 SET email_error = %s,
+                    email_status = %s,
+                    email_claimed_at = NULL,
                     updated_at = NOW()
                 WHERE id = %s
+                  AND email_status = %s
+                RETURNING id
                 """,
-                (error_message, report_run_id),
+                (error_message, EMAIL_FAILED, report_run_id, EMAIL_SENDING),
             )
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError("WAS report email claim was not active.")
             conn.commit()
     except Exception:
         conn.rollback()
@@ -366,6 +484,7 @@ def mark_report_run_email_failed(
 
 def mark_report_run_emailed_by_id(report_run_id: int, message_id: str) -> None:
     """Mark a report run emailed using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -384,6 +503,7 @@ def mark_report_run_email_failed_by_id(
     error_message: str,
 ) -> None:
     """Record report email failure using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

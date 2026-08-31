@@ -1,12 +1,13 @@
-"""Tests for extracted WAS report pipeline orchestration."""
+"""Tests for production WAS report pipeline orchestration."""
 
 # Standard Python Libraries
-import unittest
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+import unittest
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys import finding_ages
 from was_reports.reporting import (
@@ -23,7 +24,7 @@ CURRENT_TIME = datetime(2026, 8, 27, 13, 0)
 
 
 class ReportServiceTests(unittest.TestCase):
-    """Validate extracted report pipeline sequencing and data flow."""
+    """Validate production report pipeline sequencing and data flow."""
 
     def setUp(self) -> None:
         """Create representative service dependencies."""
@@ -34,7 +35,7 @@ class ReportServiceTests(unittest.TestCase):
             hostname="qualys.example",
         )
         self.paths = report_service.ReportServicePaths(
-            legacy_root=Path("/legacy"),
+            resource_root=Path("/resources"),
             working_directory=Path("/work"),
             asset_directory=Path("/work/assets"),
             output_directory=Path("/output"),
@@ -160,9 +161,7 @@ class ReportServiceTests(unittest.TestCase):
     @patch(
         "was_reports.reporting.report_service.report_workspace.isolated_report_workspace"
     )
-    @patch(
-        "was_reports.reporting.report_service.report_workspace.report_output_lock"
-    )
+    @patch("was_reports.reporting.report_service.report_workspace.report_output_lock")
     def test_generate_encrypted_report_uses_lock_and_private_workspace(
         self,
         mock_output_lock,
@@ -184,7 +183,7 @@ class ReportServiceTests(unittest.TestCase):
             client=self.client,
             credentials=self.credentials,
             stakeholder_tag="CUSTOMER",
-            legacy_root=Path("/legacy"),
+            resource_root=Path("/resources"),
             workspace_root=Path("/workspaces"),
             output_directory=Path("/output"),
             python_executable="python3",
@@ -194,7 +193,7 @@ class ReportServiceTests(unittest.TestCase):
 
         self.assertEqual(result, final_path)
         service_paths = mock_generate_unencrypted.call_args.kwargs["paths"]
-        self.assertEqual(service_paths.legacy_root, Path("/private"))
+        self.assertEqual(service_paths.resource_root, Path("/private"))
         self.assertEqual(service_paths.asset_directory, Path("/private/assets"))
         self.assertEqual(service_paths.output_directory, Path("/private/docs"))
         mock_encrypt.assert_called_once_with(

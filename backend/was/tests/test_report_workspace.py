@@ -1,11 +1,12 @@
 """Tests for isolated WAS report workspaces and output locks."""
 
 # Standard Python Libraries
-import tempfile
-import unittest
 from datetime import date
 from pathlib import Path
+import tempfile
+import unittest
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import report_workspace
 
@@ -13,18 +14,18 @@ from was_reports.reporting import report_workspace
 class ReportWorkspaceTests(unittest.TestCase):
     """Validate report filesystem isolation and concurrency controls."""
 
-    def test_workspace_copies_legacy_assets_and_cleans_up(self) -> None:
+    def test_workspace_copies_report_resources_and_cleans_up(self) -> None:
         """Provide required assets privately and remove them after use."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            legacy_root = root / "legacy"
+            resource_root = root / "resources"
             workspace_root = root / "workspaces"
-            (legacy_root / "assets").mkdir(parents=True)
-            (legacy_root / "NEW_BIG.mustache").write_text("template")
-            (legacy_root / "assets" / "background.pdf").write_bytes(b"pdf")
+            (resource_root / "assets").mkdir(parents=True)
+            (resource_root / "NEW_BIG.mustache").write_text("template")
+            (resource_root / "assets" / "background.pdf").write_bytes(b"pdf")
 
             with report_workspace.isolated_report_workspace(
-                legacy_root,
+                resource_root,
                 workspace_root,
                 "CUSTOMER",
             ) as workspace_path:
@@ -40,12 +41,12 @@ class ReportWorkspaceTests(unittest.TestCase):
         """Remove sensitive temporary artifacts when generation fails."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            legacy_root = root / "legacy"
-            legacy_root.mkdir()
+            resource_root = root / "resources"
+            resource_root.mkdir()
 
             with self.assertRaises(RuntimeError):
                 with report_workspace.isolated_report_workspace(
-                    legacy_root,
+                    resource_root,
                     root / "workspaces",
                     "CUSTOMER",
                 ) as workspace_path:

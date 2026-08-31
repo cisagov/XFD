@@ -1,12 +1,14 @@
 """Tests for WAS mailer message and SES delivery helpers."""
 
 # Standard Python Libraries
+from datetime import date
+import os
+from pathlib import Path
 import tempfile
 import unittest
-from datetime import date
-from pathlib import Path
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_mailer import email_reports
 from was_mailer.message import (
@@ -15,10 +17,7 @@ from was_mailer.message import (
     parse_email_addresses,
     recipient_addresses,
 )
-from was_reports.data.daily_report_tracker import (
-    AssigneeDigest,
-    DailyReportTrackerRow,
-)
+from was_reports.data.daily_report_tracker import AssigneeDigest, DailyReportTrackerRow
 from was_reports.data.report_runs import ReportRunEmail
 
 
@@ -27,7 +26,9 @@ class WasMailerTests(unittest.TestCase):
 
     def test_parse_email_addresses_accepts_semicolon_and_comma(self) -> None:
         """Parse recipient lists from common stakeholder formats."""
-        addresses = parse_email_addresses("one@example.gov; two@example.gov,three@example.gov")
+        addresses = parse_email_addresses(
+            "one@example.gov; two@example.gov,three@example.gov"
+        )
 
         self.assertEqual(
             addresses,
@@ -123,17 +124,17 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("was-daily-tracker-analyst.csv", message.as_string())
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
-    @patch("was_mailer.email_reports.get_report_run_email_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
     def test_send_report_run_email_sends_with_ses(
         self,
-        mock_get_report_run_email,
+        mock_claim_report_run_email,
         mock_mark_emailed,
     ) -> None:
         """Send a completed report through SES."""
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.pdf"
             report_path.write_bytes(b"%PDF")
-            mock_get_report_run_email.return_value = ReportRunEmail(
+            mock_claim_report_run_email.return_value = ReportRunEmail(
                 id=1,
                 stakeholder_tag="TAG1",
                 output_path=str(report_path),
@@ -149,11 +150,100 @@ class WasMailerTests(unittest.TestCase):
                 report_run_id=1,
                 source_email="sender@example.gov",
                 ses_client=ses_client,
+                storage_mode="local",
+                local_output_directory=directory,
             )
 
         self.assertEqual(message_id, "message-id")
         self.assertEqual(ses_client.send_raw_email.call_count, 1)
         mock_mark_emailed.assert_called_once_with(1, "message-id")
+
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_send_report_run_email_downloads_s3_report_temporarily(
+        self,
+        mock_claim_report_run_email,
+        mock_mark_emailed,
+    ) -> None:
+        """Download an S3 report for SES and remove the temporary file."""
+        mock_claim_report_run_email.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path="s3://reports/was_reports/2026-08-28/TAG1/1/report.pdf",
+            report_password="secret",
+            distro_email="recipient@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+        )
+        downloaded_paths = []
+        s3_client = Mock()
+
+        def download_file(bucket, key, destination):
+            downloaded_path = Path(destination)
+            downloaded_path.write_bytes(b"%PDF")
+            downloaded_paths.append(downloaded_path)
+
+        s3_client.download_file.side_effect = download_file
+        ses_client = Mock()
+        ses_client.send_raw_email.return_value = {"MessageId": "message-id"}
+
+        with patch.dict(
+            os.environ,
+            {
+                "WAS_REPORTS_BUCKET_NAME": "reports",
+                "WAS_REPORTS_PREFIX": "was_reports",
+            },
+        ):
+            message_id = email_reports.send_report_run_email(
+                report_run_id=1,
+                source_email="sender@example.gov",
+                ses_client=ses_client,
+                s3_client=s3_client,
+            )
+
+        self.assertEqual(message_id, "message-id")
+        self.assertFalse(downloaded_paths[0].exists())
+        mock_mark_emailed.assert_called_once_with(1, "message-id")
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_send_report_run_email_records_s3_download_failure(
+        self,
+        mock_claim_report_run_email,
+        mock_mark_failed,
+    ) -> None:
+        """Record an email failure when the report cannot be read from S3."""
+        mock_claim_report_run_email.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path="s3://reports/was_reports/2026-08-28/TAG1/1/report.pdf",
+            report_password="secret",
+            distro_email="recipient@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+        )
+        s3_client = Mock()
+        s3_client.download_file.side_effect = RuntimeError("download failed")
+
+        with patch.dict(
+            os.environ,
+            {
+                "WAS_REPORTS_BUCKET_NAME": "reports",
+                "WAS_REPORTS_PREFIX": "was_reports",
+            },
+        ):
+            with self.assertRaises(RuntimeError):
+                email_reports.send_report_run_email(
+                    report_run_id=1,
+                    source_email="sender@example.gov",
+                    ses_client=Mock(),
+                    s3_client=s3_client,
+                )
+
+        mock_mark_failed.assert_called_once_with(
+            report_run_id=1,
+            error_message="WAS report email delivery failed.",
+        )
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
     @patch("was_mailer.email_reports.LOGGER.info")
@@ -184,6 +274,8 @@ class WasMailerTests(unittest.TestCase):
                 source_email="sender@example.gov",
                 dry_run=True,
                 ses_client=ses_client,
+                storage_mode="local",
+                local_output_directory=directory,
             )
 
         self.assertIsNone(message_id)
@@ -193,10 +285,10 @@ class WasMailerTests(unittest.TestCase):
 
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.LOGGER.exception")
-    @patch("was_mailer.email_reports.get_report_run_email_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
     def test_send_report_run_email_records_failure(
         self,
-        mock_get_report_run_email,
+        mock_claim_report_run_email,
         mock_logger_exception,
         mock_mark_failed,
     ) -> None:
@@ -204,7 +296,7 @@ class WasMailerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.pdf"
             report_path.write_bytes(b"%PDF")
-            mock_get_report_run_email.return_value = ReportRunEmail(
+            mock_claim_report_run_email.return_value = ReportRunEmail(
                 id=1,
                 stakeholder_tag="TAG1",
                 output_path=str(report_path),
@@ -221,6 +313,8 @@ class WasMailerTests(unittest.TestCase):
                     report_run_id=1,
                     source_email="sender@example.gov",
                     ses_client=ses_client,
+                    storage_mode="local",
+                    local_output_directory=directory,
                 )
 
         mock_mark_failed.assert_called_once_with(
@@ -228,6 +322,43 @@ class WasMailerTests(unittest.TestCase):
             error_message="WAS report email delivery failed.",
         )
         self.assertEqual(mock_logger_exception.call_count, 1)
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_send_report_run_email_does_not_retry_after_ses_acceptance(
+        self,
+        mock_claim_report_run_email,
+        mock_mark_emailed,
+        mock_mark_failed,
+    ) -> None:
+        """Leave an uncertain claim for manual review after SES accepts email."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+            mock_claim_report_run_email.return_value = ReportRunEmail(
+                id=1,
+                stakeholder_tag="TAG1",
+                output_path=str(report_path),
+                report_password="secret",
+                distro_email="recipient@example.gov",
+                tech_poc_email=None,
+                was_report_poc=None,
+            )
+            mock_mark_emailed.side_effect = RuntimeError("database failed")
+            ses_client = Mock()
+            ses_client.send_raw_email.return_value = {"MessageId": "message-id"}
+
+            with self.assertRaises(RuntimeError):
+                email_reports.send_report_run_email(
+                    report_run_id=1,
+                    source_email="sender@example.gov",
+                    ses_client=ses_client,
+                    storage_mode="local",
+                    local_output_directory=directory,
+                )
+
+        mock_mark_failed.assert_not_called()
 
     @patch("was_mailer.email_reports.send_report_run_email")
     @patch("was_mailer.email_reports.list_report_runs_ready_for_email_from_db")

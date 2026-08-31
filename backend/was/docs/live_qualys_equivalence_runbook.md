@@ -116,6 +116,7 @@ docker run --rm \
   "${WAS_EQUIVALENCE_IMAGE}" \
   was-reports \
   --tag "${WAS_EQUIVALENCE_TAG}" \
+  --use-legacy-pipeline \
   2>&1 | tee "${WAS_EQUIVALENCE_ROOT}/legacy.log"
 export WAS_EQUIVALENCE_LEGACY_STATUS="${PIPESTATUS[0]}"
 set -e
@@ -135,9 +136,9 @@ The cleanup container is required because the compatibility path generates a
 credential-bearing `was_config.txt` inside the mounted `docs` directory. Run
 the cleanup even when report generation fails.
 
-## Generate The Extracted Report
+## Generate The Production Report
 
-Run the extracted pipeline immediately after the legacy pipeline to reduce the
+Run the production pipeline immediately after the legacy pipeline to reduce the
 chance of Qualys data changing between requests.
 
 ```bash
@@ -148,7 +149,6 @@ docker run --rm \
   "${WAS_EQUIVALENCE_IMAGE}" \
   was-reports \
   --tag "${WAS_EQUIVALENCE_TAG}" \
-  --use-extracted-pipeline \
   2>&1 | tee "${WAS_EQUIVALENCE_ROOT}/extracted.log"
 export WAS_EQUIVALENCE_EXTRACTED_STATUS="${PIPESTATUS[0]}"
 set -e

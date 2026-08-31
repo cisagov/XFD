@@ -2,12 +2,13 @@
 
 # Standard Python Libraries
 import argparse
-import logging
-import sys
 from datetime import date
+import logging
 from pathlib import Path
+import sys
 from typing import List, Optional
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_mailer.message import (
     build_assignee_digest_email,
@@ -22,11 +23,13 @@ from was_reports.data.daily_report_tracker import (
     mark_assignee_digest_failed,
 )
 from was_reports.data.report_runs import (
+    claim_report_run_email_by_id,
     get_report_run_email_by_id,
     list_report_runs_ready_for_email_from_db,
     mark_report_run_email_failed_by_id,
     mark_report_run_emailed_by_id,
 )
+from was_reports.storage.s3_reports import materialize_report
 from was_reports.utils.env import getenv, require_env
 
 LOGGER = logging.getLogger(__name__)
@@ -39,9 +42,7 @@ def require_environment_variable(name: str) -> str:
 
 def send_message(ses_client, message) -> str:
     """Send a raw email message through SES and return its message id."""
-    response = ses_client.send_raw_email(
-        RawMessage={"Data": message.as_bytes()}
-    )
+    response = ses_client.send_raw_email(RawMessage={"Data": message.as_bytes()})
     return response["MessageId"]
 
 
@@ -51,47 +52,89 @@ def send_report_run_email(
     override_recipients: Optional[str] = None,
     dry_run: bool = False,
     ses_client=None,
+    s3_client=None,
+    include_previous_failure: bool = False,
+    storage_mode: Optional[str] = None,
+    local_output_directory: Optional[str] = None,
 ) -> Optional[str]:
     """Send a completed WAS report run email."""
-    report_run_email = get_report_run_email_by_id(report_run_id)
+    if dry_run:
+        report_run_email = get_report_run_email_by_id(report_run_id)
+        delivery_claimed = False
+    else:
+        report_run_email = claim_report_run_email_by_id(
+            report_run_id=report_run_id,
+            include_previous_failure=include_previous_failure,
+        )
+        delivery_claimed = report_run_email is not None
+        if report_run_email is None:
+            raise RuntimeError(
+                "WAS report run {} is not available for email delivery.".format(
+                    report_run_id
+                )
+            )
     recipients = recipient_addresses(
         report_run_email=report_run_email,
         override_recipients=override_recipients,
     )
-    message = build_report_email(
-        source_email=source_email,
-        recipients=recipients,
-        stakeholder_tag=report_run_email.stakeholder_tag,
-        report_path=Path(report_run_email.output_path),
-    )
-
-    if dry_run:
-        LOGGER.info(
-            "Dry run enabled; WAS report email for run id %s was not sent.",
-            report_run_id,
-        )
-        return None
-
+    delivery_accepted = False
     try:
+        with materialize_report(
+            report_reference=report_run_email.output_path,
+            s3_client=s3_client,
+            storage_mode=storage_mode,
+            expected_local_root=(
+                None if local_output_directory is None else Path(local_output_directory)
+            ),
+        ) as report_path:
+            message = build_report_email(
+                source_email=source_email,
+                recipients=recipients,
+                stakeholder_tag=report_run_email.stakeholder_tag,
+                report_path=report_path,
+            )
+
+        if dry_run:
+            LOGGER.info(
+                "Dry run enabled; WAS report email for run id %s was not sent.",
+                report_run_id,
+            )
+            return None
+
         if ses_client is not None:
             client = ses_client
         else:
+            # Third-Party Libraries
             import boto3
 
             client = boto3.client("ses")
         message_id = send_message(client, message)
+        delivery_accepted = True
         mark_report_run_emailed_by_id(report_run_id, message_id)
         return message_id
-    except Exception as error:
-        mark_report_run_email_failed_by_id(
-            report_run_id=report_run_id,
-            error_message="WAS report email delivery failed.",
-        )
+    except Exception:
+        if delivery_claimed and not delivery_accepted:
+            try:
+                mark_report_run_email_failed_by_id(
+                    report_run_id=report_run_id,
+                    error_message="WAS report email delivery failed.",
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Unable to persist WAS report email failure for run id %s",
+                    report_run_id,
+                )
+        elif delivery_accepted:
+            LOGGER.critical(
+                "SES accepted WAS report run id %s, but delivery status could not "
+                "be persisted; manual reconciliation is required.",
+                report_run_id,
+            )
         LOGGER.exception(
             "WAS report email delivery failed for report run id %s",
             report_run_id,
         )
-        raise error
+        raise
 
 
 def send_assignee_digest_email(
@@ -124,6 +167,7 @@ def send_assignee_digest_email(
         if ses_client is not None:
             client = ses_client
         else:
+            # Third-Party Libraries
             import boto3
 
             client = boto3.client("ses")
@@ -144,6 +188,7 @@ def send_assignee_digest_email(
 
 def mark_assignee_digest_success_for_dates(assignee_digest, message_id: str) -> None:
     """Mark all pull dates in one assignee digest as emailed."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     pull_dates = unique_digest_dates(assignee_digest)
@@ -165,6 +210,7 @@ def mark_assignee_digest_failure_for_dates(
     error_message: str,
 ) -> None:
     """Mark all pull dates in one assignee digest with email failure."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     pull_dates = unique_digest_dates(assignee_digest)
@@ -215,6 +261,7 @@ def send_ready_report_emails(
             source_email=source_email,
             override_recipients=override_recipients,
             dry_run=dry_run,
+            include_previous_failure=include_previous_failures,
         )
         if message_id or dry_run:
             sent_count += 1
@@ -332,6 +379,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             source_email=source_email,
             override_recipients=args.test_recipients,
             dry_run=args.dry_run,
+            include_previous_failure=args.include_previous_failures,
         )
     return 0
 

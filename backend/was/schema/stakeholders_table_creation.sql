@@ -50,6 +50,8 @@ CREATE TABLE was_report_runs (
     emailed_at             TIMESTAMPTZ,
     email_message_id       TEXT,
     email_error            TEXT,
+    email_status           VARCHAR(32) NOT NULL DEFAULT 'pending',
+    email_claimed_at       TIMESTAMPTZ,
     started_at             TIMESTAMPTZ DEFAULT NOW(),
     completed_at           TIMESTAMPTZ,
     error_message          TEXT,
@@ -65,6 +67,15 @@ CREATE INDEX was_report_runs_status_idx
 
 CREATE INDEX was_report_runs_scheduled_epoch_idx
     ON was_report_runs (scheduled_epoch);
+
+CREATE UNIQUE INDEX was_report_runs_active_schedule_uidx
+    ON was_report_runs (stakeholder_tag, scheduled_epoch)
+    WHERE scheduled_epoch IS NOT NULL
+      AND status IN ('running', 'completed');
+
+CREATE INDEX was_report_runs_email_status_idx
+    ON was_report_runs (email_status, completed_at)
+    WHERE emailed_at IS NULL;
 
 CREATE TABLE was_assignees (
     id                       BIGSERIAL PRIMARY KEY,

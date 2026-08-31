@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import unittest
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data import report_runs
 
@@ -79,10 +80,24 @@ class ReportRunTests(unittest.TestCase):
             conn.cursor_instance.parameters,
             ("TAG1", report_runs.RUNNING, 1720000001),
         )
+        self.assertIn("ON CONFLICT", conn.cursor_instance.query)
+
+    def test_create_report_run_skips_an_active_schedule_claim(self) -> None:
+        """Return no run when another worker already claimed the schedule."""
+        conn = FakeConnection(row=None)
+
+        report_run = report_runs.create_report_run(
+            stakeholder_tag="TAG1",
+            scheduled_epoch=1720000001,
+            conn=conn,
+        )
+
+        self.assertIsNone(report_run)
+        self.assertTrue(conn.committed)
 
     def test_complete_report_run_sets_completed_status(self) -> None:
         """Mark an existing report execution as completed."""
-        conn = FakeConnection()
+        conn = FakeConnection(row=(7,))
 
         report_runs.complete_report_run(report_run_id=7, conn=conn)
 
@@ -133,7 +148,7 @@ class ReportRunTests(unittest.TestCase):
 
     def test_mark_report_run_emailed_records_message_id(self) -> None:
         """Record successful email delivery metadata."""
-        conn = FakeConnection()
+        conn = FakeConnection(row=(7,))
 
         report_runs.mark_report_run_emailed(
             report_run_id=7,
@@ -142,11 +157,19 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertTrue(conn.committed)
-        self.assertEqual(conn.cursor_instance.parameters, ("message-id", 7))
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                "message-id",
+                report_runs.EMAIL_SENT,
+                7,
+                report_runs.EMAIL_SENDING,
+            ),
+        )
 
     def test_mark_report_run_email_failed_records_error(self) -> None:
         """Record email delivery failure metadata."""
-        conn = FakeConnection()
+        conn = FakeConnection(row=(7,))
 
         report_runs.mark_report_run_email_failed(
             report_run_id=7,
@@ -155,7 +178,15 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertTrue(conn.committed)
-        self.assertEqual(conn.cursor_instance.parameters, ("delivery failed", 7))
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                "delivery failed",
+                report_runs.EMAIL_FAILED,
+                7,
+                report_runs.EMAIL_SENDING,
+            ),
+        )
 
     def test_list_report_runs_ready_for_email_excludes_failures(self) -> None:
         """Return completed report runs that are ready to email."""
@@ -179,8 +210,16 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(report_run_emails[0].id, 7)
-        self.assertIn("runs.email_error IS NULL", conn.cursor_instance.query)
-        self.assertEqual(conn.cursor_instance.parameters, (report_runs.COMPLETED, 5))
+        self.assertIn("COALESCE(runs.email_status", conn.cursor_instance.query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                report_runs.COMPLETED,
+                report_runs.EMAIL_PENDING,
+                [report_runs.EMAIL_PENDING],
+                5,
+            ),
+        )
 
     def test_list_report_runs_ready_for_email_can_retry_failures(self) -> None:
         """Allow failed email runs to be selected for retry."""
@@ -191,7 +230,59 @@ class ReportRunTests(unittest.TestCase):
             include_previous_failures=True,
         )
 
-        self.assertNotIn("runs.email_error IS NULL", conn.cursor_instance.query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                report_runs.COMPLETED,
+                report_runs.EMAIL_PENDING,
+                [report_runs.EMAIL_PENDING, report_runs.EMAIL_FAILED],
+            ),
+        )
+
+    def test_claim_report_run_email_updates_pending_row_atomically(self) -> None:
+        """Claim one pending email before an external delivery side effect."""
+        conn = FakeConnection(
+            row=(
+                7,
+                "TAG1",
+                "s3://reports/was_reports/report.pdf",
+                "password",
+                "distro@example.gov",
+                "tech@example.gov",
+                "poc@example.gov",
+            )
+        )
+
+        claimed = report_runs.claim_report_run_email(
+            report_run_id=7,
+            conn=conn,
+        )
+
+        self.assertEqual(claimed.id, 7)
+        self.assertTrue(conn.committed)
+        self.assertIn("UPDATE was_report_runs", conn.cursor_instance.query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                report_runs.EMAIL_SENDING,
+                7,
+                report_runs.COMPLETED,
+                report_runs.EMAIL_PENDING,
+                [report_runs.EMAIL_PENDING],
+            ),
+        )
+
+    def test_claim_report_run_email_rejects_existing_claim(self) -> None:
+        """Return no email when another mailer already owns the run."""
+        conn = FakeConnection(row=None)
+
+        claimed = report_runs.claim_report_run_email(
+            report_run_id=7,
+            conn=conn,
+        )
+
+        self.assertIsNone(claimed)
+        self.assertTrue(conn.committed)
 
 
 if __name__ == "__main__":

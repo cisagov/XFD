@@ -1,30 +1,29 @@
 # WAS Reporting
 
 WAS Reporting generates Web Application Scanning PDF reports from Qualys data.
-The current implementation keeps the legacy PDF generator intact and adds a
-WAS-owned command line boundary for containerized execution, Postgres
-stakeholder lookup, and report password management.
+The production implementation runs from `src/was_reports`. The frozen legacy
+PDF generator remains packaged only for controlled report comparisons.
 
 ## Current Architecture
 
 - `was-report-batch` is the default container command for scheduled reports.
 - `was-reports` generates or manages one stakeholder report.
 - `src/was_reports/commands` contains container command implementations. The
-  report generator validates CLI input and calls the
-  legacy report creator by default. An explicit migration-test flag can call
-  the extracted pipeline without changing production routing.
+  report generator validates CLI input and calls the production pipeline by
+  default. An explicit comparison flag can call the frozen legacy creator.
 - `src/was_reports/qualys` provides the WAS-owned Qualys API boundary and
   migrated report-data helpers
   for tag lookup, app counts, report creation, XML download, status checks, and
   temporary report cleanup.
 - `src/was_reports/reporting` contains report retrieval, transformation,
   metrics, artifacts, charts, LaTeX rendering, PDF security, and comparison.
-- `src/was_reports/resources` contains the packaged report template, Qualys XML
-  templates, images, fonts, PDF backgrounds, watermark, and redaction helpers
-  required for the future legacy-directory cutover.
+- `src/was_reports/storage` uploads scheduled encrypted reports to S3 and
+  materializes them in private temporary directories for email delivery.
+- `src/was_reports/resources` contains the production report template, Qualys
+  XML templates, images, fonts, PDF backgrounds, watermark, and redaction
+  helpers.
 - `src/was_reports/tracker` contains assignee allocation and CSV export logic.
-- `was_report/WAS_report_creator.py` still performs Qualys data retrieval,
-  transformation, PDF creation, and PDF encryption.
+- `was_report/WAS_report_creator.py` is the frozen comparison implementation.
 - `src/was_reports/data/stakeholders.py` reads stakeholder report metadata and
   updates scan status fields in Postgres.
 - `src/was_reports/data/report_runs.py` records scheduled report execution
@@ -78,8 +77,13 @@ WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
 WAS_SHARE_DRIVE=/WAS_REPORT_GENERATION
 WAS_CONFIG_PATH=/WAS_REPORT_GENERATION/docs/was_config.txt
 WAS_LEGACY_ROOT=/WAS_REPORT_GENERATION
+WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
 WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
+WAS_REPORT_STAGING_DIRECTORY=/tmp/was-report-storage
+WAS_REPORT_STORAGE=s3
+WAS_REPORTS_BUCKET_NAME=cisa-crossfeed-staging-reports
+WAS_REPORTS_PREFIX=was_reports
 WAS_DAILY_WAS_LOG=/WAS_REPORT_GENERATION/WAS_Tools/update_tracker/dailywas.log
 WAS_PASSWORD_LENGTH=24
 WAS_EMAIL_SOURCE=verified-sender@example.gov
@@ -99,6 +103,64 @@ for legacy-compatible WAS files.
 When present, `WAS_DAILY_WAS_LOG` is also written into the generated legacy
 `[was_files]` section. Daily tracker, customer data, and special-case XLSX paths
 are no longer required by the active tracker workflow.
+
+### S3 Report Storage
+
+Scheduled reports use S3 by default. Each encrypted PDF is uploaded to a
+run-specific key and the resulting S3 URI is stored in
+`was_report_runs.output_path`:
+
+```text
+s3://<WAS_REPORTS_BUCKET_NAME>/<WAS_REPORTS_PREFIX>/<YYYY-MM-DD>/<TAG>/<REPORT_RUN_ID>/<FILENAME>
+```
+
+The report task needs `s3:PutObject` and `s3:DeleteObject` for the configured
+prefix. Delete permission is used only to make an uploaded object unavailable
+when the corresponding database completion update fails. Because the reports
+bucket is versioned, this operation creates a delete marker rather than
+permanently deleting the stored version. Permanent version retention remains a
+separate bucket-governance decision and is not changed by this application.
+The mailer task needs
+`s3:GetObject` for the same prefix. Grant these permissions to the task or
+instance role, not the execution role or static AWS credentials. `s3:ListBucket`
+is not required. The configured bucket must block public access and encrypt data
+at rest.
+
+The staging environment uses the existing
+`cisa-crossfeed-staging-reports` bucket through `WAS_REPORTS_BUCKET_NAME`. WAS
+objects remain isolated under `WAS_REPORTS_PREFIX=was_reports`. Each deployed
+environment must supply its own bucket name and grant the two object-level
+permissions before deployment.
+
+Apply the report-run claim update to an existing WAS database before deploying
+this code:
+
+```bash
+PGPASSWORD="$WAS_DB_PASSWORD" psql \
+  --host "$WAS_DB_HOST" \
+  --port "$WAS_DB_PORT" \
+  --username "$WAS_DB_USERNAME" \
+  --dbname "$WAS_DB_NAME" \
+  -f schema/updates/008_add_report_run_delivery_claims.sql
+```
+
+The unique active-schedule index prevents separate report containers from
+generating the same stakeholder schedule concurrently. Email delivery uses an
+atomic database claim before calling SES. If SES accepts a message but the
+database cannot record the result, the claim remains in `sending` status for
+manual reconciliation rather than being retried automatically.
+
+For local batch development without AWS access, explicitly select local storage
+and mount an output directory:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -v "$(pwd)/local-output:/WAS_REPORT_GENERATION/docs" \
+  was-reporting \
+  --storage-mode local \
+  --limit 1
+```
 
 ## Install Locally
 
@@ -129,7 +191,6 @@ Generate all due stakeholder reports from `was_stakeholders.next_scheduled`:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   --create-missing-password
 ```
@@ -139,15 +200,14 @@ Limit a test run to one due stakeholder:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   --create-missing-password \
   --limit 1
 ```
 
 Each scheduled batch report creates a `was_report_runs` record. Successful
-reports are marked `completed` with the expected PDF output path and artifact
-type after the expected PDF file is present. Failed reports are marked `failed`.
+reports are marked `completed` with the uploaded S3 URI and artifact type after
+S3 upload succeeds. Failed generation or upload attempts are marked `failed`.
 
 ### Generate One Report
 
@@ -159,13 +219,11 @@ docker run --rm \
   -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   was-reports \
-  --tag "CUSTOMER_TAG" \
-  --legacy-root /WAS_REPORT_GENERATION
+  --tag "CUSTOMER_TAG"
 ```
 
-Run the extracted pipeline only for controlled equivalence testing. This keeps
-the same stakeholder tag and encryption-password inputs used by the legacy
-workflow, but adds an explicit opt-in flag:
+The production pipeline is the default. To generate the frozen legacy report
+for comparison, add the explicit legacy flag:
 
 ```bash
 docker run --rm \
@@ -175,16 +233,15 @@ docker run --rm \
   was-reports \
   -t "CUSTOMER_TAG" \
   --encrypt "TEST_PASSWORD" \
-  --use-extracted-pipeline
+  --use-legacy-pipeline
 ```
 
 Do not place a production password directly in interactive shell history.
-Normal operation should continue resolving the stakeholder password from
-Postgres by omitting `--encrypt`. The extracted route always requires
+Normal operation resolves the stakeholder password from Postgres by omitting
+`--encrypt`. The production route always requires
 encryption and deletes its isolated temporary workspace after completion.
-When the compatibility route invokes the legacy creator, it passes the
-resolved password through a child-only environment variable rather than a
-command-line argument. Operators should not set that internal variable.
+When the comparison route invokes the legacy creator, it passes the resolved
+password through standard input rather than a command-line argument.
 
 Before Qualys credentials are available, run the offline container smoke test.
 It uses representative XML with the real Mustache template, static report
@@ -198,7 +255,7 @@ docker run --rm \
   --entrypoint python \
   was-reporting:extracted-validation \
   /workspace/scripts/offline_pipeline_smoke.py \
-  --legacy-root /WAS_REPORT_GENERATION \
+  --resource-root /WAS_REPORT_RESOURCES \
   --fixture /workspace/tests/fixtures/was_report_sample.xml \
   --output-directory /offline-output
 ```
@@ -236,11 +293,10 @@ docker run --rm \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" \
-  --create-missing-password \
-  --legacy-root /WAS_REPORT_GENERATION
+  --create-missing-password
 ```
 
-Allow an unencrypted output only when intentionally approved:
+Allow an unencrypted legacy comparison only when intentionally approved:
 
 ```bash
 docker run --rm \
@@ -250,7 +306,7 @@ docker run --rm \
   was-reports \
   --tag "CUSTOMER_TAG" \
   --allow-unencrypted \
-  --legacy-root /WAS_REPORT_GENERATION
+  --use-legacy-pipeline
 ```
 
 ### Manage Report Passwords
@@ -289,10 +345,9 @@ docker exec -it WAS_CONTAINER_NAME \
 ```
 
 The password remains the stakeholder password until a change request updates it.
-Current legacy compatibility still passes the password to the legacy generator
-as a command argument. A future improvement should add password input through
-standard input or an internal function call so the password is not visible in
-process arguments.
+The production pipeline uses the password in-process. The legacy comparison
+route passes it through standard input, so it is not exposed in process
+arguments.
 
 ## Container Usage
 
@@ -314,20 +369,18 @@ Run the scheduled report batch container:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
   was-reporting \
   --create-missing-password
 ```
 
-The mounted output directory is used by the legacy generator for report files
-and supporting artifacts.
+The batch uses private temporary storage while generating each PDF, uploads the
+encrypted report to S3, and removes the temporary local copy.
 
 Run the WAS mailer for all completed report runs that have not been emailed:
 
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs:ro \
   --entrypoint ./worker/was-mailer-start.sh \
   was-reporting \
   --all-ready
@@ -338,7 +391,6 @@ Smoke test the mailer without sending an email:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs:ro \
   --entrypoint ./worker/was-mailer-start.sh \
   was-reporting \
   --all-ready \
@@ -356,7 +408,6 @@ Run the WAS mailer for one completed report run:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs:ro \
   --entrypoint ./worker/was-mailer-start.sh \
   was-reporting \
   --report-run-id 123
@@ -364,6 +415,10 @@ docker run --rm \
 
 Use `--include-previous-failures` with `--all-ready` when retrying report runs
 that already have `email_error` populated.
+The mailer downloads each S3 report into a private temporary directory, builds
+the SES message, and removes the local copy before sending. Existing local paths
+are accepted only when `WAS_REPORT_STORAGE=local`, must reference a PDF, and must
+resolve beneath `WAS_OUTPUT_DIRECTORY`.
 
 ### Send Assignee Tracker Digests
 

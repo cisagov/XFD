@@ -2,12 +2,13 @@
 
 # Standard Python Libraries
 import os
+from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import report_generator
 
@@ -236,24 +237,23 @@ class ReportGeneratorTests(unittest.TestCase):
         self.assertEqual(mock_run_report.call_count, 1)
 
     @patch("was_reports.commands.report_generator.generate_report")
-    @patch("was_reports.commands.report_generator.generate_extracted_report")
-    def test_main_routes_only_explicit_opt_in_to_extracted_pipeline(
+    @patch("was_reports.commands.report_generator.generate_production_report")
+    def test_main_uses_production_pipeline_by_default(
         self,
-        mock_extracted_report,
+        mock_production_report,
         mock_legacy_report,
     ) -> None:
-        """Keep legacy default while allowing an explicit extracted test run."""
+        """Use the production pipeline without an opt-in flag."""
         exit_code = report_generator.main(
             [
                 "-t",
                 "TEST_TAG",
                 "--encrypt",
                 "SecurePassword123!",
-                "--use-extracted-pipeline",
                 "--config-path",
                 "/config/was_config.txt",
-                "--legacy-root",
-                "/WAS_REPORT_GENERATION",
+                "--resource-root",
+                "/WAS_REPORT_RESOURCES",
                 "--output-directory",
                 "/reports",
                 "--workspace-root",
@@ -263,10 +263,10 @@ class ReportGeneratorTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         mock_legacy_report.assert_not_called()
-        mock_extracted_report.assert_called_once_with(
+        mock_production_report.assert_called_once_with(
             stakeholder_tag="TEST_TAG",
             config_path=Path("/config/was_config.txt"),
-            legacy_root=Path("/WAS_REPORT_GENERATION"),
+            resource_root=Path("/WAS_REPORT_RESOURCES"),
             workspace_root=Path("/tmp/workspaces"),
             output_directory=Path("/reports"),
             python_executable=report_generator.sys.executable,
@@ -274,27 +274,41 @@ class ReportGeneratorTests(unittest.TestCase):
         )
 
     @patch("was_reports.commands.report_generator.generate_report")
-    @patch("was_reports.commands.report_generator.generate_extracted_report")
-    def test_main_preserves_legacy_default_route(
+    @patch("was_reports.commands.report_generator.generate_production_report")
+    def test_main_preserves_explicit_legacy_comparison_route(
         self,
-        mock_extracted_report,
+        mock_production_report,
         mock_legacy_report,
     ) -> None:
-        """Continue using the original creator unless the opt-in flag is set."""
+        """Run the frozen creator only when comparison is explicitly requested."""
         exit_code = report_generator.main(
-            ["-t", "TEST_TAG", "--encrypt", "SecurePassword123!"]
+            [
+                "-t",
+                "TEST_TAG",
+                "--encrypt",
+                "SecurePassword123!",
+                "--use-legacy-pipeline",
+            ]
         )
 
         self.assertEqual(exit_code, 0)
-        mock_extracted_report.assert_not_called()
+        mock_production_report.assert_not_called()
         mock_legacy_report.assert_called_once()
 
-    @patch("was_reports.commands.report_generator.generate_extracted_report")
-    def test_extracted_pipeline_rejects_unencrypted_mode(
+    def test_parse_args_retains_extracted_compatibility_flag(self) -> None:
+        """Accept the former opt-in flag while extracted is the default."""
+        arguments = report_generator.parse_args(
+            ["-t", "TEST_TAG", "--use-extracted-pipeline"]
+        )
+
+        self.assertTrue(arguments.use_extracted_pipeline)
+
+    @patch("was_reports.commands.report_generator.generate_production_report")
+    def test_production_pipeline_rejects_unencrypted_mode(
         self,
-        mock_extracted_report,
+        mock_production_report,
     ) -> None:
-        """Fail closed instead of publishing an unencrypted extracted report."""
+        """Fail closed instead of publishing an unencrypted production report."""
         with patch(
             "was_reports.commands.report_generator.lookup_report_password",
             return_value=None,
@@ -305,11 +319,10 @@ class ReportGeneratorTests(unittest.TestCase):
                         "-t",
                         "TEST_TAG",
                         "--allow-unencrypted",
-                        "--use-extracted-pipeline",
                     ]
                 )
 
-        mock_extracted_report.assert_not_called()
+        mock_production_report.assert_not_called()
 
 
 if __name__ == "__main__":

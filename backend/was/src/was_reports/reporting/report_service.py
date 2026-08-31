@@ -1,10 +1,11 @@
-"""Orchestrate the extracted unencrypted WAS report-generation pipeline."""
+"""Orchestrate the production WAS report-generation pipeline."""
 
 # Standard Python Libraries
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys import finding_ages, report_data
 from was_reports.qualys.qualys_client import QualysClient
@@ -27,9 +28,9 @@ from was_reports.utils.qualys_config import QualysCredentials
 
 @dataclass(frozen=True)
 class ReportServicePaths:
-    """Filesystem paths required by the extracted report pipeline."""
+    """Filesystem paths required by the production report pipeline."""
 
-    legacy_root: Path
+    resource_root: Path
     working_directory: Path
     asset_directory: Path
     output_directory: Path
@@ -52,13 +53,13 @@ def generate_unencrypted_report(
     python_executable: str,
     current_time: datetime,
 ) -> Path:
-    """Generate one unencrypted PDF through the extracted WAS modules."""
+    """Generate one unencrypted PDF through the production WAS modules."""
     organization_name = resolve_organization_name(client, stakeholder_tag)
     with report_retrieval.managed_report_source_data(
         client=client,
         stakeholder_tag=stakeholder_tag,
         credentials=credentials,
-        legacy_root=paths.legacy_root,
+        resource_root=paths.resource_root,
         output_directory=paths.output_directory,
         python_executable=python_executable,
     ) as source_data:
@@ -125,7 +126,7 @@ def generate_encrypted_report(
     client: QualysClient,
     credentials: QualysCredentials,
     stakeholder_tag: str,
-    legacy_root: Path,
+    resource_root: Path,
     workspace_root: Path,
     output_directory: Path,
     python_executable: str,
@@ -139,7 +140,7 @@ def generate_encrypted_report(
         current_time.date(),
     ):
         with report_workspace.isolated_report_workspace(
-            legacy_root=legacy_root,
+            resource_root=resource_root,
             workspace_root=workspace_root,
             stakeholder_tag=stakeholder_tag,
         ) as working_directory:
@@ -149,7 +150,7 @@ def generate_encrypted_report(
                 credentials=credentials,
                 stakeholder_tag=stakeholder_tag,
                 paths=ReportServicePaths(
-                    legacy_root=working_directory,
+                    resource_root=working_directory,
                     working_directory=working_directory,
                     asset_directory=working_directory / "assets",
                     output_directory=private_output_directory,
