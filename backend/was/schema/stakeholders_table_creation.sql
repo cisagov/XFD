@@ -87,17 +87,6 @@ CREATE TABLE was_assignees (
     updated_at               TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO was_assignees (name)
-VALUES
-    ('Mina Salehi'),
-    ('Tenesa Ellis'),
-    ('Brycen Ford'),
-    ('Zack Cogswell'),
-    ('Justin Rothfleisch'),
-    ('Oscar Saunders'),
-    ('Wale Ojelabi')
-ON CONFLICT (name) DO NOTHING;
-
 CREATE TABLE was_daily_report_tracker (
     id                       BIGSERIAL PRIMARY KEY,
     source_row_number        INTEGER,
@@ -163,10 +152,3 @@ CREATE TABLE was_special_cases (
 
 CREATE INDEX was_special_cases_active_idx
     ON was_special_cases (active);
-
-INSERT INTO was_special_cases (value)
-VALUES
-    ('CROSSFEED'),
-    ('CBOE'),
-    ('SCCCS')
-ON CONFLICT (value) DO NOTHING;
