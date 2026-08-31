@@ -8,7 +8,7 @@ import time
 LOGGER = logging.getLogger(__name__)
 
 
-def emit_redshift_metric(query_name: str, duration_s: float, rows: int, success=True):
+def emit_databricks_metric(query_name: str, duration_s: float, rows: int, success=True):
     """
     Emit timing metrics to CloudWatch via Embedded Metrics Format (EMF).
 
@@ -19,7 +19,7 @@ def emit_redshift_metric(query_name: str, duration_s: float, rows: int, success=
             "Timestamp": int(time.time() * 1000),
             "CloudWatchMetrics": [
                 {
-                    "Namespace": "CyHy/Workers/Redshift",
+                    "Namespace": "CyHy/Workers/Databricks",
                     "Dimensions": [["QueryName", "Success"]],
                     "Metrics": [
                         {"Name": "DurationSeconds", "Unit": "Seconds"},

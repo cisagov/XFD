@@ -26,10 +26,9 @@ from django.db.models import (
 )
 from django.db.models.functions import Cast, Coalesce, Power
 from django.utils import timezone
-from psycopg2 import sql
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
+from xfd_api.tasks.utils.query_databricks import fetch_from_databricks_with_params
 from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import QueryError
 from xfd_mini_dl.models import (
@@ -57,7 +56,7 @@ CHUNK_SIZE = 10000  # tune as needed
 @cloudwatch_metric()
 def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     """
-    Optimized and chunked vulnerability scan fetch from Redshift.
+    Optimized and chunked vulnerability scan fetch from Databricks.
 
     Fetches scans in chunks, bulk-saves IPs and CVEs for all orgs.
     """
@@ -72,24 +71,27 @@ def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
         acronyms,
     )
 
-    base_query = sql.SQL(
-        """
+    acronym_markers = [f":p{i + 2}" for i in range(len(acronyms))]
+    acronym_placeholders = ", ".join(acronym_markers)
+    limit_marker = f":p{2 + len(acronyms)}"
+    offset_marker = f":p{3 + len(acronyms)}"
+
+    base_query = f"""
         SELECT *
-        FROM vmtableau.vuln_scans
-        WHERE time >= %s
-          AND time < %s
-          AND owner IN ({acronyms})
+        FROM cyber_insights_prd.cyhy_silver.vuln_scans
+        WHERE time >= :p0
+          AND time < :p1
+          AND owner IN ({acronym_placeholders})
         ORDER BY time
-        LIMIT %s OFFSET %s
-        """
-    ).format(acronyms=sql.SQL(", ").join([sql.Placeholder()] * len(acronyms)))
+        LIMIT {limit_marker} OFFSET {offset_marker}
+    """  # nosec B608
 
     offset = 0
     total_processed = 0
 
     while True:
         params = [ps_start_dt, ps_end_dt] + acronyms + [CHUNK_SIZE, offset]
-        vuln_scans_chunk = fetch_from_redshift_with_params(base_query, params)
+        vuln_scans_chunk = fetch_from_databricks_with_params(base_query, params)
 
         if not vuln_scans_chunk:
             if offset == 0:
@@ -97,7 +99,7 @@ def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
             break
 
         LOGGER.info(
-            "Fetched %d vuln scans from Redshift (offset=%d)",
+            "Fetched %d vuln scans from Databricks (offset=%d)",
             len(vuln_scans_chunk),
             offset,
         )
@@ -221,7 +223,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
         "synopsis": vuln.get("synopsis", None),
         "vuln_detection_timestamp": safe_fromisoformat(vuln.get("time")),
         "vuln_publication_timestamp": safe_fromisoformat(
-            vuln.get("vuln_publication_timestamp")
+            vuln.get("vuln_publication_date")
         ),
         "xref": vuln.get("xref", None),
         "cwe": vuln.get("cwe", None),

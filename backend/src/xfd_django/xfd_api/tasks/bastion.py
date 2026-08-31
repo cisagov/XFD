@@ -9,8 +9,7 @@ import os
 import boto3
 import django
 from django.db import connection, connections
-import psycopg2
-import psycopg2.extras
+from xfd_api.tasks.utils.query_databricks import query_databricks
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -38,7 +37,7 @@ def handler(event, context):
     """
     Execute database queries on different targets based on mode.
 
-    Supports three modes: "db" (default database), "mdl" (mini_data_lake), and "redshift".
+    Supports three modes: "db" (default database), "mdl" (mini_data_lake), and "databricks".
     If toCsv is true in the event, the query results will be saved as a CSV in an S3 bucket.
     """
     mode = event.get("mode")
@@ -53,8 +52,8 @@ def handler(event, context):
             return handle_db_query(query, to_csv)
         elif mode == "mdl":
             return handle_mdl_query(query, to_csv)
-        elif mode == "redshift":
-            return handle_redshift_query(query, to_csv)
+        elif mode == "databricks":
+            return handle_databricks_query(query, to_csv)
         else:
             return {"status_code": 400, "body": f"Unsupported mode: {mode}"}
     except Exception as e:
@@ -92,31 +91,25 @@ def handle_mdl_query(query, to_csv):
         return {"status_code": 500, "body": f"Mini Data Lake database error: {str(e)}"}
 
 
-def handle_redshift_query(query, to_csv):
-    """Execute query on the Redshift database."""
+# NOTE - one real behavioral difference from the old version: on a query that
+# succeeds but returns zero rows, the old cursor.description-based approach could
+# still report the real column names for an empty CSV header. query_databricks()
+# only returns a list of dicts (empty list on zero rows), so there's no schema
+# information left to fall back on - the CSV header will be blank in that specific
+# case. Not fixed here since it would mean changing query_databricks()'s return
+# shape for every other caller just for this one; flagging in case an empty-header
+# CSV is a problem for whatever downstream tool consumes bastion's exports.
+def handle_databricks_query(query, to_csv):
+    """Execute query on the Databricks warehouse."""
     try:
-        conn = psycopg2.connect(
-            dbname=os.environ.get("REDSHIFT_DATABASE"),
-            user=os.environ.get("REDSHIFT_USER"),
-            password=os.environ.get("REDSHIFT_PASSWORD"),
-            host=os.environ.get("REDSHIFT_HOST"),
-            port=5439,
-        )
-        try:
-            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cursor.execute(query)
-            results = cursor.fetchall()
-            # For redshift, results are list of dictionaries. Extract columns if any rows are returned.
-            columns = list(results[0].keys()) if results else []
-        finally:
-            cursor.close()
-            conn.close()
+        results = query_databricks(query)
+        columns = list(results[0].keys()) if results else []
         if to_csv:
-            csv_url = generate_and_upload_csv(results, columns, "redshift")
+            csv_url = generate_and_upload_csv(results, columns, "databricks")
             return {"status_code": 200, "body": f"CSV file uploaded to S3: {csv_url}"}
         return {"status_code": 200, "body": str(results)}
     except Exception as e:
-        return {"status_code": 500, "body": f"Redshift error: {str(e)}"}
+        return {"status_code": 500, "body": f"Databricks error: {str(e)}"}
 
 
 def generate_and_upload_csv(data, columns, mode):
