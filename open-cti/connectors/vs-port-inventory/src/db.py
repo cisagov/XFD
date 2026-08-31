@@ -9,13 +9,33 @@ real indexes: a unique constraint plus explicit indexes on
 `(organization, ip, port, protocol)`, `(ip, current, time_scanned)`, `time_scanned`, and `state`
 -- confirmed by reading the model's own `Meta.indexes`, not assumed.
 
-No timestamp-watermark query here, deliberately (§7c) -- `mark_stale_latest_port_scans()`
+**Revised design (2026-08-31): windowed/watermark polling, not a full-table poll every run.**
+The original version of this file polled the entire in-scope table on every run, specifically
+because `mark_stale_latest_port_scans()`
 (`backend/src/xfd_django/xfd_api/tasks/utils/vs_port_scans.py:771`) flips `current` to `False`
 via a plain `UPDATE ... SET current = FALSE WHERE time_scanned < cutoff`, never touching
-`time_scanned` itself -- confirmed by reading that function directly. A `WHERE time_scanned >
-watermark` poll would never see that transition, so this connector polls the *entire*
-in-scope table every run instead and lets connector.py diff against its own state (§10i-style
-verification: read the actual mutation before trusting a watermark strategy would work here).
+`time_scanned` -- confirmed by reading that function directly. A plain `WHERE time_scanned >
+watermark` poll can never see that transition, on the first run or any later one, since nothing
+ever bumps the timestamp when it happens.
+
+Full-table-every-run turned out to be too expensive against the real row count, though -- so the
+fix isn't a bigger `max_rows_per_run`, it's not needing to observe that transition via a query at
+all. `connector.py` now computes staleness itself, locally, from `time_scanned` and a known
+cutoff -- the exact same rule `mark_stale_latest_port_scans()` applies, just evaluated in our own
+process instead of re-derived from a fresh row every time. That turns this back into an ordinary
+watermark poll:
+
+- `since_last_seen`/`include_current` here are connector A's `since_last_seen`/
+  `include_stale_open` pattern, applied to this table: the bootstrap poll (no watermark yet)
+  also pulls in every row the source still marks `current = TRUE`, regardless of how old
+  `time_scanned` is, so a currently-open port scanned long ago isn't permanently missed the same
+  way connector A's stale-open tickets were. Bounded by `max_rows_per_run` + `ORDER BY
+  time_scanned` exactly like connector A's bootstrap -- a "monumental" first run still safely
+  paginates across however many polls it takes, oldest-relevant-first, instead of ever pulling
+  everything in one shot.
+- Every poll after that is a plain `time_scanned > watermark` query -- new ports and anything
+  actually rescanned. Nothing here ever needs to re-derive "did this go stale," because
+  connector.py already tracks that itself from data it already has.
 """
 
 # Standard Python Libraries
@@ -23,7 +43,7 @@ from dataclasses import dataclass, field
 import json
 import logging
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Third-Party Libraries
 import boto3
@@ -76,12 +96,23 @@ def get_connection(config: Config):
 # pattern; avoided here from the start instead of fixed after the fact).
 #
 # Explicit column projection (§10d) -- only what mapping.py actually maps to STIX. `current` is
-# selected (not filtered on) deliberately -- §7c's full-poll-and-diff strategy needs to see both
-# still-open *and* newly-stale rows in the same query, not just the currently-open subset, so
-# connector.py can tell "went stale this run" apart from "was already stale last run" itself.
+# still selected -- used only to decide what to *fetch* during the bootstrap poll (see module
+# docstring), never trusted directly for the state connector.py actually records; that's derived
+# locally from `time_scanned` + the configured cutoff instead, uniformly for every row regardless
+# of how it was matched.
 #
 # (%(acronyms)s IS NULL OR ...) guard built in from the start (§10i) -- same acronym = ANY(NULL)
-# semantics already found for real once building connector D.
+# lesson connector A's db.py already applies.
+#
+# The since/include_current condition is deliberately *not* "since IS NULL OR ..." the way
+# connector A's is -- verified directly against a real postgres:17 container (§9b Loop 4) that
+# copying that shape here was a real bug: on a bootstrap poll (since IS NULL), an unconditional
+# "IS NULL" branch makes the whole OR true regardless of `current`, silently pulling in
+# already-stale rows a bootstrap poll should never touch. `(since IS NOT NULL AND time_scanned >
+# since) OR (include_current AND current IS TRUE)` means the first branch only ever fires once a
+# real watermark exists, so a bootstrap poll (since IS NULL) is governed by `include_current`
+# alone -- confirmed against the same container that this correctly excludes a stale row with
+# current=false, and excludes everything once include_current=False in steady state.
 #
 # organization is a direct FK here (unlike VulnScan's denormalized `owner` string) -- joined
 # server-side and scoped by acronym (varchar), the same structural choice connector A's db.py
@@ -94,29 +125,41 @@ _QUERY = """
     FROM latest_port_scan lps
     JOIN organization o ON o.id = lps.organization_id
     WHERE (%(acronyms)s IS NULL OR o.acronym = ANY(%(acronyms)s))
-    ORDER BY o.acronym, lps.ip_string, lps.port, lps.protocol
+      AND (
+          (%(since)s IS NOT NULL AND lps.time_scanned > %(since)s)
+          OR (%(include_current)s AND lps.current IS TRUE)
+      )
+    ORDER BY lps.time_scanned
     LIMIT %(limit)s
 """
 
 
 class VsPortInventoryRepository:
-    """Fetches the full in-scope LatestPortScan table, capped per config (§9c)."""
+    """Fetches one incremental window of LatestPortScan, capped per config (§9c)."""
 
     def __init__(self, config: Config):
         """Hold the config; connections are opened per-call, not cached (§10d)."""
         self.config = config
 
-    def fetch(self) -> PortInventoryData:
-        """Fetch this run's full in-scope snapshot, from fixtures (IS_LOCAL) or mini_data_lake."""
+    def fetch(
+        self, since_last_seen: Optional[str], include_current: bool = False
+    ) -> PortInventoryData:
+        """Fetch one run's worth of data, from fixtures (IS_LOCAL) or mini_data_lake.
+
+        `include_current` is the bootstrap-only safety net (see connector.py's `run()` for where
+        it's computed) -- see the module docstring for why it exists.
+        """
         if self.config.is_local:
             return self._fetch_local()
-        return self._fetch_live()
+        return self._fetch_live(since_last_seen, include_current)
 
     # ------------------------------------------------------------------
     # Live path
     # ------------------------------------------------------------------
 
-    def _fetch_live(self) -> PortInventoryData:
+    def _fetch_live(
+        self, since_last_seen: Optional[str], include_current: bool
+    ) -> PortInventoryData:
         conn = get_connection(self.config)
         try:
             with conn.cursor() as cur:
@@ -124,6 +167,8 @@ class VsPortInventoryRepository:
                     _QUERY,
                     {
                         "acronyms": self.config.org_acronym_allowlist or None,
+                        "since": since_last_seen,
+                        "include_current": include_current,
                         "limit": self.config.max_rows_per_run,
                     },
                 )

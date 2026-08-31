@@ -176,6 +176,86 @@ def test_build_lifecycle_relationship_labels_reflect_row_fields():
     }
 
 
+def test_lifecycle_labels_matches_what_build_lifecycle_relationship_produces():
+    """This must be the exact same label computation build_lifecycle_relationship() uses.
+
+    It's cached in connector state for the aging sweep (db.py's module docstring), so a drift
+    here would silently change labels on a locally-closed relationship.
+    """
+    row = _row(
+        source="nmap",
+        risky_service_group="telnet",
+        nmi_service_group="web",
+        state="open",
+    )
+    assert set(mapping.lifecycle_labels(row)) == {
+        "vs-source-nmap",
+        "vs-risky-service-telnet",
+        "vs-nmi-service-web",
+        "vs-state-open",
+    }
+
+
+def test_lifecycle_external_id_prefers_port_scan_id_over_id():
+    """port_scan_id is preferred; the row's own id is only a fallback."""
+    assert (
+        mapping.lifecycle_external_id(_row(port_scan_id="ps-real", id="fallback"))
+        == "ps-real"
+    )
+    assert (
+        mapping.lifecycle_external_id(_row(port_scan_id=None, id="fallback"))
+        == "fallback"
+    )
+
+
+def test_build_lifecycle_relationship_from_parts_reuses_existing_id_when_pinned():
+    """The lower-level, state-only builder (no fresh row) must also honor a pinned id."""
+    pinned_id = StixCoreRelationship.generate_id(
+        "related-to", _ORG_ID, "network-traffic--x", None, None
+    )
+    rel = mapping.build_lifecycle_relationship_from_parts(
+        _ORG_ID,
+        _NETWORK_TRAFFIC_ID,
+        _AUTHOR_ID,
+        _MARKING_ID,
+        start_time=None,
+        stop_time=None,
+        labels=["vs-source-nmap"],
+        external_id="ps-1",
+        existing_id=pinned_id,
+    )
+    assert rel.id == pinned_id
+
+
+def test_build_lifecycle_relationship_and_from_parts_produce_identical_relationships():
+    """The row-driven wrapper must be a pure pass-through to the parts-based builder.
+
+    Same id, same labels, same external reference, for the same underlying data.
+    """
+    row = _row(source="nmap", risky_service_group="telnet")
+    via_row = mapping.build_lifecycle_relationship(
+        row,
+        _ORG_ID,
+        _NETWORK_TRAFFIC_ID,
+        _AUTHOR_ID,
+        _MARKING_ID,
+        start_time=None,
+        stop_time=None,
+    )
+    via_parts = mapping.build_lifecycle_relationship_from_parts(
+        _ORG_ID,
+        _NETWORK_TRAFFIC_ID,
+        _AUTHOR_ID,
+        _MARKING_ID,
+        start_time=None,
+        stop_time=None,
+        labels=mapping.lifecycle_labels(row),
+        external_id=mapping.lifecycle_external_id(row),
+    )
+    assert via_row.id == via_parts.id
+    assert via_row.labels == via_parts.labels
+
+
 def test_dedupe_bundle_objects_collapses_repeated_ids():
     """Two STIX objects sharing an id must collapse to one in dedupe_bundle_objects()."""
     a = stix2.IPv4Address(value="10.0.0.1")

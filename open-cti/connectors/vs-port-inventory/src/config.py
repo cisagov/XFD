@@ -1,14 +1,16 @@
 """Config loading for the VS Port/Service Inventory connector.
 
-Same fail-closed shape as connectors A/D's config.py (§10i). Unlike Connector B, this one *does*
-poll wholesale (§7c: full poll of the in-scope table every run, since there's no timestamp
-watermark that can detect a port going stale -- see connector.py), so it needs the same
+Same fail-closed shape as connectors A/D's config.py (§10i). Same
 `org_acronym_allowlist`/`allow_unscoped_run` pair A/D use to guard against an accidentally
-unscoped run, for the same reason (§9c). No `lookback_days` here, though -- that lever bounds a
-*timestamp-filtered* first poll, and this connector's poll was never timestamp-filtered to begin
-with (§7c's core gotcha: `mark_stale_latest_port_scans()` flips `current` without touching
-`time_scanned`, so a time-based bound would just as silently hide already-stale rows as it would
-speed up a first run).
+unscoped run (§9c).
+
+**Revised (2026-08-31): windowed/watermark polling, matching connector A's shape -- see db.py's
+module docstring for the full reasoning.** The original full-poll-every-run design turned out to
+be too expensive against the real table size (a plain `GROUP BY` aggregate over it timed out even
+in a Lambda with its own execution budget) -- replaced with an ordinary watermark poll plus a
+locally-computed staleness rule, so this connector no longer needs to re-read the entire in-scope
+table just to detect a port going stale. `latest_port_scan_cutoff_days` below is this connector's
+own copy of that rule.
 """
 
 # Standard Python Libraries
@@ -110,19 +112,32 @@ class Config:
             self.raw,
             default=False,
         )
-        # §7c: "full poll every run" is the whole strategy here, not a fallback path -- so this
-        # cap matters more than it does for A/D's watermark-bounded polls. Row-count growth is
-        # also structurally different: LatestPortScan rows never get deleted when a port goes
-        # stale (only current flips to False), so the in-scope row count only ever grows over
-        # time, unlike A's ticket backlog which a watermark eventually catches up past. Real
-        # row counts for this table are still unconfirmed (OpenCTI-connector.md §6) -- start
-        # conservative, same as A/D did before their own real numbers were known.
+        # Same role as connector A's own cap: bounds both the bootstrap poll (which can still be
+        # "monumental" -- the source may consider a huge number of rows `current = TRUE` at once,
+        # same shape as A's 413,925-stale-open-ticket discovery) and every steady-state poll
+        # after it. Real row counts for this table are still unconfirmed (OpenCTI-connector.md
+        # §6) -- even a plain aggregate query against it timed out in the bastion Lambda
+        # (2026-08-31) -- start conservative, same as A/D did before their own real numbers were
+        # known, and size this up deliberately once real numbers exist.
         self.max_rows_per_run = get_config_variable(
             "VS_PORT_INVENTORY_MAX_ROWS_PER_RUN",
             ["vs_port_inventory", "max_rows_per_run"],
             self.raw,
             isNumber=True,
             default=5000,
+        )
+        # This connector's own copy of LATEST_PORT_SCAN_CUTOFF
+        # (backend/.../vs_port_scans.py:36, default 14) -- see db.py's module docstring for why
+        # staleness is computed locally from this instead of re-polling for it. A mismatch
+        # between this and whatever the sync task actually has deployed only causes soft drift
+        # in exactly when we mark something stale, not silent data loss -- anything genuinely
+        # rescanned still reconciles correctly via the ordinary watermark poll regardless.
+        self.latest_port_scan_cutoff_days = get_config_variable(
+            "VS_PORT_INVENTORY_CUTOFF_DAYS",
+            ["vs_port_inventory", "latest_port_scan_cutoff_days"],
+            self.raw,
+            isNumber=True,
+            default=14,
         )
 
         # --- attribution / marking (§10c) ---

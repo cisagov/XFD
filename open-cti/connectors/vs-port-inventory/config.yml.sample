@@ -33,13 +33,18 @@ vs_port_inventory:
   is_local: false
   local_fixture_dir: './tests/fixtures'
 
-  # §9c -- REQUIRED to be non-empty outside of a deliberate production run. This connector polls
-  # the *entire* in-scope table every run (§7c: no timestamp watermark is possible here), so an
-  # accidentally unscoped run is a much bigger deal than for connectors A/D's watermark-bounded
-  # polls -- every single manual dev run would re-pull and re-diff the whole LatestPortScan table.
+  # §9c -- REQUIRED to be non-empty outside of a deliberate production run, same reason as
+  # connectors A/D.
   org_acronym_allowlist: ''
   allow_unscoped_run: false
+  # Bounds both the bootstrap poll (which can still be very large -- every row the source
+  # considers `current`, regardless of age) and every steady-state poll after it. Size this off
+  # real numbers once known -- even a plain aggregate query against this table timed out in the
+  # bastion Lambda (2026-08-31).
   max_rows_per_run: 5000
+  # This connector's own copy of LATEST_PORT_SCAN_CUTOFF (backend/.../vs_port_scans.py, default
+  # 14) -- staleness is computed locally from this instead of re-polling for it. See db.py.
+  latest_port_scan_cutoff_days: 14
 
   # --- attribution / marking (§10c) ---
   author_name: 'CISA VulnScanning'

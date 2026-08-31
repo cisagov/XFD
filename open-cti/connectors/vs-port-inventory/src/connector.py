@@ -1,22 +1,27 @@
 """Orchestration for the VS Port/Service Inventory connector (OpenCTI-connector.md §7c).
 
-Depends on connector D (org Identity must exist) -- independent of connectors A/B otherwise
-(§8's build order lists this last only because it was scaffolded last, not because it has any
-runtime dependency on them).
+Depends on connector D (org Identity must exist) -- independent of connectors A/B otherwise.
 
-Structurally different from connector A in the one way that matters most here (§7c): no
-timestamp watermark. `mark_stale_latest_port_scans()` flips `current` to `False` without
-touching `time_scanned` (verified directly against that function's source -- see db.py), so a
-`WHERE time_scanned > watermark` poll would never see a port going stale. This connector instead
-polls the *entire* in-scope `LatestPortScan` table every run and diffs it against a
-`(org, ip, port, protocol) -> last-known-state` map kept in connector state -- closer to a
-reconciliation loop than to connectors A/D's incremental polls.
+**Revised (2026-08-31): watermark-windowed polling, matching connector A's shape.** The original
+version of this connector polled the *entire* in-scope `LatestPortScan` table every run, because
+`mark_stale_latest_port_scans()` flips `current` to `False` without ever touching `time_scanned`
+(verified directly against that function's source -- see db.py) -- a plain `WHERE time_scanned >
+watermark` poll can't see that transition. That turned out to be too expensive against the real
+table size (a plain aggregate query against it timed out even in a Lambda, 2026-08-31).
+
+The fix isn't a bigger row cap, it's not needing a query to observe that transition at all:
+`_run_aging_sweep()` below applies the *exact same* staleness rule
+(`time_scanned` older than `config.latest_port_scan_cutoff_days`) locally, against connector
+state, on every run -- independent of whatever this run's DB query happened to return. That turns
+this back into an ordinary watermark poll (`db.py`'s `since_last_seen`/`include_current`, the
+same shape as connector A's `since_last_seen`/`include_stale_open`), with staleness detection
+handled entirely in-process instead of by re-reading the source.
 """
 
 # Standard Python Libraries
 import datetime
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 # Third-Party Libraries
 from pycti import OpenCTIConnectorHelper
@@ -50,7 +55,7 @@ def resolve_marking(tlp_marking: str) -> stix2.MarkingDefinition:
 
 
 class VsPortInventoryConnector:
-    """Polls the full in-scope LatestPortScan table and reconciles it against connector state.
+    """Polls an incremental window of LatestPortScan and locally ages out stale entries.
 
     Produces IPv4-Addr/IPv6-Addr, Network-Traffic, and (when present) Software objects, plus the
     relationships tying them to their owning org -- with the port's open/stale lifecycle carried
@@ -77,9 +82,17 @@ class VsPortInventoryConnector:
         self.helper.connector_logger.info("Starting VS Port Inventory run")
         state = self.helper.get_state() or {}
 
+        # is_first_run gates the bootstrap `include_current` fetch -- the same role
+        # is_first_run/include_stale_open play in connector A's run(), applied to this table's
+        # own "don't permanently miss something currently active" case.
+        since = state.get("last_seen_watermark")
+        is_first_run = since is None
+
         try:
-            data = self.repository.fetch()
-            self._process(data, state)
+            data = self.repository.fetch(
+                since_last_seen=since, include_current=is_first_run
+            )
+            new_watermark = self._process(data, state)
         except Exception as e:  # pylint: disable=broad-except
             # §10e/§10i: don't let one bad run corrupt state. connector_logger is pycti's
             # AppLogger, not a stdlib logging.Logger -- (message, meta=None) only.
@@ -88,36 +101,39 @@ class VsPortInventoryConnector:
             )
             return
 
-        # Unlike connectors A/D's watermark, this connector's state *is* the reconciliation map
-        # itself -- it needs persisting after every successful poll, not just when "something
-        # changed," since next run's diff depends on having seen this run's full picture.
+        if new_watermark is not None:
+            state["last_seen_watermark"] = new_watermark
+        # Persisted regardless of whether the watermark advanced -- the aging sweep can mutate
+        # state (marking something locally stale) even on a run that fetched nothing new.
         self.helper.set_state(state)
         self.helper.connector_logger.info("VS Port Inventory run complete")
 
     # ------------------------------------------------------------------
 
-    def _process(self, data: PortInventoryData, state: Dict) -> None:
-        """Diff this run's full poll against state and send only what actually changed.
+    def _process(self, data: PortInventoryData, state: Dict) -> Optional[str]:
+        """Process this run's fetched window, then age out anything state alone says is stale.
 
         `state["port_scan_state"]` is only ever added to or updated for keys actually seen this
-        run -- never wholesale-replaced -- so a partial or empty poll (a transient DB issue, or
-        a deliberately narrowed org scope) can't silently erase previously-recorded history for
-        keys it simply didn't touch. A key that vanishes from the source entirely (as opposed to
-        flipping `current=False`, which the source *does* signal) is a known, documented gap --
-        see README.md "Known gaps," same category as connector B's un-revoked stale Note.
-        """
-        if not data.port_scans:
-            self.helper.connector_logger.info("No port scans in scope for this run")
-            return
+        run, or found stale by the aging sweep -- never wholesale-replaced -- so a partial or
+        empty poll (a transient DB issue, or a deliberately narrowed org scope) can't silently
+        erase previously-recorded history for keys it simply didn't touch. A key that vanishes
+        from the source entirely (as opposed to aging past the cutoff, which this connector now
+        detects on its own) is a known, documented gap -- see README.md "Known gaps," same
+        category as connector B's un-revoked stale Note.
 
-        objects = [self.author, self.marking]
+        Returns the new watermark to persist (max `time_scanned` actually fetched this run), or
+        None if nothing was fetched -- mirrors connector A's watermark contract exactly.
+        """
+        objects: List = [self.author, self.marking]
         port_scan_state = state.setdefault("port_scan_state", {})
         org_ip_rel_map = state.setdefault("org_ip_relationship_ids", {})
         run_time = datetime.datetime.now(datetime.timezone.utc)
 
+        seen_keys = set()
         # §10e/§10i: one bad row must not sink the whole run -- built in from the start.
         for row in data.port_scans:
             key = self._key(row)
+            seen_keys.add(key)
             try:
                 self._process_row(
                     row, key, port_scan_state, org_ip_rel_map, run_time, objects
@@ -126,6 +142,8 @@ class VsPortInventoryConnector:
                 self.helper.connector_logger.warning(f"Skipping port scan {key!r}: {e}")
                 continue
 
+        self._run_aging_sweep(port_scan_state, seen_keys, run_time, objects)
+
         # §9 queue discipline: a poll where nothing actually changed for any row has nothing
         # new to send -- author+marking alone shouldn't hit the queue.
         if len(objects) > 2:
@@ -133,33 +151,46 @@ class VsPortInventoryConnector:
             bundle = self.helper.stix2_create_bundle(objects)
             self.helper.send_stix2_bundle(bundle, update=True)
             self.helper.connector_logger.info(
-                f"Sent {len(objects)} objects ({len(data.port_scans)} port scans seen this run)"
+                f"Sent {len(objects)} objects ({len(data.port_scans)} port scans fetched this run)"
             )
         else:
             self.helper.connector_logger.info(
-                f"Nothing changed ({len(data.port_scans)} port scans seen this run)"
+                f"Nothing changed ({len(data.port_scans)} port scans fetched this run)"
             )
+
+        return self._compute_watermark(data.port_scans)
 
     def _process_row(
         self, row, key, port_scan_state, org_ip_rel_map, run_time, objects
     ) -> None:
-        """Map, diff, and (if changed) queue one LatestPortScan row's objects."""
+        """Map, diff, and (if changed) queue one freshly-fetched LatestPortScan row's objects."""
+        time_scanned = row.get("time_scanned")
+        if not time_scanned:
+            raise ValueError("LatestPortScan row has no time_scanned")
+
         org_id = mapping.resolve_org_identity_id(row["organization_name"])
         ip_obj = mapping.map_ip_observable(row["ip_string"])
         nt_obj = mapping.build_network_traffic(row, ip_obj.id)
 
         prev = port_scan_state.get(key)
-        is_current = bool(row.get("current"))
+        # Locally computed, deliberately ignoring row["current"] -- see module docstring. Using
+        # our own rule uniformly (whether a row was just fetched or aged between polls) means a
+        # bootstrap-caught row that already looks stale by our own clock behaves identically to
+        # one the aging sweep would catch next run, rather than two different sources of truth.
+        is_current = self._is_within_cutoff(time_scanned, run_time)
         start_time, stop_time = self._resolve_lifecycle(prev, row, is_current, run_time)
 
-        lifecycle_rel = mapping.build_lifecycle_relationship(
-            row,
+        labels = mapping.lifecycle_labels(row)
+        external_id = mapping.lifecycle_external_id(row)
+        lifecycle_rel = mapping.build_lifecycle_relationship_from_parts(
             org_id,
             nt_obj.id,
             self.author.id,
             self.marking.id,
             start_time=start_time,
             stop_time=stop_time,
+            labels=labels,
+            external_id=external_id,
             existing_id=(prev or {}).get("relationship_id"),
         )
 
@@ -186,9 +217,14 @@ class VsPortInventoryConnector:
 
         new_state = {
             "relationship_id": lifecycle_rel.id,
+            "network_traffic_id": nt_obj.id,
+            "org_id": org_id,
+            "labels": labels,
+            "external_id": external_id,
             "start_time": _serialize(start_time),
             "stop_time": _serialize(stop_time),
             "current": is_current,
+            "time_scanned": _serialize(mapping.normalize_timestamp(time_scanned)),
             "service_name": row.get("service_name"),
             "software_relationship_id": software_rel.id if software_rel else None,
         }
@@ -199,6 +235,7 @@ class VsPortInventoryConnector:
                 "service_name",
                 "software_relationship_id",
                 "stop_time",
+                "labels",
             )
         )
         port_scan_state[key] = new_state
@@ -211,6 +248,54 @@ class VsPortInventoryConnector:
             if software_obj is not None:
                 objects.append(software_obj)
                 objects.append(software_rel)
+
+    def _run_aging_sweep(self, port_scan_state, seen_keys, run_time, objects) -> None:
+        """Locally close out anything state alone says has aged past the cutoff.
+
+        The whole point of this connector's redesign (see module docstring): no DB query here,
+        just the same rule `mark_stale_latest_port_scans()` applies, evaluated against what
+        connector state already knows. Only ever touches entries this run's fetch didn't already
+        update -- a freshly-fetched row's own currency was already decided in _process_row().
+        """
+        for key, entry in port_scan_state.items():
+            if key in seen_keys or not entry.get("current"):
+                continue
+            last_scanned = mapping.normalize_timestamp(entry.get("time_scanned"))
+            if last_scanned is None:
+                continue  # defensive -- don't let one malformed entry crash the whole sweep
+            if run_time - last_scanned < datetime.timedelta(
+                days=self.config.latest_port_scan_cutoff_days
+            ):
+                continue
+            self._close_locally(key, entry, run_time, objects)
+
+    def _close_locally(self, key, entry, run_time, objects) -> None:
+        """Build an updated lifecycle relationship for one aged-out entry, from state alone."""
+        rel = mapping.build_lifecycle_relationship_from_parts(
+            entry["org_id"],
+            entry["network_traffic_id"],
+            self.author.id,
+            self.marking.id,
+            start_time=mapping.normalize_timestamp(entry.get("start_time")),
+            stop_time=run_time,
+            labels=entry.get("labels") or [],
+            external_id=entry["external_id"],
+            existing_id=entry["relationship_id"],
+        )
+        entry["current"] = False
+        entry["stop_time"] = _serialize(run_time)
+        objects.append(rel)
+        self.helper.connector_logger.info(
+            f"Marked {key!r} stale locally "
+            f"(time_scanned aged past {self.config.latest_port_scan_cutoff_days}d cutoff)"
+        )
+
+    def _is_within_cutoff(self, time_scanned, run_time) -> bool:
+        """Apply this connector's own copy of LATEST_PORT_SCAN_CUTOFF to a raw time_scanned value."""
+        last_scanned = mapping.normalize_timestamp(time_scanned)
+        return (run_time - last_scanned) < datetime.timedelta(
+            days=self.config.latest_port_scan_cutoff_days
+        )
 
     @staticmethod
     def _resolve_lifecycle(prev, row, is_current, run_time):
@@ -238,6 +323,19 @@ class VsPortInventoryConnector:
                     else run_time
                 )
         return start_time, stop_time
+
+    @staticmethod
+    def _compute_watermark(port_scans) -> Optional[str]:
+        """Compute the max time_scanned across everything actually fetched this run.
+
+        Connector A's exact watermark contract, just a single timestamp column instead of a
+        COALESCE of two.
+        """
+        values = [
+            mapping.normalize_timestamp(row.get("time_scanned")) for row in port_scans
+        ]
+        watermark = max((v for v in values if v is not None), default=None)
+        return _serialize(watermark)
 
     @staticmethod
     def _key(row: Dict) -> str:

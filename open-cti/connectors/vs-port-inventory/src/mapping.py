@@ -13,7 +13,13 @@ src_ref/src_port/protocols but *different* `start` values get *different* ids. P
 lifecycle there instead of on a separate, pinned relationship would have fragmented one port's
 history into a new SCO every time it changed, not updated one object in place -- so the
 NetworkTraffic SCO here is built from stable fields only, and the lifecycle lives entirely on
-`build_lifecycle_relationship()`, pinned in connector state exactly like connectors A/D already do.
+`build_lifecycle_relationship()`/`build_lifecycle_relationship_from_parts()`, pinned in connector
+state exactly like connectors A/D already do.
+
+Revised (2026-08-31, see db.py's module docstring): connector.py now computes port staleness
+locally from `time_scanned` + a known cutoff, rather than re-polling for it, which means it
+sometimes needs to build an updated lifecycle relationship with no fresh DB row on hand --
+`build_lifecycle_relationship_from_parts()` exists for exactly that case.
 """
 
 # Standard Python Libraries
@@ -195,24 +201,11 @@ def _relationship_id(
     )
 
 
-def build_lifecycle_relationship(
-    row: Dict,
-    org_id: str,
-    network_traffic_id: str,
-    author_id: str,
-    marking_id: str,
-    start_time,
-    stop_time,
-    existing_id: Optional[str] = None,
-) -> stix2.Relationship:
-    """Build the org -> Network-Traffic relationship carrying this port's open/stale lifecycle.
+def lifecycle_labels(row: Dict) -> List[str]:
+    """Compute this row's labels once, so connector state can cache and reuse them.
 
-    `start_time`/`stop_time` are passed in already-resolved by connector.py, not computed here --
-    §7c's "preserve start_time once set, only set stop_time once `current` flips to False on a
-    poll" logic depends on connector state (what was recorded last run), which this
-    dependency-free module deliberately has no access to. This function's only job is turning
-    already-decided values into a correctly-idempotent STIX Relationship, the same division of
-    responsibility connectors A/D already use.
+    Needed for the state-only relationship rebuild in build_lifecycle_relationship_from_parts()
+    when there's no fresh row on hand.
     """
     labels: List[str] = []
     if row.get("source"):
@@ -223,7 +216,34 @@ def build_lifecycle_relationship(
         labels.append(f"vs-nmi-service-{row['nmi_service_group']}")
     if row.get("state"):
         labels.append(f"vs-state-{row['state']}")
+    return labels
 
+
+def lifecycle_external_id(row: Dict) -> str:
+    """Return the bookkeeping id carried on the lifecycle relationship's External Reference."""
+    return row.get("port_scan_id") or row["id"]
+
+
+def build_lifecycle_relationship_from_parts(
+    org_id: str,
+    network_traffic_id: str,
+    author_id: str,
+    marking_id: str,
+    start_time,
+    stop_time,
+    labels: List[str],
+    external_id: str,
+    existing_id: Optional[str] = None,
+) -> stix2.Relationship:
+    """Build the org -> Network-Traffic lifecycle relationship from already-resolved parts.
+
+    The lower-level builder both `build_lifecycle_relationship()` (fresh row on hand) and
+    connector.py's locally-computed staleness sweep (no fresh row -- state only, see db.py's
+    module docstring for why that's a real, deliberate case now) share. `start_time`/`stop_time`
+    are passed in already-resolved, not computed here -- §10a's idempotency depends on connector
+    state (what was recorded last run), which this dependency-free module deliberately has no
+    access to.
+    """
     rel_id = _relationship_id(
         "related-to", org_id, network_traffic_id, start_time, stop_time, existing_id
     )
@@ -239,10 +259,37 @@ def build_lifecycle_relationship(
         object_marking_refs=[marking_id],
         external_references=[
             stix2.ExternalReference(
-                source_name=VS_EXTERNAL_SOURCE,
-                external_id=row.get("port_scan_id") or row["id"],
+                source_name=VS_EXTERNAL_SOURCE, external_id=external_id
             )
         ],
+    )
+
+
+def build_lifecycle_relationship(
+    row: Dict,
+    org_id: str,
+    network_traffic_id: str,
+    author_id: str,
+    marking_id: str,
+    start_time,
+    stop_time,
+    existing_id: Optional[str] = None,
+) -> stix2.Relationship:
+    """Build the org -> Network-Traffic relationship carrying this port's open/stale lifecycle.
+
+    Thin wrapper around build_lifecycle_relationship_from_parts() for the common case: a fresh
+    row is on hand, so labels/external_id are computed from it directly.
+    """
+    return build_lifecycle_relationship_from_parts(
+        org_id,
+        network_traffic_id,
+        author_id,
+        marking_id,
+        start_time,
+        stop_time,
+        labels=lifecycle_labels(row),
+        external_id=lifecycle_external_id(row),
+        existing_id=existing_id,
     )
 
 
