@@ -186,6 +186,7 @@ queryDailyCustomerMetrics:
 peScanController:
   <<: *adot
   timeout: 900
+  maximumRetryAttempts: 0
   memorySize: 512
   handler: pe.peScanController.handler
   environment:
