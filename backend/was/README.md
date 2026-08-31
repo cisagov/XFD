@@ -82,7 +82,7 @@ WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
 WAS_REPORT_STAGING_DIRECTORY=/tmp/was-report-storage
 WAS_REPORT_STORAGE=s3
-WAS_REPORTS_BUCKET_NAME=cisa-crossfeed-staging-reports
+WAS_REPORTS_BUCKET_NAME=cisa-was-reports
 WAS_REPORTS_PREFIX=was_reports
 WAS_DAILY_WAS_LOG=/WAS_REPORT_GENERATION/WAS_Tools/update_tracker/dailywas.log
 WAS_PASSWORD_LENGTH=24
@@ -126,11 +126,10 @@ instance role, not the execution role or static AWS credentials. `s3:ListBucket`
 is not required. The configured bucket must block public access and encrypt data
 at rest.
 
-The staging environment uses the existing
-`cisa-crossfeed-staging-reports` bucket through `WAS_REPORTS_BUCKET_NAME`. WAS
-objects remain isolated under `WAS_REPORTS_PREFIX=was_reports`. Each deployed
-environment must supply its own bucket name and grant the two object-level
-permissions before deployment.
+The staging environment uses the dedicated `cisa-was-reports` bucket through
+`WAS_REPORTS_BUCKET_NAME`. WAS objects remain isolated under
+`WAS_REPORTS_PREFIX=was_reports`. Each deployed environment must supply its own
+bucket name and grant the two object-level permissions before deployment.
 
 Apply the report-run claim update to an existing WAS database before deploying
 this code:
