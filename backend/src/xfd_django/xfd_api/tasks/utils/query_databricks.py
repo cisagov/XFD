@@ -263,7 +263,9 @@ def fetch_from_databricks(query):
         result = query_databricks(query)
         end_time = datetime.datetime.now()
         duration_seconds = (end_time - start_time).total_seconds()
-        LOGGER.info(f"[Databricks] [{duration_seconds}s] [{len(result)} records] {query}")
+        LOGGER.info(
+            f"[Databricks] [{duration_seconds}s] [{len(result)} records] {query}"
+        )
         return result
     except Exception as e:
         LOGGER.info("Error fetching data from Databricks: %s", e)
@@ -427,6 +429,7 @@ def fetch_in_chunks_keyset_frozen_bulk(
         last_id = str(last_row["_id"])
 
         yield chunk
+
 
 # Used for loading test data from file for vuln_scans, port_scans, hosts, tickets
 def load_test_data(data_set: str) -> list:

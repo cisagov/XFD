@@ -15,6 +15,7 @@ cffi==2.0.0
 charset-normalizer==3.4.0
 click==8.1.7
 cryptography==46.0.6
+databricks-sdk==0.133.0
 decorator==5.2.1
 dill==0.3.9
 Django==5.2.11
