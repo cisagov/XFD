@@ -93,6 +93,63 @@ The runner EC2 will boot, install dependencies via `user_data` (including
 CrowdStrike and the GitHub Actions runner), register with the enterprise runner
 group, and come online in a few minutes.
 
+## Verifying CrowdStrike Installation
+
+After the runner EC2 boots, SSH into it (the newly created runner instance, not
+the worker) and run these checks to confirm the CrowdStrike Falcon sensor
+installed correctly via `user_data`.
+
+### 1. Check the service is running
+
+```bash
+sudo systemctl status falcon-sensor
+```
+
+Look for `active (running)`.
+
+### 2. Confirm the process is alive
+
+```bash
+ps -e | grep falcon-sensor
+```
+
+### 3. Verify the kernel module is loaded
+
+```bash
+lsmod | grep falcon
+```
+
+### 4. Confirm the CID is set
+
+```bash
+sudo /opt/CrowdStrike/falconctl -g --cid
+```
+
+Should return the configured CID.
+
+### 5. Confirm the grouping tag
+
+```bash
+sudo /opt/CrowdStrike/falconctl -g --tags
+```
+
+Should return `CISADEV-Projects`.
+
+### 6. Review the bootstrap log (for debugging)
+
+```bash
+sudo cat /var/log/bootstrap-runner.log
+```
+
+Shows the full `user_data` run — CrowdStrike download, install, config, and
+verification output. Start here if the sensor did not install.
+
+**Common failure causes:**
+
+- `aws s3 cp` failed → the instance profile lacks S3 read access on the software
+  bucket, or the S3 path is wrong.
+- `dpkg` dependency error → confirm `apt-get -f install` ran.
+
 ## Notes
 
 - The `infrastructure/` pipeline pins Terraform **1.0.7**. For provisioning the
