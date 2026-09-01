@@ -12,7 +12,6 @@
     ]
   },
   "dependencies": {
-    "@aws-amplify/ui-react": "^6.15.2",
     "@elastic/react-search-ui": "^1.23.0",
     "@elastic/react-search-ui-views": "1.23.0",
     "@emotion/react": "^11.14.0",
@@ -28,7 +27,6 @@
     "@mui/x-data-grid": "^8.9.2",
     "@testing-library/user-event": "^14.6.1",
     "@trussworks/react-uswds": "^5.1.1",
-    "aws-amplify": "^6.16.3",
     "axios": "^1.18.0",
     "classnames": "^2.3.2",
     "cors": "^2.8.5",
