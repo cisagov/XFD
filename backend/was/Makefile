@@ -5,8 +5,12 @@ IMAGE ?= was-reporting
 ENV_FILE ?= .env
 OUTPUT_DIR ?= $(PWD)/local-output
 TRACKER_CSV ?= $(OUTPUT_DIR)/was-daily-tracker.csv
+TEST_RECIPIENTS ?= operator@example.gov
+TAG ?=
+DAYS_BACK ?= 7
+ASSIGNEE ?=
 
-.PHONY: install test lint build help report-help xml-help inventory admin-help mailer-help special-cases tracker-csv update-tracker update-tracker-delete-apps assignee-digests
+.PHONY: install test lint build help report-help xml-help inventory admin-help mailer-help special-cases tracker-csv tracker-table update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -41,12 +45,26 @@ admin-help:
 mailer-help:
 	docker run --rm --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --help
 
+recent-scan-batch:
+	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests
+
+recent-scan-batch-test:
+	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests --test-recipients "$(TEST_RECIPIENTS)" --dry-run-email --limit 1
+
+single-report:
+	@test -n "$(TAG)" || (echo 'TAG is required. Use: make single-report TAG="CUSTOMER_TAG"' >&2; exit 1)
+	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --tag "$(TAG)" --create-missing-password --send-email
+
 special-cases:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-special-cases list
 
 tracker-csv:
 	mkdir -p $(OUTPUT_DIR)
 	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --output /output/was-daily-tracker.csv
+
+tracker-table:
+	@test -n "$(ASSIGNEE)" || (echo 'ASSIGNEE is required. Use: make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7' >&2; exit 1)
+	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-tracker show --assignee "$(ASSIGNEE)" --days-back "$(DAYS_BACK)"
 
 update-tracker:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-update-tracker

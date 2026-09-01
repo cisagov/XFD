@@ -74,6 +74,12 @@ WAS_DB_SSLMODE=require
 WAS_QUALYS_USERNAME=replace-me
 WAS_QUALYS_PASSWORD=replace-me
 WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
+WAS_QUALYS_MAX_ATTEMPTS=4
+WAS_QUALYS_REQUEST_TIMEOUT_SECONDS=60
+WAS_QUALYS_RETRY_BASE_DELAY_SECONDS=1
+WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
+WAS_QUALYS_RETRY_JITTER_RATIO=0.25
+WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=1800
 WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
 WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
@@ -94,6 +100,14 @@ execution. In a container, pass the same file with `docker run --env-file .env`.
 Production Qualys clients use the three `WAS_QUALYS_*` values directly and do
 not create or read `was_config.txt`. Daily tracker, customer data, and
 special-case XLSX paths are no longer required by the active tracker workflow.
+
+Qualys read operations retry transient connection failures, timeouts, HTTP
+`429`, and selected HTTP `5xx` responses. Retries use capped exponential
+backoff with jitter and honor `Retry-After` up to the configured maximum delay.
+Create, update, ignore, and delete operations are never automatically retried
+because repeating them could duplicate or alter Qualys state. Report-status
+polling stops after `WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` instead of waiting
+indefinitely.
 
 ### S3 Report Storage
 
@@ -201,7 +215,34 @@ S3 upload succeeds. Failed generation or upload attempts are marked `failed`.
 
 ### Generate One Report
 
-Generate a report using an existing stakeholder password from Postgres:
+Run one stakeholder through the same tracked workflow used by the recent-scan
+batch:
+
+```bash
+make single-report TAG="CUSTOMER_TAG"
+```
+
+The command refreshes recent Qualys activity for only that tag. When an
+eligible tracker row has not already been emailed, it generates the encrypted
+report, uploads it under the current S3 date prefix, sends it through SES, and
+sets `report_sent_date` after SES accepts the message. Existing completed but
+unsent report runs are also recovered only for the requested tag. If no unsent
+tracker gap exists, the command does not create or email a duplicate report.
+
+Equivalent Docker command:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  --recent-scans \
+  --tag "CUSTOMER_TAG" \
+  --create-missing-password \
+  --send-email
+```
+
+Generate a local PDF without S3 upload, SES delivery, or tracker updates only
+when performing development or report comparison:
 
 ```bash
 docker run --rm \
@@ -366,6 +407,60 @@ docker run --rm \
 The batch uses private temporary storage while generating each PDF, uploads the
 encrypted report to S3, and removes the temporary local copy.
 
+### Run The Recent-Scan Batch
+
+The operational batch first updates `was_daily_report_tracker` from recently
+completed Qualys scan schedules. It then selects finished automated rows where
+`report_sent_date` is empty and no `was_report_runs` record is already linked.
+Each tracker row is claimed once, generated, uploaded, emailed, and stamped with
+the report sent date. Metadata or generation failures are marked `MANUAL` for
+the assigned analyst.
+
+Apply the tracker link once to an existing WAS database before using this mode:
+
+```bash
+psql \
+  --host "$WAS_DB_HOST" \
+  --port "$WAS_DB_PORT" \
+  --username "$WAS_DB_USERNAME" \
+  --dbname "$WAS_DB_NAME" \
+  --file schema/updates/008_link_report_runs_to_daily_tracker.sql
+```
+
+Run the complete recent-scan batch and send reports plus analyst digests:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  --recent-scans \
+  --create-missing-password \
+  --continue-on-error \
+  --send-email \
+  --send-assignee-digests
+```
+
+Test one candidate without sending SES email. This still performs Qualys report
+generation and S3 upload:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  --recent-scans \
+  --create-missing-password \
+  --continue-on-error \
+  --send-email \
+  --send-assignee-digests \
+  --test-recipients "operator@example.gov" \
+  --dry-run-email \
+  --limit 1
+```
+
+Use `--skip-tracker-refresh` to process existing tracker gaps without querying
+Qualys schedule and scan metadata again. Use `--tag "CUSTOMER_TAG"` to scope
+both tracker refresh and report generation to one stakeholder.
+
 Run the WAS mailer for all completed report runs that have not been emailed:
 
 ```bash
@@ -520,6 +615,32 @@ docker run --rm \
   --output /output/was-daily-tracker-2026-08-26.csv
 ```
 
+### View The Live Tracker Table
+
+Display current tracker rows directly from Postgres without waiting for a CSV
+export or assignee digest email:
+
+```bash
+make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
+```
+
+`DAYS_BACK=7` includes today and the previous seven calendar days. The
+assignee match is case-insensitive and must otherwise match the stored name.
+The terminal output is limited to 200 rows by default and excludes report
+passwords, POC email addresses, and customer notes.
+
+Equivalent Docker command with a custom row limit:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-tracker show \
+  --assignee "ASSIGNEE NAME" \
+  --days-back 7 \
+  --limit 100
+```
+
 ### Update Daily Tracker
 
 Run the Qualys daily tracker update and write tracker rows to Postgres. This
@@ -671,9 +792,13 @@ make inventory
 make admin-help
 make special-cases
 make tracker-csv
+make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 make update-tracker
 make update-tracker-delete-apps
 make assignee-digests
+make recent-scan-batch
+make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
+make single-report TAG="CUSTOMER_TAG"
 ```
 
 ## Validate

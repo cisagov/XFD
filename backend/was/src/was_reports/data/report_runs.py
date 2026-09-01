@@ -42,12 +42,14 @@ class ReportRunEmail:
     distro_email: str | None
     tech_poc_email: str | None
     was_report_poc: str | None
+    source_tracker_id: int | None = None
 
 
 def create_report_run(
     stakeholder_tag: str,
     scheduled_epoch: int | None,
     conn: connection,
+    source_tracker_id: int | None = None,
 ) -> ReportRun | None:
     """Claim a scheduled execution and return its running report record."""
     try:
@@ -57,16 +59,14 @@ def create_report_run(
                 INSERT INTO was_report_runs (
                     stakeholder_tag,
                     status,
-                    scheduled_epoch
+                    scheduled_epoch,
+                    source_tracker_id
                 )
-                VALUES (%s, %s, %s)
-                ON CONFLICT (stakeholder_tag, scheduled_epoch)
-                    WHERE scheduled_epoch IS NOT NULL
-                      AND status IN ('running', 'completed')
-                DO NOTHING
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
                 RETURNING id, stakeholder_tag, status
                 """,
-                (stakeholder_tag, RUNNING, scheduled_epoch),
+                (stakeholder_tag, RUNNING, scheduled_epoch, source_tracker_id),
             )
             row = cursor.fetchone()
             conn.commit()
@@ -162,6 +162,27 @@ def create_report_run_for_tag(
             stakeholder_tag=stakeholder_tag,
             scheduled_epoch=scheduled_epoch,
             conn=conn,
+            source_tracker_id=None,
+        )
+    finally:
+        close(conn)
+
+
+def create_report_run_for_tracker(
+    stakeholder_tag: str,
+    source_tracker_id: int,
+) -> ReportRun | None:
+    """Atomically claim one daily tracker row for report generation."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return create_report_run(
+            stakeholder_tag=stakeholder_tag,
+            scheduled_epoch=None,
+            source_tracker_id=source_tracker_id,
+            conn=conn,
         )
     finally:
         close(conn)
@@ -216,7 +237,8 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 stakeholders.report_password,
                 stakeholders.distro_email,
                 stakeholders.tech_poc_email,
-                stakeholders.was_report_poc
+                stakeholders.was_report_poc,
+                runs.source_tracker_id
             FROM was_report_runs AS runs
             JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = runs.stakeholder_tag
@@ -244,6 +266,7 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
         distro_email=row[4],
         tech_poc_email=row[5],
         was_report_poc=row[6],
+        source_tracker_id=row[7],
     )
 
 
@@ -251,6 +274,7 @@ def list_report_runs_ready_for_email(
     conn: connection,
     limit: int | None = None,
     include_previous_failures: bool = False,
+    stakeholder_tag: str | None = None,
 ) -> list[ReportRunEmail]:
     """Return completed report runs that have not been emailed."""
     query = """
@@ -261,7 +285,8 @@ def list_report_runs_ready_for_email(
             stakeholders.report_password,
             stakeholders.distro_email,
             stakeholders.tech_poc_email,
-            stakeholders.was_report_poc
+            stakeholders.was_report_poc,
+            runs.source_tracker_id
         FROM was_report_runs AS runs
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = runs.stakeholder_tag
@@ -278,6 +303,10 @@ def list_report_runs_ready_for_email(
         EMAIL_PENDING,
         allowed_email_statuses,
     ]
+
+    if stakeholder_tag is not None:
+        query += " AND runs.stakeholder_tag = %s"
+        parameters.append(stakeholder_tag)
 
     query += " ORDER BY runs.completed_at ASC NULLS LAST, runs.id ASC"
 
@@ -300,6 +329,7 @@ def list_report_runs_ready_for_email(
                 distro_email=row[4],
                 tech_poc_email=row[5],
                 was_report_poc=row[6],
+                source_tracker_id=row[7],
             )
         )
 
@@ -327,12 +357,13 @@ def claim_report_run_email(
               AND output_path IS NOT NULL
               AND emailed_at IS NULL
               AND COALESCE(email_status, %s) = ANY(%s)
-            RETURNING id, stakeholder_tag, output_path
+            RETURNING id, stakeholder_tag, output_path, source_tracker_id
         )
         SELECT
             claimed.id,
             claimed.stakeholder_tag,
             claimed.output_path,
+            claimed.source_tracker_id,
             stakeholders.report_password,
             stakeholders.distro_email,
             stakeholders.tech_poc_email,
@@ -363,10 +394,11 @@ def claim_report_run_email(
         id=row[0],
         stakeholder_tag=row[1],
         output_path=row[2],
-        report_password=row[3],
-        distro_email=row[4],
-        tech_poc_email=row[5],
-        was_report_poc=row[6],
+        source_tracker_id=row[3],
+        report_password=row[4],
+        distro_email=row[5],
+        tech_poc_email=row[6],
+        was_report_poc=row[7],
     )
 
 
@@ -404,6 +436,7 @@ def claim_report_run_email_by_id(
 def list_report_runs_ready_for_email_from_db(
     limit: int | None = None,
     include_previous_failures: bool = False,
+    stakeholder_tag: str | None = None,
 ) -> list[ReportRunEmail]:
     """Return ready-to-email report runs using a managed connection."""
     # Third-Party Libraries
@@ -415,6 +448,7 @@ def list_report_runs_ready_for_email_from_db(
             conn=conn,
             limit=limit,
             include_previous_failures=include_previous_failures,
+            stakeholder_tag=stakeholder_tag,
         )
     finally:
         close(conn)
@@ -430,16 +464,27 @@ def mark_report_run_emailed(
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                UPDATE was_report_runs
-                SET emailed_at = NOW(),
-                    email_message_id = %s,
-                    email_error = NULL,
-                    email_status = %s,
-                    email_claimed_at = NULL,
-                    updated_at = NOW()
-                WHERE id = %s
-                  AND email_status = %s
-                RETURNING id
+                WITH emailed_run AS (
+                    UPDATE was_report_runs
+                    SET emailed_at = NOW(),
+                        email_message_id = %s,
+                        email_error = NULL,
+                        email_status = %s,
+                        email_claimed_at = NULL,
+                        updated_at = NOW()
+                    WHERE id = %s
+                      AND email_status = %s
+                    RETURNING id, source_tracker_id
+                ),
+                updated_tracker AS (
+                    UPDATE was_daily_report_tracker AS tracker
+                    SET report_sent_date = CURRENT_DATE,
+                        updated_at = NOW()
+                    FROM emailed_run
+                    WHERE tracker.id = emailed_run.source_tracker_id
+                    RETURNING tracker.id
+                )
+                SELECT id FROM emailed_run
                 """,
                 (message_id, EMAIL_SENT, report_run_id, EMAIL_SENDING),
             )

@@ -1,17 +1,21 @@
 """Tests for WAS daily report tracker data access."""
 
 # Standard Python Libraries
-import unittest
 from datetime import date, datetime, timezone
+import unittest
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import (
     DailyReportTrackerRow,
     insert_daily_report_tracker_row,
     latest_tracker_pull_date,
-    list_tracker_rows_for_export,
     list_ready_assignee_digests,
+    list_ready_report_candidates,
+    list_tracker_rows_for_export,
+    list_tracker_table_rows,
     mark_assignee_digest_emailed,
+    mark_tracker_report_manual,
 )
 
 
@@ -200,6 +204,39 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(len(digests[0].rows), 2)
         self.assertEqual(conn.cursor_instance.parameters, (date(2026, 8, 26),))
 
+    def test_list_ready_report_candidates_finds_unsent_finished_rows(self) -> None:
+        """Find recent tracker rows without sent reports or existing claims."""
+        conn = FakeConnection(
+            fetchall_rows=[
+                (7, "TAG1", date(2026, 9, 1), 12345, 3),
+            ]
+        )
+
+        candidates = list_ready_report_candidates(
+            conn=conn,
+            stakeholder_tag="TAG1",
+            limit=5,
+        )
+
+        self.assertEqual(candidates[0].id, 7)
+        self.assertEqual(candidates[0].tag, "TAG1")
+        self.assertIn("tracker.report_sent_date IS NULL", conn.cursor_instance.query)
+        self.assertIn("runs.source_tracker_id", conn.cursor_instance.query)
+        self.assertIn(
+            "stakeholders.manual_report IS NOT TRUE", conn.cursor_instance.query
+        )
+        self.assertEqual(conn.cursor_instance.parameters, ("TAG1", 5))
+
+    def test_mark_tracker_report_manual_updates_unsent_row(self) -> None:
+        """Send generation failures to the assigned analyst for manual handling."""
+        conn = FakeConnection()
+
+        mark_tracker_report_manual(tracker_id=7, conn=conn)
+
+        self.assertTrue(conn.committed)
+        self.assertIn("report_scan_notes = 'MANUAL'", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (7,))
+
     def test_mark_assignee_digest_emailed_updates_matching_rows(self) -> None:
         """Mark unsent rows for one assignee and pull date."""
         conn = FakeConnection()
@@ -262,6 +299,37 @@ class DailyReportTrackerTests(unittest.TestCase):
             conn.cursor_instance.parameters,
             (date(2026, 8, 26), 3, 10),
         )
+
+    def test_list_tracker_table_rows_filters_recent_assignee_rows(self) -> None:
+        """Return safe live tracker fields for one recent assignee window."""
+        conn = FakeConnection(
+            fetchall_rows=[
+                (
+                    date(2026, 9, 1),
+                    "TAG1",
+                    "Scan 1",
+                    "Analyst",
+                    "Finished",
+                    "Successful",
+                    "PENDING",
+                    None,
+                    "",
+                    date(2026, 9, 29),
+                )
+            ]
+        )
+
+        rows = list_tracker_table_rows(
+            conn=conn,
+            days_back=7,
+            assignee_name=" Analyst ",
+            limit=25,
+        )
+
+        self.assertEqual(rows[0].tag, "TAG1")
+        self.assertEqual(rows[0].report_status, "PENDING")
+        self.assertNotIn("legacy_password", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (7, "Analyst", 25))
 
 
 if __name__ == "__main__":

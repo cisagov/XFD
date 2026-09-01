@@ -5,6 +5,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Iterable, List
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
 
@@ -117,10 +118,29 @@ def build_assignee_digest_email(
 
 def assignee_digest_body(assignee_digest) -> str:
     """Return the plain text body for an assignee digest."""
+    manual_rows = [
+        tracker_row
+        for tracker_row in assignee_digest.rows
+        if tracker_row_is_manual(tracker_row)
+    ]
+    sent_rows = [
+        tracker_row
+        for tracker_row in assignee_digest.rows
+        if tracker_row.report_sent_date is not None
+    ]
+    pending_rows = [
+        tracker_row
+        for tracker_row in assignee_digest.rows
+        if tracker_row.report_sent_date is None
+        and not tracker_row_is_manual(tracker_row)
+    ]
     lines = [
         "WAS daily tracker assignments for {}".format(assignee_digest.assignee),
         "",
         "Total assigned rows: {}".format(len(assignee_digest.rows)),
+        "Reports sent: {}".format(len(sent_rows)),
+        "Manual reports: {}".format(len(manual_rows)),
+        "Reports pending: {}".format(len(pending_rows)),
         "",
     ]
     for tracker_row in assignee_digest.rows:
@@ -134,6 +154,13 @@ def assignee_digest_body(assignee_digest) -> str:
         lines.append("")
     lines.append("Do not reply with report passwords or scanner credentials.")
     return "\n".join(lines)
+
+
+def tracker_row_is_manual(tracker_row) -> bool:
+    """Return whether a tracker row requires manual analyst handling."""
+    notes = (tracker_row.report_scan_notes or "").strip().upper()
+    status = (tracker_row.status or "").strip().upper()
+    return bool(notes) or status == "ERROR" or bool(tracker_row.qualys_error)
 
 
 def assignee_digest_csv_filename(assignee_name: str) -> str:

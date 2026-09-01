@@ -120,6 +120,10 @@ class WasMailerTests(unittest.TestCase):
         body = message.get_body(preferencelist=("plain",)).get_content()
 
         self.assertIn("TAG1", body)
+        self.assertIn("Total assigned rows: 1", body)
+        self.assertIn("Reports sent: 0", body)
+        self.assertIn("Manual reports: 0", body)
+        self.assertIn("Reports pending: 1", body)
         self.assertNotIn("password123", body)
         self.assertIn("was-daily-tracker-analyst.csv", message.as_string())
 
@@ -400,6 +404,7 @@ class WasMailerTests(unittest.TestCase):
         mock_list_ready.assert_called_once_with(
             limit=2,
             include_previous_failures=False,
+            stakeholder_tag=None,
         )
 
     @patch("was_mailer.email_reports.send_ready_report_emails")

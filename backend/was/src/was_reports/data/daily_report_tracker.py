@@ -6,7 +6,7 @@ from __future__ import annotations
 # Standard Python Libraries
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -17,31 +17,31 @@ if TYPE_CHECKING:
 class DailyReportTrackerRow:
     """Database representation of one WAS daily report tracker row."""
 
-    source_row_number: Optional[int] = None
-    data_pull_date: Optional[date] = None
-    tag: Optional[str] = None
-    scan_name: Optional[str] = None
-    assignee_id: Optional[int] = None
-    assignee: Optional[str] = None
-    status: Optional[str] = None
-    result: Optional[str] = None
-    report_sent_date: Optional[date] = None
-    report_scan_notes: Optional[str] = None
-    scan_start_date: Optional[date] = None
-    next_scan_date: Optional[date] = None
-    poc: Optional[str] = None
-    poc_email: Optional[str] = None
-    customer_notes: Optional[str] = None
-    nws: Optional[str] = None
-    template: Optional[str] = None
-    recent_nws: Optional[str] = None
-    remove_nws: Optional[str] = None
-    legacy_password: Optional[str] = None
-    schedule_id: Optional[int] = None
-    qualys_error: Optional[str] = None
-    assignee_emailed_at: Optional[datetime] = None
-    assignee_email_message_id: Optional[str] = None
-    assignee_email_error: Optional[str] = None
+    source_row_number: int | None = None
+    data_pull_date: date | None = None
+    tag: str | None = None
+    scan_name: str | None = None
+    assignee_id: int | None = None
+    assignee: str | None = None
+    status: str | None = None
+    result: str | None = None
+    report_sent_date: date | None = None
+    report_scan_notes: str | None = None
+    scan_start_date: date | None = None
+    next_scan_date: date | None = None
+    poc: str | None = None
+    poc_email: str | None = None
+    customer_notes: str | None = None
+    nws: str | None = None
+    template: str | None = None
+    recent_nws: str | None = None
+    remove_nws: str | None = None
+    legacy_password: str | None = None
+    schedule_id: int | None = None
+    qualys_error: str | None = None
+    assignee_emailed_at: datetime | None = None
+    assignee_email_message_id: str | None = None
+    assignee_email_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,34 @@ class AssigneeDigest:
     assignee_id: int
     assignee: str
     email: str
-    rows: List[DailyReportTrackerRow]
+    rows: list[DailyReportTrackerRow]
+
+
+@dataclass(frozen=True)
+class TrackerReportCandidate:
+    """Recently scanned tracker row awaiting automated report delivery."""
+
+    id: int
+    tag: str
+    data_pull_date: date
+    schedule_id: int | None
+    assignee_id: int | None
+
+
+@dataclass(frozen=True)
+class TrackerTableRow:
+    """Safe tracker fields displayed in the operator terminal table."""
+
+    data_pull_date: date | None
+    tag: str | None
+    scan_name: str | None
+    assignee: str | None
+    scan_status: str | None
+    scan_result: str | None
+    report_status: str
+    report_sent_date: date | None
+    notes: str | None
+    next_scan_date: date | None
 
 
 def insert_daily_report_tracker_row(
@@ -136,6 +163,7 @@ def insert_daily_report_tracker_row(
 
 def insert_daily_report_tracker_row_in_db(row: DailyReportTrackerRow) -> int:
     """Insert one tracker row using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -162,7 +190,7 @@ def latest_tracker_pull_date(conn: connection) -> datetime:
     return datetime.combine(row[0], datetime.min.time(), timezone.utc)
 
 
-def recent_schedule_ids(conn: connection, since_date: datetime) -> List[int]:
+def recent_schedule_ids(conn: connection, since_date: datetime) -> list[int]:
     """Return schedule IDs already tracked since the supplied pull date."""
     with conn.cursor() as cursor:
         cursor.execute(
@@ -179,11 +207,119 @@ def recent_schedule_ids(conn: connection, since_date: datetime) -> List[int]:
     return [int(row[0]) for row in rows]
 
 
+def list_ready_report_candidates(
+    conn: connection,
+    stakeholder_tag: str | None = None,
+    limit: int | None = None,
+) -> list[TrackerReportCandidate]:
+    """Return finished tracker rows with a report-delivery gap."""
+    query = """
+        SELECT
+            tracker.id,
+            tracker.tag,
+            tracker.data_pull_date,
+            tracker.schedule_id,
+            tracker.assignee_id
+        FROM was_daily_report_tracker AS tracker
+        JOIN was_stakeholders AS stakeholders
+          ON stakeholders.tag = tracker.tag
+        LEFT JOIN was_report_runs AS runs
+          ON runs.source_tracker_id = tracker.id
+        WHERE tracker.report_sent_date IS NULL
+          AND runs.id IS NULL
+          AND tracker.tag IS NOT NULL
+          AND BTRIM(tracker.tag) <> ''
+          AND LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
+          AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
+          AND BTRIM(COALESCE(tracker.qualys_error, '')) = ''
+          AND COALESCE(tracker.template, '') <> 'Deactivated'
+          AND stakeholders.manual_report IS NOT TRUE
+          AND stakeholders.retired IS NOT TRUE
+    """
+    parameters: list[object] = []
+    if stakeholder_tag is not None:
+        query += " AND tracker.tag = %s"
+        parameters.append(stakeholder_tag)
+    query += " ORDER BY tracker.data_pull_date ASC, tracker.id ASC"
+    if limit is not None:
+        query += " LIMIT %s"
+        parameters.append(limit)
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, tuple(parameters))
+        rows = cursor.fetchall()
+
+    return [
+        TrackerReportCandidate(
+            id=row[0],
+            tag=row[1],
+            data_pull_date=row[2],
+            schedule_id=row[3],
+            assignee_id=row[4],
+        )
+        for row in rows
+    ]
+
+
+def list_ready_report_candidates_from_db(
+    stakeholder_tag: str | None = None,
+    limit: int | None = None,
+) -> list[TrackerReportCandidate]:
+    """Return report-delivery gaps using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_ready_report_candidates(
+            conn=conn,
+            stakeholder_tag=stakeholder_tag,
+            limit=limit,
+        )
+    finally:
+        close(conn)
+
+
+def mark_tracker_report_manual(
+    tracker_id: int,
+    conn: connection,
+) -> None:
+    """Mark a tracker row for manual handling after generation failure."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_daily_report_tracker
+                SET report_scan_notes = 'MANUAL',
+                    updated_at = NOW()
+                WHERE id = %s
+                  AND report_sent_date IS NULL
+                """,
+                (tracker_id,),
+            )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def mark_tracker_report_manual_by_id(tracker_id: int) -> None:
+    """Mark a tracker report manual using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        mark_tracker_report_manual(tracker_id=tracker_id, conn=conn)
+    finally:
+        close(conn)
+
+
 def list_ready_assignee_digests(
     conn: connection,
-    data_pull_date: Optional[date] = None,
-    limit: Optional[int] = None,
-) -> List[AssigneeDigest]:
+    data_pull_date: date | None = None,
+    limit: int | None = None,
+) -> list[AssigneeDigest]:
     """Return unsent tracker rows grouped by active assignee email address."""
     query = """
         SELECT
@@ -222,7 +358,7 @@ def list_ready_assignee_digests(
           AND BTRIM(assignees.email) <> ''
           AND tracker.data_pull_date IS NOT NULL
     """
-    parameters = []
+    parameters: list[object] = []
 
     if data_pull_date is not None:
         query += " AND tracker.data_pull_date = %s"
@@ -238,7 +374,7 @@ def list_ready_assignee_digests(
         cursor.execute(query, tuple(parameters))
         rows = cursor.fetchall()
 
-    digests_by_assignee: Dict[int, AssigneeDigest] = {}
+    digests_by_assignee: dict[int, AssigneeDigest] = {}
     for row in rows:
         tracker_row = DailyReportTrackerRow(
             source_row_number=row[1],
@@ -277,10 +413,11 @@ def list_ready_assignee_digests(
 
 
 def list_ready_assignee_digests_from_db(
-    data_pull_date: Optional[date] = None,
-    limit: Optional[int] = None,
-) -> List[AssigneeDigest]:
+    data_pull_date: date | None = None,
+    limit: int | None = None,
+) -> list[AssigneeDigest]:
     """Return ready assignee digests using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -350,10 +487,10 @@ def mark_assignee_digest_failed(
 
 def list_tracker_rows_for_export(
     conn: connection,
-    data_pull_date: Optional[date] = None,
-    assignee_id: Optional[int] = None,
-    limit: Optional[int] = None,
-) -> List[DailyReportTrackerRow]:
+    data_pull_date: date | None = None,
+    assignee_id: int | None = None,
+    limit: int | None = None,
+) -> list[DailyReportTrackerRow]:
     """Return tracker rows for CSV export."""
     query = """
         SELECT
@@ -382,7 +519,7 @@ def list_tracker_rows_for_export(
         FROM was_daily_report_tracker
         WHERE 1 = 1
     """
-    parameters = []
+    parameters: list[object] = []
 
     if data_pull_date is not None:
         query += " AND data_pull_date = %s"
@@ -432,11 +569,12 @@ def list_tracker_rows_for_export(
 
 
 def list_tracker_rows_for_export_from_db(
-    data_pull_date: Optional[date] = None,
-    assignee_id: Optional[int] = None,
-    limit: Optional[int] = None,
-) -> List[DailyReportTrackerRow]:
+    data_pull_date: date | None = None,
+    assignee_id: int | None = None,
+    limit: int | None = None,
+) -> list[DailyReportTrackerRow]:
     """Return tracker rows for CSV export using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -445,6 +583,97 @@ def list_tracker_rows_for_export_from_db(
             conn=conn,
             data_pull_date=data_pull_date,
             assignee_id=assignee_id,
+            limit=limit,
+        )
+    finally:
+        close(conn)
+
+
+def list_tracker_table_rows(
+    conn: connection,
+    days_back: int,
+    assignee_name: str,
+    limit: int = 200,
+) -> list[TrackerTableRow]:
+    """Return recent tracker rows for one assignee without sensitive fields."""
+    if days_back < 0:
+        raise ValueError("Days back must be zero or greater.")
+    normalized_assignee = assignee_name.strip()
+    if not normalized_assignee:
+        raise ValueError("Assignee name must not be empty.")
+    if limit < 1:
+        raise ValueError("Limit must be greater than zero.")
+
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                tracker.data_pull_date,
+                tracker.tag,
+                tracker.scan_name,
+                COALESCE(assignees.name, tracker.assignee),
+                tracker.status,
+                tracker.result,
+                CASE
+                    WHEN tracker.report_sent_date IS NOT NULL THEN 'SENT'
+                    WHEN NULLIF(BTRIM(tracker.report_scan_notes), '')
+                         IS NOT NULL
+                      OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
+                      OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
+                        THEN 'MANUAL'
+                    ELSE 'PENDING'
+                END,
+                tracker.report_sent_date,
+                tracker.report_scan_notes,
+                tracker.next_scan_date
+            FROM was_daily_report_tracker AS tracker
+            LEFT JOIN was_assignees AS assignees
+              ON assignees.id = tracker.assignee_id
+            WHERE tracker.data_pull_date >= CURRENT_DATE - %s
+              AND LOWER(BTRIM(COALESCE(
+                    assignees.name,
+                    tracker.assignee,
+                    ''
+                  ))) = LOWER(BTRIM(%s))
+            ORDER BY tracker.data_pull_date DESC, tracker.tag ASC
+            LIMIT %s
+            """,
+            (days_back, normalized_assignee, limit),
+        )
+        rows = cursor.fetchall()
+
+    return [
+        TrackerTableRow(
+            data_pull_date=row[0],
+            tag=row[1],
+            scan_name=row[2],
+            assignee=row[3],
+            scan_status=row[4],
+            scan_result=row[5],
+            report_status=row[6],
+            report_sent_date=row[7],
+            notes=row[8],
+            next_scan_date=row[9],
+        )
+        for row in rows
+    ]
+
+
+def list_tracker_table_rows_from_db(
+    days_back: int,
+    assignee_name: str,
+    limit: int = 200,
+) -> list[TrackerTableRow]:
+    """Return recent assignee tracker rows using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_tracker_table_rows(
+            conn=conn,
+            days_back=days_back,
+            assignee_name=assignee_name,
             limit=limit,
         )
     finally:

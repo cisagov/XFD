@@ -1,16 +1,19 @@
 """Tests for WAS tracker CLI utilities."""
 
 # Standard Python Libraries
+from contextlib import redirect_stdout
 import csv
+from datetime import date
+import io
+from pathlib import Path
 import tempfile
 import unittest
-from datetime import date
-from pathlib import Path
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import tracker_cli
-from was_reports.data.daily_report_tracker import DailyReportTrackerRow
+from was_reports.data.daily_report_tracker import DailyReportTrackerRow, TrackerTableRow
 from was_reports.tracker.tracker_csv import (
     CSV_HEADERS,
     tracker_row_to_csv,
@@ -74,9 +77,7 @@ class TrackerCliTests(unittest.TestCase):
         self.assertEqual(rows[1][1], "TAG1")
 
     @patch("was_reports.commands.tracker_cli.write_tracker_csv")
-    @patch(
-        "was_reports.commands.tracker_cli.list_tracker_rows_for_export_from_db"
-    )
+    @patch("was_reports.commands.tracker_cli.list_tracker_rows_for_export_from_db")
     def test_export_csv_queries_database_and_writes_file(
         self,
         mock_list_rows,
@@ -107,6 +108,61 @@ class TrackerCliTests(unittest.TestCase):
             limit=10,
         )
         mock_write_csv.assert_called_once()
+
+    @patch("was_reports.commands.tracker_cli.list_tracker_table_rows_from_db")
+    def test_show_table_displays_live_assignee_rows(self, mock_list_rows) -> None:
+        """Display recent Postgres tracker data without creating a CSV."""
+        mock_list_rows.return_value = [
+            TrackerTableRow(
+                data_pull_date=date(2026, 9, 1),
+                tag="TAG1",
+                scan_name="Scan 1",
+                assignee="Analyst",
+                scan_status="Finished",
+                scan_result="Successful",
+                report_status="SENT",
+                report_sent_date=date(2026, 9, 1),
+                notes=None,
+                next_scan_date=date(2026, 9, 29),
+            )
+        ]
+        args = tracker_cli.parse_args(
+            [
+                "show",
+                "--days-back",
+                "14",
+                "--assignee",
+                "Analyst",
+                "--limit",
+                "50",
+            ]
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.show_table(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("TAG1", output.getvalue())
+        self.assertIn("Displayed 1 tracker rows.", output.getvalue())
+        mock_list_rows.assert_called_once_with(
+            days_back=14,
+            assignee_name="Analyst",
+            limit=50,
+        )
+
+    def test_show_rejects_negative_days_back(self) -> None:
+        """Reject an invalid negative tracker history window."""
+        with self.assertRaises(SystemExit):
+            tracker_cli.parse_args(
+                [
+                    "show",
+                    "--days-back",
+                    "-1",
+                    "--assignee",
+                    "Analyst",
+                ]
+            )
 
 
 if __name__ == "__main__":

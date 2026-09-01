@@ -78,7 +78,7 @@ class ReportRunTests(unittest.TestCase):
         self.assertTrue(conn.committed)
         self.assertEqual(
             conn.cursor_instance.parameters,
-            ("TAG1", report_runs.RUNNING, 1720000001),
+            ("TAG1", report_runs.RUNNING, 1720000001, None),
         )
         self.assertIn("ON CONFLICT", conn.cursor_instance.query)
 
@@ -94,6 +94,23 @@ class ReportRunTests(unittest.TestCase):
 
         self.assertIsNone(report_run)
         self.assertTrue(conn.committed)
+
+    def test_create_report_run_claims_source_tracker_row(self) -> None:
+        """Claim one tracker row using its unique report-run link."""
+        conn = FakeConnection(row=(8, "TAG2", report_runs.RUNNING))
+
+        report_run = report_runs.create_report_run(
+            stakeholder_tag="TAG2",
+            scheduled_epoch=None,
+            source_tracker_id=42,
+            conn=conn,
+        )
+
+        self.assertEqual(report_run.id, 8)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            ("TAG2", report_runs.RUNNING, None, 42),
+        )
 
     def test_complete_report_run_sets_completed_status(self) -> None:
         """Mark an existing report execution as completed."""
@@ -166,6 +183,7 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_SENDING,
             ),
         )
+        self.assertIn("report_sent_date = CURRENT_DATE", conn.cursor_instance.query)
 
     def test_mark_report_run_email_failed_records_error(self) -> None:
         """Record email delivery failure metadata."""
@@ -200,6 +218,7 @@ class ReportRunTests(unittest.TestCase):
                     "distro@example.gov",
                     "tech@example.gov",
                     "poc@example.gov",
+                    None,
                 )
             ]
         )
@@ -207,6 +226,7 @@ class ReportRunTests(unittest.TestCase):
         report_run_emails = report_runs.list_report_runs_ready_for_email(
             conn=conn,
             limit=5,
+            stakeholder_tag="TAG1",
         )
 
         self.assertEqual(report_run_emails[0].id, 7)
@@ -217,9 +237,11 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.COMPLETED,
                 report_runs.EMAIL_PENDING,
                 [report_runs.EMAIL_PENDING],
+                "TAG1",
                 5,
             ),
         )
+        self.assertIn("runs.stakeholder_tag = %s", conn.cursor_instance.query)
 
     def test_list_report_runs_ready_for_email_can_retry_failures(self) -> None:
         """Allow failed email runs to be selected for retry."""
@@ -246,6 +268,7 @@ class ReportRunTests(unittest.TestCase):
                 7,
                 "TAG1",
                 "s3://reports/was_reports/report.pdf",
+                42,
                 "password",
                 "distro@example.gov",
                 "tech@example.gov",
@@ -259,6 +282,7 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(claimed.id, 7)
+        self.assertEqual(claimed.source_tracker_id, 42)
         self.assertTrue(conn.committed)
         self.assertIn("UPDATE was_report_runs", conn.cursor_instance.query)
         self.assertEqual(

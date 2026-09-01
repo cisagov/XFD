@@ -91,8 +91,8 @@ boundary before the legacy script is retired.
 - The legacy script creates `qgc` at import time. Migrated code should create
   clients inside functions so tests do not connect to Qualys.
 - Some report downloads use direct `requests.Session` authentication instead of
-  the `qualysapi` connection. This should be consolidated behind
-  `was_reports.qualys.qualys_client`.
+  the `qualysapi` connection. These downloads use the same WAS-owned timeout and
+  retry policy, but authentication remains specific to the direct download path.
 - Several Qualys endpoints mutate assets or delete records. Those should be
   migrated into separate administrative paths with explicit authorization,
   audit logging, and restricted operator access.
@@ -100,6 +100,20 @@ boundary before the legacy script is retired.
   those IDs into validated configuration.
 - Qualys XML response parsing is tightly coupled to current response shape. Any
   API update should be tested with representative XML fixtures before deployment.
+
+## Retry And Timeout Policy
+
+- Read-safe `search`, `count`, `status`, and `download` operations retry
+  transient connection errors, request timeouts, HTTP `429`, and HTTP `500`,
+  `502`, `503`, and `504` responses.
+- Retries use capped exponential backoff with jitter. A Qualys `Retry-After`
+  response is honored up to `WAS_QUALYS_RETRY_MAX_DELAY_SECONDS`.
+- Qualys create, update, ignore, and delete operations remain single-attempt to
+  prevent duplicate reports or repeated administrative side effects.
+- Every production request has a bounded timeout, and detail-report status
+  polling has a separate total timeout.
+- Retry logs include the endpoint, attempt number, and delay. Request payloads,
+  response bodies, and credentials are not logged by the WAS-owned client.
 
 ## Update Checklist
 

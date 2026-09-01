@@ -152,3 +152,11 @@ CREATE TABLE was_special_cases (
 
 CREATE INDEX was_special_cases_active_idx
     ON was_special_cases (active);
+
+ALTER TABLE was_report_runs
+    ADD COLUMN source_tracker_id BIGINT
+    REFERENCES was_daily_report_tracker(id);
+
+CREATE UNIQUE INDEX was_report_runs_source_tracker_id_uidx
+    ON was_report_runs (source_tracker_id)
+    WHERE source_tracker_id IS NOT NULL;

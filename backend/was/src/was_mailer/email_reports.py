@@ -247,11 +247,13 @@ def send_ready_report_emails(
     dry_run: bool = False,
     limit: Optional[int] = None,
     include_previous_failures: bool = False,
+    stakeholder_tag: Optional[str] = None,
 ) -> int:
     """Send all completed WAS report runs that are ready for email delivery."""
     report_runs = list_report_runs_ready_for_email_from_db(
         limit=limit,
         include_previous_failures=include_previous_failures,
+        stakeholder_tag=stakeholder_tag,
     )
     sent_count = 0
 

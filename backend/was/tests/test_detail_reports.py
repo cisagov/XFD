@@ -7,8 +7,10 @@ import unittest
 from unittest.mock import patch
 
 # Third-Party Libraries
+import requests
+
 # First-Party Libraries
-from was_reports.qualys.qualys_client import QualysClient
+from was_reports.qualys.qualys_client import QualysClient, QualysRetryPolicy
 from was_reports.reporting import detail_reports
 from was_reports.utils.qualys_config import QualysCredentials
 
@@ -59,6 +61,23 @@ class FakeSession:
         """Capture requested URL and return a fake response."""
         self.urls.append(url)
         return self.response
+
+
+class RetryingFakeSession(FakeSession):
+    """Session fake that returns or raises queued outcomes."""
+
+    def __init__(self, outcomes):
+        """Initialize queued download outcomes."""
+        super().__init__()
+        self.outcomes = list(outcomes)
+
+    def get(self, url: str):
+        """Capture a URL and return or raise the next queued outcome."""
+        self.urls.append(url)
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
 
 
 class DetailReportsTests(unittest.TestCase):
@@ -141,6 +160,28 @@ class DetailReportsTests(unittest.TestCase):
                 sleep_function=lambda seconds: None,
             )
 
+    def test_wait_for_report_completion_has_bounded_timeout(self) -> None:
+        """Stop polling when a Qualys report never reaches a terminal state."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <data><Report><status>RUNNING</status></Report></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        monotonic_values = iter([0.0, 10.0])
+
+        with self.assertRaisesRegex(TimeoutError, "did not complete"):
+            detail_reports.wait_for_report_completion(
+                client=QualysClient(connection),
+                report_id="123",
+                timeout_seconds=10,
+                sleep_function=lambda seconds: None,
+                monotonic_function=lambda: next(monotonic_values),
+            )
+
     def test_download_detail_pdf_sets_auth_and_writes_file(self) -> None:
         """Download detail PDF content using Qualys credentials."""
         session = FakeSession()
@@ -168,6 +209,36 @@ class DetailReportsTests(unittest.TestCase):
             ["https://qualys.example/qps/rest/3.0/download/was/report/123"],
         )
         self.assertTrue(session.response.raise_for_status_called)
+
+    def test_download_detail_pdf_retries_transient_failure(self) -> None:
+        """Retry a transient detail-report download without duplicating reports."""
+        response = FakeResponse(b"pdf-content")
+        session = RetryingFakeSession(
+            [requests.ConnectionError("connection failed"), response]
+        )
+        credentials = QualysCredentials(
+            username="user",
+            password="secret",
+            hostname="qualys.example",
+        )
+        sleep_calls: list[float] = []
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "report.pdf"
+            detail_reports.download_detail_pdf(
+                report_id="123",
+                output_path=output_path,
+                credentials=credentials,
+                session_factory=lambda: session,
+                retry_policy=QualysRetryPolicy(max_attempts=2),
+                sleep_function=sleep_calls.append,
+                random_function=lambda: 0.0,
+            )
+
+            self.assertEqual(output_path.read_bytes(), b"pdf-content")
+
+        self.assertEqual(len(session.urls), 2)
+        self.assertEqual(sleep_calls, [1.0])
 
     @patch("was_reports.reporting.detail_reports.post_process_detail_pdf")
     def test_download_and_process_detail_report_runs_full_flow(
