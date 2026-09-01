@@ -615,6 +615,18 @@ docker run --rm \
   --output /output/was-daily-tracker-2026-08-26.csv
 ```
 
+Export the recent tracker rows for one assignee:
+
+```bash
+make tracker-csv ASSIGNEE="Mina Salehi" DAYS_BACK=7
+```
+
+This writes the filtered CSV to
+`local-output/was-daily-tracker.csv`. When `ASSIGNEE` is omitted,
+`make tracker-csv` preserves the existing behavior and exports all tracker
+rows. The equivalent Docker filters are `--assignee "ASSIGNEE NAME"` and
+`--days-back 7`.
+
 ### View The Live Tracker Table
 
 Display current tracker rows directly from Postgres without waiting for a CSV
@@ -792,6 +804,7 @@ make inventory
 make admin-help
 make special-cases
 make tracker-csv
+make tracker-csv ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 make update-tracker
 make update-tracker-delete-apps

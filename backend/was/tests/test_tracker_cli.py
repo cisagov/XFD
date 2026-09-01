@@ -105,7 +105,42 @@ class TrackerCliTests(unittest.TestCase):
         mock_list_rows.assert_called_once_with(
             data_pull_date=date(2026, 8, 26),
             assignee_id=3,
+            days_back=None,
+            assignee_name=None,
             limit=10,
+        )
+        mock_write_csv.assert_called_once()
+
+    @patch("was_reports.commands.tracker_cli.write_tracker_csv")
+    @patch("was_reports.commands.tracker_cli.list_tracker_rows_for_export_from_db")
+    def test_export_csv_filters_by_assignee_and_days(
+        self,
+        mock_list_rows,
+        mock_write_csv,
+    ) -> None:
+        """Export a recent CSV for one exact assignee name."""
+        mock_list_rows.return_value = [DailyReportTrackerRow(tag="TAG1")]
+        args = tracker_cli.parse_args(
+            [
+                "export-csv",
+                "--days-back",
+                "7",
+                "--assignee",
+                "Mina Salehi",
+                "--output",
+                "/tmp/tracker.csv",
+            ]
+        )
+
+        exit_code = tracker_cli.export_csv(args)
+
+        self.assertEqual(exit_code, 0)
+        mock_list_rows.assert_called_once_with(
+            data_pull_date=None,
+            assignee_id=None,
+            days_back=7,
+            assignee_name="Mina Salehi",
+            limit=None,
         )
         mock_write_csv.assert_called_once()
 

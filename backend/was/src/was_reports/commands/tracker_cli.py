@@ -55,15 +55,26 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "export-csv",
         help="Export daily tracker rows to CSV.",
     )
-    export_command.add_argument(
+    export_date_filter = export_command.add_mutually_exclusive_group()
+    export_date_filter.add_argument(
         "--data-pull-date",
         type=date.fromisoformat,
         help="Tracker pull date to export, formatted YYYY-MM-DD.",
     )
-    export_command.add_argument(
+    export_date_filter.add_argument(
+        "--days-back",
+        type=nonnegative_integer,
+        help="Include today and this many previous calendar days.",
+    )
+    export_assignee_filter = export_command.add_mutually_exclusive_group()
+    export_assignee_filter.add_argument(
         "--assignee-id",
         type=int,
         help="Restrict export to one assignee id.",
+    )
+    export_assignee_filter.add_argument(
+        "--assignee",
+        help="Restrict export to one exact assignee name.",
     )
     export_command.add_argument(
         "--limit",
@@ -105,6 +116,8 @@ def export_csv(args: argparse.Namespace) -> int:
     rows = list_tracker_rows_for_export_from_db(
         data_pull_date=args.data_pull_date,
         assignee_id=args.assignee_id,
+        days_back=args.days_back,
+        assignee_name=args.assignee,
         limit=args.limit,
     )
     write_tracker_csv(rows=rows, output_path=Path(args.output))

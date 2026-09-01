@@ -331,6 +331,21 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertNotIn("legacy_password", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7, "Analyst", 25))
 
+    def test_list_tracker_rows_for_export_filters_assignee_days(self) -> None:
+        """Filter CSV rows by recent calendar window and assignee name."""
+        conn = FakeConnection(fetchall_rows=[])
+
+        rows = list_tracker_rows_for_export(
+            conn=conn,
+            days_back=7,
+            assignee_name=" Mina Salehi ",
+        )
+
+        self.assertEqual(rows, [])
+        self.assertIn("data_pull_date >= CURRENT_DATE - %s", conn.cursor_instance.query)
+        self.assertIn("LOWER(BTRIM(COALESCE(assignee", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (7, "Mina Salehi"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -489,9 +489,18 @@ def list_tracker_rows_for_export(
     conn: connection,
     data_pull_date: date | None = None,
     assignee_id: int | None = None,
+    days_back: int | None = None,
+    assignee_name: str | None = None,
     limit: int | None = None,
 ) -> list[DailyReportTrackerRow]:
     """Return tracker rows for CSV export."""
+    if days_back is not None and days_back < 0:
+        raise ValueError("Days back must be zero or greater.")
+    normalized_assignee = None
+    if assignee_name is not None:
+        normalized_assignee = assignee_name.strip()
+        if not normalized_assignee:
+            raise ValueError("Assignee name must not be empty.")
     query = """
         SELECT
             source_row_number,
@@ -525,9 +534,17 @@ def list_tracker_rows_for_export(
         query += " AND data_pull_date = %s"
         parameters.append(data_pull_date)
 
+    if days_back is not None:
+        query += " AND data_pull_date >= CURRENT_DATE - %s"
+        parameters.append(days_back)
+
     if assignee_id is not None:
         query += " AND assignee_id = %s"
         parameters.append(assignee_id)
+
+    if normalized_assignee is not None:
+        query += " AND LOWER(BTRIM(COALESCE(assignee, ''))) = LOWER(BTRIM(%s))"
+        parameters.append(normalized_assignee)
 
     query += " ORDER BY data_pull_date DESC, assignee ASC, tag ASC"
 
@@ -571,6 +588,8 @@ def list_tracker_rows_for_export(
 def list_tracker_rows_for_export_from_db(
     data_pull_date: date | None = None,
     assignee_id: int | None = None,
+    days_back: int | None = None,
+    assignee_name: str | None = None,
     limit: int | None = None,
 ) -> list[DailyReportTrackerRow]:
     """Return tracker rows for CSV export using a managed connection."""
@@ -583,6 +602,8 @@ def list_tracker_rows_for_export_from_db(
             conn=conn,
             data_pull_date=data_pull_date,
             assignee_id=assignee_id,
+            days_back=days_back,
+            assignee_name=assignee_name,
             limit=limit,
         )
     finally:

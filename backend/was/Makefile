@@ -60,7 +60,11 @@ special-cases:
 
 tracker-csv:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --output /output/was-daily-tracker.csv
+	@if [ -n "$(ASSIGNEE)" ]; then \
+		docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --assignee "$(ASSIGNEE)" --days-back "$(DAYS_BACK)" --output /output/was-daily-tracker.csv; \
+	else \
+		docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --output /output/was-daily-tracker.csv; \
+	fi
 
 tracker-table:
 	@test -n "$(ASSIGNEE)" || (echo 'ASSIGNEE is required. Use: make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7' >&2; exit 1)
