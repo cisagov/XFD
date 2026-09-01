@@ -10,10 +10,7 @@ from typing import List, Optional
 from lxml import etree, objectify  # nosec B410
 
 # First-Party Libraries
-from was_reports.commands.report_generator import (
-    prepare_legacy_config,
-    validate_stakeholder_tag,
-)
+from was_reports.commands.report_generator import validate_stakeholder_tag
 from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
 from was_reports.qualys.report_data import (
     create_webapp_xml_report,
@@ -80,9 +77,6 @@ def export_xml_report(
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse XML export command-line arguments."""
-    default_config_path = getenv(
-        "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
-    )
     default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
     default_output_directory = getenv(
         "WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"
@@ -100,11 +94,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--filename",
         help="Output filename. Defaults to <STAKEHOLDER_TAG>_report.xml.",
-    )
-    parser.add_argument(
-        "--config-path",
-        default=default_config_path,
-        help="Path to the generated Qualys configuration file.",
     )
     parser.add_argument(
         "--resource-root",
@@ -125,9 +114,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     stakeholder_tag = validate_stakeholder_tag(args.tag)
     filename = args.filename or "{}_report.xml".format(stakeholder_tag)
     output_path = resolve_output_path(Path(args.output_directory), filename)
-    config_path = Path(args.config_path)
-    prepare_legacy_config(config_path)
-    client = create_qualys_client(config_path)
+    client = create_qualys_client()
     export_xml_report(
         client=client,
         stakeholder_tag=stakeholder_tag,

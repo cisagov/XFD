@@ -5,11 +5,13 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Optional
 
 # First-Party Libraries
-from was_reports.utils.qualys_config import ensure_qualys_config_file
+from was_reports.utils.qualys_config import (
+    QualysCredentials,
+    load_qualys_credentials_from_environment,
+)
 
 
 @dataclass(frozen=True)
@@ -52,11 +54,16 @@ class QualysClient:
         )
 
 
-def create_qualys_client(config_path: Path) -> QualysClient:
-    """Create a Qualys client from a validated config path."""
-    ensured_config_path = ensure_qualys_config_file(config_path)
-
+def create_qualys_client(
+    credentials: Optional[QualysCredentials] = None,
+) -> QualysClient:
+    """Create a Qualys client directly from environment-backed credentials."""
+    resolved_credentials = credentials or load_qualys_credentials_from_environment()
     # Third-Party Libraries
-    import qualysapi
+    from qualysapi.connector import QGConnector
 
-    return QualysClient(qualysapi.connect(ensured_config_path))
+    connection = QGConnector(
+        auth=(resolved_credentials.username, resolved_credentials.password),
+        server=resolved_credentials.hostname,
+    )
+    return QualysClient(connection)

@@ -1,11 +1,8 @@
 """Tests for the WAS Qualys client boundary."""
 
 # Standard Python Libraries
-import sys
-import tempfile
-import types
 import unittest
-from pathlib import Path
+from unittest.mock import patch
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import (
@@ -13,6 +10,7 @@ from was_reports.qualys.qualys_client import (
     QualysRequest,
     create_qualys_client,
 )
+from was_reports.utils.qualys_config import QualysCredentials
 
 
 class FakeQualysConnection:
@@ -97,41 +95,27 @@ class QualysClientTests(unittest.TestCase):
         self.assertIsNone(connection.calls[0]["payload"])
         self.assertEqual(connection.calls[0]["http_method"], "get")
 
-    def test_create_qualys_client_validates_config_before_connecting(self) -> None:
-        """Validate config and create a client without returning credentials."""
-        module_name = "qualysapi"
-        fake_module = types.SimpleNamespace()
-        captured_config_paths = []
+    @patch("qualysapi.connector.QGConnector")
+    def test_create_qualys_client_uses_credentials_directly(
+        self,
+        mock_connector,
+    ) -> None:
+        """Create a Qualys connector without writing a configuration file."""
+        connection = FakeQualysConnection()
+        mock_connector.return_value = connection
+        credentials = QualysCredentials(
+            username="user",
+            password="secret",
+            hostname="qualys.example",
+        )
 
-        def connect(config_path):
-            """Capture the config path supplied to qualysapi.connect."""
-            captured_config_paths.append(config_path)
-            return FakeQualysConnection()
-
-        fake_module.connect = connect
-        original_module = sys.modules.get(module_name)
-        sys.modules[module_name] = fake_module
-
-        try:
-            with tempfile.TemporaryDirectory() as directory:
-                config_path = Path(directory) / "was_config.txt"
-                config_path.write_text(
-                    "[info]\n"
-                    "username = user\n"
-                    "password = secret\n"
-                    "hostname = qualys.example\n",
-                    encoding="utf-8",
-                )
-
-                client = create_qualys_client(config_path)
-        finally:
-            if original_module is None:
-                del sys.modules[module_name]
-            else:
-                sys.modules[module_name] = original_module
+        client = create_qualys_client(credentials)
 
         self.assertIsInstance(client, QualysClient)
-        self.assertEqual(captured_config_paths, [config_path])
+        mock_connector.assert_called_once_with(
+            auth=("user", "secret"),
+            server="qualys.example",
+        )
 
 
 if __name__ == "__main__":

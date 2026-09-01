@@ -250,8 +250,6 @@ class ReportGeneratorTests(unittest.TestCase):
                 "TEST_TAG",
                 "--encrypt",
                 "SecurePassword123!",
-                "--config-path",
-                "/config/was_config.txt",
                 "--resource-root",
                 "/WAS_REPORT_RESOURCES",
                 "--output-directory",
@@ -265,7 +263,6 @@ class ReportGeneratorTests(unittest.TestCase):
         mock_legacy_report.assert_not_called()
         mock_production_report.assert_called_once_with(
             stakeholder_tag="TEST_TAG",
-            config_path=Path("/config/was_config.txt"),
             resource_root=Path("/WAS_REPORT_RESOURCES"),
             workspace_root=Path("/tmp/workspaces"),
             output_directory=Path("/reports"),

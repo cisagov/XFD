@@ -4,14 +4,11 @@
 import argparse
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Optional
 
 # First-Party Libraries
-from was_reports.commands.report_generator import prepare_legacy_config
 from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
 from was_reports.qualys.report_data import count_webapps, list_customer_tags
-from was_reports.utils.env import getenv
 
 
 @dataclass(frozen=True)
@@ -54,23 +51,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="List Qualys WAS stakeholders and web application counts."
     )
-    parser.add_argument(
-        "--config-path",
-        default=getenv(
-            "WAS_CONFIG_PATH",
-            "/WAS_REPORT_GENERATION/docs/was_config.txt",
-        ),
-        help="Path to the generated Qualys configuration file.",
-    )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS stakeholder inventory command."""
-    args = parse_args(argv)
-    config_path = Path(args.config_path)
-    prepare_legacy_config(config_path)
-    client = create_qualys_client(config_path)
+    parse_args(argv)
+    client = create_qualys_client()
     print_inventory(get_inventory(client))
     return 0
 

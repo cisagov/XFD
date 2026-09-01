@@ -166,7 +166,6 @@ def generate_report(
 
 def generate_production_report(
     stakeholder_tag: str,
-    config_path: Path,
     resource_root: Path,
     workspace_root: Path,
     output_directory: Path,
@@ -177,10 +176,12 @@ def generate_production_report(
     # Third-Party Libraries
     from was_reports.qualys.qualys_client import create_qualys_client
     from was_reports.reporting.report_service import generate_encrypted_report
-    from was_reports.utils.qualys_config import load_qualys_credentials
+    from was_reports.utils.qualys_config import (
+        load_qualys_credentials_from_environment,
+    )
 
-    credentials = load_qualys_credentials(config_path)
-    client = create_qualys_client(config_path)
+    credentials = load_qualys_credentials_from_environment()
+    client = create_qualys_client(credentials)
     return generate_encrypted_report(
         client=client,
         credentials=credentials,
@@ -196,9 +197,6 @@ def generate_production_report(
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command line arguments for WAS report generation."""
-    default_config_path = getenv(
-        "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
-    )
     default_legacy_root = getenv("WAS_LEGACY_ROOT", "/WAS_REPORT_GENERATION")
     default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
     default_output_directory = getenv(
@@ -238,8 +236,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--config-path",
-        default=default_config_path,
-        help="Path to was_config.txt.",
+        default=str(LEGACY_CONFIG_PATH),
+        help="Legacy-comparison-only path to was_config.txt.",
     )
     parser.add_argument(
         "--legacy-root",
@@ -313,7 +311,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     generate_production_report(
         stakeholder_tag=stakeholder_tag,
-        config_path=config_path,
         resource_root=resource_root,
         workspace_root=Path(args.workspace_root),
         output_directory=Path(args.output_directory),

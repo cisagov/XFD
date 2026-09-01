@@ -11,7 +11,7 @@ from pathlib import Path
 class WorkerEntrypointTests(unittest.TestCase):
     """Validate shell entrypoint command routing."""
 
-    def run_entrypoint(self, arguments, config_exists=False):
+    def run_entrypoint(self, arguments):
         """Run the worker entrypoint with stub commands on PATH."""
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
@@ -23,7 +23,6 @@ class WorkerEntrypointTests(unittest.TestCase):
             special_cases_command = directory_path / "was-special-cases"
             tracker_command = directory_path / "was-tracker"
             update_tracker_command = directory_path / "was-update-tracker"
-            config_path = directory_path / "was_config.txt"
 
             batch_command.write_text(
                 "#!/bin/sh\necho batch \"$@\"\n",
@@ -66,16 +65,11 @@ class WorkerEntrypointTests(unittest.TestCase):
             tracker_command.chmod(0o755)
             update_tracker_command.chmod(0o755)
 
-            if config_exists:
-                config_path.write_text("[info]\n", encoding="utf-8")
-
             environment = os.environ.copy()
             environment["PATH"] = "{}:{}".format(
                 str(directory_path),
                 environment["PATH"],
             )
-            environment["WAS_CONFIG_PATH"] = str(config_path)
-
             return subprocess.run(
                 ["bash", "backend/was/worker/was-report-start.sh"] + arguments,
                 check=False,
@@ -108,7 +102,7 @@ class WorkerEntrypointTests(unittest.TestCase):
         self.assertIn("reports --tag TAG1 --change-password", result.stdout)
 
     def test_batch_command_routes_without_config_file(self) -> None:
-        """Route batch commands because config can be generated from .env."""
+        """Route batch commands without requiring a Qualys config file."""
         result = self.run_entrypoint(["--limit", "1"])
 
         self.assertEqual(result.returncode, 0)

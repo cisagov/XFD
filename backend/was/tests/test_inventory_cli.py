@@ -60,24 +60,21 @@ class InventoryCliTests(unittest.TestCase):
     @patch("was_reports.commands.inventory_cli.print_inventory")
     @patch("was_reports.commands.inventory_cli.get_inventory")
     @patch("was_reports.commands.inventory_cli.create_qualys_client")
-    @patch("was_reports.commands.inventory_cli.prepare_legacy_config")
-    def test_main_prepares_config_and_prints_inventory(
+    def test_main_creates_client_and_prints_inventory(
         self,
-        mock_prepare_config,
         mock_create_client,
         mock_get_inventory,
         mock_print_inventory,
     ) -> None:
-        """Create the Qualys client only after preparing its configuration."""
+        """Create the environment-backed client and print inventory."""
         mock_client = Mock()
         mock_create_client.return_value = mock_client
         mock_get_inventory.return_value = []
 
-        result = inventory_cli.main(["--config-path", "/tmp/was_config.txt"])
+        result = inventory_cli.main([])
 
         self.assertEqual(result, 0)
-        mock_prepare_config.assert_called_once()
-        mock_create_client.assert_called_once()
+        mock_create_client.assert_called_once_with()
         mock_get_inventory.assert_called_once_with(mock_client)
         mock_print_inventory.assert_called_once_with([])
 

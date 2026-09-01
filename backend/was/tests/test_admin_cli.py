@@ -120,20 +120,16 @@ class AdminCliTests(unittest.TestCase):
 
     @patch("was_reports.commands.admin_cli.execute_command")
     @patch("was_reports.commands.admin_cli.create_qualys_client")
-    @patch("was_reports.commands.admin_cli.prepare_legacy_config")
-    def test_main_prepares_configuration_before_calling_qualys(
+    def test_main_creates_environment_backed_qualys_client(
         self,
-        mock_prepare_config,
         mock_create_client,
         mock_execute_command,
     ) -> None:
-        """Prepare the environment-backed config before creating the client."""
+        """Create the Qualys client directly from environment credentials."""
         mock_execute_command.return_value = "Completed."
 
         result = admin_cli.main(
             [
-                "--config-path",
-                "/tmp/was_config.txt",
                 "false-positive",
                 "--finding-id",
                 "123",
@@ -144,15 +140,12 @@ class AdminCliTests(unittest.TestCase):
         )
 
         self.assertEqual(result, 0)
-        mock_prepare_config.assert_called_once()
-        mock_create_client.assert_called_once()
+        mock_create_client.assert_called_once_with()
         mock_execute_command.assert_called_once()
 
     @patch("was_reports.commands.admin_cli.create_qualys_client")
-    @patch("was_reports.commands.admin_cli.prepare_legacy_config")
     def test_main_rejects_unconfirmed_operation_before_client_creation(
         self,
-        mock_prepare_config,
         mock_create_client,
     ) -> None:
         """Do not connect to Qualys when confirmation is missing."""
@@ -167,7 +160,7 @@ class AdminCliTests(unittest.TestCase):
         )
 
         self.assertEqual(result, 2)
-        mock_prepare_config.assert_not_called()
+        mock_create_client.assert_not_called()
         mock_create_client.assert_not_called()
 
 

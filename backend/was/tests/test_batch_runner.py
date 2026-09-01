@@ -79,7 +79,6 @@ class BatchRunnerTests(unittest.TestCase):
         """Build one single-report invocation from batch options."""
         arguments = batch_runner.build_report_arguments(
             stakeholder_tag="TAG1",
-            config_path="/app/was_config.txt",
             resource_root="/WAS_REPORT_RESOURCES",
             output_directory="/WAS_REPORT_GENERATION/docs",
             python_executable="/usr/local/bin/python",
@@ -91,8 +90,6 @@ class BatchRunnerTests(unittest.TestCase):
             [
                 "--tag",
                 "TAG1",
-                "--config-path",
-                "/app/was_config.txt",
                 "--resource-root",
                 "/WAS_REPORT_RESOURCES",
                 "--output-directory",
@@ -146,7 +143,6 @@ class BatchRunnerTests(unittest.TestCase):
         ]
 
         failed_count = batch_runner.run_due_reports(
-            config_path="/app/was_config.txt",
             resource_root="/WAS_REPORT_RESOURCES",
             python_executable="/usr/local/bin/python",
             current_epoch=1720000001,
@@ -192,7 +188,6 @@ class BatchRunnerTests(unittest.TestCase):
         ]
 
         failed_count = batch_runner.run_due_reports(
-            config_path="/app/was_config.txt",
             resource_root="/WAS_REPORT_RESOURCES",
             python_executable="/usr/local/bin/python",
             current_epoch=1720000001,
@@ -225,7 +220,6 @@ class BatchRunnerTests(unittest.TestCase):
         mock_create_run.return_value = None
 
         failed_count = batch_runner.run_due_reports(
-            config_path="/app/was_config.txt",
             resource_root="/WAS_REPORT_RESOURCES",
             python_executable="/usr/local/bin/python",
             current_epoch=1720000001,
@@ -265,7 +259,6 @@ class BatchRunnerTests(unittest.TestCase):
                                 "complete_report_run_by_id",
                             ) as mock_complete:
                                 failed_count = batch_runner.run_due_reports(
-                                    config_path="/app/was_config.txt",
                                     resource_root="/WAS_REPORT_RESOURCES",
                                     python_executable="/usr/local/bin/python",
                                     current_epoch=1720000001,
@@ -320,7 +313,6 @@ class BatchRunnerTests(unittest.TestCase):
                                     ):
                                         with self.assertRaises(RuntimeError):
                                             batch_runner.run_due_reports(
-                                                config_path="/app/was_config.txt",
                                                 resource_root=("/WAS_REPORT_RESOURCES"),
                                                 python_executable=(
                                                     "/usr/local/bin/python"

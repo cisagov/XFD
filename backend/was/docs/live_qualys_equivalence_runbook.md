@@ -153,16 +153,12 @@ docker run --rm \
 export WAS_EQUIVALENCE_EXTRACTED_STATUS="${PIPESTATUS[0]}"
 set -e
 
-docker run --rm \
-  -v "${WAS_EQUIVALENCE_ROOT}/extracted:/cleanup" \
-  --entrypoint rm \
-  "${WAS_EQUIVALENCE_IMAGE}" \
-  -f /cleanup/was_config.txt
-
-test ! -e "${WAS_EQUIVALENCE_ROOT}/extracted/was_config.txt"
 test "${WAS_EQUIVALENCE_EXTRACTED_STATUS}" -eq 0
 test -f "${WAS_EQUIVALENCE_ROOT}/extracted/${WAS_EQUIVALENCE_PDF}"
 ```
+
+The production pipeline reads Qualys credentials directly from the container
+environment and does not create `was_config.txt`.
 
 ## Compare The Reports
 

@@ -53,7 +53,6 @@ def summarize_report_failure(exception: Exception) -> str:
 
 def build_report_arguments(
     stakeholder_tag: str,
-    config_path: str,
     resource_root: str,
     output_directory: str,
     python_executable: str,
@@ -63,8 +62,6 @@ def build_report_arguments(
     arguments = [
         "--tag",
         stakeholder_tag,
-        "--config-path",
-        config_path,
         "--resource-root",
         resource_root,
         "--output-directory",
@@ -80,7 +77,6 @@ def build_report_arguments(
 
 
 def run_due_reports(
-    config_path: str,
     resource_root: str,
     python_executable: str,
     current_epoch: int,
@@ -127,7 +123,6 @@ def run_due_reports(
                 ) as run_directory:
                     report_arguments = build_report_arguments(
                         stakeholder_tag=stakeholder.tag,
-                        config_path=config_path,
                         resource_root=resource_root,
                         output_directory=run_directory,
                         python_executable=python_executable,
@@ -149,7 +144,6 @@ def run_due_reports(
             else:
                 report_arguments = build_report_arguments(
                     stakeholder_tag=stakeholder.tag,
-                    config_path=config_path,
                     resource_root=resource_root,
                     output_directory=output_directory,
                     python_executable=python_executable,
@@ -194,18 +188,10 @@ def run_due_reports(
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse command line arguments for scheduled WAS reports."""
-    default_config_path = getenv(
-        "WAS_CONFIG_PATH", "/WAS_REPORT_GENERATION/docs/was_config.txt"
-    )
     default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
 
     parser = argparse.ArgumentParser(
         description="Generate WAS reports for stakeholders whose schedule is due."
-    )
-    parser.add_argument(
-        "--config-path",
-        default=default_config_path,
-        help="Path to was_config.txt inside the container.",
     )
     parser.add_argument(
         "--resource-root",
@@ -272,7 +258,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
     failed_count = run_due_reports(
-        config_path=args.config_path,
         resource_root=args.resource_root,
         python_executable=args.python_executable,
         current_epoch=args.current_epoch,

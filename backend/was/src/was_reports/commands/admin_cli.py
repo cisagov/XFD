@@ -3,7 +3,6 @@
 # Standard Python Libraries
 import argparse
 import sys
-from pathlib import Path
 from typing import List, Optional
 from urllib.parse import urlsplit
 
@@ -17,8 +16,6 @@ from was_reports.qualys.qualys_admin import (
 )
 from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
 from was_reports.qualys.report_data import get_tag_id
-from was_reports.commands.report_generator import prepare_legacy_config
-from was_reports.utils.env import getenv
 
 
 def validate_webapp_url(value: str) -> str:
@@ -107,14 +104,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Perform guarded Qualys WAS administration operations."
     )
-    parser.add_argument(
-        "--config-path",
-        default=getenv(
-            "WAS_CONFIG_PATH",
-            "/WAS_REPORT_GENERATION/docs/was_config.txt",
-        ),
-        help="Path to the generated Qualys configuration file.",
-    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     for command_name in ("add-tag", "remove-tag"):
@@ -176,9 +165,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("Error: {}".format(str(error)), file=sys.stderr)
         return 2
 
-    config_path = Path(args.config_path)
-    prepare_legacy_config(config_path)
-    client = create_qualys_client(config_path)
+    client = create_qualys_client()
     try:
         print(execute_command(client, args))
     except (LookupError, RuntimeError, ValueError) as error:

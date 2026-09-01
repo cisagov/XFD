@@ -74,9 +74,6 @@ WAS_DB_SSLMODE=require
 WAS_QUALYS_USERNAME=replace-me
 WAS_QUALYS_PASSWORD=replace-me
 WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
-WAS_SHARE_DRIVE=/WAS_REPORT_GENERATION
-WAS_CONFIG_PATH=/WAS_REPORT_GENERATION/docs/was_config.txt
-WAS_LEGACY_ROOT=/WAS_REPORT_GENERATION
 WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
 WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
@@ -84,25 +81,19 @@ WAS_REPORT_STAGING_DIRECTORY=/tmp/was-report-storage
 WAS_REPORT_STORAGE=s3
 WAS_REPORTS_BUCKET_NAME=cisa-was-reports
 WAS_REPORTS_PREFIX=was_reports
-WAS_DAILY_WAS_LOG=/WAS_REPORT_GENERATION/WAS_Tools/update_tracker/dailywas.log
 WAS_PASSWORD_LENGTH=24
+AWS_DEFAULT_REGION=us-east-1
 WAS_EMAIL_SOURCE=verified-sender@example.gov
 ```
 
-Do not commit `.env`, `was_config.txt`, database passwords, Qualys credentials,
-or generated reports.
+Do not commit `.env`, database passwords, Qualys credentials, or generated
+reports.
 
 The modern WAS code reads constants from `backend/was/.env` during local
 execution. In a container, pass the same file with `docker run --env-file .env`.
-For legacy compatibility, WAS generates `was_config.txt` at `WAS_CONFIG_PATH`
-from `WAS_QUALYS_USERNAME`, `WAS_QUALYS_PASSWORD`, and `WAS_QUALYS_HOSTNAME`
-when that config file does not already exist.
-`WAS_SHARE_DRIVE` represents the original shared-drive root. In the container
-it defaults to `/WAS_REPORT_GENERATION`, which is the working directory created
-for legacy-compatible WAS files.
-When present, `WAS_DAILY_WAS_LOG` is also written into the generated legacy
-`[was_files]` section. Daily tracker, customer data, and special-case XLSX paths
-are no longer required by the active tracker workflow.
+Production Qualys clients use the three `WAS_QUALYS_*` values directly and do
+not create or read `was_config.txt`. Daily tracker, customer data, and
+special-case XLSX paths are no longer required by the active tracker workflow.
 
 ### S3 Report Storage
 
