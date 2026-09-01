@@ -137,9 +137,16 @@ data "aws_subnet" "open_cti" {
 # instance listens on 443 today (see docker-compose.yml), so the rule is a no-op until/unless it
 # does.
 resource "aws_security_group" "open_cti_lz" {
-  count       = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
-  name        = "crossfeed-open-cti-${var.stage}"
-  description = "OpenCTI EC2 (Landing Zone) -- web UI ingress from VPN/Zscaler-brokered CIDRs, egress open"
+  count = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  name  = "crossfeed-open-cti-${var.stage}"
+  # `description` is a ForceNew attribute on aws_security_group (AWS has no UpdateSecurityGroup-
+  # Description API) -- and this SG is attached to the running, prevent_destroy'd instance's ENI,
+  # which AWS refuses to delete while attached. Changing this string plans a destroy+recreate that
+  # can never actually succeed via `apply` as long as the instance is up (confirmed the hard way,
+  # 2026-09-01: 15 minutes stuck "Still destroying...", then DependencyViolation). Left as its
+  # original, already-live text for that reason -- see the ingress/egress blocks' own descriptions,
+  # and the comment above this resource, for what's actually in effect.
+  description = "OpenCTI EC2 (Landing Zone) -- egress only"
   vpc_id      = data.aws_ssm_parameter.vpc_id[0].value
 
   ingress {
