@@ -117,14 +117,46 @@ data "aws_subnet" "open_cti" {
 }
 
 # LZ (!is_dmz) ONLY -- Terraform-managed, unlike the data-source adoption above, since a fresh LZ
-# deployment has nothing pre-existing to adopt. Egress-only: SSM Session Manager (this instance's
-# only administration path, same as db_accessor/email-sender) is outbound-initiated, needs no
-# inbound rule.
+# deployment has nothing pre-existing to adopt. SSM Session Manager (this instance's only
+# administration path, same as db_accessor/email-sender) is outbound-initiated and needs no
+# inbound rule of its own -- only the web UI ingress below is required.
+#
+# Ingress on 8080 (OpenCTI's own listener -- see docker-compose.yml) is scoped to the source CIDRs
+# already proven, by an existing/working rule, to be how DHS-VPN/Zscaler-brokered traffic actually
+# reaches a private-only service in this same VPC: the "VPC Endpoint - apigateway" SG (backing the
+# Crossfeed API Gateway's PRIVATE endpoint, see backend/serverless.yml + backend/env.yml) allows
+# 10.236.32.0/21 ("local vpc") and 10.234.96.0/21 ("tic3 west inbound") on 443 -- read directly off
+# that live SG (sg-0cf25475568046624) on 2026-08-31, not guessed. "tic3 west inbound" is inferred,
+# from its label plus TIC 3.0 being the standard federal architecture for routing agency traffic
+# through a vetted broker (Zscaler here), to be the Zscaler-routed path -- worth confirming with
+# Zscaler/the network team, but this is the strongest evidenced starting point available from
+# within this tenant account (network topology itself is IAM-denied to LZ-Tenant-Admin -- see
+# OpenCTI-connector.md). Per the TLS-termination decision already made, Zscaler/the VPN gateway is
+# expected to terminate TLS upstream and forward plain HTTP to this instance's 8080 -- 443 is opened
+# too, to the same CIDRs, purely as a margin against that assumption being wrong; nothing on this
+# instance listens on 443 today (see docker-compose.yml), so the rule is a no-op until/unless it
+# does.
 resource "aws_security_group" "open_cti_lz" {
   count       = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
   name        = "crossfeed-open-cti-${var.stage}"
-  description = "OpenCTI EC2 (Landing Zone) -- egress only"
+  description = "OpenCTI EC2 (Landing Zone) -- web UI ingress from VPN/Zscaler-brokered CIDRs, egress open"
   vpc_id      = data.aws_ssm_parameter.vpc_id[0].value
+
+  ingress {
+    description = "OpenCTI web UI (var.open_cti_host) -- VPN/Zscaler-brokered access, same source CIDRs already granted to the Crossfeed API Gateway VPC endpoint SG in this VPC"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.236.32.0/21", "10.234.96.0/21"]
+  }
+
+  ingress {
+    description = "OpenCTI web UI over TLS, opened as a margin in case termination happens on-box rather than upstream -- unused while nothing listens on 443 (see docker-compose.yml)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.236.32.0/21", "10.234.96.0/21"]
+  }
 
   egress {
     from_port   = 0
