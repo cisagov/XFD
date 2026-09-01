@@ -54,6 +54,45 @@ sudo apt-get install -y terraform=1.0.7-*
 terraform -version
 ```
 
+## Provisioning the Runner EC2
+
+Once Terraform is installed and `main.tf` is present on the worker EC2 (with
+placeholder values replaced), provision the runner from the `cisadev/`
+directory.
+
+> **Note:** The runner registration token is ephemeral (expires ~1 hour) and
+> must be requested from the GitHub Enterprise team before running these
+> commands. Replace the placeholder token in `main.tf` with the fresh token.
+
+### 1. Initialize
+
+```bash
+terraform init
+```
+
+### 2. Plan (review changes before applying)
+
+```bash
+terraform plan
+```
+
+### 3. Apply
+
+```bash
+terraform apply
+```
+
+Terraform will prompt for confirmation before creating resources — type `yes`
+to proceed. To skip the prompt (e.g., in automation):
+
+```bash
+terraform apply -auto-approve
+```
+
+The runner EC2 will boot, install dependencies via `user_data` (including
+CrowdStrike and the GitHub Actions runner), register with the enterprise runner
+group, and come online in a few minutes.
+
 ## Notes
 
 - The `infrastructure/` pipeline pins Terraform **1.0.7**. For provisioning the
