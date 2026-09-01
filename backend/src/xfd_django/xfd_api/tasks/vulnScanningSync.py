@@ -1,7 +1,7 @@
 """Task for synchronizing vulnerability scanning data.
 
 This module handles fetching, processing, and saving vulnerability scans,
-port scans, hosts, and tickets from Redshift into the Django models.
+port scans, hosts, and tickets from Databricks into the Django models.
 """
 
 # Standard Python Libraries
@@ -15,10 +15,10 @@ from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.vs_port_scans import (
     create_port_scan_summaries_bulk,
-    fetch_port_scans_from_redshift,
+    fetch_port_scans_from_databricks,
 )
 from xfd_api.tasks.utils.vs_requests import fetch_org_id_dict_fast
-from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
+from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_databricks
 from xfd_api.tasks.utils.vs_vuln_scans import (
     create_vuln_scan_summary,
     fetch_vuln_scan_chunks_frozen,
@@ -153,7 +153,7 @@ def main(event):  # pylint: disable=R0915
         nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
     }
 
-    fetch_port_scans_from_redshift(
+    fetch_port_scans_from_databricks(
         org_id_dict,
         risky_service_groups,
         nmi_service_groups,
@@ -172,7 +172,7 @@ def main(event):  # pylint: disable=R0915
         )
 
     # Process Tickets (Chunked)
-    fetch_tickets_from_redshift(
+    fetch_tickets_from_databricks(
         org_id_dict,
         risky_service_groups,
         nmi_service_groups,

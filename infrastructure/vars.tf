@@ -1068,6 +1068,10 @@ variable "ssm_mdl_password" {
   default     = "/crossfeed/staging/MDL_PASSWORD"
 }
 
+# NOTE: kept intentionally - redshift_cve_scan.py has NOT been converted yet
+# (still waiting on the DBX data model, per earlier discussion). These four remain
+# load-bearing for that one task until it's rewritten and query_redshift.py becomes
+# fully dead code. Do not delete in a cleanup pass without checking that first.
 variable "ssm_redshift_host" {
   description = "ssm_redshift_host"
   type        = string
@@ -1090,6 +1094,33 @@ variable "ssm_redshift_password" {
   description = "ssm_redshift_password"
   type        = string
   default     = "/crossfeed/staging/REDSHIFT_PASSWORD"
+}
+
+variable "ssm_databricks_server_hostname" {
+  description = "ssm_databricks_server_hostname"
+  type        = string
+  default     = "/crossfeed/staging/DATABRICKS_SERVER_HOSTNAME"
+}
+
+variable "ssm_databricks_warehouse_id" {
+  description = "ssm_databricks_warehouse_id"
+  type        = string
+  default     = "/crossfeed/staging/DATABRICKS_WAREHOUSE_ID"
+}
+
+variable "ssm_databricks_client_id" {
+  description = "ssm_databricks_client_id"
+  type        = string
+  default     = "/crossfeed/staging/DATABRICKS_CLIENT_ID"
+}
+
+# client_secret is a real secret (confirmed) - client_id is comparatively low
+# sensitivity (a service-principal identifier), but both are stored as SSM
+# SecureString parameters here for simplicity/consistency.
+variable "ssm_databricks_client_secret" {
+  description = "ssm_databricks_client_secret"
+  type        = string
+  default     = "/crossfeed/staging/DATABRICKS_CLIENT_SECRET"
 }
 
 variable "ssm_dmz_api_key" {
