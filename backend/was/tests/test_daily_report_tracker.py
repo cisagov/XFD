@@ -15,6 +15,7 @@ from was_reports.data.daily_report_tracker import (
     list_tracker_rows_for_export,
     list_tracker_table_rows,
     mark_assignee_digest_emailed,
+    mark_manual_tracker_report_sent,
     mark_tracker_report_manual,
 )
 
@@ -208,7 +209,7 @@ class DailyReportTrackerTests(unittest.TestCase):
         """Find recent tracker rows without sent reports or existing claims."""
         conn = FakeConnection(
             fetchall_rows=[
-                (7, "TAG1", date(2026, 9, 1), 12345, 3),
+                (7, "TAG1", date(2026, 9, 1), 12345, 3, None, None, None),
             ]
         )
 
@@ -236,6 +237,40 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertTrue(conn.committed)
         self.assertIn("report_scan_notes = 'MANUAL'", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7,))
+
+    def test_list_ready_report_candidates_includes_manual_failures(self) -> None:
+        """Allow a scoped manual run to reclaim failed tracker reports."""
+        conn = FakeConnection(
+            fetchall_rows=[
+                (
+                    7,
+                    "TAG1",
+                    date(2026, 9, 1),
+                    12345,
+                    3,
+                    8,
+                    "failed",
+                    "pending",
+                )
+            ]
+        )
+
+        candidates = list_ready_report_candidates(
+            conn=conn,
+            stakeholder_tag="TAG1",
+            limit=1,
+            include_manual=True,
+        )
+
+        self.assertEqual(candidates[0].id, 7)
+        self.assertEqual(candidates[0].report_run_id, 8)
+        self.assertIn("runs.status = 'failed'", conn.cursor_instance.query)
+        self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
+        self.assertNotIn(
+            "stakeholders.manual_report IS NOT TRUE",
+            conn.cursor_instance.query,
+        )
+        self.assertEqual(conn.cursor_instance.parameters, ("TAG1", 1))
 
     def test_mark_assignee_digest_emailed_updates_matching_rows(self) -> None:
         """Mark unsent rows for one assignee and pull date."""
@@ -305,6 +340,7 @@ class DailyReportTrackerTests(unittest.TestCase):
         conn = FakeConnection(
             fetchall_rows=[
                 (
+                    7,
                     date(2026, 9, 1),
                     "TAG1",
                     "Scan 1",
@@ -327,6 +363,7 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
 
         self.assertEqual(rows[0].tag, "TAG1")
+        self.assertEqual(rows[0].tracker_id, 7)
         self.assertEqual(rows[0].report_status, "PENDING")
         self.assertNotIn("legacy_password", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7, "Analyst", 25))
@@ -345,6 +382,40 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn("data_pull_date >= CURRENT_DATE - %s", conn.cursor_instance.query)
         self.assertIn("LOWER(BTRIM(COALESCE(assignee", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7, "Mina Salehi"))
+
+    def test_list_tracker_table_rows_filters_manual_status(self) -> None:
+        """Filter the live tracker table to manual rows across assignees."""
+        conn = FakeConnection(fetchall_rows=[])
+
+        rows = list_tracker_table_rows(
+            conn=conn,
+            days_back=7,
+            report_status="manual",
+            limit=25,
+        )
+
+        self.assertEqual(rows, [])
+        self.assertIn("report_status = %s", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (7, "MANUAL", 25))
+
+    def test_mark_manual_tracker_report_sent_updates_unsent_manual_row(self) -> None:
+        """Set a manual report sent date using its tracker row ID."""
+        conn = FakeConnection(fetchone_row=(7,))
+
+        mark_manual_tracker_report_sent(
+            tracker_id=7,
+            sent_date=date(2026, 9, 2),
+            conn=conn,
+        )
+
+        self.assertTrue(conn.committed)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (date(2026, 9, 2), 7),
+        )
+        self.assertIn("report_sent_date IS NULL", conn.cursor_instance.query)
+        self.assertIn("RETURNING tracker.id", conn.cursor_instance.query)
+        self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
 
 
 if __name__ == "__main__":

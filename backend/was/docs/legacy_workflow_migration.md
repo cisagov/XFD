@@ -26,11 +26,18 @@ active report-generation contract unless stakeholders explicitly restore them.
 | --- | --- | --- | --- |
 | Scheduled report batch | `was-report-batch` | Started | Selects due stakeholders from Postgres and atomically claims each stakeholder schedule before generation. Active schedule uniqueness prevents duplicate concurrent runs. |
 | Single stakeholder report | `was-reports --tag` | Active | Runs the WAS-owned production pipeline. The frozen creator requires `--use-legacy-pipeline`. |
+| Tracked manual stakeholder report | `make manual-report TAG="CUSTOMER_TAG"` | Active | Reuses or safely retries one manual tracker claim, uploads the encrypted PDF, sends it through SES, and stamps the tracker sent date only after accepted delivery. |
 | Report password creation | `was-reports --create-missing-password` | Started | Generates and stores customer report passwords in Postgres. |
 | Report password rotation | `was-reports --change-password` | Started | Generates a new password for the supplied stakeholder tag. |
 | Report artifact storage | `was_reports.storage.s3_reports` | Active | Scheduled encrypted PDFs use run-specific S3 keys. The S3 URI is stored in `was_report_runs.output_path`; explicit local mode remains available for development. |
 | Report email delivery | `was-mailer` | Active | Atomically claims each completed run, downloads its PDF from the configured S3 bucket into a private temporary directory, sends it through SES, and removes the local copy. Uncertain post-SES database failures require manual reconciliation instead of automatic retry. |
 | Daily report tracker persistence | `was-update-tracker` | Started | Container command runs the legacy tracker flow and writes rows to Postgres. Optional `--tag` scopes scan retrieval and database writes after schedule discovery. Qualys webapp deletion requires `--delete-apps`. |
+| Manual tracker queue | `make tracker-table REPORT_STATUS=manual` | Active | Displays manual tracker rows across all assignees or for one selected assignee and date window. |
+| Persisted report errors | `make report-errors` | Active | Displays bounded generation and SES error summaries from Postgres without exposing passwords or recipient addresses. |
+| Stakeholder contact maintenance | `was-stakeholders update-contacts` | Active | Updates only explicitly supplied POC and email fields after operator confirmation. |
+| Stakeholder CSV export | `make stakeholder-export` | Active | Exports non-secret fields by default. Report-password export requires separate explicit sensitive-data confirmation. |
+| Manual tracker sent-date reconciliation | `make tracker-mark-sent` | Active | Sets a sent date only for an unsent tracker row already classified for manual handling. |
+| Interactive operator menu | `make menu` | Active | Provides guided numbered access to existing report, tracker, stakeholder, and safe Qualys commands without duplicating business logic. |
 | Daily tracker assignees | `was_reports.data.assignees` | Started | Lookup table, seed SQL, and upsert helper exist. |
 | Stakeholder inventory | `was-inventory` | Started | Lists child tags under `WAS_CUSTOMERS` and their web application counts. Live Qualys validation remains pending. |
 

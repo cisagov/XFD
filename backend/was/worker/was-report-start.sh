@@ -26,6 +26,11 @@ if [ "${1:-}" = "was-inventory" ]; then
   exec was-inventory "$@"
 fi
 
+if [ "${1:-}" = "was-menu" ]; then
+  shift
+  exec was-menu "$@"
+fi
+
 if [ "${1:-}" = "was-admin" ]; then
   shift
   exec was-admin "$@"
@@ -34,6 +39,11 @@ fi
 if [ "${1:-}" = "was-special-cases" ]; then
   shift
   exec was-special-cases "$@"
+fi
+
+if [ "${1:-}" = "was-stakeholders" ]; then
+  shift
+  exec was-stakeholders "$@"
 fi
 
 if [ "${1:-}" = "was-tracker" ]; then

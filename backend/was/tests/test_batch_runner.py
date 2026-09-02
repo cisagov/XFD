@@ -437,6 +437,138 @@ class BatchRunnerTests(unittest.TestCase):
         )
         mock_mark_manual.assert_called_once_with(9)
 
+    @patch("was_reports.commands.batch_runner.send_report_run_email")
+    @patch("was_reports.commands.batch_runner.send_ready_report_emails")
+    @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
+    @patch("was_reports.commands.batch_runner.generate_report_output")
+    @patch(
+        "was_reports.commands.batch_runner."
+        "retry_failed_report_run_for_tracker_by_id"
+    )
+    @patch("was_reports.commands.batch_runner.create_report_run_for_tracker")
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_manual_report_retries_failed_tracker_run_and_sends(
+        self,
+        mock_list_candidates,
+        mock_create_run,
+        mock_retry_run,
+        mock_generate_report,
+        mock_complete_run,
+        mock_send_ready,
+        mock_send_report,
+    ) -> None:
+        """Run a manual report through storage, delivery, and tracking."""
+        mock_list_candidates.return_value = [
+            TrackerReportCandidate(
+                id=9,
+                tag="TAG1",
+                data_pull_date=date(2026, 9, 1),
+                schedule_id=123,
+                assignee_id=3,
+            )
+        ]
+        mock_create_run.return_value = None
+        mock_retry_run.return_value = ReportRun(
+            id=42,
+            stakeholder_tag="TAG1",
+            status="running",
+        )
+        mock_generate_report.return_value = "s3://reports/report.pdf"
+        mock_send_ready.return_value = 0
+        mock_send_report.return_value = "message-id"
+
+        summary = batch_runner.run_recent_scan_reports(
+            resource_root="/WAS_REPORT_RESOURCES",
+            python_executable="/usr/local/bin/python",
+            stakeholder_tag="TAG1",
+            send_email=True,
+            source_email="reports@example.gov",
+            include_manual=True,
+        )
+
+        self.assertEqual(summary.generated, 1)
+        self.assertEqual(summary.sent, 1)
+        mock_list_candidates.assert_called_once_with(
+            stakeholder_tag="TAG1",
+            limit=None,
+            include_manual=True,
+        )
+        mock_retry_run.assert_called_once_with(9)
+        mock_send_ready.assert_not_called()
+        mock_complete_run.assert_called_once_with(
+            42,
+            output_path="s3://reports/report.pdf",
+            artifact_type="pdf",
+        )
+
+    def test_main_requires_tag_for_manual_recent_scan_report(self) -> None:
+        """Prevent an accidental manual report run across all stakeholders."""
+        with self.assertRaisesRegex(
+            ValueError,
+            "Manual report generation requires --tag.",
+        ):
+            batch_runner.main(["--recent-scans", "--include-manual"])
+
+    @patch("was_reports.commands.batch_runner.send_report_run_email")
+    @patch("was_reports.commands.batch_runner.send_ready_report_emails")
+    @patch("was_reports.commands.batch_runner.generate_report_output")
+    @patch("was_reports.commands.batch_runner.create_report_run_for_tracker")
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_manual_report_retries_only_its_completed_email(
+        self,
+        mock_list_candidates,
+        mock_create_run,
+        mock_generate_report,
+        mock_send_ready,
+        mock_send_report,
+    ) -> None:
+        """Retry one linked email without sending unrelated tag reports."""
+        mock_list_candidates.return_value = [
+            TrackerReportCandidate(
+                id=9,
+                tag="TAG1",
+                data_pull_date=date(2026, 9, 1),
+                schedule_id=123,
+                assignee_id=3,
+                report_run_id=42,
+                report_run_status="completed",
+                report_email_status="failed",
+            )
+        ]
+        mock_send_report.return_value = "message-id"
+
+        summary = batch_runner.run_recent_scan_reports(
+            resource_root="/WAS_REPORT_RESOURCES",
+            python_executable="/usr/local/bin/python",
+            stakeholder_tag="TAG1",
+            send_email=True,
+            source_email="reports@example.gov",
+            include_manual=True,
+        )
+
+        self.assertEqual(summary.generated, 0)
+        self.assertEqual(summary.sent, 1)
+        mock_send_ready.assert_not_called()
+        mock_create_run.assert_not_called()
+        mock_generate_report.assert_not_called()
+        mock_send_report.assert_called_once_with(
+            report_run_id=42,
+            source_email="reports@example.gov",
+            override_recipients=None,
+            dry_run=False,
+            include_previous_failure=True,
+        )
+
+    def test_main_requires_email_for_manual_recent_scan_report(self) -> None:
+        """Require delivery so a tracked manual report can be stamped sent."""
+        with self.assertRaisesRegex(
+            ValueError,
+            "Manual report generation requires --send-email.",
+        ):
+            batch_runner.main(
+                ["--recent-scans", "--include-manual", "--tag", "TAG1"]
+            )
+
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
     @patch("was_reports.commands.batch_runner.run_update_tracker")
     def test_main_recent_scans_refreshes_tracker_before_batch(

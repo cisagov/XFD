@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -43,6 +44,20 @@ class ReportRunEmail:
     tech_poc_email: str | None
     was_report_poc: str | None
     source_tracker_id: int | None = None
+
+
+@dataclass(frozen=True)
+class ReportRunError:
+    """Persisted report generation and email failure details."""
+
+    id: int
+    stakeholder_tag: str
+    status: str
+    email_status: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    error_message: str | None
+    email_error: str | None
 
 
 def create_report_run(
@@ -188,6 +203,58 @@ def create_report_run_for_tracker(
         close(conn)
 
 
+def retry_failed_report_run_for_tracker(
+    source_tracker_id: int,
+    conn: connection,
+) -> ReportRun | None:
+    """Atomically reclaim one failed tracker report run for generation."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET status = %s,
+                    output_path = NULL,
+                    artifact_type = NULL,
+                    completed_at = NULL,
+                    error_message = NULL,
+                    email_error = NULL,
+                    email_status = %s,
+                    email_claimed_at = NULL,
+                    updated_at = NOW()
+                WHERE source_tracker_id = %s
+                  AND status = %s
+                RETURNING id, stakeholder_tag, status
+                """,
+                (RUNNING, EMAIL_PENDING, source_tracker_id, FAILED),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is None:
+        return None
+    return ReportRun(id=row[0], stakeholder_tag=row[1], status=row[2])
+
+
+def retry_failed_report_run_for_tracker_by_id(
+    source_tracker_id: int,
+) -> ReportRun | None:
+    """Reclaim one failed tracker report run using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return retry_failed_report_run_for_tracker(
+            source_tracker_id=source_tracker_id,
+            conn=conn,
+        )
+    finally:
+        close(conn)
+
+
 def complete_report_run_by_id(
     report_run_id: int,
     output_path: str | None = None,
@@ -220,6 +287,86 @@ def fail_report_run_by_id(report_run_id: int, error_message: str) -> None:
             report_run_id=report_run_id,
             error_message=error_message,
             conn=conn,
+        )
+    finally:
+        close(conn)
+
+
+def list_report_run_errors(
+    conn: connection,
+    days_back: int = 7,
+    stakeholder_tag: str | None = None,
+    limit: int = 100,
+) -> list[ReportRunError]:
+    """Return recent persisted report generation and delivery errors."""
+    if days_back < 0:
+        raise ValueError("Days back must be zero or greater.")
+    if limit < 1:
+        raise ValueError("Limit must be greater than zero.")
+    normalized_tag = None
+    if stakeholder_tag is not None:
+        normalized_tag = stakeholder_tag.strip()
+        if not normalized_tag:
+            raise ValueError("Stakeholder tag must not be empty.")
+
+    query = """
+        SELECT
+            id,
+            stakeholder_tag,
+            status,
+            email_status,
+            started_at,
+            completed_at,
+            error_message,
+            email_error
+        FROM was_report_runs
+        WHERE created_at >= NOW() - (%s * INTERVAL '1 day')
+          AND (
+                NULLIF(BTRIM(error_message), '') IS NOT NULL
+             OR NULLIF(BTRIM(email_error), '') IS NOT NULL
+          )
+    """
+    parameters: list[object] = [days_back]
+    if normalized_tag is not None:
+        query += " AND stakeholder_tag = %s"
+        parameters.append(normalized_tag)
+    query += " ORDER BY created_at DESC, id DESC LIMIT %s"
+    parameters.append(limit)
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, tuple(parameters))
+        rows = cursor.fetchall()
+
+    return [
+        ReportRunError(
+            id=row[0],
+            stakeholder_tag=row[1],
+            status=row[2],
+            email_status=row[3],
+            started_at=row[4],
+            completed_at=row[5],
+            error_message=row[6],
+            email_error=row[7],
+        )
+        for row in rows
+    ]
+
+
+def list_report_run_errors_from_db(
+    days_back: int = 7,
+    stakeholder_tag: str | None = None,
+    limit: int = 100,
+) -> list[ReportRunError]:
+    """Return recent report errors using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_report_run_errors(
+            conn=conn,
+            days_back=days_back,
+            stakeholder_tag=stakeholder_tag,
+            limit=limit,
         )
     finally:
         close(conn)

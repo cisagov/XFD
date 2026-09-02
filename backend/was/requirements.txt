@@ -16,6 +16,7 @@ pikepdf
 Pillow
 psycopg2-binary==2.9.10
 pyarrow
+pyfiglet==1.0.4
 pymongo
 pypdf
 PyPDF4

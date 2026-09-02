@@ -380,13 +380,89 @@ The production pipeline uses the password in-process. The legacy comparison
 route passes it through standard input, so it is not exposed in process
 arguments.
 
+### Manage Stakeholder Contacts
+
+Update one or more stakeholder POC fields with explicit confirmation:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-stakeholders update-contacts \
+  --tag "CUSTOMER_TAG" \
+  --was-report-poc "POC NAME" \
+  --tech-poc-email "technical.poc@example.gov" \
+  --distro-email "distribution@example.gov" \
+  --confirm
+```
+
+Omit unchanged options. Clear a value with `--clear-was-report-poc`,
+`--clear-tech-poc-email`, or `--clear-distro-email`. The command never prints
+the contact values and does not modify report passwords or scheduling fields.
+
+### Export Stakeholders
+
+Export all non-secret stakeholder columns to an owner-readable CSV:
+
+```bash
+make stakeholder-export
+```
+
+This writes `local-output/was-stakeholders.csv` with file mode `0600` and
+neutralizes spreadsheet formulas in non-password text fields. Report passwords
+are excluded by default.
+
+A complete sensitive export requires two explicit flags and should be moved to
+approved encrypted storage immediately after use:
+
+```bash
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  --env-file .env \
+  -v "$(pwd)/local-output:/output" \
+  was-reporting \
+  was-stakeholders export-csv \
+  --output /output/was-stakeholders-sensitive.csv \
+  --include-report-passwords \
+  --confirm-sensitive-export
+```
+
+Do not email, commit, or place the sensitive CSV in shared storage.
+
+### Interactive Operator Menu
+
+Launch the numbered WAS operator menu from `backend/was`:
+
+```bash
+make menu
+```
+
+The menu groups existing commands into Report Generation, Daily Tracker,
+Stakeholder Management, and Qualys Operations. It supports guided prompts,
+confirmation before write or delivery operations, `CLEAR` for removing contact
+values, and typed confirmation before exporting report passwords. Files are
+written under the mounted `local-output` directory.
+
+The menu is a thin interface over the same Python command and data-service
+functions used by direct CLI commands. Operators can therefore use either the
+menu or commands such as `was-tracker`, `was-stakeholders`, and
+`was-report-batch` without changing application behavior. Future customer
+onboarding prompts should be added under Stakeholder Management and reuse the
+same validation and database service layer.
+
 ## Container Usage
 
 Build the image from `backend/was`:
 
 ```bash
-docker build -t was-reporting .
+make build
 ```
+
+Run `make build` after pulling application changes or modifying Python code,
+dependencies, the `Dockerfile`, packaged resources, or worker scripts. Commands
+such as `make menu` use the existing `was-reporting` image and do not rebuild it
+automatically. A rebuild is not required when only `.env` values change because
+Docker loads that file when each container starts.
 
 Smoke test the container command routing without database or Qualys access:
 
@@ -460,6 +536,22 @@ docker run --rm \
 Use `--skip-tracker-refresh` to process existing tracker gaps without querying
 Qualys schedule and scan metadata again. Use `--tag "CUSTOMER_TAG"` to scope
 both tracker refresh and report generation to one stakeholder.
+
+### Run One Manual Report
+
+Generate, upload, email, and track one manual report for an existing unsent
+tracker row:
+
+```bash
+make manual-report TAG="CUSTOMER_TAG"
+```
+
+This command does not refresh Qualys tracker schedules. It processes the oldest
+eligible manual tracker row for the exact tag, retries a previous failed
+generation claim when present, uploads the encrypted PDF to S3, sends it through
+SES, and sets `report_sent_date` only after SES accepts the message. Previously
+failed email delivery is retried without regenerating an already completed PDF.
+The tag requirement prevents an accidental manual run across all stakeholders.
 
 Run the WAS mailer for all completed report runs that have not been emailed:
 
@@ -641,6 +733,16 @@ assignee match is case-insensitive and must otherwise match the stored name.
 The terminal output is limited to 200 rows by default and excludes report
 passwords, POC email addresses, and customer notes.
 
+Display only manual tracker rows across all assignees:
+
+```bash
+make tracker-table REPORT_STATUS=manual DAYS_BACK=7
+```
+
+Combine `ASSIGNEE` and `REPORT_STATUS=manual` to restrict the manual queue to
+one analyst. Valid report status filters are `manual`, `pending`, and `sent`.
+The first table column is the tracker row ID used for manual reconciliation.
+
 Equivalent Docker command with a custom row limit:
 
 ```bash
@@ -652,6 +754,36 @@ docker run --rm \
   --days-back 7 \
   --limit 100
 ```
+
+Record the sent date when a manual report was delivered outside the automated
+SES workflow:
+
+```bash
+make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-02
+```
+
+The command only updates an unsent row already classified for manual handling.
+It requires explicit confirmation internally and will not overwrite an existing
+sent date.
+
+### View Persisted Report Errors
+
+Display report generation and SES delivery failures recorded in Postgres:
+
+```bash
+make report-errors DAYS_BACK=7
+```
+
+Restrict the error history to one stakeholder:
+
+```bash
+make report-errors TAG="CUSTOMER_TAG" DAYS_BACK=30
+```
+
+The error table excludes report passwords and recipient addresses. Container
+stdout and platform logs remain useful for detailed diagnostics, while this
+command provides durable operator-visible failure summaries from
+`was_report_runs`.
 
 ### Update Daily Tracker
 
@@ -797,21 +929,28 @@ Run these from `backend/was`:
 
 ```bash
 make build
+make menu
 make test
 make lint
 make xml-help
 make inventory
 make admin-help
+make stakeholders-help
 make special-cases
+make stakeholder-export
 make tracker-csv
 make tracker-csv ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
+make tracker-table REPORT_STATUS=manual DAYS_BACK=7
+make report-errors DAYS_BACK=7
+make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-02
 make update-tracker
 make update-tracker-delete-apps
 make assignee-digests
 make recent-scan-batch
 make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
 make single-report TAG="CUSTOMER_TAG"
+make manual-report TAG="CUSTOMER_TAG"
 ```
 
 ## Validate

@@ -63,12 +63,16 @@ class TrackerReportCandidate:
     data_pull_date: date
     schedule_id: int | None
     assignee_id: int | None
+    report_run_id: int | None = None
+    report_run_status: str | None = None
+    report_email_status: str | None = None
 
 
 @dataclass(frozen=True)
 class TrackerTableRow:
     """Safe tracker fields displayed in the operator terminal table."""
 
+    tracker_id: int
     data_pull_date: date | None
     tag: str | None
     scan_name: str | None
@@ -211,32 +215,58 @@ def list_ready_report_candidates(
     conn: connection,
     stakeholder_tag: str | None = None,
     limit: int | None = None,
+    include_manual: bool = False,
 ) -> list[TrackerReportCandidate]:
-    """Return finished tracker rows with a report-delivery gap."""
+    """Return tracker rows with a report-delivery gap."""
     query = """
         SELECT
             tracker.id,
             tracker.tag,
             tracker.data_pull_date,
             tracker.schedule_id,
-            tracker.assignee_id
+            tracker.assignee_id,
+            runs.id,
+            runs.status,
+            runs.email_status
         FROM was_daily_report_tracker AS tracker
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = tracker.tag
         LEFT JOIN was_report_runs AS runs
           ON runs.source_tracker_id = tracker.id
         WHERE tracker.report_sent_date IS NULL
-          AND runs.id IS NULL
           AND tracker.tag IS NOT NULL
           AND BTRIM(tracker.tag) <> ''
-          AND LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
-          AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
-          AND BTRIM(COALESCE(tracker.qualys_error, '')) = ''
           AND COALESCE(tracker.template, '') <> 'Deactivated'
-          AND stakeholders.manual_report IS NOT TRUE
           AND stakeholders.retired IS NOT TRUE
     """
     parameters: list[object] = []
+    if include_manual:
+        query += """
+          AND (
+                stakeholders.manual_report IS TRUE
+             OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
+             OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
+             OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
+          )
+          AND (
+                runs.id IS NULL
+             OR runs.status = 'failed'
+             OR (
+                    runs.status = 'completed'
+                AND runs.emailed_at IS NULL
+                AND COALESCE(runs.email_status, 'pending')
+                    IN ('pending', 'failed')
+             )
+          )
+        """
+    else:
+        query += """
+          AND runs.id IS NULL
+          AND LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
+          AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
+          AND BTRIM(COALESCE(tracker.qualys_error, '')) = ''
+          AND stakeholders.manual_report IS NOT TRUE
+        """
     if stakeholder_tag is not None:
         query += " AND tracker.tag = %s"
         parameters.append(stakeholder_tag)
@@ -256,6 +286,9 @@ def list_ready_report_candidates(
             data_pull_date=row[2],
             schedule_id=row[3],
             assignee_id=row[4],
+            report_run_id=row[5],
+            report_run_status=row[6],
+            report_email_status=row[7],
         )
         for row in rows
     ]
@@ -264,6 +297,7 @@ def list_ready_report_candidates(
 def list_ready_report_candidates_from_db(
     stakeholder_tag: str | None = None,
     limit: int | None = None,
+    include_manual: bool = False,
 ) -> list[TrackerReportCandidate]:
     """Return report-delivery gaps using a managed database connection."""
     # Third-Party Libraries
@@ -275,6 +309,7 @@ def list_ready_report_candidates_from_db(
             conn=conn,
             stakeholder_tag=stakeholder_tag,
             limit=limit,
+            include_manual=include_manual,
         )
     finally:
         close(conn)
@@ -311,6 +346,63 @@ def mark_tracker_report_manual_by_id(tracker_id: int) -> None:
     conn = connect()
     try:
         mark_tracker_report_manual(tracker_id=tracker_id, conn=conn)
+    finally:
+        close(conn)
+
+
+def mark_manual_tracker_report_sent(
+    tracker_id: int,
+    sent_date: date,
+    conn: connection,
+) -> None:
+    """Set the sent date for one unsent tracker row requiring manual handling."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_daily_report_tracker AS tracker
+                SET report_sent_date = %s,
+                    updated_at = NOW()
+                FROM was_stakeholders AS stakeholders
+                WHERE tracker.id = %s
+                  AND stakeholders.tag = tracker.tag
+                  AND tracker.report_sent_date IS NULL
+                  AND (
+                        stakeholders.manual_report IS TRUE
+                     OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
+                     OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
+                     OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
+                  )
+                RETURNING tracker.id
+                """,
+                (sent_date, tracker_id),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is None:
+        raise KeyError(
+            "Unsent manual tracker row {} was not found.".format(tracker_id)
+        )
+
+
+def mark_manual_tracker_report_sent_by_id(
+    tracker_id: int,
+    sent_date: date,
+) -> None:
+    """Set a manual tracker sent date using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        mark_manual_tracker_report_sent(
+            tracker_id=tracker_id,
+            sent_date=sent_date,
+            conn=conn,
+        )
     finally:
         close(conn)
 
@@ -613,68 +705,106 @@ def list_tracker_rows_for_export_from_db(
 def list_tracker_table_rows(
     conn: connection,
     days_back: int,
-    assignee_name: str,
+    assignee_name: str | None = None,
+    report_status: str | None = None,
     limit: int = 200,
 ) -> list[TrackerTableRow]:
-    """Return recent tracker rows for one assignee without sensitive fields."""
+    """Return recent tracker rows without sensitive fields."""
     if days_back < 0:
         raise ValueError("Days back must be zero or greater.")
-    normalized_assignee = assignee_name.strip()
-    if not normalized_assignee:
-        raise ValueError("Assignee name must not be empty.")
+    normalized_assignee = None
+    if assignee_name is not None:
+        normalized_assignee = assignee_name.strip()
+        if not normalized_assignee:
+            raise ValueError("Assignee name must not be empty.")
+    normalized_report_status = None
+    if report_status is not None:
+        normalized_report_status = report_status.strip().upper()
+        if normalized_report_status not in {"MANUAL", "PENDING", "SENT"}:
+            raise ValueError("Report status must be MANUAL, PENDING, or SENT.")
     if limit < 1:
         raise ValueError("Limit must be greater than zero.")
 
-    with conn.cursor() as cursor:
-        cursor.execute(
-            """
+    query = """
+        WITH tracker_rows AS (
             SELECT
+                tracker.id,
                 tracker.data_pull_date,
                 tracker.tag,
                 tracker.scan_name,
-                COALESCE(assignees.name, tracker.assignee),
+                COALESCE(assignees.name, tracker.assignee) AS assignee,
                 tracker.status,
                 tracker.result,
                 CASE
                     WHEN tracker.report_sent_date IS NOT NULL THEN 'SENT'
-                    WHEN NULLIF(BTRIM(tracker.report_scan_notes), '')
+                    WHEN stakeholders.manual_report IS TRUE
+                      OR NULLIF(BTRIM(tracker.report_scan_notes), '')
                          IS NOT NULL
                       OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
                       OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
                         THEN 'MANUAL'
                     ELSE 'PENDING'
-                END,
+                END AS report_status,
                 tracker.report_sent_date,
                 tracker.report_scan_notes,
                 tracker.next_scan_date
             FROM was_daily_report_tracker AS tracker
             LEFT JOIN was_assignees AS assignees
               ON assignees.id = tracker.assignee_id
+            LEFT JOIN was_stakeholders AS stakeholders
+              ON stakeholders.tag = tracker.tag
             WHERE tracker.data_pull_date >= CURRENT_DATE - %s
+    """
+    parameters: list[object] = [days_back]
+    if normalized_assignee is not None:
+        query += """
               AND LOWER(BTRIM(COALESCE(
                     assignees.name,
                     tracker.assignee,
                     ''
                   ))) = LOWER(BTRIM(%s))
-            ORDER BY tracker.data_pull_date DESC, tracker.tag ASC
-            LIMIT %s
-            """,
-            (days_back, normalized_assignee, limit),
+        """
+        parameters.append(normalized_assignee)
+    query += """
         )
+        SELECT
+            id,
+            data_pull_date,
+            tag,
+            scan_name,
+            assignee,
+            status,
+            result,
+            report_status,
+            report_sent_date,
+            report_scan_notes,
+            next_scan_date
+        FROM tracker_rows
+        WHERE 1 = 1
+    """
+    if normalized_report_status is not None:
+        query += " AND report_status = %s"
+        parameters.append(normalized_report_status)
+    query += " ORDER BY data_pull_date DESC, tag ASC LIMIT %s"
+    parameters.append(limit)
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, tuple(parameters))
         rows = cursor.fetchall()
 
     return [
         TrackerTableRow(
-            data_pull_date=row[0],
-            tag=row[1],
-            scan_name=row[2],
-            assignee=row[3],
-            scan_status=row[4],
-            scan_result=row[5],
-            report_status=row[6],
-            report_sent_date=row[7],
-            notes=row[8],
-            next_scan_date=row[9],
+            tracker_id=row[0],
+            data_pull_date=row[1],
+            tag=row[2],
+            scan_name=row[3],
+            assignee=row[4],
+            scan_status=row[5],
+            scan_result=row[6],
+            report_status=row[7],
+            report_sent_date=row[8],
+            notes=row[9],
+            next_scan_date=row[10],
         )
         for row in rows
     ]
@@ -682,7 +812,8 @@ def list_tracker_table_rows(
 
 def list_tracker_table_rows_from_db(
     days_back: int,
-    assignee_name: str,
+    assignee_name: str | None = None,
+    report_status: str | None = None,
     limit: int = 200,
 ) -> list[TrackerTableRow]:
     """Return recent assignee tracker rows using a managed connection."""
@@ -695,6 +826,7 @@ def list_tracker_table_rows_from_db(
             conn=conn,
             days_back=days_back,
             assignee_name=assignee_name,
+            report_status=report_status,
             limit=limit,
         )
     finally:

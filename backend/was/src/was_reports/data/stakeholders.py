@@ -42,6 +42,38 @@ class StakeholderDetails:
     fceb: bool = False
 
 
+STAKEHOLDER_EXPORT_COLUMNS = (
+    "tag",
+    "customer_name",
+    "comments",
+    "location_notes",
+    "ci_type",
+    "testing_sector",
+    "subtype",
+    "distro_email",
+    "tech_poc_email",
+    "was_report_poc",
+    "frequency",
+    "num_web_apps",
+    "web_apps_last_updated",
+    "last_scanned",
+    "next_scheduled",
+    "onboarding_date",
+    "parent_tag",
+    "ticket",
+    "elections",
+    "fceb",
+    "manual_report",
+    "retired",
+    "state",
+    "created_at",
+    "updated_at",
+)
+STAKEHOLDER_CONTACT_COLUMNS = frozenset(
+    {"was_report_poc", "tech_poc_email", "distro_email"}
+)
+
+
 def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
     """Return a stakeholder record by tag."""
     with conn.cursor() as cursor:
@@ -107,6 +139,92 @@ def get_stakeholder_details_by_tag(tag: str) -> Optional[StakeholderDetails]:
     conn = connect()
     try:
         return get_stakeholder_details(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def update_stakeholder_contacts(
+    tag: str,
+    updates: dict[str, str | None],
+    conn: connection,
+) -> None:
+    """Update selected stakeholder POC and email fields."""
+    normalized_tag = tag.strip()
+    if not normalized_tag:
+        raise ValueError("Stakeholder tag must not be empty.")
+    if not updates:
+        raise ValueError("At least one stakeholder contact field is required.")
+    invalid_columns = set(updates).difference(STAKEHOLDER_CONTACT_COLUMNS)
+    if invalid_columns:
+        raise ValueError("Unsupported stakeholder contact field.")
+
+    assignments = []
+    parameters: list[object] = []
+    for column_name in sorted(updates):
+        assignments.append("{} = %s".format(column_name))
+        parameters.append(updates[column_name])
+    assignments.append("updated_at = NOW()")
+    parameters.append(normalized_tag)
+
+    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(
+        ", ".join(assignments)
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, tuple(parameters))
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is None:
+        raise KeyError("Stakeholder tag {} was not found.".format(normalized_tag))
+
+
+def update_stakeholder_contacts_for_tag(
+    tag: str,
+    updates: dict[str, str | None],
+) -> None:
+    """Update stakeholder contact fields using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        update_stakeholder_contacts(tag=tag, updates=updates, conn=conn)
+    finally:
+        close(conn)
+
+
+def list_stakeholders_for_export(
+    conn: connection,
+    include_report_passwords: bool = False,
+) -> tuple[list[str], list[tuple[object, ...]]]:
+    """Return stakeholder export columns and rows in stable tag order."""
+    columns = list(STAKEHOLDER_EXPORT_COLUMNS)
+    if include_report_passwords:
+        columns.insert(-2, "report_password")
+    query = "SELECT {} FROM was_stakeholders ORDER BY tag ASC".format(
+        ", ".join(columns)
+    )
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        rows = cursor.fetchall()
+    return columns, rows
+
+
+def list_stakeholders_for_export_from_db(
+    include_report_passwords: bool = False,
+) -> tuple[list[str], list[tuple[object, ...]]]:
+    """Return stakeholder export data using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_stakeholders_for_export(
+            conn=conn,
+            include_report_passwords=include_report_passwords,
+        )
     finally:
         close(conn)
 

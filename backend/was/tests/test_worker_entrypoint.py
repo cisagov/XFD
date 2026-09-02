@@ -19,8 +19,10 @@ class WorkerEntrypointTests(unittest.TestCase):
             reports_command = directory_path / "was-reports"
             xml_export_command = directory_path / "was-export-xml"
             inventory_command = directory_path / "was-inventory"
+            menu_command = directory_path / "was-menu"
             admin_command = directory_path / "was-admin"
             special_cases_command = directory_path / "was-special-cases"
+            stakeholders_command = directory_path / "was-stakeholders"
             tracker_command = directory_path / "was-tracker"
             update_tracker_command = directory_path / "was-update-tracker"
 
@@ -40,12 +42,20 @@ class WorkerEntrypointTests(unittest.TestCase):
                 "#!/bin/sh\necho inventory \"$@\"\n",
                 encoding="utf-8",
             )
+            menu_command.write_text(
+                "#!/bin/sh\necho menu \"$@\"\n",
+                encoding="utf-8",
+            )
             admin_command.write_text(
                 "#!/bin/sh\necho admin \"$@\"\n",
                 encoding="utf-8",
             )
             special_cases_command.write_text(
                 "#!/bin/sh\necho special-cases \"$@\"\n",
+                encoding="utf-8",
+            )
+            stakeholders_command.write_text(
+                "#!/bin/sh\necho stakeholders \"$@\"\n",
                 encoding="utf-8",
             )
             tracker_command.write_text(
@@ -60,8 +70,10 @@ class WorkerEntrypointTests(unittest.TestCase):
             reports_command.chmod(0o755)
             xml_export_command.chmod(0o755)
             inventory_command.chmod(0o755)
+            menu_command.chmod(0o755)
             admin_command.chmod(0o755)
             special_cases_command.chmod(0o755)
+            stakeholders_command.chmod(0o755)
             tracker_command.chmod(0o755)
             update_tracker_command.chmod(0o755)
 
@@ -147,6 +159,13 @@ class WorkerEntrypointTests(unittest.TestCase):
             result.stdout,
         )
 
+    def test_menu_routes_to_interactive_menu_command(self) -> None:
+        """Route the interactive operator menu command."""
+        result = self.run_entrypoint(["was-menu"])
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("menu", result.stdout)
+
     def test_special_cases_routes_to_special_cases_command(self) -> None:
         """Route special case commands to the special case CLI."""
         result = self.run_entrypoint(["was-special-cases", "list"])
@@ -162,6 +181,18 @@ class WorkerEntrypointTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0)
         self.assertIn("tracker export-csv --output /tmp/tracker.csv", result.stdout)
+
+    def test_stakeholders_routes_to_stakeholders_command(self) -> None:
+        """Route stakeholder administration commands to their CLI."""
+        result = self.run_entrypoint(
+            ["was-stakeholders", "export-csv", "--output", "/tmp/export.csv"]
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(
+            "stakeholders export-csv --output /tmp/export.csv",
+            result.stdout,
+        )
 
     def test_update_tracker_routes_to_update_tracker_command(self) -> None:
         """Route update tracker commands to the update tracker CLI."""

@@ -130,12 +130,37 @@ class ReportArtifactTests(unittest.TestCase):
         self.assertIn("SSN data unavailable from Qualys.", output_text)
         self.assertIn("Credit Card data unavailable from Qualys.", output_text)
 
+    def test_sensitive_data_unsupported_module_continues_after_server_error(
+        self,
+    ) -> None:
+        """Recognize the exact unsupported-module response from a server error."""
+        client = Mock()
+        client.request.side_effect = [
+            build_http_error(500, UNSUPPORTED_MODULE_RESPONSE),
+            EMPTY_RESPONSE,
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            asset_directory = Path(directory)
+            with self.assertLogs(report_artifacts.LOGGER, level="WARNING"):
+                filename = report_artifacts.write_sensitive_data_attachment(
+                    client,
+                    "CUSTOMER",
+                    asset_directory,
+                )
+            output_text = (asset_directory / filename).read_text()
+
+        self.assertIn("SSN data unavailable from Qualys.", output_text)
+        self.assertIn("No Credit Card data found.", output_text)
+
     def test_sensitive_data_unexpected_http_error_is_raised(self) -> None:
         """Do not suppress Qualys errors outside the approved fallback."""
         client = Mock()
         client.request.side_effect = build_http_error(
             500,
-            UNSUPPORTED_MODULE_RESPONSE,
+            "<ServiceResponse><responseErrorDetails><errorMessage>"
+            "Unexpected Qualys failure."
+            "</errorMessage></responseErrorDetails></ServiceResponse>",
         )
 
         with tempfile.TemporaryDirectory() as directory:

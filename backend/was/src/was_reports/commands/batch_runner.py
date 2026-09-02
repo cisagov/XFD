@@ -30,6 +30,7 @@ from was_reports.data.report_runs import (
     create_report_run_for_tag,
     create_report_run_for_tracker,
     fail_report_run_by_id,
+    retry_failed_report_run_for_tracker_by_id,
 )
 from was_reports.data.stakeholders import list_due_stakeholders_for_report
 from was_reports.storage.s3_reports import (
@@ -248,18 +249,20 @@ def run_recent_scan_reports(
     source_email: Optional[str] = None,
     test_recipients: Optional[str] = None,
     dry_run_email: bool = False,
+    include_manual: bool = False,
 ) -> BatchExecutionSummary:
     """Generate and deliver reports for recent tracker rows with delivery gaps."""
     candidates = list_ready_report_candidates_from_db(
         stakeholder_tag=stakeholder_tag,
         limit=limit,
+        include_manual=include_manual,
     )
     resolved_storage_mode = resolve_storage_mode(storage_mode)
     generated_count = 0
     sent_count = 0
     failed_count = 0
 
-    if send_email:
+    if send_email and not include_manual:
         sent_count += send_ready_report_emails(
             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
             override_recipients=test_recipients,
@@ -268,10 +271,34 @@ def run_recent_scan_reports(
         )
 
     for candidate in candidates:
+        if candidate.report_run_status == "completed":
+            if candidate.report_run_id is None:
+                raise RuntimeError("Completed manual report run has no run id.")
+            try:
+                message_id = send_report_run_email(
+                    report_run_id=candidate.report_run_id,
+                    source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                    override_recipients=test_recipients,
+                    dry_run=dry_run_email,
+                    include_previous_failure=True,
+                )
+                if message_id or dry_run_email:
+                    sent_count += 1
+            except Exception:
+                failed_count += 1
+                LOGGER.exception(
+                    "Manual WAS report email retry failed for tracker row %s",
+                    candidate.id,
+                )
+                if not continue_on_error:
+                    raise
+            continue
         report_run = create_report_run_for_tracker(
             stakeholder_tag=candidate.tag,
             source_tracker_id=candidate.id,
         )
+        if report_run is None and include_manual:
+            report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
         if report_run is None:
             LOGGER.info(
                 "Skipping tracker row %s because another worker already claimed it.",
@@ -484,6 +511,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         stakeholder_tag = args.tag.strip() if args.tag else None
         if args.tag and not stakeholder_tag:
             raise ValueError("Stakeholder tag must not be empty.")
+        if args.include_manual and stakeholder_tag is None:
+            raise ValueError("Manual report generation requires --tag.")
+        if args.include_manual and not args.send_email:
+            raise ValueError("Manual report generation requires --send-email.")
         if not args.skip_tracker_refresh:
             run_update_tracker(
                 delete_apps=False,
@@ -504,6 +535,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             source_email=args.source_email,
             test_recipients=args.test_recipients,
             dry_run_email=args.dry_run_email,
+            include_manual=args.include_manual,
         )
         return 1 if summary.failed else 0
 

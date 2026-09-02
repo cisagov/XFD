@@ -3,7 +3,7 @@
 # Standard Python Libraries
 from contextlib import redirect_stdout
 import csv
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import io
 from pathlib import Path
 import tempfile
@@ -14,6 +14,7 @@ from unittest.mock import patch
 # First-Party Libraries
 from was_reports.commands import tracker_cli
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow, TrackerTableRow
+from was_reports.data.report_runs import ReportRunError
 from was_reports.tracker.tracker_csv import (
     CSV_HEADERS,
     tracker_row_to_csv,
@@ -149,6 +150,7 @@ class TrackerCliTests(unittest.TestCase):
         """Display recent Postgres tracker data without creating a CSV."""
         mock_list_rows.return_value = [
             TrackerTableRow(
+                tracker_id=7,
                 data_pull_date=date(2026, 9, 1),
                 tag="TAG1",
                 scan_name="Scan 1",
@@ -183,7 +185,82 @@ class TrackerCliTests(unittest.TestCase):
         mock_list_rows.assert_called_once_with(
             days_back=14,
             assignee_name="Analyst",
+            report_status=None,
             limit=50,
+        )
+
+    @patch("was_reports.commands.tracker_cli.list_tracker_table_rows_from_db")
+    def test_show_table_filters_manual_reports(self, mock_list_rows) -> None:
+        """Request only tracker rows requiring manual handling."""
+        mock_list_rows.return_value = []
+        args = tracker_cli.parse_args(
+            ["show", "--days-back", "7", "--report-status", "manual"]
+        )
+
+        exit_code = tracker_cli.show_table(args)
+
+        self.assertEqual(exit_code, 0)
+        mock_list_rows.assert_called_once_with(
+            days_back=7,
+            assignee_name=None,
+            report_status="MANUAL",
+            limit=200,
+        )
+
+    @patch("was_reports.commands.tracker_cli.list_report_run_errors_from_db")
+    def test_show_errors_displays_persisted_failure(self, mock_list_errors) -> None:
+        """Display persisted report failures without requiring runtime logs."""
+        mock_list_errors.return_value = [
+            ReportRunError(
+                id=42,
+                stakeholder_tag="TAG1",
+                status="failed",
+                email_status="pending",
+                started_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                completed_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                error_message="Report generation failed.",
+                email_error=None,
+            )
+        ]
+        args = tracker_cli.parse_args(
+            ["errors", "--days-back", "14", "--tag", "TAG1", "--limit", "25"]
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.show_errors(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Report generation failed.", output.getvalue())
+        self.assertIn("Displayed 1 report errors.", output.getvalue())
+        mock_list_errors.assert_called_once_with(
+            days_back=14,
+            stakeholder_tag="TAG1",
+            limit=25,
+        )
+
+    @patch(
+        "was_reports.commands.tracker_cli.mark_manual_tracker_report_sent_by_id"
+    )
+    def test_mark_sent_updates_manual_tracker_row(self, mock_mark_sent) -> None:
+        """Record a confirmed sent date for one manual tracker row."""
+        args = tracker_cli.parse_args(
+            [
+                "mark-sent",
+                "--tracker-id",
+                "7",
+                "--sent-date",
+                "2026-09-02",
+                "--confirm",
+            ]
+        )
+
+        exit_code = tracker_cli.mark_sent(args)
+
+        self.assertEqual(exit_code, 0)
+        mock_mark_sent.assert_called_once_with(
+            tracker_id=7,
+            sent_date=date(2026, 9, 2),
         )
 
     def test_show_rejects_negative_days_back(self) -> None:
@@ -196,6 +273,22 @@ class TrackerCliTests(unittest.TestCase):
                     "-1",
                     "--assignee",
                     "Analyst",
+                ]
+            )
+
+    def test_mark_sent_rejects_future_date(self) -> None:
+        """Reject an accidental future manual report sent date."""
+        future_date = date.today() + timedelta(days=1)
+
+        with self.assertRaises(SystemExit):
+            tracker_cli.parse_args(
+                [
+                    "mark-sent",
+                    "--tracker-id",
+                    "7",
+                    "--sent-date",
+                    future_date.isoformat(),
+                    "--confirm",
                 ]
             )
 

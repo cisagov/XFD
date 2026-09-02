@@ -211,7 +211,11 @@ def retrieve_sensitive_findings(
 def is_unsupported_module_error(error: HTTPError) -> bool:
     """Return whether Qualys rejected a request for an unsupported module."""
     response = error.response
-    if response is None or response.status_code != 400 or not response.content:
+    if (
+        response is None
+        or not 400 <= response.status_code < 600
+        or not response.content
+    ):
         return False
     try:
         root = etree.fromstring(response.content)

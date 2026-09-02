@@ -1,6 +1,7 @@
 """Tests for WAS report run data access."""
 
 # Standard Python Libraries
+from datetime import datetime, timezone
 import unittest
 
 # Third-Party Libraries
@@ -123,6 +124,28 @@ class ReportRunTests(unittest.TestCase):
             conn.cursor_instance.parameters,
             (report_runs.COMPLETED, None, None, None, 7),
         )
+
+    def test_retry_failed_tracker_run_reclaims_existing_record(self) -> None:
+        """Reuse a failed tracker run without violating its unique link."""
+        conn = FakeConnection(row=(7, "TAG1", report_runs.RUNNING))
+
+        report_run = report_runs.retry_failed_report_run_for_tracker(
+            source_tracker_id=42,
+            conn=conn,
+        )
+
+        self.assertEqual(report_run.id, 7)
+        self.assertTrue(conn.committed)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                report_runs.RUNNING,
+                report_runs.EMAIL_PENDING,
+                42,
+                report_runs.FAILED,
+            ),
+        )
+        self.assertIn("error_message = NULL", conn.cursor_instance.query)
 
     def test_complete_report_run_can_store_output_metadata(self) -> None:
         """Mark a report complete with artifact details."""
@@ -307,6 +330,36 @@ class ReportRunTests(unittest.TestCase):
 
         self.assertIsNone(claimed)
         self.assertTrue(conn.committed)
+
+    def test_list_report_run_errors_filters_recent_tag(self) -> None:
+        """Return persisted report and delivery failures for operators."""
+        timestamp = datetime(2026, 9, 1, tzinfo=timezone.utc)
+        conn = FakeConnection(
+            row=[
+                (
+                    7,
+                    "TAG1",
+                    report_runs.FAILED,
+                    report_runs.EMAIL_PENDING,
+                    timestamp,
+                    timestamp,
+                    "Report generation failed.",
+                    None,
+                )
+            ]
+        )
+
+        errors = report_runs.list_report_run_errors(
+            conn=conn,
+            days_back=14,
+            stakeholder_tag=" TAG1 ",
+            limit=25,
+        )
+
+        self.assertEqual(errors[0].id, 7)
+        self.assertEqual(errors[0].error_message, "Report generation failed.")
+        self.assertEqual(conn.cursor_instance.parameters, (14, "TAG1", 25))
+        self.assertIn("email_error", conn.cursor_instance.query)
 
 
 if __name__ == "__main__":
