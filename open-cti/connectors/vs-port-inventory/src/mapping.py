@@ -20,6 +20,27 @@ Revised (2026-08-31, see db.py's module docstring): connector.py now computes po
 locally from `time_scanned` + a known cutoff, rather than re-polling for it, which means it
 sometimes needs to build an updated lifecycle relationship with no fresh DB row on hand --
 `build_lifecycle_relationship_from_parts()` exists for exactly that case.
+
+Revised (2026-09-02): the Network-Traffic SCO itself now also carries `x_opencti_service` and
+`x_opencti_open` custom properties -- a quick "what/whether" snapshot readable straight off the
+observable, without following the relationship to the org for it. Safe by the same reasoning as
+`x_opencti_description` already relied on: neither key is among stix2's ID Contributing Properties
+for NetworkTraffic (verified against the installed library, same as `start`/`end` were verified to
+*be* -- see above), so varying them between polls updates the existing object in place rather than
+fragmenting it.
+
+`x_opencti_open` is **not** this connector's locally-computed recency flag (`current`/
+`is_within_cutoff`) -- an earlier version of this code conflated the two, which was wrong. It's
+`LatestPortScan.state == "open"`, the scanner's own confirmed finding for this exact port on its
+most recent scan (`models.py`'s help text: "State of the port, as reported by the scanner; see
+nmap states" -- and the platform's own `PortScanSummary` rollup treats it the same way, filtering
+`WHERE ps.state = 'open'`). `state` gets overwritten in place on every rescan
+(`insert_port_scans_sql()`'s `ON CONFLICT ... DO UPDATE`), so a port that was open and is later
+rescanned closed genuinely flips this value -- independent of whether that rescan happened to also
+be within the freshness cutoff. Consequence: the aging sweep (connector.py, no fresh row on hand)
+must never touch this field -- going stale (unobserved for 14+ days) is not evidence a port closed,
+just that its last-known state is unconfirmed by anything more recent. `is_open` is computed once,
+straight off the row, by `is_port_state_open()` below.
 """
 
 # Standard Python Libraries
@@ -139,12 +160,22 @@ def _normalize_protocol(protocol: Optional[str]) -> str:
     return protocol.strip().lower()
 
 
+def is_port_state_open(state: Optional[str]) -> bool:
+    """Reduce LatestPortScan.state (nmap-style: open/closed/filtered/...) to a plain boolean.
+
+    Anything other than a literal "open" (case/whitespace-insensitive) -- closed, filtered,
+    open|filtered, missing entirely -- reads as "not confirmed open". See module docstring for why
+    this, not `current`/recency, is what x_opencti_open on the SCO actually means.
+    """
+    return (state or "").strip().lower() == "open"
+
+
 def build_network_traffic(row: Dict, ip_observable_id: str) -> stix2.NetworkTraffic:
-    """Build the stable Network-Traffic SCO for one (ip, port, protocol).
+    """Build the Network-Traffic SCO for one (ip, port, protocol) row.
 
     Deliberately built from stable fields only -- see module docstring for why `start`/`end`/
-    `is_active` never go here. `service_name` is often not a valid STIX protocol string (§7c),
-    so it's carried as a custom property instead of crammed into `protocols`.
+    `is_active` never go here. `service_name` is often not a valid STIX protocol string (§7c), so
+    it's carried as a custom property instead of crammed into `protocols`.
     """
     protocol = _normalize_protocol(row.get("protocol"))
     port = row.get("port")
@@ -153,9 +184,13 @@ def build_network_traffic(row: Dict, ip_observable_id: str) -> stix2.NetworkTraf
     # Verified against the installed stix2 library that x_opencti_* custom_properties do not
     # feed NetworkTraffic's own id computation (unlike start/end) -- safe to vary between polls
     # without fragmenting the SCO the way start/end would have.
-    custom_properties = {}
-    if row.get("service_name"):
-        custom_properties["x_opencti_description"] = row["service_name"]
+    custom_properties: Dict[str, object] = {
+        "x_opencti_open": is_port_state_open(row.get("state"))
+    }
+    service_name = row.get("service_name")
+    if service_name:
+        custom_properties["x_opencti_description"] = service_name
+        custom_properties["x_opencti_service"] = service_name
     return stix2.NetworkTraffic(
         src_ref=ip_observable_id,
         src_port=int(port),

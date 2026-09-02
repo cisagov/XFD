@@ -146,6 +146,85 @@ def test_build_ticket_relationship_carries_start_and_stop_time_for_a_closed_tick
     assert rel.stop_time is not None
 
 
+def test_build_ticket_relationship_carries_updated_timestamp_as_custom_property():
+    """Ticket.updated_timestamp must survive onto the relationship, not get dropped.
+
+    Carried as x_opencti_updated_timestamp -- a plain custom property, not stix2's native
+    `modified` -- see build_ticket_relationship()'s docstring for why.
+    """
+    ticket = {
+        "id": "t-updated",
+        "opened_timestamp": "2026-06-01T00:00:00+00:00",
+        "closed_timestamp": None,
+        "updated_timestamp": "2026-08-30T14:00:00+00:00",
+        "vuln_source": "nessus",
+        "is_kev": False,
+        "is_kev_ransomware": False,
+        "is_risky": False,
+        "cvss_severity": None,
+    }
+    rel = mapping.build_ticket_relationship(
+        ticket, _IP_ID, _VULN_ID, _AUTHOR_ID, _MARKING_ID
+    )
+    assert rel.x_opencti_updated_timestamp == mapping.normalize_timestamp(
+        ticket["updated_timestamp"]
+    )
+    assert "modified" not in rel or rel.modified != rel.x_opencti_updated_timestamp
+
+
+def test_build_ticket_relationship_omits_updated_timestamp_property_when_absent():
+    """A ticket with no updated_timestamp at all must not fabricate the custom property."""
+    ticket = {
+        "id": "t-no-updated",
+        "opened_timestamp": "2026-06-01T00:00:00+00:00",
+        "closed_timestamp": None,
+        "updated_timestamp": None,
+        "vuln_source": "nessus",
+        "is_kev": False,
+        "is_kev_ransomware": False,
+        "is_risky": False,
+        "cvss_severity": None,
+    }
+    rel = mapping.build_ticket_relationship(
+        ticket, _IP_ID, _VULN_ID, _AUTHOR_ID, _MARKING_ID
+    )
+    assert "x_opencti_updated_timestamp" not in rel
+
+
+def test_build_ticket_relationship_id_is_stable_when_updated_timestamp_changes():
+    """The id must not drift just because updated_timestamp changes on a rescan/re-ticket.
+
+    §10i-style verification, done proactively: custom_properties never feed this relationship's
+    id (it's always explicitly pinned via `_relationship_id()`, never derived from its own
+    content) -- but confirmed here directly rather than just asserted in a docstring.
+    """
+    base = {
+        "id": "t-stable",
+        "opened_timestamp": "2026-06-01T00:00:00+00:00",
+        "closed_timestamp": None,
+        "vuln_source": "nessus",
+        "is_kev": False,
+        "is_kev_ransomware": False,
+        "is_risky": False,
+        "cvss_severity": None,
+    }
+    rel1 = mapping.build_ticket_relationship(
+        dict(base, updated_timestamp="2026-08-01T00:00:00+00:00"),
+        _IP_ID,
+        _VULN_ID,
+        _AUTHOR_ID,
+        _MARKING_ID,
+    )
+    rel2 = mapping.build_ticket_relationship(
+        dict(base, updated_timestamp="2026-08-30T00:00:00+00:00"),
+        _IP_ID,
+        _VULN_ID,
+        _AUTHOR_ID,
+        _MARKING_ID,
+    )
+    assert rel1.id == rel2.id
+
+
 def test_build_ticket_relationship_omits_stop_time_while_open():
     """A ticket with no closed_timestamp must not carry a stop_time at all."""
     ticket = {

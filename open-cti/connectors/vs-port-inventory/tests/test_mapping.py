@@ -89,6 +89,48 @@ def test_build_network_traffic_id_is_stable_when_service_name_changes():
     assert nt1.id == nt2.id
 
 
+def test_build_network_traffic_id_is_stable_when_state_changes():
+    """The id must not drift when the scanner-reported state flips open<->closed either.
+
+    Same reasoning as service_name above -- x_opencti_open must be free to change on a rescan
+    without fragmenting the SCO into a new object.
+    """
+    nt_open = mapping.build_network_traffic(_row(state="open"), _IP_ID)
+    nt_closed = mapping.build_network_traffic(_row(state="closed"), _IP_ID)
+    assert nt_open.id == nt_closed.id
+
+
+def test_build_network_traffic_open_reflects_scanner_state_not_recency():
+    """x_opencti_open must come from LatestPortScan.state == "open", not any recency notion.
+
+    connector.py's own `current`/staleness tracking is a wholly separate concept -- see
+    mapping.py's module docstring for why an earlier version of this code got that wrong.
+    """
+    assert (
+        mapping.build_network_traffic(_row(state="open"), _IP_ID).x_opencti_open is True
+    )
+    for closed_state in ("closed", "filtered", "open|filtered", None, "  "):
+        nt = mapping.build_network_traffic(_row(state=closed_state), _IP_ID)
+        assert nt.x_opencti_open is False, closed_state
+
+
+def test_build_network_traffic_sets_service_custom_property():
+    """x_opencti_service (and the pre-existing x_opencti_description) reflect service_name."""
+    nt = mapping.build_network_traffic(_row(service_name="https"), _IP_ID)
+    assert nt.x_opencti_service == "https"
+    assert nt.x_opencti_description == "https"
+
+
+def test_is_port_state_open_reduces_nmap_style_states_to_a_plain_boolean():
+    """Only a literal "open" (case/whitespace-insensitive) counts -- everything else is False."""
+    assert mapping.is_port_state_open("open") is True
+    assert mapping.is_port_state_open("Open ") is True
+    assert mapping.is_port_state_open("closed") is False
+    assert mapping.is_port_state_open("filtered") is False
+    assert mapping.is_port_state_open(None) is False
+    assert mapping.is_port_state_open("") is False
+
+
 def test_build_software_returns_none_without_product_version_or_cpe():
     """A row with no software detail at all produces no Software SCO."""
     assert mapping.build_software(_row()) is None

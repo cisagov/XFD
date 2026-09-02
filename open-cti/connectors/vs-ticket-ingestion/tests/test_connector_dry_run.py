@@ -139,6 +139,9 @@ def test_first_run_produces_expected_objects():
     ]
     assert len(ticket_rels) == 3
     assert sum(1 for rel in ticket_rels if "stop_time" in rel) == 1
+    # updated_timestamp must survive fixture -> mapping -> real bundle serialization for every
+    # ticket relationship, not just in the unit-level mapping.py tests.
+    assert all("x_opencti_updated_timestamp" in rel for rel in ticket_rels)
 
 
 def test_false_positive_ticket_is_never_sent_and_leaves_no_relationship_recorded():

@@ -15,9 +15,34 @@ Reads `Ticket` from `mini_data_lake` and upserts `IPv4-Addr`/`IPv6-Addr` (scanne
 kinds of relationship:
 
 - IP `related-to` Vulnerability, carrying the ticket's open/closed lifecycle as native
-  `start_time`/`stop_time` — no `Case`/`Incident` container (§7a's reasoning for why not).
+  `start_time`/`stop_time` — no `Case`/`Incident` container (§7a's reasoning for why not). Also
+  carries `Ticket.updated_timestamp` as a custom property, `x_opencti_updated_timestamp` — see
+  "Ticket.updated_timestamp" below.
 - Organization `related-to` IP, so the finding is actually reachable from its owning org in the
   graph (the org `Identity` itself is *looked up*, never created here — that's connector D's job).
+
+### `Ticket.updated_timestamp`
+
+Carried onto the IP↔Vulnerability relationship (not dropped after being used for the watermark,
+and deliberately not stamped onto the `Vulnerability` SDO — see below) as
+`x_opencti_updated_timestamp`, a plain custom property rather than stix2's native `modified`.
+
+Why not `modified`: OpenCTI/stix2 give that field real merge/versioning semantics, and this
+connector's own bootstrap poll can legitimately hand back tickets whose `updated_timestamp` is
+older than what's already stored for a given relationship — driving `modified` from it risks the
+platform treating an old bootstrap row as stale and silently skipping the write. A plain custom
+property carries the same information with none of that risk. Verified directly against the
+installed `stix2` library that a real `datetime.datetime` passed through `custom_properties`
+serializes correctly to a proper `Z`-suffixed ISO string, and that custom properties have no
+bearing on this relationship's id either way (it's always explicitly pinned via `existing_id`,
+never derived from its own content).
+
+Why not on the `Vulnerability` SDO: that object is deliberately minimal and shared/deduped across
+every ticket and org referencing the same CVE (see `mapping.py`'s `map_vulnerability()` docstring)
+— stamping one ticket's update time onto it would mean whichever connector run happened to touch
+that CVE last overwrites a fact that has nothing to do with the CVE itself. The relationship,
+scoped to one specific (ip, vulnerability) pair, is the correct home — the same place
+`opened_timestamp`/`closed_timestamp` already live as `start_time`/`stop_time`.
 
 A ticket that flips to `false_positive=True` on a later poll has its relationship **revoked**
 (deleted via the OpenCTI API directly, not through the STIX bundle — bundles only upsert) rather

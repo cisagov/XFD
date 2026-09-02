@@ -236,6 +236,24 @@ def build_ticket_relationship(
     bookkeeping only -- per §10a it plays no role in OpenCTI's own dedup, which is why the id
     itself is pinned via `existing_id` instead.
 
+    `updated_timestamp` (Ticket's own "last updated" column, and the value this connector's
+    watermark is COALESCE'd from -- see connector.py/db.py) is carried onto this relationship as
+    `x_opencti_updated_timestamp`, a plain custom property rather than the SRO's native
+    `modified`. Deliberately not `modified`: OpenCTI/stix2 give that field real merge/versioning
+    semantics of their own, and a bootstrap run can hand back tickets whose `updated_timestamp` is
+    genuinely in the past relative to what's already stored -- letting that drive `modified` risks
+    the platform quietly treating an old bootstrap row as stale and skipping the write. A plain
+    custom property carries the same information with none of that risk (same reasoning already
+    proven safe for connector C's `x_opencti_*` fields -- verified there that custom properties
+    don't feed a STIX object's id the way `start_time`/`stop_time` do, and it's doubly true here
+    since this relationship's id is always explicitly pinned, never derived from its own content).
+    Deliberately NOT put on the Vulnerability SDO itself -- that object is intentionally minimal
+    and shared/deduped across every ticket and org that references the same CVE (see
+    `map_vulnerability()`'s docstring); stamping one ticket's update time onto it would let
+    whichever connector run happened last overwrite a fact that has nothing to do with that CVE
+    itself. This relationship, scoped to one specific (ip, vulnerability) pair, is the right home
+    for it -- the same place opened_timestamp/closed_timestamp already live.
+
     Same defensive stop_time<=start_time guard as connector D's build_owns_cidr, for the same
     reason: STIX 2.1 requires strictly-later stop_time (verified against the installed stix2
     library -- even equal values raise ValueError), and while Ticket's timestamps are full
@@ -247,6 +265,11 @@ def build_ticket_relationship(
     stop_time = normalize_timestamp(ticket.get("closed_timestamp"))
     if start_time is not None and stop_time is not None and stop_time <= start_time:
         stop_time = None
+
+    custom_properties: Dict[str, object] = {}
+    updated_timestamp = normalize_timestamp(ticket.get("updated_timestamp"))
+    if updated_timestamp is not None:
+        custom_properties["x_opencti_updated_timestamp"] = updated_timestamp
 
     labels: List[str] = []
     if ticket.get("vuln_source"):
@@ -284,6 +307,7 @@ def build_ticket_relationship(
                 source_name=VS_EXTERNAL_SOURCE, external_id=ticket["id"]
             )
         ],
+        custom_properties=custom_properties,
     )
 
 

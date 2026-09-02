@@ -16,6 +16,13 @@ state, on every run -- independent of whatever this run's DB query happened to r
 this back into an ordinary watermark poll (`db.py`'s `since_last_seen`/`include_current`, the
 same shape as connector A's `since_last_seen`/`include_stale_open`), with staleness detection
 handled entirely in-process instead of by re-reading the source.
+
+**Revised (2026-09-02):** the Network-Traffic SCO now also carries `x_opencti_service`/
+`x_opencti_open` custom properties (see mapping.py's module docstring). `x_opencti_open` is the
+scanner's own confirmed port state (`LatestPortScan.state == "open"`), not this connector's
+recency tracking -- so unlike the lifecycle relationship, `_close_locally()` below deliberately
+leaves the SCO untouched when a port ages out locally; going unobserved for 14+ days isn't evidence
+a port closed.
 """
 
 # Standard Python Libraries
@@ -177,6 +184,9 @@ class VsPortInventoryConnector:
         # our own rule uniformly (whether a row was just fetched or aged between polls) means a
         # bootstrap-caught row that already looks stale by our own clock behaves identically to
         # one the aging sweep would catch next run, rather than two different sources of truth.
+        # Note this is recency ("current"), a wholly separate concept from nt_obj's own
+        # x_opencti_open above -- see mapping.py's module docstring for why those must not be
+        # conflated (an earlier version of this code got that wrong).
         is_current = self._is_within_cutoff(time_scanned, run_time)
         start_time, stop_time = self._resolve_lifecycle(prev, row, is_current, run_time)
 
@@ -226,6 +236,10 @@ class VsPortInventoryConnector:
             "current": is_current,
             "time_scanned": _serialize(mapping.normalize_timestamp(time_scanned)),
             "service_name": row.get("service_name"),
+            # The scanner-confirmed state, cached so a pure open<->closed flip (no other field
+            # changing) is still detected below and resent -- see mapping.py's module docstring
+            # for why this is not the same thing as "current".
+            "port_state_open": mapping.is_port_state_open(row.get("state")),
             "software_relationship_id": software_rel.id if software_rel else None,
         }
         changed = prev is None or any(
@@ -233,6 +247,7 @@ class VsPortInventoryConnector:
             for field in (
                 "current",
                 "service_name",
+                "port_state_open",
                 "software_relationship_id",
                 "stop_time",
                 "labels",
@@ -270,7 +285,14 @@ class VsPortInventoryConnector:
             self._close_locally(key, entry, run_time, objects)
 
     def _close_locally(self, key, entry, run_time, objects) -> None:
-        """Build an updated lifecycle relationship for one aged-out entry, from state alone."""
+        """Build an updated lifecycle relationship for one aged-out entry, from state alone.
+
+        Deliberately does NOT touch the Network-Traffic SCO's own x_opencti_open -- that field
+        tracks the scanner's last-confirmed state (mapping.py's module docstring), and going stale
+        here means "unobserved for 14+ days," not "confirmed closed." Only the relationship's own
+        current/stop_time -- this connector's tracking of whether the entry is still fresh enough
+        to trust -- changes when nothing but time has passed.
+        """
         rel = mapping.build_lifecycle_relationship_from_parts(
             entry["org_id"],
             entry["network_traffic_id"],
