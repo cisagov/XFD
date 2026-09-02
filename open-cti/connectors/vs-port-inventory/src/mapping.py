@@ -21,26 +21,31 @@ locally from `time_scanned` + a known cutoff, rather than re-polling for it, whi
 sometimes needs to build an updated lifecycle relationship with no fresh DB row on hand --
 `build_lifecycle_relationship_from_parts()` exists for exactly that case.
 
-Revised (2026-09-02): the Network-Traffic SCO itself now also carries `x_opencti_service` and
-`x_opencti_open` custom properties -- a quick "what/whether" snapshot readable straight off the
-observable, without following the relationship to the org for it. Safe by the same reasoning as
-`x_opencti_description` already relied on: neither key is among stix2's ID Contributing Properties
-for NetworkTraffic (verified against the installed library, same as `start`/`end` were verified to
-*be* -- see above), so varying them between polls updates the existing object in place rather than
-fragmenting it.
+Revised (2026-09-02): the Network-Traffic SCO carries a service/state summary readable straight
+off the observable, without following the relationship to the org for it -- but **not** via
+`x_opencti_service`/`x_opencti_open` custom properties, as an earlier version of this file tried.
+Verified directly against this platform's real GraphQL schema (`__type(name: "NetworkTraffic")`)
+that those two keys aren't recognized fields at all -- OpenCTI's Network-Traffic schema only
+knows a fixed set of `x_opencti_*` keys (`x_opencti_stix_ids`, `x_opencti_modified_at`,
+`x_opencti_inferences`, `x_opencti_score`, `x_opencti_description`), so anything else gets
+silently dropped on ingest. Confirmed with a real, throwaway bundle sent through a live instance
+and read back via GraphQL: `x_opencti_description` survives (already relied on below), an
+unrecognized `x_opencti_*` key does not, and a bare (non-`x_opencti_`-prefixed) `labels` custom
+property *does* land as `objectLabel` -- so that's what carries this connector's own
+service/state summary now, the same mechanism `lifecycle_labels()` already uses on the
+relationship, applied here to the SCO itself.
 
-`x_opencti_open` is **not** this connector's locally-computed recency flag (`current`/
+The state label is **not** this connector's locally-computed recency flag (`current`/
 `is_within_cutoff`) -- an earlier version of this code conflated the two, which was wrong. It's
-`LatestPortScan.state == "open"`, the scanner's own confirmed finding for this exact port on its
-most recent scan (`models.py`'s help text: "State of the port, as reported by the scanner; see
-nmap states" -- and the platform's own `PortScanSummary` rollup treats it the same way, filtering
-`WHERE ps.state = 'open'`). `state` gets overwritten in place on every rescan
-(`insert_port_scans_sql()`'s `ON CONFLICT ... DO UPDATE`), so a port that was open and is later
-rescanned closed genuinely flips this value -- independent of whether that rescan happened to also
-be within the freshness cutoff. Consequence: the aging sweep (connector.py, no fresh row on hand)
-must never touch this field -- going stale (unobserved for 14+ days) is not evidence a port closed,
-just that its last-known state is unconfirmed by anything more recent. `is_open` is computed once,
-straight off the row, by `is_port_state_open()` below.
+`LatestPortScan.state == "open"` (`is_port_state_open()` below), the scanner's own confirmed
+finding for this exact port on its most recent scan (`models.py`'s help text: "State of the port,
+as reported by the scanner; see nmap states" -- and the platform's own `PortScanSummary` rollup
+treats it the same way, filtering `WHERE ps.state = 'open'`). `state` gets overwritten in place on
+every rescan (`insert_port_scans_sql()`'s `ON CONFLICT ... DO UPDATE`), so a port that was open
+and is later rescanned closed genuinely flips this label -- independent of whether that rescan
+happened to also be within the freshness cutoff. Consequence: the aging sweep (connector.py, no
+fresh row on hand) must never touch these labels -- going stale (unobserved for 14+ days) is not
+evidence a port closed, just that its last-known state is unconfirmed by anything more recent.
 """
 
 # Standard Python Libraries
@@ -164,10 +169,38 @@ def is_port_state_open(state: Optional[str]) -> bool:
     """Reduce LatestPortScan.state (nmap-style: open/closed/filtered/...) to a plain boolean.
 
     Anything other than a literal "open" (case/whitespace-insensitive) -- closed, filtered,
-    open|filtered, missing entirely -- reads as "not confirmed open". See module docstring for why
-    this, not `current`/recency, is what x_opencti_open on the SCO actually means.
+    open|filtered, missing entirely -- reads as "not confirmed open". Feeds `network_traffic_labels()`
+    below, not `current`/recency -- see module docstring for why those are different things.
     """
     return (state or "").strip().lower() == "open"
+
+
+def _label_safe(value: str) -> str:
+    """Normalize a raw value into a plain OpenCTI label token: lower-case, hyphenated."""
+    return "-".join(value.strip().lower().split())
+
+
+def network_traffic_labels(row: Dict) -> List[str]:
+    """Compute this row's service/state summary as OpenCTI Labels on the SCO itself.
+
+    Not `x_opencti_service`/`x_opencti_open` -- verified those aren't real fields on this
+    platform's Network-Traffic schema and get silently dropped (see module docstring). `labels`
+    (bare, not `x_opencti_`-prefixed) is the confirmed-working mechanism -- verified end-to-end
+    against a real instance that it lands as `objectLabel`. `vs-state-<state>` mirrors the exact
+    label `lifecycle_labels()` already puts on the relationship, for the same row; `vs-open` is
+    an additional presence-only tag for a quick visual filter, since "is this thing open" is
+    exactly the question this connector exists to answer.
+    """
+    labels: List[str] = []
+    state = row.get("state")
+    if state:
+        labels.append(f"vs-state-{_label_safe(state)}")
+    if is_port_state_open(state):
+        labels.append("vs-open")
+    service_name = row.get("service_name")
+    if service_name:
+        labels.append(f"vs-service-{_label_safe(service_name)}")
+    return labels
 
 
 def build_network_traffic(row: Dict, ip_observable_id: str) -> stix2.NetworkTraffic:
@@ -181,16 +214,18 @@ def build_network_traffic(row: Dict, ip_observable_id: str) -> stix2.NetworkTraf
     port = row.get("port")
     if not port:
         raise ValueError("LatestPortScan row has no port")
-    # Verified against the installed stix2 library that x_opencti_* custom_properties do not
-    # feed NetworkTraffic's own id computation (unlike start/end) -- safe to vary between polls
-    # without fragmenting the SCO the way start/end would have.
-    custom_properties: Dict[str, object] = {
-        "x_opencti_open": is_port_state_open(row.get("state"))
-    }
+    # Verified against the installed stix2 library that custom_properties do not feed
+    # NetworkTraffic's own id computation (unlike start/end) -- safe to vary between polls
+    # without fragmenting the SCO the way start/end would have. This includes `labels` (verified
+    # separately, end-to-end against a real instance, that it's a real accepted field for this
+    # SCO type and not itself ID-contributing).
+    custom_properties: Dict[str, object] = {}
+    labels = network_traffic_labels(row)
+    if labels:
+        custom_properties["labels"] = labels
     service_name = row.get("service_name")
     if service_name:
         custom_properties["x_opencti_description"] = service_name
-        custom_properties["x_opencti_service"] = service_name
     return stix2.NetworkTraffic(
         src_ref=ip_observable_id,
         src_port=int(port),

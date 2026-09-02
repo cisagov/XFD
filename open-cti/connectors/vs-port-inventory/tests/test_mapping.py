@@ -92,8 +92,8 @@ def test_build_network_traffic_id_is_stable_when_service_name_changes():
 def test_build_network_traffic_id_is_stable_when_state_changes():
     """The id must not drift when the scanner-reported state flips open<->closed either.
 
-    Same reasoning as service_name above -- x_opencti_open must be free to change on a rescan
-    without fragmenting the SCO into a new object.
+    Same reasoning as service_name above -- the vs-state-*/vs-open labels must be free to change
+    on a rescan without fragmenting the SCO into a new object.
     """
     nt_open = mapping.build_network_traffic(_row(state="open"), _IP_ID)
     nt_closed = mapping.build_network_traffic(_row(state="closed"), _IP_ID)
@@ -101,24 +101,37 @@ def test_build_network_traffic_id_is_stable_when_state_changes():
 
 
 def test_build_network_traffic_open_reflects_scanner_state_not_recency():
-    """x_opencti_open must come from LatestPortScan.state == "open", not any recency notion.
+    """The "vs-open" label must come from LatestPortScan.state == "open", not any recency notion.
 
     connector.py's own `current`/staleness tracking is a wholly separate concept -- see
-    mapping.py's module docstring for why an earlier version of this code got that wrong.
+    mapping.py's module docstring for why an earlier version of this code got that wrong. Also
+    verifies the module docstring's own claim: x_opencti_open/x_opencti_service aren't real
+    fields on this platform's Network-Traffic schema (confirmed end-to-end against a live
+    instance) -- must not even be present on the built object.
     """
-    assert (
-        mapping.build_network_traffic(_row(state="open"), _IP_ID).x_opencti_open is True
-    )
+    open_nt = mapping.build_network_traffic(_row(state="open"), _IP_ID)
+    assert "vs-open" in open_nt.labels
+    assert "x_opencti_open" not in open_nt
+    assert "x_opencti_service" not in open_nt
     for closed_state in ("closed", "filtered", "open|filtered", None, "  "):
         nt = mapping.build_network_traffic(_row(state=closed_state), _IP_ID)
-        assert nt.x_opencti_open is False, closed_state
+        assert "vs-open" not in (nt.get("labels") or []), closed_state
 
 
-def test_build_network_traffic_sets_service_custom_property():
-    """x_opencti_service (and the pre-existing x_opencti_description) reflect service_name."""
+def test_build_network_traffic_sets_service_label_and_description():
+    """service_name must land as both a vs-service-* label and the existing description field.
+
+    x_opencti_description was already confirmed working before this change; the label is new.
+    """
     nt = mapping.build_network_traffic(_row(service_name="https"), _IP_ID)
-    assert nt.x_opencti_service == "https"
+    assert "vs-service-https" in nt.labels
     assert nt.x_opencti_description == "https"
+
+
+def test_build_network_traffic_labels_include_raw_state():
+    """vs-state-<state> must mirror the exact state lifecycle_labels() puts on the relationship."""
+    nt = mapping.build_network_traffic(_row(state="open|filtered"), _IP_ID)
+    assert "vs-state-open|filtered" in nt.labels
 
 
 def test_is_port_state_open_reduces_nmap_style_states_to_a_plain_boolean():

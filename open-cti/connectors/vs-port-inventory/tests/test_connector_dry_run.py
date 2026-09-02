@@ -137,11 +137,11 @@ def test_first_run_against_fixtures_produces_expected_object_shape():
     )  # Apache httpd, OpenSSH -- the telnet row has none
     # 3 lifecycle relationships + 2 deduped org->ip relationships + 2 network-traffic->software
     assert types.count("relationship") == 7
-    # x_opencti_open must mirror the fixtures' own `state` field, not recency -- all three fixture
-    # rows report state="open" (port 23's telnet row is old enough to be locally non-"current",
-    # fetched via include_current, but the scanner still last confirmed it open).
+    # The "vs-open" label must mirror the fixtures' own `state` field, not recency -- all three
+    # fixture rows report state="open" (port 23's telnet row is old enough to be locally
+    # non-"current", fetched via include_current, but the scanner still last confirmed it open).
     nt_by_port = {
-        obj["src_port"]: obj["x_opencti_open"]
+        obj["src_port"]: "vs-open" in obj.get("labels", [])
         for obj in bundle["objects"]
         if obj["type"] == "network-traffic"
     }
@@ -167,7 +167,7 @@ def test_a_pure_state_flip_still_triggers_a_resend():
     bundle = json.loads(connector.helper.sent_bundles[-1])
     nt_id = state["port_scan_state"][key]["network_traffic_id"]
     nt_obj = next(obj for obj in bundle["objects"] if obj.get("id") == nt_id)
-    assert nt_obj["x_opencti_open"] is False
+    assert "vs-open" not in nt_obj.get("labels", [])
 
 
 def test_second_identical_run_sends_no_bundle():
@@ -272,8 +272,9 @@ def test_aging_sweep_closes_a_port_that_ages_past_cutoff_without_ever_being_refe
     bundle = json.loads(connector.helper.sent_bundles[-1])
     rel_obj = next(obj for obj in bundle["objects"] if obj.get("id") == open_id)
     assert "stop_time" in rel_obj
-    # The SCO itself must NOT be resent by the aging sweep alone -- x_opencti_open tracks the
-    # scanner's confirmed state, not recency, so there's nothing new to say about it here.
+    # The SCO itself must NOT be resent by the aging sweep alone -- its vs-state-*/vs-open
+    # labels track the scanner's confirmed state, not recency, so there's nothing new to say
+    # about it here.
     nt_id = state["port_scan_state"][key]["network_traffic_id"]
     assert not any(obj.get("id") == nt_id for obj in bundle["objects"])
 

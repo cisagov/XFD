@@ -69,6 +69,54 @@ here is built from stable fields only; the lifecycle lives entirely on a separat
 `§10a`-pinned `Relationship` (org → Network-Traffic), the same idempotency pattern every other
 connector already uses.
 
+## Service/state summary on the Network-Traffic observable
+
+The Network-Traffic SCO carries a service/state summary readable straight off the observable,
+without following its relationship to the owning org — as OpenCTI **Labels**, not the
+`x_opencti_service`/`x_opencti_open` custom properties an earlier version of this connector tried.
+
+**Why not `x_opencti_*` custom properties:** verified directly against this platform's real
+GraphQL schema (`__type(name: "NetworkTraffic") { fields { name } }`) that it only recognizes a
+fixed set of `x_opencti_*` keys for this entity type (`x_opencti_stix_ids`,
+`x_opencti_modified_at`, `x_opencti_inferences`, `x_opencti_score`, `x_opencti_description`).
+Anything else — `x_opencti_service`, `x_opencti_open` — gets **silently dropped on ingest**, not
+stored anywhere, not just hidden in some "Additional information" panel. Confirmed with a real
+throwaway bundle sent through a live instance and read back via GraphQL: `x_opencti_description`
+survives (already relied on below), an unrecognized `x_opencti_*` key does not.
+
+**What actually works, verified the same way:** a bare `labels` custom property (no `x_opencti_`
+prefix) *does* land as `objectLabel` — a real, visible field on this entity type. So
+`mapping.network_traffic_labels()` puts three labels on the SCO:
+
+- **`vs-service-<name>`** — the scanner-reported service name (e.g. `vs-service-https`), when
+  known. `x_opencti_description` (OpenCTI's built-in Description field) still also gets the raw
+  service name, unchanged from before and confirmed working independently of this label.
+- **`vs-state-<state>`** — the scanner's raw, most-recently-confirmed `LatestPortScan.state`
+  (`open`/`closed`/`filtered`/`open|filtered`/...) for this exact port. The exact same value
+  `lifecycle_labels()` already puts on the relationship, for the same row.
+- **`vs-open`** — present only when `state == "open"` (`mapping.is_port_state_open()`), a
+  presence-only tag for a quick visual filter.
+
+This is **not** this connector's own recency/staleness tracking (`current`, driven by
+`time_scanned` vs `latest_port_scan_cutoff_days`) — an earlier version of this code conflated the
+two; that was wrong and got corrected before shipping. `state` is genuinely overwritten on every
+rescan (`insert_port_scans_sql()`'s `ON CONFLICT ... DO UPDATE`), and the platform's own
+`PortScanSummary` rollup already treats `state = 'open'` as the authoritative "is this port open"
+check, so this connector matches that same convention.
+
+Labels are safe to vary between polls without fragmenting the SCO into a new object each time —
+verified directly against the installed `stix2` library that custom properties (including
+`labels`) don't feed `NetworkTraffic`'s ID Contributing Properties (same verification already done
+for `start`/`end`, see the STIX id gotcha section above), and confirmed end-to-end that `labels`
+itself is a real accepted field for this SCO type.
+
+**Deliberately not touched by the aging sweep.** `_close_locally()` (a port aging out with no
+fresh row on hand) updates only the lifecycle relationship's `current`/`stop_time` — never these
+labels on the SCO. Going unobserved for `latest_port_scan_cutoff_days` is evidence this connector
+no longer trusts the record enough to keep tracking it as active, not evidence the port itself
+closed; the last scanner-confirmed state stays exactly as it was until an actual rescan says
+otherwise.
+
 ## Running it
 
 Same two modes as the other three connectors — see connector D's README for the fuller

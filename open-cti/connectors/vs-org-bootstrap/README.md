@@ -96,8 +96,66 @@ one-time fix for all environments:
 ```bash
 mkdir -p /opt/open-cti/tls
 cp /home/ec2-user/tmp/zscaler.pem /opt/open-cti/tls/zscaler.pem
+# Combined bundle for every OTHER (non-custom, image-only) service that also needs to trust
+# Zscaler at runtime -- see "Non-custom connectors" below. Portable across whatever this host's
+# own OS CA bundle path actually is (varies by distro; Amazon Linux's `ec2-user` default user
+# above suggests this box isn't Debian/Ubuntu, so don't assume /etc/ssl/certs/ca-certificates.crt
+# specifically).
+HOST_CA_BUNDLE=$(for p in /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem; do [ -f "$p" ] && echo "$p" && break; done)
+cat "$HOST_CA_BUNDLE" /opt/open-cti/tls/zscaler.pem > /opt/open-cti/tls/combined-ca-bundle.pem
 docker compose --env-file /opt/open-cti/.env up -d --build
 ```
+
+### Non-custom connectors (the official `opencti/connector-*`/`opencti/platform`/`opencti/worker` images)
+
+Everything above is about *this repo's four custom connectors*, which trust Zscaler by building
+it into their own image. The rest of `docker-compose.yml` (the stock OpenCTI platform, worker,
+and the whole catalog of official Filigran connectors — `connector-cve`, `connector-shodan`,
+`connector-mitre`, etc.) makes outbound HTTPS calls too (NVD, GitHub, Shodan, Censys, VulnCheck,
+CISA's KEV feed, Qualys...) and sits behind the exact same network-wide TLS interception — with no
+`Dockerfile`/build step of its own to install a cert into, since these are unmodified published
+images.
+
+Verified directly against OpenCTI's own public source (not assumed) that these split into two
+runtimes needing two different mechanisms:
+
+- **`opencti` (the platform itself) is Node.js** (`node:22-alpine`, confirmed via its
+  `opencti-platform/Dockerfile`). Node trusts extra CAs via `NODE_EXTRA_CA_CERTS` — genuinely
+  *additive*, unlike the Python vars below, so it only needs the bare `zscaler.pem`, not the
+  combined bundle.
+- **`worker` and every official `opencti/connector-*` image are Python + `pip`** (confirmed via
+  `opencti-worker/Dockerfile` and the `cve` connector's own `Dockerfile` — same `python:3.12-alpine`
+  base, same `requests`/pycti stack this repo's own four connectors use). Python's
+  `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE` are **not** additive — pointing them at a bare
+  `zscaler.pem` would trust Zscaler and *nothing else*, breaking normal public-CA verification for
+  any endpoint that isn't actually intercepted. That's what `combined-ca-bundle.pem` above is for:
+  the host's own already-trusted public bundle with Zscaler's root appended, the same outcome
+  Debian's `update-ca-certificates` gives the custom connectors at build time, just assembled once
+  on the host instead of inside a Dockerfile.
+
+`docker-compose.yml` mounts one of these two files (read-only) into each service that has a real
+external upstream, and sets the matching env var(s) — see the services under `OPENCTI CONNECTORS`/
+`OPENCTI DEFAULT DATA` for the concrete pattern. A few services were deliberately left alone:
+
+- Internal-only services (`worker`, `connector-export-file-*`, `connector-import-file-*`,
+  `connector-import-document`, `connector-analysis`) only ever talk to `opencti` over the internal
+  Docker network (plain `http://opencti:8080`) — no external upstream to intercept.
+- `xtm-one`/`xtm-one-worker` almost certainly also need this -- their `postgresql+asyncpg`
+  `DATABASE_URL` strongly implies Python (SQLAlchemy's async-Postgres dialect naming, a
+  Python-only convention), and `PLATFORM_REGISTRATION_TOKEN` suggests an outbound
+  licensing/registration call to Filigran. Applied the same Python treatment on that inference --
+  no public Dockerfile found for `xtmone/platform`/`xtmone/worker` to confirm it directly the way
+  `opencti`/`worker`/the connectors above were, so this one's worth confirming against real
+  container logs rather than trusting as firmly as the rest of this section.
+- `xtm-composer` (`filigran/xtm-composer`) was left alone entirely -- no comparable signal at all
+  (no `DATABASE_URL`-style clue, no public Dockerfile), and its own config here shows no external
+  URL besides the internal `http://opencti:8080` (it manages the `xtm-one`/`xtm-one-worker`
+  containers via the mounted Docker socket, not outbound HTTPS of its own). Worth revisiting if it
+  turns out to make outbound calls this config doesn't show.
+- `connector-qualys-cve-enrichment` previously worked around this exact problem with
+  `QUALYS_SSL_VERIFY=false` — disabling verification entirely rather than trusting the
+  intercepting CA properly. That flag should come back out now that this connector has a real
+  trust path instead.
 
 ## Known gaps / things to verify before this is production-ready
 
