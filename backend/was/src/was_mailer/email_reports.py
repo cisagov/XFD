@@ -17,6 +17,7 @@ from was_mailer.message import (
     recipient_addresses,
     unique_addresses,
 )
+from was_mailer.ses_client import create_ses_client
 from was_reports.data.daily_report_tracker import (
     list_ready_assignee_digests_from_db,
     mark_assignee_digest_emailed,
@@ -104,10 +105,7 @@ def send_report_run_email(
         if ses_client is not None:
             client = ses_client
         else:
-            # Third-Party Libraries
-            import boto3
-
-            client = boto3.client("ses")
+            client = create_ses_client()
         message_id = send_message(client, message)
         delivery_accepted = True
         mark_report_run_emailed_by_id(report_run_id, message_id)
@@ -167,10 +165,7 @@ def send_assignee_digest_email(
         if ses_client is not None:
             client = ses_client
         else:
-            # Third-Party Libraries
-            import boto3
-
-            client = boto3.client("ses")
+            client = create_ses_client()
         message_id = send_message(client, message)
         mark_assignee_digest_success_for_dates(assignee_digest, message_id)
         return message_id

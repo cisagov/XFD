@@ -87,11 +87,29 @@ WAS_REPORTS_PREFIX=was_reports
 WAS_PASSWORD_LENGTH=24
 AWS_DEFAULT_REGION=us-east-1
 WAS_EMAIL_SOURCE=verified-sender@example.gov
-WAS_SES_PROFILE=replace-me
+WAS_SES_ROLE_ARN=arn:aws:iam::246048611598:role/SesSendEmail-cyber.dhs.gov
 ```
 
 Do not commit `.env`, database passwords, Qualys credentials, or generated
 reports.
+
+SES report and tracker-digest delivery assume `WAS_SES_ROLE_ARN` using the
+default AWS credential chain, which uses the EC2 instance role when no higher
+priority credentials are configured. Temporary SES credentials refresh
+automatically in memory. S3 continues using its own default credentials.
+No `was-ses` profile, credentials-file mount, or static access keys are required.
+The EC2 role must allow `sts:AssumeRole` on the sending role, that role must
+trust the EC2 role, and the sending role must permit `ses:SendRawEmail` for the
+approved sender identity. Role-assumption failures fail delivery without
+falling back to the EC2 role for SES.
+
+On EC2, replace the unused `WAS_SES_PROFILE` entry in `.env` with the
+`WAS_SES_ROLE_ARN` entry above, retain `AWS_DEFAULT_REGION=us-east-1`, and set
+`WAS_EMAIL_SOURCE` to your approved sender. Leave the role ARN blank only
+when intentionally using default credentials for direct SES delivery.
+After pulling code updates, run `make build` before running the mailer or menu.
+Verify the actual report mailer with an approved test recipient; an SES
+message ID indicates acceptance, not confirmed delivery.
 
 The modern WAS code reads constants from `backend/was/.env` during local
 execution. In a container, pass the same file with `docker run --env-file .env`.
