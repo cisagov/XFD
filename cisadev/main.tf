@@ -17,7 +17,8 @@ resource "aws_instance" "cisadev_xfd_gh_actions_runner_ec2" {
   }
   user_data = <<-EOF
     #!/bin/bash
-    set -euxo pipefail
+    # NOTE: intentionally NOT using 'set -x' — command tracing would write the runner registration token (passed to config.sh) into the bootstrap log in
+    set -euo pipefail
 
     LOG=/var/log/bootstrap-runner.log
     exec > >(tee -a "$LOG") 2>&1
@@ -31,11 +32,29 @@ resource "aws_instance" "cisadev_xfd_gh_actions_runner_ec2" {
     apt-get install -y ca-certificates curl tar wget perl unzip dpkg
 
     # --- Install AWS CLI v2 (if missing) ---
+    # AWS CLI is required to pull the CrowdStrike installer from S3.
+    # The installer zip is GPG-verified against AWS's published signing key (fingerprint pinned) before execution to avoid running an unverified download as root.
     if ! command -v aws >/dev/null 2>&1; then
       echo "[$(date -Is)] Installing AWS CLI v2..."
+      apt-get install -y gnupg
       TMPDIR="$(mktemp -d)"
       cd "$TMPDIR"
+
+      # Pinned AWS CLI Team signing key fingerprint.
+      AWS_CLI_FPR="FB5DB77FD5C118B80511ADA8A6310ACC4672475C"
+
+      # Fetch the key from AWS's published location and confirm the fingerprint matches the pinned value before trusting it.
+      curl -fsSL "https://awscli.amazonaws.com/aws-cli.gpg" -o aws-cli.gpg 2>/dev/null \
+        || curl -fsSL "https://awscli.amazonaws.com/awscli.pub" -o aws-cli.gpg
+      gpg --import aws-cli.gpg
+      if ! gpg --fingerprint "$AWS_CLI_FPR" >/dev/null 2>&1; then
+        echo "ERROR: AWS CLI signing key fingerprint did not match pinned value. Aborting."
+        exit 1
+      fi
+
       curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+      curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip.sig" -o awscliv2.sig
+      gpg --verify awscliv2.sig awscliv2.zip
       unzip -q awscliv2.zip
       ./aws/install
       cd /
