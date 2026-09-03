@@ -6,7 +6,6 @@ import random
 import time
 from typing import Any, Callable
 
-# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys import report_data
 from was_reports.qualys.qualys_client import (

@@ -3,28 +3,19 @@
 # Standard Python Libraries
 import argparse
 import sys
-from pathlib import Path
 from typing import List, Optional
 
 # First-Party Libraries
-from was_reports.tracker.qualys_adapter import install_tracker_setup_module
-
-UPDATE_TRACKER_ROOT = (
-    Path(__file__).resolve().parents[3] / "update_tracker" / "update_tracker"
-)
-
-
-def ensure_update_tracker_path() -> None:
-    """Add the bundled tracker implementation directory to the import path."""
-    path_value = str(UPDATE_TRACKER_ROOT)
-    if path_value not in sys.path:
-        sys.path.insert(0, path_value)
+from was_reports.qualys.qualys_client import create_qualys_client
+from was_reports.tracker.service import refresh_daily_tracker
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse WAS update tracker CLI arguments."""
     parser = argparse.ArgumentParser(
-        description="Run the WAS daily tracker update from Qualys into Postgres.",
+        description=(
+            "Run the WAS daily tracker update from Qualys into Postgres."
+        ),
     )
     parser.add_argument(
         "--delete-apps",
@@ -49,14 +40,9 @@ def run_update_tracker(
     delete_apps: bool,
     stakeholder_tag: Optional[str] = None,
 ) -> None:
-    """Run the tracker workflow through the WAS-owned Qualys boundary."""
-    ensure_update_tracker_path()
-    install_tracker_setup_module()
-
-    # First-Party Libraries
-    from main import main as update_tracker_main
-
-    update_tracker_main(
+    """Run the WAS-owned Qualys-to-Postgres tracker workflow."""
+    refresh_daily_tracker(
+        client=create_qualys_client(),
         delete_apps=delete_apps,
         stakeholder_tag=stakeholder_tag,
     )

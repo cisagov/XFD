@@ -1,16 +1,17 @@
 # WAS Reporting
 
 WAS Reporting generates Web Application Scanning PDF reports from Qualys data.
-The production implementation runs from `src/was_reports`. The frozen legacy
-PDF generator remains packaged only for controlled report comparisons.
+The production implementation runs from `src/was_reports` and
+`src/was_mailer`. Legacy source directories may be retained outside the
+container for historical comparison, but they are not packaged or executable
+through supported commands.
 
 ## Current Architecture
 
 - `was-report-batch` is the default container command for scheduled reports.
 - `was-reports` generates or manages one stakeholder report.
 - `src/was_reports/commands` contains container command implementations. The
-  report generator validates CLI input and calls the production pipeline by
-  default. An explicit comparison flag can call the frozen legacy creator.
+  report generator validates CLI input and calls only the production pipeline.
 - `src/was_reports/qualys` provides the WAS-owned Qualys API boundary and
   migrated report-data helpers
   for tag lookup, app counts, report creation, XML download, status checks, and
@@ -22,8 +23,9 @@ PDF generator remains packaged only for controlled report comparisons.
 - `src/was_reports/resources` contains the production report template, Qualys
   XML templates, images, fonts, PDF backgrounds, watermark, and redaction
   helpers.
-- `src/was_reports/tracker` contains assignee allocation and CSV export logic.
-- `was_report/WAS_report_creator.py` is the frozen comparison implementation.
+- `src/was_reports/tracker` contains Qualys schedule and scan discovery,
+  scan-slice consolidation, assignee allocation, Postgres tracker updates, and
+  CSV export logic.
 - `src/was_reports/data/stakeholders.py` reads stakeholder report metadata and
   updates scan status fields in Postgres.
 - `src/was_reports/data/report_runs.py` records scheduled report execution
@@ -38,16 +40,11 @@ PDF generator remains packaged only for controlled report comparisons.
   attachments or operator review.
 - `src/was_reports/tracker/assignments.py` assigns tracker rows to active assignees
   using round-robin distribution.
-- `update_tracker/update_tracker` now writes daily tracker output to
-  `was_daily_report_tracker` instead of saving the daily tracker XLSX file.
 - `src/was_reports/utils/database.py` creates Postgres connections from
   environment variables.
 - `src/was_reports/utils/passwords.py` generates and validates WAS report
   passwords.
 - `worker/was-report-start.sh` runs the scheduled report batch command.
-- `reporting.py` is a compatibility wrapper for `was-report-batch`; it no
-  longer owns XLSX tracker orchestration, nested Docker execution, or DynamoDB
-  password lookup.
 
 ## Local Environment File
 
@@ -81,7 +78,7 @@ WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
 WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=1800
 WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
-WAS_OUTPUT_DIRECTORY=/WAS_REPORT_GENERATION/docs
+WAS_OUTPUT_DIRECTORY=/output
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
 WAS_REPORT_STAGING_DIRECTORY=/tmp/was-report-storage
 WAS_REPORT_STORAGE=s3
@@ -90,6 +87,7 @@ WAS_REPORTS_PREFIX=was_reports
 WAS_PASSWORD_LENGTH=24
 AWS_DEFAULT_REGION=us-east-1
 WAS_EMAIL_SOURCE=verified-sender@example.gov
+WAS_SES_PROFILE=replace-me
 ```
 
 Do not commit `.env`, database passwords, Qualys credentials, or generated
@@ -160,7 +158,7 @@ and mount an output directory:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v "$(pwd)/local-output:/WAS_REPORT_GENERATION/docs" \
+  -v "$(pwd)/local-output:/output" \
   was-reporting \
   --storage-mode local \
   --limit 1
@@ -247,32 +245,16 @@ when performing development or report comparison:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
+  -v /local/output:/output \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG"
 ```
 
-The production pipeline is the default. To generate the frozen legacy report
-for comparison, add the explicit legacy flag:
-
-```bash
-docker run --rm \
-  --env-file .env \
-  -v "$(pwd)/local-output:/WAS_REPORT_GENERATION/docs" \
-  was-reporting \
-  was-reports \
-  -t "CUSTOMER_TAG" \
-  --encrypt "TEST_PASSWORD" \
-  --use-legacy-pipeline
-```
-
 Do not place a production password directly in interactive shell history.
 Normal operation resolves the stakeholder password from Postgres by omitting
-`--encrypt`. The production route always requires
-encryption and deletes its isolated temporary workspace after completion.
-When the comparison route invokes the legacy creator, it passes the resolved
-password through standard input rather than a command-line argument.
+`--encrypt`. The production route always requires encryption and deletes its
+isolated temporary workspace after completion.
 
 Before Qualys credentials are available, run the offline container smoke test.
 It uses representative XML with the real Mustache template, static report
@@ -284,7 +266,7 @@ docker run --rm \
   -v "$(pwd):/workspace:ro" \
   -v "$(pwd)/local-output/offline-smoke:/offline-output" \
   --entrypoint python \
-  was-reporting:extracted-validation \
+  was-reporting \
   /workspace/scripts/offline_pipeline_smoke.py \
   --resource-root /WAS_REPORT_RESOURCES \
   --fixture /workspace/tests/fixtures/was_report_sample.xml \
@@ -301,7 +283,7 @@ password on the command line:
 ```bash
 read -s WAS_REPORT_COMPARISON_PASSWORD
 export WAS_REPORT_COMPARISON_PASSWORD
-was-compare-reports /path/to/legacy.pdf /path/to/extracted.pdf
+was-compare-reports /path/to/approved-baseline.pdf /path/to/generated.pdf
 unset WAS_REPORT_COMPARISON_PASSWORD
 ```
 
@@ -312,32 +294,18 @@ annotations produced by XeLaTeX `attachfile2`. It never writes a decrypted
 report to disk or prints the password.
 
 Follow `docs/live_qualys_equivalence_runbook.md` for the complete approved
-nonproduction validation sequence, required test matrix, cleanup checks, and
-cutover criteria.
+nonproduction production-validation sequence and cleanup checks.
 
 Generate a report and create a stakeholder password if one does not exist:
 
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
+  -v /local/output:/output \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" \
   --create-missing-password
-```
-
-Allow an unencrypted legacy comparison only when intentionally approved:
-
-```bash
-docker run --rm \
-  --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
-  was-reporting \
-  was-reports \
-  --tag "CUSTOMER_TAG" \
-  --allow-unencrypted \
-  --use-legacy-pipeline
 ```
 
 ### Manage Report Passwords
@@ -351,7 +319,7 @@ Create a missing password for a stakeholder during report generation:
 ```bash
 docker run --rm \
   --env-file .env \
-  -v /local/output:/WAS_REPORT_GENERATION/docs \
+  -v /local/output:/output \
   was-reporting \
   was-reports \
   --tag "CUSTOMER_TAG" --create-missing-password
@@ -376,9 +344,9 @@ docker exec -it WAS_CONTAINER_NAME \
 ```
 
 The password remains the stakeholder password until a change request updates it.
-The production pipeline uses the password in-process. The legacy comparison
-route passes it through standard input, so it is not exposed in process
-arguments.
+The production pipeline uses the password in-process. The report comparator
+reads its password from `WAS_REPORT_COMPARISON_PASSWORD`, so the value does not
+need to appear in process arguments.
 
 ### Manage Stakeholder Contacts
 
@@ -828,7 +796,7 @@ was-reports --tag "CUSTOMER_TAG" --change-password
 
 ## Export Sanitized XML
 
-Export the legacy XML-only report for one stakeholder from the container. The
+Export a sanitized XML-only report for one stakeholder from the container. The
 command removes Qualys company and user metadata before writing the file.
 
 ```bash
@@ -986,6 +954,7 @@ bash -n backend/was/worker/was-report-start.sh
 - The legacy `No NWS Deletions` special-cases workbook is replaced by Postgres
   `was_special_cases`.
 - The current password model is stakeholder-level, not per-report.
-- The legacy PDF generator has not yet been rewritten to ReportLab.
-- The next refactor should split Qualys retrieval, report transformation, PDF
-  generation, encryption, and delivery into separate WAS-owned modules.
+- The production PDF generator preserves the approved Mustache and XeLaTeX
+  report format. A future ReportLab rewrite remains a separate project phase.
+- Qualys retrieval, report transformation, PDF generation, encryption,
+  storage, and delivery are separated into WAS-owned modules under `src`.

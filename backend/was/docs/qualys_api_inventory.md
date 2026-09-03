@@ -15,9 +15,10 @@ Keep this file updated whenever WAS API usage changes.
 - The active container entrypoint calls `was-report-batch`.
 - `was-report-batch` selects due stakeholders from Postgres and delegates one
   report at a time to `was-reports`.
-- `was-reports` still executes the legacy report creator as a subprocess.
-- `was_reports.qualys.qualys_client` is the WAS-owned API boundary for new or migrated
-  Qualys calls.
+- `was-reports` executes only the production implementation under
+  `src/was_reports`.
+- `was_reports.qualys.qualys_client` is the WAS-owned API boundary for all
+  production Qualys calls.
 - The legacy report output format remains unchanged until the later ReportLab
   migration phase.
 
@@ -27,7 +28,7 @@ These calls are required for the current single-page PDF report generation path.
 
 | Endpoint | Method | Legacy Function | Purpose | Payload Source | Response Use | Migration Risk |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/create/was/report` | `POST` | `create_webapp_report_v2` | Creates the XML WAS report for a stakeholder tag. | `was_report/assets/was_report.xml` with template, target tag, report name, and XML format. | Reads `responseCode` and `data.Report.id`. | High, template IDs and response fields must be verified against current Qualys WAS API docs. |
+| `/create/was/report` | `POST` | `create_webapp_report_v2` | Creates the XML WAS report for a stakeholder tag. | `src/was_reports/resources/assets/was_report.xml` with template, target tag, report name, and XML format. | Reads `responseCode` and `data.Report.id`. | High, template IDs and response fields must be verified against current Qualys WAS API docs. |
 | `/download/was/report/<id>` | `GET` | `get_report` | Downloads generated XML report content. | Report ID from `/create/was/report`. | XML is parsed into findings, charts, summaries, and appendix data. | High, XML schema changes can alter report output. |
 | `/count/was/finding` | Not explicitly set by legacy call | `max_age` | Counts open critical and urgent findings by date range. | XML filter payload built in code. | Used for max-age calculations and trend context. | Medium, date filters and finding status semantics must be verified. |
 | `/search/was/finding` | `POST` | `get_ssn_and_cc` | Searches findings that indicate SSN or credit-card exposure. | XML filter payload built in code for relevant QIDs. | Parses payload request links for sensitive-data appendix fields. The exact HTTP 400 `Module is not supported for this agent` response is logged and represented as unavailable data so report generation can continue. Other API errors remain fatal. | High, sensitive-data handling and QID assumptions need explicit validation. |
@@ -35,20 +36,21 @@ These calls are required for the current single-page PDF report generation path.
 
 ## Required For Detail Attachments
 
-These calls support detail-report PDF attachments created by the legacy script.
+These calls support detail-report PDF attachments created by the production
+report service.
 
 | Endpoint | Method | Legacy Function | Purpose | Payload Source | Response Use | Migration Risk |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/create/was/report` | `POST` | `create_details_report` | Creates a Qualys PDF detail report for a tag or web application ID. | `was_report/assets/was_report.xml` or `was_report/assets/was_report_details.xml`. | Reads `responseCode` and `data.Report.id`. | High, template ID `2201149` should be confirmed for the target Qualys subscription. |
-| `/download/was/report/<id>` | `GET` outside `qgc` | `download_report` | Downloads the Qualys-generated PDF detail report. | Direct `requests.Session` call using credentials from `[info]`. | Writes detail PDF, watermarks it, and redacts it. | High, this bypasses `qualysapi` and should move behind the WAS-owned client boundary. |
+| `/create/was/report` | `POST` | `create_details_report` | Creates a Qualys PDF detail report for a tag or web application ID. | Production templates under `src/was_reports/resources/assets`. | Reads `responseCode` and `data.Report.id`. | High, template ID `2201149` should be confirmed for the target Qualys subscription. |
+| `/download/was/report/<id>` | `GET` through the WAS direct-download boundary | `download_report` | Downloads the Qualys-generated PDF detail report. | Environment-backed credentials and the shared timeout and retry policy. | Writes detail PDF, watermarks it, and redacts it. | Medium, direct-download authentication and response handling require live validation. |
 | `/delete/was/report/<id>` | Not explicitly set by legacy call | `delete_report` | Deletes temporary Qualys reports after use. | Report ID. | Used as cleanup. | Medium, cleanup failure could leave reports in Qualys. |
 | `/status/was/report/<id>` | `GET` | `get_report_status` | Checks generated report status. | Report ID. | Determines when report download can proceed. | Medium, polling states and timeout behavior need explicit handling. |
 
 ## Migrated API Boundary Coverage
 
-The following legacy call patterns now have WAS-owned wrappers in
-`was_reports.qualys.report_data`. These wrappers are covered by unit tests but are not
-yet wired into the legacy report execution path.
+The following original call patterns have WAS-owned wrappers in
+`was_reports.qualys.report_data`. These wrappers are used by the production
+report and tracker workflows and are covered by unit tests.
 
 | Legacy Function | Migrated Function |
 | --- | --- |
@@ -65,22 +67,21 @@ yet wired into the legacy report execution path.
 | `watermarker` | `pdf_helpers.apply_watermark` |
 | `unfirstpagify` | `pdf_helpers.remove_first_page` |
 
-## Legacy Operations Requiring Later Migration
+## Administrative And Inventory Coverage
 
-These calls exist in the original WAS code and must be accounted for in the WAS
-modernization effort. They are not part of the first scheduled report-generation
-path being migrated, but they should not be treated as out of scope. Each one
-needs a later migration decision, test coverage, and an operator or service
-boundary before the legacy script is retired.
+These original operations are either exposed through production commands or
+explicitly awaiting a stakeholder decision. They do not execute historical
+source files.
 
 | Endpoint | Method | Legacy Function | Purpose | Migration Recommendation |
 | --- | --- | --- | --- | --- |
-| `/search/am/tag` | `POST` | `tag_dict_v2`, `app_find` | Looks up Qualys asset-management tags and descriptions. | Migrate behind a WAS-owned read-only Qualys tag service if stakeholder metadata or tag reconciliation still depends on Qualys. |
-| `/count/was/webapp` | `POST` | `app_count`, `app_numbering` | Counts web applications by tag. | Migrate as a read-only inventory or validation function and compare against `was_stakeholders.num_web_apps`. |
-| `/update/was/webapp/<id>` | `POST` | `add_tag`, `remove_tag`, `falsepos`, `reactivate_webapp` | Mutates Qualys web application settings, tags, false positives, or status. | Migrate behind a separate administrative command or service path with explicit authorization, audit logging, and least-privilege IAM or secret access. |
-| `/delete/was/webapp/<id>` | `POST` | `delete_webapp` | Deletes web applications from Qualys. | Migrate only as a separate destructive administrative operation with confirmation, audit logging, and restricted operator permissions. |
-| `/count/was/webapp` plus repeated tag iteration | `POST` | `app_numbering`, `app_numbering_V2` | Generates web application counts for all tags. | Migrate as a reconciliation command if still needed for stakeholder onboarding or scheduled data quality checks. |
-| `/user.php` | Not explicitly set by legacy call | `list_users` | Lists Qualys users. | Migrate only if administrative visibility is required. Keep separate from report generation and restrict access. |
+| `/search/am/tag` | `POST` | `tag_dict_v2`, `app_find` | Looks up Qualys asset-management tags and descriptions. | Implemented through `was-inventory`, report generation, and guarded `was-admin` commands. |
+| `/count/was/webapp` | `POST` | `app_count`, `app_numbering` | Counts web applications by tag. | Implemented through `was-inventory`, report generation, and tracker refresh. |
+| `/update/was/webapp/<id>` | `POST` | `add_tag`, `remove_tag` | Mutates Qualys web application tags. | Implemented through `was-admin add-tag` and `was-admin remove-tag`, both requiring explicit confirmation. |
+| `/ignore/was/finding` | `POST` | `falsepos` | Marks a finding as a false positive. | Implemented through `was-admin false-positive` with explicit confirmation. |
+| `/create/was/webapp` | `POST` | `reactivate_webapp` | Reactivates a web application with a replacement tag set. | Implemented through `was-admin reactivate` with explicit confirmation. |
+| `/delete/was/webapp` | `POST` | `delete_webapp` | Removes a web application from the Qualys subscription. | Implemented through `was-admin delete-webapp` and the opt-in tracker `--delete-apps` path. |
+| `/user.php` | Original method not explicit | `list_users` | Lists Qualys users. | Not exposed because no active original command called this function. Add a restricted command only if stakeholders confirm an operational need. |
 
 ## Current Concerns To Resolve
 
@@ -88,16 +89,14 @@ boundary before the legacy script is retired.
   execution those constants come from `backend/was/.env`; production should use
   AWS Secrets Manager or SSM Parameter Store to inject the same constants at
   runtime.
-- The legacy script creates `qgc` at import time. Migrated code should create
-  clients inside functions so tests do not connect to Qualys.
 - Some report downloads use direct `requests.Session` authentication instead of
   the `qualysapi` connection. These downloads use the same WAS-owned timeout and
   retry policy, but authentication remains specific to the direct download path.
-- Several Qualys endpoints mutate assets or delete records. Those should be
-  migrated into separate administrative paths with explicit authorization,
-  audit logging, and restricted operator access.
-- Template IDs are hardcoded in the legacy script. The modernization should move
-  those IDs into validated configuration.
+- Qualys mutation commands are separated from report generation and require
+  explicit confirmation. Durable centralized audit retention still depends on
+  the deployed logging configuration.
+- Report template IDs remain constants for output compatibility. Validate them
+  against each target Qualys subscription before deployment.
 - Qualys XML response parsing is tightly coupled to current response shape. Any
   API update should be tested with representative XML fixtures before deployment.
 

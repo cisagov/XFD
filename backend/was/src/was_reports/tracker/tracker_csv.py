@@ -69,7 +69,10 @@ def tracker_rows_to_csv_text(rows: List[DailyReportTrackerRow]) -> str:
     return output.getvalue()
 
 
-def write_tracker_csv(rows: List[DailyReportTrackerRow], output_path: Path) -> None:
+def write_tracker_csv(
+    rows: List[DailyReportTrackerRow],
+    output_path: Path,
+) -> None:
     """Write tracker rows to a CSV file."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(tracker_rows_to_csv_text(rows), encoding="utf-8")

@@ -220,7 +220,7 @@ def execute_retryable_operation(
 
 
 class QualysClient:
-    """Small wrapper around the legacy Qualys API connection object."""
+    """Retry-aware wrapper around the Qualys API connector."""
 
     def __init__(
         self,
@@ -248,7 +248,7 @@ class QualysClient:
         )
 
     def _request_once(self, qualys_request: QualysRequest) -> str:
-        """Execute one Qualys request using the legacy connection interface."""
+        """Execute one request through the Qualys connector interface."""
         if qualys_request.payload is None and qualys_request.http_method is None:
             return self._connection.request(qualys_request.endpoint)
 

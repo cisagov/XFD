@@ -165,7 +165,7 @@ def run_due_reports(
     include_retired: bool = False,
     limit: Optional[int] = None,
     continue_on_error: bool = False,
-    output_directory: str = "/WAS_REPORT_GENERATION/docs",
+    output_directory: str = "/output",
     storage_mode: str = S3_STORAGE,
     staging_directory: str = DEFAULT_STAGING_DIRECTORY,
 ) -> int:
@@ -241,7 +241,7 @@ def run_recent_scan_reports(
     stakeholder_tag: Optional[str] = None,
     limit: Optional[int] = None,
     continue_on_error: bool = True,
-    output_directory: str = "/WAS_REPORT_GENERATION/docs",
+    output_directory: str = "/output",
     storage_mode: str = S3_STORAGE,
     staging_directory: str = DEFAULT_STAGING_DIRECTORY,
     send_email: bool = False,
@@ -486,7 +486,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-directory",
-        default=getenv("WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"),
+        default=getenv("WAS_OUTPUT_DIRECTORY", "/output"),
         help="Directory where generated WAS PDF reports are written.",
     )
     parser.add_argument(

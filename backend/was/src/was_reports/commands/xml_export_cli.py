@@ -79,7 +79,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse XML export command-line arguments."""
     default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
     default_output_directory = getenv(
-        "WAS_OUTPUT_DIRECTORY", "/WAS_REPORT_GENERATION/docs"
+        "WAS_OUTPUT_DIRECTORY", "/output"
     )
 
     parser = argparse.ArgumentParser(
