@@ -6,13 +6,16 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+# First-Party Libraries
+from was_reports.tracker.qualys_adapter import install_tracker_setup_module
+
 UPDATE_TRACKER_ROOT = (
     Path(__file__).resolve().parents[3] / "update_tracker" / "update_tracker"
 )
 
 
 def ensure_update_tracker_path() -> None:
-    """Add the legacy update tracker package directory to the import path."""
+    """Add the bundled tracker implementation directory to the import path."""
     path_value = str(UPDATE_TRACKER_ROOT)
     if path_value not in sys.path:
         sys.path.insert(0, path_value)
@@ -46,8 +49,9 @@ def run_update_tracker(
     delete_apps: bool,
     stakeholder_tag: Optional[str] = None,
 ) -> None:
-    """Run the legacy update tracker workflow."""
+    """Run the tracker workflow through the WAS-owned Qualys boundary."""
     ensure_update_tracker_path()
+    install_tracker_setup_module()
 
     # First-Party Libraries
     from main import main as update_tracker_main

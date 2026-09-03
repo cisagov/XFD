@@ -61,8 +61,14 @@ class UpdateTrackerCliTests(unittest.TestCase):
             finally:
                 sys.path = original_path
 
-    def test_run_update_tracker_calls_legacy_main(self) -> None:
-        """Call the legacy update tracker main function with delete setting."""
+    @patch(
+        "was_reports.commands.update_tracker_cli.install_tracker_setup_module"
+    )
+    def test_run_update_tracker_calls_tracker_main(
+        self,
+        mock_install_tracker_setup_module,
+    ) -> None:
+        """Install the adapter before calling the tracker workflow."""
         calls = []
         fake_module = types.ModuleType("main")
 
@@ -86,6 +92,7 @@ class UpdateTrackerCliTests(unittest.TestCase):
                 sys.modules["main"] = original_module
 
         self.assertEqual(calls, [(True, "CUSTOMER")])
+        mock_install_tracker_setup_module.assert_called_once_with()
 
     def test_tracker_main_scopes_schedule_discovery(self) -> None:
         """Filter schedules before processing unrelated stakeholder data."""
