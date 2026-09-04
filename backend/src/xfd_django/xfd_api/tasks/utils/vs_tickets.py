@@ -127,7 +127,7 @@ def fetch_ticket_chunks_frozen_multi_org(
     end_param = to_utc_naive(ps_end_dt)
 
     while True:
-        where_parts = [
+        where_parts: list[sql.Composable] = [
             sql.SQL('"last_change" >= %s'),
             sql.SQL('"last_change" < %s'),
         ]
