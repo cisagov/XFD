@@ -6,6 +6,71 @@ The production implementation runs from `src/was_reports` and
 container for historical comparison, but they are not packaged or executable
 through supported commands.
 
+## Quick Start: Docker On EC2
+
+Operators need Git, Make, a running Docker engine, and approved repository
+access. Python and a uv environment are not required on the host for container
+commands. The EC2 instance also needs database and Qualys connectivity, S3
+permissions, and permission to assume the configured SES sending role.
+
+### First Checkout And Build
+
+From your EC2 home directory, clone the current WAS development branch using
+your approved GitHub SSH access. Do not repeat the clone if this checkout
+already exists; use the update cycle below instead.
+
+```bash
+mkdir -p ~/code
+cd ~/code
+git clone --branch cd_WAS_update --single-branch \
+  git@github.com:cisagov/XFD.git cd_WAS_update
+cd cd_WAS_update/backend/was
+./scripts/create-local-env.sh
+```
+
+Populate `.env` using the **Local Environment File** instructions below before
+running any commands against live services. The setup script will not overwrite
+an existing `.env`. Never commit credentials or paste them into logs.
+
+```bash
+make build
+make menu
+```
+
+For an approved standalone functional test, select **Report generation**, then
+**5, Generate a new on-demand report**. Enter the approved stakeholder tag and
+recipient, and leave the tracker ID blank unless intentionally linking an
+existing test tracker row. This generates a PDF, archives it to S3, and
+optionally emails it. It does not require recent-scan eligibility.
+
+### Update And Rebuild Cycle
+
+Finish or reconcile active report jobs before updating. Inspect the checkout
+first; if the branch is not `cd_WAS_update` or there are local source changes,
+resolve that before pulling. Do not discard local work or force-reset it.
+
+```bash
+cd ~/code/cd_WAS_update
+git branch --show-current
+git status --short
+git pull --ff-only origin cd_WAS_update
+cd backend/was
+make build
+make menu
+```
+
+Only continue if the pull and build succeed. Pulling source does not update the
+container image. Rebuild after Python, dependency, template/resource, Dockerfile,
+or worker-script changes. Menu and Make commands do not rebuild automatically.
+Already-running containers retain their original image; new runs use the newly
+built image.
+
+Changes only to `.env` do not require a build; start a new container to load
+them. Compare updated `dev.env` with your local configuration after pulls and
+add required keys without replacing secrets. Documentation-only changes do not
+require rebuilding. After an approved live test, verify the S3 object, database
+run status, inbox delivery, and PDF content, not just the exit code.
+
 ## Current Architecture
 
 - `was-report-batch` is the default container command for scheduled reports.
@@ -197,9 +262,9 @@ with the Python executable for your active `uv` environment.
 
 ## Operator Usage
 
-The WAS software is intended to run inside a container. Operators should use
-Docker commands locally, or ECS task commands after the workload is deployed to
-AWS.
+The WAS software runs inside Docker containers, locally or on the WAS EC2
+instance. ECS/serverless deployment is future work and is not part of the
+current operator workflow.
 
 Use `docker run` when starting a new one-off WAS report container. Use
 `docker exec -it` only when a WAS container is already running.
@@ -906,8 +971,8 @@ docker run --rm --env-file .env was-reporting was-admin \
 
 Use only approved nonproduction targets until the commands have completed live
 Qualys validation. Container output records whether the requested operation
-completed, but durable centralized audit-log retention depends on the final ECS
-logging configuration.
+completed. On EC2, configure approved persistent log collection and retention;
+transient container output alone is not a durable centralized audit log.
 
 ## Makefile Shortcuts
 
