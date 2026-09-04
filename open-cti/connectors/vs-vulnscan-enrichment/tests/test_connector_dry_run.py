@@ -72,8 +72,28 @@ class StubHelper:
         return [bundle]
 
 
-def build_test_connector():
-    """Build a VsVulnscanEnrichmentConnector wired to fixtures and a StubHelper."""
+class FailingSendHelper(StubHelper):
+    """StubHelper whose send_stix2_bundle() raises instead of capturing, on demand.
+
+    Models the failed-send/retry path: `fail_sends` starts True so the first
+    process_message() call fails after state has already been read but before any bundle
+    is actually accepted, then flips to False so a subsequent retry goes through normally.
+    """
+
+    def __init__(self):
+        """Start in failing mode -- the first send this test drives must raise."""
+        super().__init__()
+        self.fail_sends = True
+
+    def send_stix2_bundle(self, bundle, **kwargs):
+        """Raise instead of capturing while `fail_sends` is set, else behave like the base stub."""
+        if self.fail_sends:
+            raise RuntimeError("simulated OpenCTI bundle submission failure")
+        return super().send_stix2_bundle(bundle, **kwargs)
+
+
+def build_test_connector(helper=None):
+    """Build a VsVulnscanEnrichmentConnector wired to fixtures and the given (or a fresh) stub."""
     config = Config(
         raw={
             "vs_vulnscan_enrichment": {
@@ -85,7 +105,7 @@ def build_test_connector():
             }
         }
     )
-    return VsVulnscanEnrichmentConnector(config=config, helper=StubHelper())
+    return VsVulnscanEnrichmentConnector(config=config, helper=helper or StubHelper())
 
 
 def _ip_event(entity_id=_IP_ENTITY_ID):
@@ -161,6 +181,31 @@ def test_note_id_stays_pinned_across_repeated_enrichment():
     second_note_id = connector.helper.get_state()["note_ids"][_IP_ENTITY_ID]
 
     assert first_note_id == second_note_id
+
+
+def test_failed_send_does_not_pin_a_note_id_and_retry_still_succeeds():
+    """A failed send_stix2_bundle() must not leave state pointing at a Note that was never created.
+
+    Otherwise a retry reuses that id assuming the object already exists (the bug this test
+    guards against: state was previously persisted before the send was confirmed).
+    """
+    helper = FailingSendHelper()
+    connector = build_test_connector(helper=helper)
+
+    with pytest.raises(RuntimeError):
+        connector.process_message(_ip_event())
+
+    # The failed attempt must not have pinned a note id -- nothing was actually created.
+    assert helper.get_state().get("note_ids", {}).get(_IP_ENTITY_ID) is None
+    assert helper.sent_bundles == []
+
+    # A retry (send now succeeding) must go through cleanly and pin a note id afterwards.
+    helper.fail_sends = False
+    message = connector.process_message(_ip_event())
+
+    assert "2 VS scanner finding" in message
+    assert len(helper.sent_bundles) == 1
+    assert helper.get_state()["note_ids"][_IP_ENTITY_ID] is not None
 
 
 def test_unexpected_entity_type_raises_rather_than_silently_no_ops():

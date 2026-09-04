@@ -108,14 +108,19 @@ class VsVulnscanEnrichmentConnector:
             self.marking.id,
             existing_id=note_map.get(entity_id),
         )
-        note_map[entity_id] = note.id
-        self.helper.set_state(state)
 
         objects = mapping.dedupe_bundle_objects([self.author, self.marking, note])
         bundle = self.helper.stix2_create_bundle(objects)
         # work_id defaults to self.helper.work_id, which pycti already set before calling this
         # method -- no need to pass it explicitly (confirmed against the installed pycti source).
         self.helper.send_stix2_bundle(bundle, update=True)
+
+        # Only pin note_id in connector state once the bundle has actually been accepted by
+        # OpenCTI, not before -- same discipline as A/D's watermark-after-send (§10f). Persisting
+        # this any earlier would let a failed send leave state pointing at a Note that was never
+        # created, and a retry would then reuse that id assuming it already exists.
+        note_map[entity_id] = note.id
+        self.helper.set_state(state)
 
         message = f"Enriched {entity_id} with {len(vuln_scans)} VS scanner finding(s)"
         self.helper.connector_logger.info(message)
