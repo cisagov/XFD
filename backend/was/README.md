@@ -939,6 +939,78 @@ make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"
 ```
 
+## On-Demand Generation, S3 Archive, And Email
+
+Use this workflow when you need a new report regardless of recent-scan tracker
+eligibility. It uses the existing production PDF generator, S3 storage, and SES
+mailer. It does not rerun Qualys scans or overwrite an earlier report run.
+
+After pulling these changes on EC2, run `make build`. Generate and archive a
+new report without emailing:
+
+```bash
+make on-demand-report TAG="CROSSFEED"
+```
+
+Generate, archive, and send one approved functional-test report:
+
+```bash
+make on-demand-report TAG="CROSSFEED" SEND_EMAIL=1 \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
+```
+
+The command prints the new run ID, S3 reference, and SES message ID. It uses
+the stakeholder's stored encryption password, generating and storing one only
+if missing. It sends no assignee digest. Successful SES acceptance is not
+proof of inbox delivery.
+
+In `make menu`, select **Report generation**, then **5, Generate a new
+on-demand report**. Enter the tag, choose whether to email, enter the explicit
+recipient addresses if sending, and confirm the displayed operation. Leave
+the tracker ID blank for a standalone run. Options 2 and 3 remain eligibility
+driven and are not force-generation commands.
+
+For a real, unsent tracker row belonging to this tag, add `TRACKER_ID=123` to
+the Make command or supply it at the menu prompt. Replace `123` with the actual
+tracker ID, not a report-run ID. The row must not already have a linked run.
+SES acceptance updates that row's sent date through the existing atomic mailer.
+Without an explicit tracker ID, only `was_report_runs` is updated; no scan
+records or scan dates are fabricated. An override recipient still marks an
+explicitly linked tracker row sent, so use a designated test row for testing.
+
+On-demand reports start with `email_status=held`. Scheduled/bulk mailers do
+not pick them up, including when an explicit email attempt fails. This prevents
+test reports from being sent accidentally to the customer's stored recipients.
+Use the explicit mailer command to send or retry an already archived report:
+
+```bash
+docker run --rm --env-file .env --entrypoint was-mailer was-reporting \
+  --report-run-id NEW_RUN_ID \
+  --test-recipients "craig.duhn@associates.cisa.dhs.gov" \
+  --include-previous-failures
+```
+
+Replace `NEW_RUN_ID` with the printed numeric run ID. Already-sent or actively
+claimed email runs cannot be sent again by this command. Re-running generation
+after completion intentionally creates a different run and can send another
+email; it is not an email-retry operation. Concurrent on-demand claims for the
+same tag serialize through a stakeholder-row lock and reject an existing active
+run. Existing scheduled batch eligibility is unchanged. A crashed run left in
+`running` or an uncertain email left in `sending` needs operator reconciliation,
+not blind regeneration or database status resets.
+
+The lower-level `was-report-on-demand` CLI defaults to archive-only and requires
+`--send-email` plus either `--test-recipients` or `--stakeholder-recipients` to
+send. `was-reports` remains local-PDF-only. The on-demand command explicitly uses
+S3 even if `WAS_REPORT_STORAGE=local`; the bucket and IAM permissions must be
+configured. The updated container enables unbuffered output and a writable
+Matplotlib cache. No schema migration is required for the `held` status because
+the existing `email_status` column is text without an enumerated constraint.
+
+Follow `docs/live_qualys_equivalence_runbook.md` for S3, database, inbox, and
+failure verification. Do not declare the live test passed solely because a
+container exits successfully.
+
 ## Validate
 
 Run focused tests from the repository root:

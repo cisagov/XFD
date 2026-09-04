@@ -30,5 +30,7 @@ RUN pip install --no-cache-dir --no-deps . \
 
 ENV PYTHONPATH=/app/src:/app
 ENV WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
+ENV PYTHONUNBUFFERED=1
+ENV MPLCONFIGDIR=/tmp/was-matplotlib
 
 ENTRYPOINT ["./worker/was-report-start.sh"]

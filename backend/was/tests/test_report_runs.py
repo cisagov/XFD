@@ -79,7 +79,7 @@ class ReportRunTests(unittest.TestCase):
         self.assertTrue(conn.committed)
         self.assertEqual(
             conn.cursor_instance.parameters,
-            ("TAG1", report_runs.RUNNING, 1720000001, None),
+            ("TAG1", report_runs.RUNNING, 1720000001, None, report_runs.EMAIL_PENDING),
         )
         self.assertIn("ON CONFLICT", conn.cursor_instance.query)
 
@@ -110,7 +110,7 @@ class ReportRunTests(unittest.TestCase):
         self.assertEqual(report_run.id, 8)
         self.assertEqual(
             conn.cursor_instance.parameters,
-            ("TAG2", report_runs.RUNNING, None, 42),
+            ("TAG2", report_runs.RUNNING, None, 42, report_runs.EMAIL_PENDING),
         )
 
     def test_complete_report_run_sets_completed_status(self) -> None:

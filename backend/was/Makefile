@@ -13,6 +13,7 @@ ASSIGNEE ?=
 REPORT_STATUS ?=
 TRACKER_ID ?=
 SENT_DATE ?=
+SEND_EMAIL ?= 0
 
 .PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export tracker-csv tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report manual-report
 
@@ -69,6 +70,20 @@ single-report:
 manual-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make manual-report TAG="CUSTOMER_TAG"' >&2; exit 1)
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --skip-tracker-refresh --tag "$(TAG)" --include-manual --create-missing-password --continue-on-error --send-email --limit 1
+
+.PHONY: on-demand-report
+
+on-demand-report:
+	@test -n "$(TAG)" || (echo 'TAG is required.' >&2; exit 1)
+	@set -- --tag "$(TAG)" --create-missing-password; \
+	if [ -n "$(TRACKER_ID)" ]; then set -- "$$@" --tracker-id "$(TRACKER_ID)"; fi; \
+	case "$(SEND_EMAIL)" in \
+	  0) ;; \
+	  1) test -n "$(TEST_RECIPIENTS)" && test "$(TEST_RECIPIENTS)" != 'operator@example.gov' || { echo 'Set TEST_RECIPIENTS to an approved address.' >&2; exit 1; }; \
+	     set -- "$$@" --send-email --test-recipients "$(TEST_RECIPIENTS)" ;; \
+	  *) echo 'SEND_EMAIL must be 0 or 1.' >&2; exit 1 ;; \
+	esac; \
+	docker run --rm --env-file $(ENV_FILE) --entrypoint was-report-on-demand $(IMAGE) "$$@"
 
 special-cases:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-special-cases list

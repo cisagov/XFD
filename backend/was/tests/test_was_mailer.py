@@ -247,6 +247,7 @@ class WasMailerTests(unittest.TestCase):
         mock_mark_failed.assert_called_once_with(
             report_run_id=1,
             error_message="WAS report email delivery failed.",
+            hold_for_manual_retry=False,
         )
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
@@ -324,6 +325,7 @@ class WasMailerTests(unittest.TestCase):
         mock_mark_failed.assert_called_once_with(
             report_run_id=1,
             error_message="WAS report email delivery failed.",
+            hold_for_manual_retry=False,
         )
         self.assertEqual(mock_logger_exception.call_count, 1)
 

@@ -13,6 +13,7 @@ from pyfiglet import Figlet
 from was_reports.commands import (
     batch_runner,
     inventory_cli,
+    on_demand_cli,
     report_generator,
     stakeholders_cli,
     tracker_cli,
@@ -24,13 +25,19 @@ InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
 
 
+def write_output(message: str) -> None:
+    """Write one operator-facing line without buffering progress messages."""
+    sys.stdout.write("{}\n".format(message))
+    sys.stdout.flush()
+
+
 class WasOperatorMenu:
     """Interactive WAS menu backed by the existing command modules."""
 
     def __init__(
         self,
         input_function: InputFunction = input,
-        output_function: OutputFunction = print,
+        output_function: OutputFunction = write_output,
     ) -> None:
         """Initialize menu input and output boundaries."""
         self.input = input_function
@@ -111,9 +118,7 @@ class WasOperatorMenu:
         if exit_code == 0:
             self.output("Operation completed successfully.")
         else:
-            self.output(
-                "Operation exited with status {}.".format(exit_code)
-            )
+            self.output("Operation exited with status {}.".format(exit_code))
         return exit_code
 
     def print_menu(self, title: str, options: list[str]) -> None:
@@ -166,9 +171,10 @@ class WasOperatorMenu:
                 "Report Generation",
                 [
                     "Run the complete recent-scan batch",
-                    "Generate and email one automatic report",
-                    "Generate and email one manual report",
+                    "Process eligible automatic tracker reports",
+                    "Process an eligible manual tracker report",
                     "Back to main menu",
+                    "Generate a new on-demand report (S3, optional email)",
                 ],
             )
             selection = self.input("Please enter your selection: ").strip()
@@ -180,8 +186,37 @@ class WasOperatorMenu:
                 self.run_single_report(manual=True)
             elif selection == "4":
                 return
+            elif selection == "5":
+                self.run_on_demand_report()
             else:
                 self.output("Invalid selection.")
+
+    def run_on_demand_report(self) -> None:
+        """Confirm explicit recipients before delegating an on-demand request."""
+        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        arguments = ["--tag", stakeholder_tag, "--create-missing-password"]
+        send_email = self.confirm("Email the report after archiving to S3?")
+        recipient_summary = "no email"
+        if send_email:
+            recipients = self.prompt_required("Recipient email address(es): ")
+            arguments.extend(["--send-email", "--test-recipients", recipients])
+            recipient_summary = "email to {}".format(recipients)
+        tracker_id = self.prompt_optional("Existing tracker row ID [none]: ")
+        if tracker_id:
+            arguments.extend(["--tracker-id", tracker_id])
+        else:
+            self.output(
+                "A new report run will be recorded without changing scan tracker rows."
+            )
+        if not self.confirm(
+            "Generate a NEW report for {}, archive to S3, {}?".format(
+                stakeholder_tag, recipient_summary
+            )
+        ):
+            self.output("Operation cancelled.")
+            return
+        self.execute("on-demand report", lambda: on_demand_cli.main(arguments))
+        self.pause()
 
     def run_daily_batch(self) -> None:
         """Confirm and execute the complete recent-scan report batch."""
@@ -489,7 +524,7 @@ def main() -> int:
     try:
         return menu.run()
     except (EOFError, KeyboardInterrupt):
-        print("\nExiting WAS reporting operations.")
+        menu.output("\nExiting WAS reporting operations.")
         return 0
 
 

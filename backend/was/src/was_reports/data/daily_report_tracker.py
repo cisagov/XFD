@@ -250,7 +250,10 @@ def list_ready_report_candidates(
           )
           AND (
                 runs.id IS NULL
-             OR runs.status = 'failed'
+             OR (
+                    runs.status = 'failed'
+                AND COALESCE(runs.email_status, 'pending') <> 'held'
+             )
              OR (
                     runs.status = 'completed'
                 AND runs.emailed_at IS NULL
@@ -384,9 +387,7 @@ def mark_manual_tracker_report_sent(
         raise
 
     if row is None:
-        raise KeyError(
-            "Unsent manual tracker row {} was not found.".format(tracker_id)
-        )
+        raise KeyError("Unsent manual tracker row {} was not found.".format(tracker_id))
 
 
 def mark_manual_tracker_report_sent_by_id(
@@ -394,6 +395,7 @@ def mark_manual_tracker_report_sent_by_id(
     sent_date: date,
 ) -> None:
     """Set a manual tracker sent date using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

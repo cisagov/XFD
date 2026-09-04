@@ -19,6 +19,7 @@ EMAIL_PENDING = "pending"
 EMAIL_SENDING = "sending"
 EMAIL_SENT = "sent"
 EMAIL_FAILED = "failed"
+EMAIL_HELD = "held"
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ def create_report_run(
     scheduled_epoch: int | None,
     conn: connection,
     source_tracker_id: int | None = None,
+    email_status: str = EMAIL_PENDING,
 ) -> ReportRun | None:
     """Claim a scheduled execution and return its running report record."""
     try:
@@ -75,13 +77,20 @@ def create_report_run(
                     stakeholder_tag,
                     status,
                     scheduled_epoch,
-                    source_tracker_id
+                    source_tracker_id,
+                    email_status
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
                 RETURNING id, stakeholder_tag, status
                 """,
-                (stakeholder_tag, RUNNING, scheduled_epoch, source_tracker_id),
+                (
+                    stakeholder_tag,
+                    RUNNING,
+                    scheduled_epoch,
+                    source_tracker_id,
+                    email_status,
+                ),
             )
             row = cursor.fetchone()
             conn.commit()
@@ -183,6 +192,73 @@ def create_report_run_for_tag(
         close(conn)
 
 
+def create_on_demand_report_run(
+    stakeholder_tag: str,
+    source_tracker_id: int | None = None,
+) -> ReportRun:
+    """Claim an explicit request without inventing a scan or schedule record."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT retired FROM was_stakeholders
+                WHERE tag = %s FOR UPDATE
+                """,
+                (stakeholder_tag,),
+            )
+            stakeholder = cursor.fetchone()
+            if stakeholder is None or stakeholder[0] is True:
+                raise ValueError("An active WAS stakeholder is required.")
+            cursor.execute(
+                """
+                SELECT id FROM was_report_runs
+                WHERE stakeholder_tag = %s AND scheduled_epoch IS NULL
+                  AND (status = 'running' OR email_status = 'sending')
+                LIMIT 1
+                """,
+                (stakeholder_tag,),
+            )
+            if cursor.fetchone() is not None:
+                raise RuntimeError("A report operation is already active for this tag.")
+            if source_tracker_id is not None:
+                cursor.execute(
+                    """
+                    SELECT tag, report_sent_date FROM was_daily_report_tracker
+                    WHERE id = %s FOR UPDATE
+                    """,
+                    (source_tracker_id,),
+                )
+                tracker = cursor.fetchone()
+                if (
+                    tracker is None
+                    or tracker[0] != stakeholder_tag
+                    or tracker[1] is not None
+                ):
+                    raise ValueError("Tracker row must match the tag and be unsent.")
+        report_run = create_report_run(
+            stakeholder_tag,
+            None,
+            conn,
+            source_tracker_id=source_tracker_id,
+            email_status=EMAIL_HELD,
+        )
+        if report_run is None:
+            raise RuntimeError(
+                "Tracker row already has a report run; "
+                "inspect that run before retrying."
+            )
+        return report_run
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        close(conn)
+
+
 def create_report_run_for_tracker(
     stakeholder_tag: str,
     source_tracker_id: int,
@@ -243,6 +319,7 @@ def retry_failed_report_run_for_tracker_by_id(
     source_tracker_id: int,
 ) -> ReportRun | None:
     """Reclaim one failed tracker report run using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -358,6 +435,7 @@ def list_report_run_errors_from_db(
     limit: int = 100,
 ) -> list[ReportRunError]:
     """Return recent report errors using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -487,9 +565,12 @@ def claim_report_run_email(
     report_run_id: int,
     conn: connection,
     include_previous_failure: bool = False,
+    allow_held: bool = False,
 ) -> ReportRunEmail | None:
     """Atomically claim one completed report run for email delivery."""
     allowed_email_statuses = [EMAIL_PENDING]
+    if allow_held:
+        allowed_email_statuses.append(EMAIL_HELD)
     if include_previous_failure:
         allowed_email_statuses.append(EMAIL_FAILED)
     query = """
@@ -564,6 +645,7 @@ def get_report_run_email_by_id(report_run_id: int) -> ReportRunEmail:
 def claim_report_run_email_by_id(
     report_run_id: int,
     include_previous_failure: bool = False,
+    allow_held: bool = False,
 ) -> ReportRunEmail | None:
     """Atomically claim one report email using a managed connection."""
     # Third-Party Libraries
@@ -575,6 +657,7 @@ def claim_report_run_email_by_id(
             report_run_id=report_run_id,
             conn=conn,
             include_previous_failure=include_previous_failure,
+            allow_held=allow_held,
         )
     finally:
         close(conn)
@@ -648,6 +731,7 @@ def mark_report_run_email_failed(
     report_run_id: int,
     error_message: str,
     conn: connection,
+    hold_for_manual_retry: bool = False,
 ) -> None:
     """Record a report email delivery failure."""
     try:
@@ -663,7 +747,12 @@ def mark_report_run_email_failed(
                   AND email_status = %s
                 RETURNING id
                 """,
-                (error_message, EMAIL_FAILED, report_run_id, EMAIL_SENDING),
+                (
+                    error_message,
+                    EMAIL_HELD if hold_for_manual_retry else EMAIL_FAILED,
+                    report_run_id,
+                    EMAIL_SENDING,
+                ),
             )
             row = cursor.fetchone()
             if row is None:
@@ -693,6 +782,7 @@ def mark_report_run_emailed_by_id(report_run_id: int, message_id: str) -> None:
 def mark_report_run_email_failed_by_id(
     report_run_id: int,
     error_message: str,
+    hold_for_manual_retry: bool = False,
 ) -> None:
     """Record report email failure using a managed database connection."""
     # Third-Party Libraries
@@ -704,6 +794,7 @@ def mark_report_run_email_failed_by_id(
             report_run_id=report_run_id,
             error_message=error_message,
             conn=conn,
+            hold_for_manual_retry=hold_for_manual_retry,
         )
     finally:
         close(conn)

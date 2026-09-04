@@ -57,6 +57,7 @@ def send_report_run_email(
     include_previous_failure: bool = False,
     storage_mode: Optional[str] = None,
     local_output_directory: Optional[str] = None,
+    allow_held: bool = False,
 ) -> Optional[str]:
     """Send a completed WAS report run email."""
     if dry_run:
@@ -66,6 +67,7 @@ def send_report_run_email(
         report_run_email = claim_report_run_email_by_id(
             report_run_id=report_run_id,
             include_previous_failure=include_previous_failure,
+            allow_held=allow_held,
         )
         delivery_claimed = report_run_email is not None
         if report_run_email is None:
@@ -116,6 +118,7 @@ def send_report_run_email(
                 mark_report_run_email_failed_by_id(
                     report_run_id=report_run_id,
                     error_message="WAS report email delivery failed.",
+                    hold_for_manual_retry=allow_held,
                 )
             except Exception:
                 LOGGER.exception(
@@ -377,6 +380,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             override_recipients=args.test_recipients,
             dry_run=args.dry_run,
             include_previous_failure=args.include_previous_failures,
+            allow_held=True,
         )
     return 0
 
