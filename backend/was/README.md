@@ -190,6 +190,18 @@ because repeating them could duplicate or alter Qualys state. Report-status
 polling stops after `WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` instead of waiting
 indefinitely.
 
+### Qualys API Rate Limit
+
+The operator-reported Qualys API rate limit for this WAS environment is
+**2,000 requests per hour**. Confirm the applicable subscription limit and
+its scope with the Qualys administrator before increasing workload concurrency;
+this value should not be assumed to apply to every Qualys subscription or API.
+
+Plan concurrent report generation, tracker refreshes, and inventory queries
+within that limit, accounting for other clients sharing the same quota. The
+retry behavior described above handles throttling responses; it is not a
+guarantee that combined workloads stay below 2,000 requests per hour.
+
 ### S3 Report Storage
 
 Scheduled reports use S3 by default. Each encrypted PDF is uploaded to a
