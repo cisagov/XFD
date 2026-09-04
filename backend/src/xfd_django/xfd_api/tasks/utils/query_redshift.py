@@ -277,6 +277,7 @@ def fetch_in_chunks_keyset_frozen_bulk(
         where_sql = sql.SQL(" AND ").join(where_clauses)
 
         # Handle schema-qualified table names
+        table_ident: sql.Composable
         if "." in table:
             schema, table_name = table.split(".", 1)
             table_ident = sql.SQL(".").join(
