@@ -194,6 +194,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
       },
       {
+        "name": "PE_S3_BUCKET",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_pe_s3_bucket.arn}"
+      },
+      {
         "name": "QUALYS_PASSWORD",
         "valueFrom": "${data.aws_ssm_parameter.qualys_password.arn}"
       },
@@ -323,6 +327,15 @@ resource "aws_iam_policy" "pe_scan_operator" {
         "lambda:GetFunction"
       ],
       "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peMailerController"
+    },
+    {
+      "Sid": "InvokePeAsmSyncController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peAsmSyncController"
     },
     {
       "Sid": "ReadPeWorkerLogs",

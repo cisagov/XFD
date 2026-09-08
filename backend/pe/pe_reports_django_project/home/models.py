@@ -21,6 +21,20 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 
+class CIDRField(models.Field):
+    """Represent a PostgreSQL CIDR network column."""
+
+    description = "PostgreSQL CIDR network"
+
+    def db_type(self, connection):
+        """Return the PostgreSQL column type."""
+        return "cidr"
+
+    def get_internal_type(self):
+        """Identify the field as a character-like value to Django."""
+        return "CharField"
+
+
 class Users(models.Model):
     """Define Users model."""
 
@@ -230,7 +244,7 @@ class Cidrs(models.Model):
     """Define Cidrs model."""
 
     cidr_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
-    network = models.TextField()  # This field type is a guess.
+    network = CIDRField()
     organizations_uid = models.ForeignKey(
         "Organizations",
         on_delete=models.CASCADE,
@@ -815,6 +829,9 @@ class IpsSubs(models.Model):
     sub_domain_uid = models.ForeignKey(
         "SubDomains", on_delete=models.CASCADE, db_column="sub_domain_uid"
     )
+    first_seen = models.DateField(blank=True, null=True)
+    last_seen = models.DateField(blank=True, null=True)
+    current = models.BooleanField(blank=True, null=True)
 
     class Meta:
         """Set IpsSubs model metadata."""
@@ -1138,6 +1155,45 @@ class TeamMembers(models.Model):
 
         managed = True
         db_table = "team_members"
+
+
+class Sectors(models.Model):
+    """Define Sectors model."""
+
+    sector_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    id = models.TextField(blank=True, null=True, unique=True)
+    acronym = models.TextField(blank=True, null=True)
+    name = models.TextField(blank=True, null=True)
+    email = models.TextField(blank=True, null=True)
+    contact_name = models.TextField(blank=True, null=True)
+    retired = models.BooleanField(blank=True, null=True)
+    first_seen = models.DateField(blank=True, null=True)
+    last_seen = models.DateField(blank=True, null=True)
+    run_scorecards = models.BooleanField(blank=True, null=True)
+    password = models.TextField(blank=True, null=True)
+    parent_sector_uid = models.UUIDField(blank=True, null=True)
+
+    class Meta:
+        """Set Sectors model metadata."""
+
+        managed = False
+        db_table = "sectors"
+
+
+class SectorsOrgs(models.Model):
+    """Define SectorsOrgs model."""
+
+    sector_org_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    sector_uid = models.UUIDField(blank=True, null=True)
+    organizations_uid = models.UUIDField(blank=True, null=True)
+    first_seen = models.DateField(blank=True, null=True)
+    last_seen = models.DateField(blank=True, null=True)
+
+    class Meta:
+        """Set SectorsOrgs model metadata."""
+
+        managed = False
+        db_table = "sectors_orgs"
 
 
 class ShodanAssets(models.Model):

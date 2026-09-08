@@ -1,7 +1,6 @@
 // frontend/src/App.tsx
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
-import { Amplify } from 'aws-amplify';
 import { AuthContextProvider, CFThemeProvider, SearchProvider } from 'context';
 import { ROUTES } from '@/constants/routes';
 import {
@@ -11,7 +10,6 @@ import {
 } from '@jonkoops/matomo-tracker-react';
 import { LayoutWithSearch, Routes, MatomoTracker } from 'components';
 import './styles.scss';
-import { Authenticator } from '@aws-amplify/ui-react';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
 import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
@@ -21,25 +19,6 @@ import { openInVSCode } from './utils/openInVSCode';
 import AppGate from './components/Gates/AppGate';
 import TermsGate from './components/Gates/TermsGate';
 import { MuiGlobalStyles } from 'context/MuiGlobalStyles';
-
-Amplify.configure({
-  API: {
-    REST: {
-      crossfeed: {
-        endpoint: import.meta.env.VITE_API_URL,
-        region: import.meta.env.VITE_AWS_REGION
-      }
-    }
-  },
-  ...(import.meta.env.VITE_USE_COGNITO && {
-    Auth: {
-      Cognito: {
-        userPoolId: import.meta.env.VITE_USER_POOL_ID,
-        userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID
-      }
-    }
-  })
-});
 
 const instance = createInstance({
   urlBase: `${import.meta.env.VITE_API_URL}${ROUTES.MATOMO}`,
@@ -64,27 +43,25 @@ const App: React.FC = () => (
         <MuiGlobalStyles />
         <AuthContextProvider>
           <TermsGate>
-            <Authenticator.Provider>
-              <StaticsContextProvider>
-                <SavedSearchContextProvider>
-                  <SearchProvider>
-                    <FilterDrawerContextProvider>
-                      <NavigationProvider>
-                        <LayoutWithSearch>
-                          <AppGate>
-                            <LinkTracker />
-                            <DevInspector
-                              onClickElement={openInVSCode}
-                            ></DevInspector>
-                            <Routes />
-                          </AppGate>
-                        </LayoutWithSearch>
-                      </NavigationProvider>
-                    </FilterDrawerContextProvider>
-                  </SearchProvider>
-                </SavedSearchContextProvider>
-              </StaticsContextProvider>
-            </Authenticator.Provider>
+            <StaticsContextProvider>
+              <SavedSearchContextProvider>
+                <SearchProvider>
+                  <FilterDrawerContextProvider>
+                    <NavigationProvider>
+                      <LayoutWithSearch>
+                        <AppGate>
+                          <LinkTracker />
+                          <DevInspector
+                            onClickElement={openInVSCode}
+                          ></DevInspector>
+                          <Routes />
+                        </AppGate>
+                      </LayoutWithSearch>
+                    </NavigationProvider>
+                  </FilterDrawerContextProvider>
+                </SearchProvider>
+              </SavedSearchContextProvider>
+            </StaticsContextProvider>
           </TermsGate>
         </AuthContextProvider>
       </CFThemeProvider>

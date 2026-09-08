@@ -172,7 +172,7 @@ class DnsmonitorHelperTests(unittest.TestCase):
                 "authorization": f"Bearer {mock_token}",
                 "Content-Type": "application/json",
             },
-            json=mock_payload,
+            data=mock_payload,
             timeout=60,
         )
 
