@@ -1,6 +1,5 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { ApiError } from 'aws-amplify/api';
 import { logger } from '@/utils/logger';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
@@ -105,13 +104,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     ) => {
       logger.error(in_error);
 
-      // Amplify v6 REST errors (ApiError) carry the HTTP status on
-      // `response.statusCode`, not in `message` (unlike v5's axios-style
-      // "Request failed with status code 401" messages).
-      const statusCode =
-        in_error instanceof ApiError
-          ? in_error.response?.statusCode
-          : undefined;
+      const statusCode = in_error.statusCode ?? in_error.response?.status;
       const isUnauthorized =
         statusCode === 401 || in_error.message?.includes('401');
 

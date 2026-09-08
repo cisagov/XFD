@@ -130,6 +130,11 @@ def _validate_shodan(keys: List[str], max_valid=None) -> List[str]:
 # worker_env: singular key injected into each container
 # extra_env: optional extra vars every worker for this scan needs
 KEYED_SCANS: Dict[str, Dict] = {
+    "asmsync": {
+        "keys_env": "PE_SHODAN_API_KEYS",
+        "worker_env": "PE_SHODAN_API_KEY",
+        "validate": _validate_shodan,
+    },
     "flare_events": {
         "keys_env": "FLARE_API_KEYS",
         "worker_env": "FLARE_API_KEY",
@@ -155,11 +160,6 @@ KEYED_SCANS: Dict[str, Dict] = {
         "extra_env": lambda: {"FLARE_TENANT_ID": os.environ.get("FLARE_TENANT_ID", "")},
     },
     "shodan": {
-        "keys_env": "PE_SHODAN_API_KEYS",
-        "worker_env": "PE_SHODAN_API_KEY",
-        "validate": _validate_shodan,
-    },
-    "asmSync": {
         "keys_env": "PE_SHODAN_API_KEYS",
         "worker_env": "PE_SHODAN_API_KEY",
         "validate": _validate_shodan,

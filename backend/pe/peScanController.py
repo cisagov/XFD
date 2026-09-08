@@ -14,7 +14,7 @@ Event payload:
         "local": false
     }
 
-Keyed scans (flare_events, shodan, asmSync) validate comma-separated API keys from
+Keyed scans (flare_events, shodan) validate comma-separated API keys from
 SSM-injected env vars, skip invalid keys, and start one worker container per valid
 key (capped by taskCount/COUNT). Each container receives a single per-worker key
 env var (e.g. FLARE_API_KEY, PE_SHODAN_API_KEY). See worker_key_planner.py.
@@ -65,7 +65,6 @@ LOGGER.setLevel(logging.INFO)
 VISIBILITY_TIMEOUT_SECONDS = 18000
 
 SCAN_CATALOG = {
-    "asmSync": {"scan": "asmSync", "count": 2},
     "dnsmonitor": {"scan": "dnsmonitor", "count": 1},
     "dnstwist": {"scan": "dnstwist", "count": 142},
     # Default high so unspecified COUNT uses all valid Flare keys (clamped later).
@@ -81,7 +80,7 @@ SCAN_CATALOG = {
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})
 ORG_EXPAND_SHORTCUTS = frozenset({"all-orgs", "demo-orgs"})
 
-SHODAN_SCANS = {"shodan", "asmSync", "shodan_top_cves"}
+SHODAN_SCANS = {"shodan", "shodan_top_cves"}
 
 
 def is_local_mode(event: Dict[str, Any] | None = None) -> bool:

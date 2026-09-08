@@ -1,7 +1,7 @@
 """Report-generation FastAPI routes ported from ATC-Framework CD-add-CODEOWNERS."""
 
 # Standard Python Libraries
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import List
 import uuid
@@ -11,7 +11,6 @@ from dataAPI import report_schemas as schemas
 from dataAPI.views import convert_date_to_string, convert_uuid_to_string, verify_api_key
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
-from django.utils import timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from home.models import (
     Alerts,
