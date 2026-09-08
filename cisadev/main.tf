@@ -1,7 +1,3 @@
-provider "aws" {
-  region = "us-east-1"
-}
-
 resource "aws_instance" "cisadev_xfd_gh_actions_runner_ec2" {
   ami                         = "ami-xxxxxxxxxxxxxxxxx"
   instance_type               = "t2.micro"
