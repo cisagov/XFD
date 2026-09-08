@@ -14,8 +14,11 @@ REPORT_STATUS ?=
 TRACKER_ID ?=
 SENT_DATE ?=
 SEND_EMAIL ?= 0
+IMPORT_DIR ?= $(PWD)
+INPUT_CSV ?=
+STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export tracker-csv tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report manual-report
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report manual-report
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -34,7 +37,7 @@ build:
 
 menu:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm -it --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-menu
+	docker run --rm -it --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output -v $(IMPORT_DIR):/input:ro $(IMAGE) was-menu
 
 help:
 	docker run --rm $(IMAGE) --help
@@ -91,6 +94,20 @@ special-cases:
 stakeholder-export:
 	mkdir -p $(OUTPUT_DIR)
 	docker run --rm --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-stakeholders export-csv --output /output/was-stakeholders.csv
+
+stakeholder-import:
+	@test -n "$(INPUT_CSV)" || (echo 'INPUT_CSV is required. Use: make stakeholder-import INPUT_CSV="/path/to/file.csv"' >&2; exit 1)
+	@test -f "$(INPUT_CSV)" || (echo 'INPUT_CSV does not exist or is not a file.' >&2; exit 1)
+	mkdir -p $(OUTPUT_DIR)
+	@input_directory="$$(cd "$$(dirname "$(INPUT_CSV)")" && pwd)"; \
+	input_name="$$(basename "$(INPUT_CSV)")"; \
+	docker run --rm --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) \
+		-v "$$input_directory:/input:ro" \
+		-v "$(OUTPUT_DIR):/output" \
+		$(IMAGE) was-stakeholders import-csv \
+		--input "/input/$$input_name" \
+		--prepared-output "/output/$$(basename "$(STAKEHOLDER_IMPORT_OUTPUT)")" \
+		--confirm
 
 tracker-csv:
 	mkdir -p $(OUTPUT_DIR)

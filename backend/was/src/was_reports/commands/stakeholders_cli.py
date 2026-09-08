@@ -9,11 +9,20 @@ import sys
 from tempfile import NamedTemporaryFile
 from typing import List, Optional
 
+# Third-Party Libraries
+from psycopg2 import DatabaseError
+
 # First-Party Libraries
 from was_mailer.message import parse_email_addresses
 from was_reports.data.stakeholders import (
+    create_stakeholder_in_db,
     list_stakeholders_for_export_from_db,
     update_stakeholder_contacts_for_tag,
+)
+from was_reports.commands.stakeholder_import import (
+    DEFAULT_NULL_TOKEN,
+    import_prepared_rows,
+    prepare_stakeholder_csv,
 )
 
 
@@ -44,6 +53,21 @@ def email_list_value(value: str) -> str:
                 "Email addresses must use the local@domain format."
             )
     return normalized_value
+
+
+def nonnegative_integer(value: str) -> int:
+    """Return a nonnegative integer command value."""
+    try:
+        parsed_value = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "Value must be a whole number of zero or greater."
+        ) from error
+    if parsed_value < 0:
+        raise argparse.ArgumentTypeError(
+            "Value must be a whole number of zero or greater."
+        )
+    return parsed_value
 
 
 def add_contact_field_options(
@@ -117,6 +141,58 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--confirm-sensitive-export",
         action="store_true",
         help="Confirm creation of a CSV containing report passwords.",
+    )
+
+    import_command = subcommands.add_parser(
+        "import-csv",
+        help="Prepare and insert new WAS stakeholders from CSV.",
+    )
+    import_command.add_argument("--input", required=True, type=Path)
+    import_command.add_argument("--prepared-output", required=True, type=Path)
+    import_command.add_argument("--null-token", default=DEFAULT_NULL_TOKEN)
+    import_command.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm the insert-only stakeholder import.",
+    )
+
+    add_command = subcommands.add_parser(
+        "add",
+        help="Add one stakeholder and generate its report password.",
+    )
+    add_command.add_argument("--tag", required=True, type=nonempty_value)
+    add_command.add_argument("--customer-name", required=True, type=nonempty_value)
+    for option_name in (
+        "comments",
+        "location-notes",
+        "ci-type",
+        "testing-sector",
+        "subtype",
+        "was-report-poc",
+        "frequency",
+        "parent-tag",
+        "ticket",
+        "state",
+    ):
+        add_command.add_argument("--{}".format(option_name), type=nonempty_value)
+    add_command.add_argument("--distro-email", type=email_list_value)
+    add_command.add_argument("--tech-poc-email", type=email_list_value)
+    for option_name in (
+        "num-web-apps",
+        "web-apps-last-updated",
+        "last-scanned",
+        "next-scheduled",
+        "onboarding-date",
+    ):
+        add_command.add_argument("--{}".format(option_name), type=nonnegative_integer)
+    add_command.add_argument("--elections", action="store_true")
+    add_command.add_argument("--fceb", action="store_true")
+    add_command.add_argument("--manual-report", action="store_true")
+    add_command.add_argument("--retired", action="store_true")
+    add_command.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm creation of the stakeholder record.",
     )
     return parser.parse_args(argv)
 
@@ -200,14 +276,72 @@ def run_export(args: argparse.Namespace) -> int:
             "--confirm-sensitive-export requires --include-report-passwords."
         )
     if args.include_report_passwords and not args.confirm_sensitive_export:
-        raise ValueError(
-            "Password export requires --confirm-sensitive-export."
-        )
+        raise ValueError("Password export requires --confirm-sensitive-export.")
     columns, rows = list_stakeholders_for_export_from_db(
         include_report_passwords=args.include_report_passwords
     )
     write_stakeholder_csv(columns=columns, rows=rows, output_path=args.output)
     print("Exported {} stakeholders to {}.".format(len(rows), args.output))
+    return 0
+
+
+def run_import(args: argparse.Namespace) -> int:
+    """Prepare a CSV and atomically insert stakeholders not already present."""
+    if not args.confirm:
+        raise ValueError("Stakeholder CSV imports require --confirm.")
+    prepared_rows = prepare_stakeholder_csv(
+        input_path=args.input,
+        output_path=args.prepared_output,
+        null_token=args.null_token,
+    )
+    inserted_count, skipped_count = import_prepared_rows(
+        prepared_rows=prepared_rows,
+        null_token=args.null_token,
+    )
+    print(
+        "Imported {} new stakeholders and skipped {} existing tags.".format(
+            inserted_count, skipped_count
+        )
+    )
+    print("Prepared import CSV written to {}.".format(args.prepared_output))
+    return 0
+
+
+def run_add(args: argparse.Namespace) -> int:
+    """Create one stakeholder with an automatically generated password."""
+    if not args.confirm:
+        raise ValueError("Stakeholder creation requires --confirm.")
+    values = {
+        "tag": args.tag,
+        "customer_name": args.customer_name,
+        "comments": args.comments,
+        "location_notes": args.location_notes,
+        "ci_type": args.ci_type,
+        "testing_sector": args.testing_sector,
+        "subtype": args.subtype,
+        "distro_email": args.distro_email,
+        "tech_poc_email": args.tech_poc_email,
+        "was_report_poc": args.was_report_poc,
+        "frequency": args.frequency,
+        "num_web_apps": args.num_web_apps,
+        "web_apps_last_updated": args.web_apps_last_updated,
+        "last_scanned": args.last_scanned,
+        "next_scheduled": args.next_scheduled,
+        "onboarding_date": args.onboarding_date,
+        "parent_tag": args.parent_tag,
+        "ticket": args.ticket,
+        "elections": args.elections,
+        "fceb": args.fceb,
+        "manual_report": args.manual_report,
+        "retired": args.retired,
+        "state": args.state,
+    }
+    stakeholder_tag = create_stakeholder_in_db(values)
+    print(
+        "Created stakeholder {} with a generated report password.".format(
+            stakeholder_tag
+        )
+    )
     return 0
 
 
@@ -219,7 +353,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             return run_update_contacts(args)
         if args.command == "export-csv":
             return run_export(args)
-    except (KeyError, ValueError) as error:
+        if args.command == "import-csv":
+            return run_import(args)
+        if args.command == "add":
+            return run_add(args)
+    except DatabaseError:
+        print(
+            "Error: database operation failed and was rolled back.",
+            file=sys.stderr,
+        )
+        return 1
+    except (KeyError, OSError, ValueError) as error:
         print("Error: {}".format(str(error)), file=sys.stderr)
         return 1
     return 1

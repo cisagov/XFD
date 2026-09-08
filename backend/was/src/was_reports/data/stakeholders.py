@@ -72,6 +72,32 @@ STAKEHOLDER_EXPORT_COLUMNS = (
 STAKEHOLDER_CONTACT_COLUMNS = frozenset(
     {"was_report_poc", "tech_poc_email", "distro_email"}
 )
+STAKEHOLDER_CREATE_COLUMNS = (
+    "tag",
+    "customer_name",
+    "comments",
+    "location_notes",
+    "ci_type",
+    "testing_sector",
+    "subtype",
+    "distro_email",
+    "tech_poc_email",
+    "was_report_poc",
+    "frequency",
+    "num_web_apps",
+    "web_apps_last_updated",
+    "last_scanned",
+    "next_scheduled",
+    "onboarding_date",
+    "parent_tag",
+    "ticket",
+    "elections",
+    "fceb",
+    "manual_report",
+    "retired",
+    "state",
+    "report_password",
+)
 
 
 def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
@@ -192,6 +218,52 @@ def update_stakeholder_contacts_for_tag(
     conn = connect()
     try:
         update_stakeholder_contacts(tag=tag, updates=updates, conn=conn)
+    finally:
+        close(conn)
+
+
+def create_stakeholder(values: dict[str, object], conn: connection) -> str:
+    """Insert one stakeholder and generate its report password."""
+    expected_columns = set(STAKEHOLDER_CREATE_COLUMNS).difference({"report_password"})
+    if set(values) != expected_columns:
+        raise ValueError("Stakeholder creation fields are incomplete or unsupported.")
+
+    insert_values = dict(values)
+    insert_values["report_password"] = generate_report_password()
+    columns = list(STAKEHOLDER_CREATE_COLUMNS)
+    placeholders = ", ".join(["%s"] * len(columns))
+    query = """
+        INSERT INTO was_stakeholders ({})
+        VALUES ({})
+        ON CONFLICT (tag) DO NOTHING
+        RETURNING tag
+    """.format(
+        ", ".join(columns), placeholders
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                query,
+                tuple(insert_values[column] for column in columns),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            conn.rollback()
+            raise ValueError("Stakeholder tag already exists.")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return str(row[0])
+
+
+def create_stakeholder_in_db(values: dict[str, object]) -> str:
+    """Insert one stakeholder using a managed database connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return create_stakeholder(values=values, conn=conn)
     finally:
         close(conn)
 

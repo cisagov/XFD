@@ -95,6 +95,21 @@ class WasOperatorMenu:
                 return parsed_value
             self.output("Enter a whole number of zero or greater.")
 
+    def prompt_optional_nonnegative_integer(self, prompt: str) -> str:
+        """Prompt for an optional whole number of zero or greater."""
+        while True:
+            raw_value = self.input(prompt).strip()
+            if not raw_value:
+                return ""
+            try:
+                parsed_value = int(raw_value)
+            except ValueError:
+                self.output("Enter a whole number of zero or greater, or leave blank.")
+                continue
+            if parsed_value >= 0:
+                return str(parsed_value)
+            self.output("Enter a whole number of zero or greater, or leave blank.")
+
     def confirm(self, prompt: str) -> bool:
         """Return whether the operator explicitly answered yes."""
         answer = self.input("{} [y/N]: ".format(prompt)).strip().lower()
@@ -379,6 +394,8 @@ class WasOperatorMenu:
                 [
                     "Update POC names and email addresses",
                     "Export stakeholders",
+                    "Import new stakeholders from CSV",
+                    "Add one stakeholder",
                     "Rotate a stakeholder report password",
                     "Back to main menu",
                 ],
@@ -389,8 +406,12 @@ class WasOperatorMenu:
             elif selection == "2":
                 self.export_stakeholders()
             elif selection == "3":
-                self.rotate_stakeholder_password()
+                self.import_stakeholders()
             elif selection == "4":
+                self.add_stakeholder()
+            elif selection == "5":
+                self.rotate_stakeholder_password()
+            elif selection == "6":
                 return
             else:
                 self.output("Invalid selection.")
@@ -472,6 +493,98 @@ class WasOperatorMenu:
         self.execute(
             "stakeholder password rotation",
             lambda: report_generator.main(arguments),
+        )
+        self.pause()
+
+    def add_stakeholder(self) -> None:
+        """Collect all operator-managed fields for one new stakeholder."""
+        arguments = [
+            "add",
+            "--tag",
+            self.prompt_required("Stakeholder tag: "),
+            "--customer-name",
+            self.prompt_required("Customer name: "),
+        ]
+        text_fields = (
+            ("comments", "Comments [blank]: "),
+            ("location-notes", "Location notes [blank]: "),
+            ("ci-type", "CI type [blank]: "),
+            ("testing-sector", "Testing sector [blank]: "),
+            ("subtype", "Subtype [blank]: "),
+            ("distro-email", "Distribution email addresses [blank]: "),
+            ("tech-poc-email", "Technical POC email addresses [blank]: "),
+            ("was-report-poc", "WAS report POC [blank]: "),
+            ("frequency", "Report frequency [blank]: "),
+            ("parent-tag", "Parent tag [blank]: "),
+            ("ticket", "Ticket [blank]: "),
+            ("state", "State [blank]: "),
+        )
+        for option_name, prompt in text_fields:
+            value = self.prompt_optional(prompt)
+            if value:
+                arguments.extend(["--{}".format(option_name), value])
+
+        integer_fields = (
+            ("num-web-apps", "Number of web applications [blank]: "),
+            (
+                "web-apps-last-updated",
+                "Web application count last-updated epoch [blank]: ",
+            ),
+            ("last-scanned", "Last-scanned epoch [blank]: "),
+            ("next-scheduled", "Next-scheduled epoch [blank]: "),
+            ("onboarding-date", "Onboarding-date epoch [blank]: "),
+        )
+        for option_name, prompt in integer_fields:
+            value = self.prompt_optional_nonnegative_integer(prompt)
+            if value:
+                arguments.extend(["--{}".format(option_name), value])
+
+        boolean_fields = (
+            ("elections", "Is this an elections stakeholder?"),
+            ("fceb", "Is this an FCEB stakeholder?"),
+            ("manual-report", "Does this stakeholder require manual reports?"),
+            ("retired", "Is this stakeholder retired?"),
+        )
+        for option_name, prompt in boolean_fields:
+            if self.confirm(prompt):
+                arguments.append("--{}".format(option_name))
+
+        self.output("A report password will be generated automatically.")
+        if not self.confirm("Create this stakeholder?"):
+            self.output("Operation cancelled.")
+            return
+        arguments.append("--confirm")
+        self.execute(
+            "single stakeholder creation",
+            lambda: stakeholders_cli.main(arguments),
+        )
+        self.pause()
+
+    def import_stakeholders(self) -> None:
+        """Prompt for and run an insert-only stakeholder CSV import."""
+        input_path = self.prompt_optional(
+            "Input CSV path [/input/WAS_Stakeholders_export.csv]: ",
+            default="/input/WAS_Stakeholders_export.csv",
+        )
+        prepared_output = self.prompt_optional(
+            "Prepared CSV path [/output/WAS_Stakeholders_import_ready.csv]: ",
+            default="/output/WAS_Stakeholders_import_ready.csv",
+        )
+        self.output("Existing stakeholder tags will be skipped, not overwritten.")
+        if not self.confirm("Prepare and import this stakeholder CSV?"):
+            self.output("Operation cancelled.")
+            return
+        arguments = [
+            "import-csv",
+            "--input",
+            input_path,
+            "--prepared-output",
+            prepared_output,
+            "--confirm",
+        ]
+        self.execute(
+            "stakeholder CSV import",
+            lambda: stakeholders_cli.main(arguments),
         )
         self.pause()
 
