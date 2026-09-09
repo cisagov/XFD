@@ -31,6 +31,14 @@ def write_output(message: str) -> None:
     sys.stdout.flush()
 
 
+def clear_terminal() -> None:
+    """Clear the visible terminal viewport without deleting scrollback."""
+    if not sys.stdout.isatty():
+        return
+    sys.stdout.write("\033[2J\033[H")
+    sys.stdout.flush()
+
+
 class WasOperatorMenu:
     """Interactive WAS menu backed by the existing command modules."""
 
@@ -136,8 +144,16 @@ class WasOperatorMenu:
             self.output("Operation exited with status {}.".format(exit_code))
         return exit_code
 
-    def print_menu(self, title: str, options: list[str]) -> None:
+    def print_menu(
+        self,
+        title: str,
+        options: list[str],
+        show_banner: bool = False,
+    ) -> None:
         """Display one numbered menu."""
+        clear_terminal()
+        if show_banner:
+            self.print_banner()
         self.output("")
         self.output(title)
         self.output("=" * len(title))
@@ -152,7 +168,6 @@ class WasOperatorMenu:
 
     def run(self) -> int:
         """Display the main menu until the operator exits."""
-        self.print_banner()
         while True:
             self.print_menu(
                 "WAS Reporting Operations",
@@ -163,6 +178,7 @@ class WasOperatorMenu:
                     "Qualys operations",
                     "Quit",
                 ],
+                show_banner=True,
             )
             selection = self.input("Please enter your selection: ").strip()
             if selection == "1":
