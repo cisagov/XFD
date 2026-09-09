@@ -9,6 +9,7 @@ from typing import List, Optional
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
 from was_reports.qualys.report_data import count_webapps, list_customer_tags
+from was_reports.utils.logging_config import configure_logging
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS stakeholder inventory command."""
+    configure_logging()
     parse_args(argv)
     client = create_qualys_client()
     print_inventory(get_inventory(client))

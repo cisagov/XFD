@@ -2,7 +2,9 @@
 
 # Standard Python Libraries
 import argparse
+from contextlib import nullcontext
 from datetime import date
+from functools import partial
 import logging
 from pathlib import Path
 import sys
@@ -29,9 +31,13 @@ from was_reports.data.report_runs import (
     list_report_runs_ready_for_email_from_db,
     mark_report_run_email_failed_by_id,
     mark_report_run_emailed_by_id,
+    recover_stale_report_operations_in_db,
+    touch_report_email_claim_by_id,
 )
 from was_reports.storage.s3_reports import materialize_report
 from was_reports.utils.env import getenv, require_env
+from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.operation_lease import operation_heartbeat
 
 LOGGER = logging.getLogger(__name__)
 
@@ -82,36 +88,45 @@ def send_report_run_email(
     )
     delivery_accepted = False
     try:
-        with materialize_report(
-            report_reference=report_run_email.output_path,
-            s3_client=s3_client,
-            storage_mode=storage_mode,
-            expected_local_root=(
-                None if local_output_directory is None else Path(local_output_directory)
-            ),
-        ) as report_path:
-            message = build_report_email(
-                source_email=source_email,
-                recipients=recipients,
-                stakeholder_tag=report_run_email.stakeholder_tag,
-                report_path=report_path,
+        heartbeat_context = nullcontext()
+        if delivery_claimed:
+            heartbeat_context = operation_heartbeat(
+                heartbeat=partial(touch_report_email_claim_by_id, report_run_id),
+                operation_name="report run {} email".format(report_run_id),
             )
+        with heartbeat_context:
+            with materialize_report(
+                report_reference=report_run_email.output_path,
+                s3_client=s3_client,
+                storage_mode=storage_mode,
+                expected_local_root=(
+                    None
+                    if local_output_directory is None
+                    else Path(local_output_directory)
+                ),
+            ) as report_path:
+                message = build_report_email(
+                    source_email=source_email,
+                    recipients=recipients,
+                    stakeholder_tag=report_run_email.stakeholder_tag,
+                    report_path=report_path,
+                )
 
-        if dry_run:
-            LOGGER.info(
-                "Dry run enabled; WAS report email for run id %s was not sent.",
-                report_run_id,
-            )
-            return None
+            if dry_run:
+                LOGGER.info(
+                    "Dry run enabled; WAS report email for run id %s was not sent.",
+                    report_run_id,
+                )
+                return None
 
-        if ses_client is not None:
-            client = ses_client
-        else:
-            client = create_ses_client()
-        message_id = send_message(client, message)
-        delivery_accepted = True
-        mark_report_run_emailed_by_id(report_run_id, message_id)
-        return message_id
+            if ses_client is not None:
+                client = ses_client
+            else:
+                client = create_ses_client()
+            message_id = send_message(client, message)
+            delivery_accepted = True
+            mark_report_run_emailed_by_id(report_run_id, message_id)
+            return message_id
     except Exception:
         if delivery_claimed and not delivery_accepted:
             try:
@@ -351,8 +366,9 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS mailer CLI."""
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     args = parse_args(argv)
+    recover_stale_report_operations_in_db()
     source_email = args.source_email
     if not source_email:
         source_email = require_environment_variable("WAS_EMAIL_SOURCE")

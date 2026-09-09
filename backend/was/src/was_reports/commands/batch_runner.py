@@ -4,6 +4,7 @@
 import argparse
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from functools import partial
 import logging
 from pathlib import Path
 import subprocess  # nosec B404
@@ -30,7 +31,9 @@ from was_reports.data.report_runs import (
     create_report_run_for_tag,
     create_report_run_for_tracker,
     fail_report_run_by_id,
+    recover_stale_report_operations_in_db,
     retry_failed_report_run_for_tracker_by_id,
+    touch_report_run_by_id,
 )
 from was_reports.data.stakeholders import list_due_stakeholders_for_report
 from was_reports.storage.s3_reports import (
@@ -41,6 +44,8 @@ from was_reports.storage.s3_reports import (
     upload_report,
 )
 from was_reports.utils.env import getenv, require_env
+from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.operation_lease import operation_heartbeat
 from was_reports.utils.outputs import expected_pdf_output_path
 
 LOGGER = logging.getLogger(__name__)
@@ -193,16 +198,20 @@ def run_due_reports(
             continue
         uploaded_reference = None
         try:
-            output_reference = generate_report_output(
-                report_run_id=report_run.id,
-                stakeholder_tag=stakeholder.tag,
-                resource_root=resource_root,
-                python_executable=python_executable,
-                create_missing_password=create_missing_password,
-                output_directory=output_directory,
-                storage_mode=resolved_storage_mode,
-                staging_directory=staging_directory,
-            )
+            with operation_heartbeat(
+                heartbeat=partial(touch_report_run_by_id, report_run.id),
+                operation_name="report run {} generation".format(report_run.id),
+            ):
+                output_reference = generate_report_output(
+                    report_run_id=report_run.id,
+                    stakeholder_tag=stakeholder.tag,
+                    resource_root=resource_root,
+                    python_executable=python_executable,
+                    create_missing_password=create_missing_password,
+                    output_directory=output_directory,
+                    storage_mode=resolved_storage_mode,
+                    staging_directory=staging_directory,
+                )
             if resolved_storage_mode == S3_STORAGE:
                 uploaded_reference = output_reference
             complete_report_run_by_id(
@@ -212,6 +221,7 @@ def run_due_reports(
             )
         except Exception as exception:
             failed_count += 1
+            failure_summary = summarize_report_failure(exception)
             if uploaded_reference:
                 try:
                     delete_report(uploaded_reference)
@@ -222,7 +232,7 @@ def run_due_reports(
                     )
             fail_report_run_by_id(
                 report_run_id=report_run.id,
-                error_message=summarize_report_failure(exception),
+                error_message=failure_summary,
             )
             LOGGER.exception(
                 "WAS report generation failed for stakeholder tag %s",
@@ -308,16 +318,20 @@ def run_recent_scan_reports(
 
         uploaded_reference = None
         try:
-            output_reference = generate_report_output(
-                report_run_id=report_run.id,
-                stakeholder_tag=candidate.tag,
-                resource_root=resource_root,
-                python_executable=python_executable,
-                create_missing_password=create_missing_password,
-                output_directory=output_directory,
-                storage_mode=resolved_storage_mode,
-                staging_directory=staging_directory,
-            )
+            with operation_heartbeat(
+                heartbeat=partial(touch_report_run_by_id, report_run.id),
+                operation_name="report run {} generation".format(report_run.id),
+            ):
+                output_reference = generate_report_output(
+                    report_run_id=report_run.id,
+                    stakeholder_tag=candidate.tag,
+                    resource_root=resource_root,
+                    python_executable=python_executable,
+                    create_missing_password=create_missing_password,
+                    output_directory=output_directory,
+                    storage_mode=resolved_storage_mode,
+                    staging_directory=staging_directory,
+                )
             if resolved_storage_mode == S3_STORAGE:
                 uploaded_reference = output_reference
             complete_report_run_by_id(
@@ -328,6 +342,7 @@ def run_recent_scan_reports(
             generated_count += 1
         except Exception as exception:
             failed_count += 1
+            failure_summary = summarize_report_failure(exception)
             if uploaded_reference:
                 try:
                     delete_report(uploaded_reference)
@@ -338,9 +353,12 @@ def run_recent_scan_reports(
                     )
             fail_report_run_by_id(
                 report_run_id=report_run.id,
-                error_message=summarize_report_failure(exception),
+                error_message=failure_summary,
             )
-            mark_tracker_report_manual_by_id(candidate.id)
+            mark_tracker_report_manual_by_id(
+                candidate.id,
+                error_message=failure_summary,
+            )
             LOGGER.exception(
                 "WAS report generation failed for tracker row %s and tag %s",
                 candidate.id,
@@ -505,7 +523,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run scheduled WAS report generation."""
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     args = parse_args(argv)
     if args.recent_scans:
         stakeholder_tag = args.tag.strip() if args.tag else None
@@ -515,6 +533,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise ValueError("Manual report generation requires --tag.")
         if args.include_manual and not args.send_email:
             raise ValueError("Manual report generation requires --send-email.")
+        recover_stale_report_operations_in_db()
         if not args.skip_tracker_refresh:
             run_update_tracker(
                 delete_apps=False,
@@ -549,6 +568,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ]
     if any(recent_scan_only_options):
         raise ValueError("Recent-scan batch options require --recent-scans.")
+    recover_stale_report_operations_in_db()
     failed_count = run_due_reports(
         resource_root=args.resource_root,
         python_executable=args.python_executable,

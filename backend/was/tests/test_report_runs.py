@@ -122,7 +122,7 @@ class ReportRunTests(unittest.TestCase):
         self.assertTrue(conn.committed)
         self.assertEqual(
             conn.cursor_instance.parameters,
-            (report_runs.COMPLETED, None, None, None, 7),
+            (report_runs.COMPLETED, None, None, None, 7, report_runs.RUNNING),
         )
 
     def test_retry_failed_tracker_run_reclaims_existing_record(self) -> None:
@@ -149,7 +149,7 @@ class ReportRunTests(unittest.TestCase):
 
     def test_complete_report_run_can_store_output_metadata(self) -> None:
         """Mark a report complete with artifact details."""
-        conn = FakeConnection()
+        conn = FakeConnection(row=(7,))
 
         report_runs.complete_report_run(
             report_run_id=7,
@@ -167,6 +167,7 @@ class ReportRunTests(unittest.TestCase):
                 "/WAS_REPORT_GENERATION/docs/TAG1_report_2026-08-25.pdf",
                 "pdf",
                 7,
+                report_runs.RUNNING,
             ),
         )
 
@@ -183,8 +184,24 @@ class ReportRunTests(unittest.TestCase):
         self.assertTrue(conn.committed)
         self.assertEqual(
             conn.cursor_instance.parameters,
-            (report_runs.FAILED, "Report generation failed.", None, None, 7),
+            (
+                report_runs.FAILED,
+                "Report generation failed.",
+                None,
+                None,
+                7,
+                report_runs.RUNNING,
+            ),
         )
+
+    def test_complete_report_run_rejects_an_expired_lease(self) -> None:
+        """Prevent an expired worker from resurrecting a recovered run."""
+        conn = FakeConnection(row=None)
+
+        with self.assertRaises(report_runs.ActiveReportOperationError):
+            report_runs.complete_report_run(report_run_id=7, conn=conn)
+
+        self.assertTrue(conn.rolled_back)
 
     def test_mark_report_run_emailed_records_message_id(self) -> None:
         """Record successful email delivery metadata."""

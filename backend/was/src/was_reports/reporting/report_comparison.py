@@ -16,6 +16,7 @@ from pypdf import PdfReader
 
 # First-Party Libraries
 from was_reports.utils.env import getenv
+from was_reports.utils.logging_config import configure_logging
 
 PASSWORD_ENVIRONMENT_NAME = "WAS_REPORT_COMPARISON_PASSWORD"
 COMPARABLE_METADATA_KEYS = ("/Title", "/Author", "/Subject", "/Keywords")
@@ -172,6 +173,7 @@ def comparison_password() -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Compare two WAS reports and print a machine-readable result."""
+    configure_logging()
     arguments = parse_args(argv)
     result = compare_reports(
         legacy_path=arguments.legacy_report,

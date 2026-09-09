@@ -4,6 +4,7 @@
 import argparse
 from email.headerregistry import Address
 import logging
+from functools import partial
 import sys
 
 # Third-Party Libraries
@@ -16,12 +17,17 @@ from was_reports.commands.batch_runner import (
 )
 from was_reports.commands.report_generator import validate_stakeholder_tag
 from was_reports.data.report_runs import (
+    ActiveReportOperationError,
     complete_report_run_by_id,
     create_on_demand_report_run,
     fail_report_run_by_id,
+    touch_report_run_by_id,
 )
 from was_reports.data.stakeholders import get_stakeholder_details_by_tag
+from was_reports.storage.s3_reports import delete_report
 from was_reports.utils.env import getenv, require_env
+from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.operation_lease import operation_heartbeat
 
 LOGGER = logging.getLogger(__name__)
 
@@ -63,16 +69,20 @@ def run_on_demand(args: argparse.Namespace) -> int:
         LOGGER.info(
             "Generating report and uploading to S3; Qualys may take several minutes."
         )
-        output_reference = generate_report_output(
-            report_run_id=report_run.id,
-            stakeholder_tag=stakeholder_tag,
-            resource_root=args.resource_root,
-            python_executable=sys.executable,
-            create_missing_password=args.create_missing_password,
-            output_directory="/output",
-            storage_mode="s3",
-            staging_directory=args.staging_directory,
-        )
+        with operation_heartbeat(
+            heartbeat=partial(touch_report_run_by_id, report_run.id),
+            operation_name="report run {} generation".format(report_run.id),
+        ):
+            output_reference = generate_report_output(
+                report_run_id=report_run.id,
+                stakeholder_tag=stakeholder_tag,
+                resource_root=args.resource_root,
+                python_executable=sys.executable,
+                create_missing_password=args.create_missing_password,
+                output_directory="/output",
+                storage_mode="s3",
+                staging_directory=args.staging_directory,
+            )
     except Exception as error:
         fail_report_run_by_id(report_run.id, summarize_report_failure(error))
         raise
@@ -80,6 +90,15 @@ def run_on_demand(args: argparse.Namespace) -> int:
         complete_report_run_by_id(
             report_run.id, output_path=output_reference, artifact_type="pdf"
         )
+    except ActiveReportOperationError:
+        try:
+            delete_report(output_reference)
+        except Exception:
+            LOGGER.exception(
+                "Unable to remove expired-lease S3 report for run %s.",
+                report_run.id,
+            )
+        raise
     except Exception:
         LOGGER.error(
             "S3 upload succeeded for run %s but completion could not be recorded. "
@@ -137,10 +156,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     """Return a failure exit code without automatically repeating side effects."""
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     args = parse_args(argv)
     try:
         run_on_demand(args)
+    except ActiveReportOperationError as error:
+        LOGGER.error("On-demand report not started: %s", error)
+        return 1
     except Exception as error:
         LOGGER.error(
             "On-demand report failed (%s). Inspect its run before retrying.",

@@ -321,19 +321,23 @@ def list_ready_report_candidates_from_db(
 def mark_tracker_report_manual(
     tracker_id: int,
     conn: connection,
+    error_message: str | None = None,
 ) -> None:
-    """Mark a tracker row for manual handling after generation failure."""
+    """Mark a tracker row for manual handling with a safe failure summary."""
+    report_note = "MANUAL"
+    if error_message:
+        report_note = "MANUAL: {}".format(error_message)
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE was_daily_report_tracker
-                SET report_scan_notes = 'MANUAL',
+                SET report_scan_notes = %s,
                     updated_at = NOW()
                 WHERE id = %s
                   AND report_sent_date IS NULL
                 """,
-                (tracker_id,),
+                (report_note, tracker_id),
             )
             conn.commit()
     except Exception:
@@ -341,14 +345,21 @@ def mark_tracker_report_manual(
         raise
 
 
-def mark_tracker_report_manual_by_id(tracker_id: int) -> None:
+def mark_tracker_report_manual_by_id(
+    tracker_id: int,
+    error_message: str | None = None,
+) -> None:
     """Mark a tracker report manual using a managed database connection."""
     # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
     try:
-        mark_tracker_report_manual(tracker_id=tracker_id, conn=conn)
+        mark_tracker_report_manual(
+            tracker_id=tracker_id,
+            conn=conn,
+            error_message=error_message,
+        )
     finally:
         close(conn)
 

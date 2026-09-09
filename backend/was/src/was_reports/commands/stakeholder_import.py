@@ -13,6 +13,7 @@ from psycopg2.extras import execute_values
 
 # First-Party Libraries
 from was_reports.utils.database import close, connect
+from was_reports.utils.logging_config import configure_logging
 
 
 SOURCE_TO_DATABASE = (
@@ -286,6 +287,7 @@ def parse_arguments(argv: Optional[list[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[list[str]] = None) -> int:
     """Prepare a normalized stakeholder import CSV without inserting it."""
+    configure_logging()
     arguments = parse_arguments(argv)
     prepared_rows = prepare_stakeholder_csv(
         input_path=arguments.input,

@@ -19,6 +19,7 @@ from was_reports.qualys.report_data import (
     get_tag_id,
 )
 from was_reports.utils.env import getenv
+from was_reports.utils.logging_config import configure_logging
 
 
 def sanitize_report_xml(report_xml: str) -> bytes:
@@ -110,6 +111,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the stakeholder XML export command."""
+    configure_logging()
     args = parse_args(argv)
     stakeholder_tag = validate_stakeholder_tag(args.tag)
     filename = args.filename or "{}_report.xml".format(stakeholder_tag)

@@ -49,7 +49,8 @@ xml-help:
 	docker run --rm $(IMAGE) was-export-xml --help
 
 inventory:
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-inventory
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-inventory
 
 admin-help:
 	docker run --rm $(IMAGE) was-admin --help
@@ -61,23 +62,28 @@ stakeholders-help:
 	docker run --rm $(IMAGE) was-stakeholders --help
 
 recent-scan-batch:
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests
 
 recent-scan-batch-test:
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests --test-recipients "$(TEST_RECIPIENTS)" --dry-run-email --limit 1
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests --test-recipients "$(TEST_RECIPIENTS)" --dry-run-email --limit 1
 
 single-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make single-report TAG="CUSTOMER_TAG"' >&2; exit 1)
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --tag "$(TAG)" --create-missing-password --send-email
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --tag "$(TAG)" --create-missing-password --send-email
 
 manual-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make manual-report TAG="CUSTOMER_TAG"' >&2; exit 1)
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) --recent-scans --skip-tracker-refresh --tag "$(TAG)" --include-manual --create-missing-password --continue-on-error --send-email --limit 1
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --skip-tracker-refresh --tag "$(TAG)" --include-manual --create-missing-password --continue-on-error --send-email --limit 1
 
 .PHONY: on-demand-report
 
 on-demand-report:
 	@test -n "$(TAG)" || (echo 'TAG is required.' >&2; exit 1)
+	mkdir -p $(OUTPUT_DIR)
 	@set -- --tag "$(TAG)" --create-missing-password; \
 	if [ -n "$(TRACKER_ID)" ]; then set -- "$$@" --tracker-id "$(TRACKER_ID)"; fi; \
 	case "$(SEND_EMAIL)" in \
@@ -86,7 +92,7 @@ on-demand-report:
 	     set -- "$$@" --send-email --test-recipients "$(TEST_RECIPIENTS)" ;; \
 	  *) echo 'SEND_EMAIL must be 0 or 1.' >&2; exit 1 ;; \
 	esac; \
-	docker run --rm --env-file $(ENV_FILE) --entrypoint was-report-on-demand $(IMAGE) "$$@"
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint was-report-on-demand $(IMAGE) "$$@"
 
 special-cases:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-special-cases list
@@ -118,15 +124,17 @@ tracker-csv:
 	fi
 
 tracker-table:
+	mkdir -p $(OUTPUT_DIR)
 	@set -- was-tracker show --days-back "$(DAYS_BACK)"; \
 	if [ -n "$(ASSIGNEE)" ]; then set -- "$$@" --assignee "$(ASSIGNEE)"; fi; \
 	if [ -n "$(REPORT_STATUS)" ]; then set -- "$$@" --report-status "$(REPORT_STATUS)"; fi; \
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) "$$@"
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) "$$@"
 
 report-errors:
+	mkdir -p $(OUTPUT_DIR)
 	@set -- was-tracker errors --days-back "$(DAYS_BACK)"; \
 	if [ -n "$(TAG)" ]; then set -- "$$@" --tag "$(TAG)"; fi; \
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) "$$@"
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) "$$@"
 
 tracker-mark-sent:
 	@test -n "$(TRACKER_ID)" || (echo 'TRACKER_ID is required.' >&2; exit 1)
@@ -134,10 +142,13 @@ tracker-mark-sent:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-tracker mark-sent --tracker-id "$(TRACKER_ID)" --sent-date "$(SENT_DATE)" --confirm
 
 update-tracker:
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-update-tracker
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker
 
 update-tracker-delete-apps:
-	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-update-tracker --delete-apps
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker --delete-apps
 
 assignee-digests:
-	docker run --rm --env-file $(ENV_FILE) --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --assignee-digests --dry-run
+	mkdir -p $(OUTPUT_DIR)
+	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --assignee-digests --dry-run

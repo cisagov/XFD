@@ -24,6 +24,7 @@ from was_reports.commands.stakeholder_import import (
     import_prepared_rows,
     prepare_stakeholder_csv,
 )
+from was_reports.utils.logging_config import configure_logging
 
 
 def nonempty_value(value: str) -> str:
@@ -347,6 +348,7 @@ def run_add(args: argparse.Namespace) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run one stakeholder administration command."""
+    configure_logging()
     args = parse_args(argv)
     try:
         if args.command == "update-contacts":

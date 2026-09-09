@@ -5,7 +5,8 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,6 +21,13 @@ EMAIL_SENDING = "sending"
 EMAIL_SENT = "sent"
 EMAIL_FAILED = "failed"
 EMAIL_HELD = "held"
+DEFAULT_REPORT_RUN_STALE_SECONDS = 300
+DEFAULT_EMAIL_CLAIM_STALE_SECONDS = 300
+LOGGER = logging.getLogger(__name__)
+
+
+class ActiveReportOperationError(RuntimeError):
+    """Indicate that an active report operation already owns a stakeholder."""
 
 
 @dataclass(frozen=True)
@@ -59,6 +67,187 @@ class ReportRunError:
     completed_at: datetime | None
     error_message: str | None
     email_error: str | None
+
+
+def _positive_seconds(name: str, default: int) -> int:
+    """Return a positive timeout configured through the environment."""
+    # First-Party Libraries
+    from was_reports.utils.env import getenv
+
+    raw_value = getenv(name, str(default))
+    try:
+        value = int(raw_value or default)
+    except ValueError as error:
+        raise ValueError("{} must be an integer.".format(name)) from error
+    if value < 1:
+        raise ValueError("{} must be at least 1.".format(name))
+    return value
+
+
+def recover_stale_report_operations(conn: connection) -> tuple[int, int]:
+    """Fail expired generation claims and hold uncertain email claims."""
+    generation_timeout = timedelta(
+        seconds=_positive_seconds(
+            "WAS_REPORT_RUN_STALE_SECONDS",
+            DEFAULT_REPORT_RUN_STALE_SECONDS,
+        )
+    )
+    email_timeout = timedelta(
+        seconds=_positive_seconds(
+            "WAS_EMAIL_CLAIM_STALE_SECONDS",
+            DEFAULT_EMAIL_CLAIM_STALE_SECONDS,
+        )
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH stale_runs AS (
+                    UPDATE was_report_runs
+                    SET status = %s,
+                        completed_at = NOW(),
+                        error_message = %s,
+                        updated_at = NOW()
+                    WHERE status = %s
+                      AND updated_at < NOW() - %s
+                    RETURNING id, source_tracker_id
+                ),
+                updated_trackers AS (
+                    UPDATE was_daily_report_tracker AS tracker
+                    SET report_scan_notes = CASE
+                            WHEN NULLIF(BTRIM(tracker.report_scan_notes), '') IS NULL
+                            THEN %s
+                            ELSE tracker.report_scan_notes
+                        END,
+                        updated_at = NOW()
+                    FROM stale_runs
+                    WHERE tracker.id = stale_runs.source_tracker_id
+                    RETURNING tracker.id
+                )
+                SELECT COUNT(*) FROM stale_runs
+                """,
+                (
+                    FAILED,
+                    "Report generation claim expired before completion.",
+                    RUNNING,
+                    generation_timeout,
+                    "MANUAL: report generation claim expired before completion.",
+                ),
+            )
+            generation_count = cursor.fetchone()[0]
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET email_status = %s,
+                    email_error = %s,
+                    email_claimed_at = NULL,
+                    updated_at = NOW()
+                WHERE email_status = %s
+                  AND email_claimed_at IS NOT NULL
+                  AND email_claimed_at < NOW() - %s
+                RETURNING id
+                """,
+                (
+                    EMAIL_HELD,
+                    "Email delivery claim expired; verify SES delivery before retrying.",
+                    EMAIL_SENDING,
+                    email_timeout,
+                ),
+            )
+            email_count = len(cursor.fetchall())
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if generation_count or email_count:
+        LOGGER.warning(
+            "Recovered stale WAS operations: generation=%s email=%s.",
+            generation_count,
+            email_count,
+        )
+    return generation_count, email_count
+
+
+def recover_stale_report_operations_in_db() -> tuple[int, int]:
+    """Recover stale report operations using a managed connection."""
+    # First-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return recover_stale_report_operations(conn)
+    finally:
+        close(conn)
+
+
+def touch_report_run(report_run_id: int, conn: connection) -> bool:
+    """Refresh an active report-generation lease."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET updated_at = NOW()
+                WHERE id = %s
+                  AND status = %s
+                RETURNING id
+                """,
+                (report_run_id, RUNNING),
+            )
+            refreshed = cursor.fetchone() is not None
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return refreshed
+
+
+def touch_report_run_by_id(report_run_id: int) -> bool:
+    """Refresh a report-generation lease using a managed connection."""
+    # First-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return touch_report_run(report_run_id=report_run_id, conn=conn)
+    finally:
+        close(conn)
+
+
+def touch_report_email_claim(report_run_id: int, conn: connection) -> bool:
+    """Refresh an active report-email delivery lease."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET email_claimed_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = %s
+                  AND email_status = %s
+                RETURNING id
+                """,
+                (report_run_id, EMAIL_SENDING),
+            )
+            refreshed = cursor.fetchone() is not None
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return refreshed
+
+
+def touch_report_email_claim_by_id(report_run_id: int) -> bool:
+    """Refresh a report-email lease using a managed connection."""
+    # First-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return touch_report_email_claim(report_run_id=report_run_id, conn=conn)
+    finally:
+        close(conn)
 
 
 def create_report_run(
@@ -157,6 +346,8 @@ def update_report_run_status(
                     artifact_type = COALESCE(%s, artifact_type),
                     updated_at = NOW()
                 WHERE id = %s
+                  AND status = %s
+                RETURNING id
                 """,
                 (
                     status,
@@ -164,8 +355,16 @@ def update_report_run_status(
                     output_path,
                     artifact_type,
                     report_run_id,
+                    RUNNING,
                 ),
             )
+            updated_row = cursor.fetchone()
+            if updated_row is None and status == COMPLETED:
+                raise ActiveReportOperationError(
+                    "Report run {} no longer owns its generation lease.".format(
+                        report_run_id
+                    )
+                )
             conn.commit()
     except Exception:
         conn.rollback()
@@ -202,6 +401,7 @@ def create_on_demand_report_run(
 
     conn = connect()
     try:
+        recover_stale_report_operations(conn)
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -222,8 +422,13 @@ def create_on_demand_report_run(
                 """,
                 (stakeholder_tag,),
             )
-            if cursor.fetchone() is not None:
-                raise RuntimeError("A report operation is already active for this tag.")
+            active_run = cursor.fetchone()
+            if active_run is not None:
+                raise ActiveReportOperationError(
+                    "Report run {} is already active for stakeholder {}.".format(
+                        active_run[0], stakeholder_tag
+                    )
+                )
             if source_tracker_id is not None:
                 cursor.execute(
                     """

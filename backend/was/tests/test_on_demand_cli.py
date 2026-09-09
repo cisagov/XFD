@@ -28,6 +28,7 @@ class OnDemandTests(unittest.TestCase):
             "complete_report_run_by_id",
             "fail_report_run_by_id",
             "send_report_run_email",
+            "delete_report",
         ):
             self.services[name] = self.stack.enter_context(
                 patch.object(on_demand_cli, name)
@@ -106,6 +107,20 @@ class OnDemandTests(unittest.TestCase):
         self.assertEqual(on_demand_cli.main(self.arguments(email=True)), 1)
         self.services["send_report_run_email"].assert_not_called()
         self.services["fail_report_run_by_id"].assert_not_called()
+        self.services["delete_report"].assert_not_called()
+
+    def test_expired_lease_removes_uploaded_artifact(self) -> None:
+        """Remove an uploaded report when generation ownership has expired."""
+        self.services["complete_report_run_by_id"].side_effect = (
+            report_runs.ActiveReportOperationError("lease expired")
+        )
+
+        self.assertEqual(on_demand_cli.main(self.arguments(email=True)), 1)
+
+        self.services["delete_report"].assert_called_once_with(
+            "s3://test/8/report.pdf"
+        )
+        self.services["send_report_run_email"].assert_not_called()
 
     def test_email_failure_preserves_completed_generation(self) -> None:
         """Leave delivery status to the existing atomic mailer implementation."""
@@ -186,7 +201,11 @@ class OnDemandClaimTests(unittest.TestCase):
         cursor.fetchone.side_effect = rows
         with patch(
             "was_reports.utils.database.connect", return_value=connection
-        ), patch("was_reports.utils.database.close"):
+        ), patch("was_reports.utils.database.close"), patch.object(
+            report_runs,
+            "recover_stale_report_operations",
+            return_value=(0, 0),
+        ):
             result = report_runs.create_on_demand_report_run("CROSSFEED", tracker_id)
         return result, connection, cursor
 

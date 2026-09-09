@@ -435,7 +435,10 @@ class BatchRunnerTests(unittest.TestCase):
             report_run_id=42,
             error_message="RuntimeError occurred during report generation.",
         )
-        mock_mark_manual.assert_called_once_with(9)
+        mock_mark_manual.assert_called_once_with(
+            9,
+            error_message="RuntimeError occurred during report generation.",
+        )
 
     @patch("was_reports.commands.batch_runner.send_report_run_email")
     @patch("was_reports.commands.batch_runner.send_ready_report_emails")
@@ -569,12 +572,14 @@ class BatchRunnerTests(unittest.TestCase):
                 ["--recent-scans", "--include-manual", "--tag", "TAG1"]
             )
 
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
     @patch("was_reports.commands.batch_runner.run_update_tracker")
     def test_main_recent_scans_refreshes_tracker_before_batch(
         self,
         mock_update_tracker,
         mock_run_recent,
+        mock_recover_stale,
     ) -> None:
         """Refresh Qualys tracker data before evaluating report-delivery gaps."""
         mock_run_recent.return_value = batch_runner.BatchExecutionSummary(
@@ -596,6 +601,7 @@ class BatchRunnerTests(unittest.TestCase):
         )
 
         self.assertEqual(exit_code, 0)
+        mock_recover_stale.assert_called_once_with()
         mock_update_tracker.assert_called_once_with(
             delete_apps=False,
             stakeholder_tag="TAG1",

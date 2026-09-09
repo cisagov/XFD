@@ -19,6 +19,7 @@ from was_reports.commands import (
     tracker_cli,
     update_tracker_cli,
 )
+from was_reports.utils.logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
 InputFunction = Callable[[str], str]
@@ -648,7 +649,7 @@ class WasOperatorMenu:
 
 def main() -> int:
     """Run the interactive WAS operator menu."""
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     menu = WasOperatorMenu()
     try:
         return menu.run()

@@ -10,6 +10,7 @@ from typing import List, Optional
 
 # Third-Party Libraries
 from was_reports.utils.env import getenv
+from was_reports.utils.logging_config import configure_logging
 
 DEFAULT_WORKSPACE_ROOT = str(Path(gettempdir()) / "was-report-workspaces")
 
@@ -170,6 +171,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run WAS report generation from CLI arguments."""
+    configure_logging()
     args = parse_args(argv)
     stakeholder_tag = validate_stakeholder_tag(args.tag)
     resource_root = Path(args.resource_root)

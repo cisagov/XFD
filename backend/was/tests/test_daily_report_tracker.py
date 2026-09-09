@@ -235,8 +235,8 @@ class DailyReportTrackerTests(unittest.TestCase):
         mark_tracker_report_manual(tracker_id=7, conn=conn)
 
         self.assertTrue(conn.committed)
-        self.assertIn("report_scan_notes = 'MANUAL'", conn.cursor_instance.query)
-        self.assertEqual(conn.cursor_instance.parameters, (7,))
+        self.assertIn("report_scan_notes = %s", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, ("MANUAL", 7))
 
     def test_list_ready_report_candidates_includes_manual_failures(self) -> None:
         """Allow a scoped manual run to reclaim failed tracker reports."""

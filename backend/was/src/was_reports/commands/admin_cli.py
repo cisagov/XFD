@@ -16,6 +16,7 @@ from was_reports.qualys.qualys_admin import (
 )
 from was_reports.qualys.qualys_client import QualysClient, create_qualys_client
 from was_reports.qualys.report_data import get_tag_id
+from was_reports.utils.logging_config import configure_logging
 
 
 def validate_webapp_url(value: str) -> str:
@@ -158,6 +159,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run one guarded Qualys WAS administration operation."""
+    configure_logging()
     args = parse_args(argv)
     try:
         require_confirmation(args)

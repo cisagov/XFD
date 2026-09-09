@@ -8,6 +8,7 @@ from typing import List, Optional
 # First-Party Libraries
 from was_reports.qualys.qualys_client import create_qualys_client
 from was_reports.tracker.service import refresh_daily_tracker
+from was_reports.utils.logging_config import configure_logging
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -50,6 +51,7 @@ def run_update_tracker(
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS update tracker CLI."""
+    configure_logging()
     args = parse_args(argv)
     stakeholder_tag = args.tag.strip() if args.tag else None
     if args.tag and not stakeholder_tag:

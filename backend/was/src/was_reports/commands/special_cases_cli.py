@@ -11,6 +11,7 @@ from was_reports.data.special_cases import (
     list_special_cases,
     upsert_special_case,
 )
+from was_reports.utils.logging_config import configure_logging
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -38,6 +39,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS special case CLI."""
+    configure_logging()
     args = parse_args(argv)
 
     from was_reports.utils.database import close, connect

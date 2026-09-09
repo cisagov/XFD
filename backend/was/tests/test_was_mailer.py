@@ -409,8 +409,13 @@ class WasMailerTests(unittest.TestCase):
             stakeholder_tag=None,
         )
 
+    @patch("was_mailer.email_reports.recover_stale_report_operations_in_db")
     @patch("was_mailer.email_reports.send_ready_report_emails")
-    def test_main_all_ready_uses_batch_mode(self, mock_send_ready) -> None:
+    def test_main_all_ready_uses_batch_mode(
+        self,
+        mock_send_ready,
+        mock_recover_stale,
+    ) -> None:
         """Route all-ready CLI mode to the batch mailer."""
         exit_code = email_reports.main(
             [
@@ -426,6 +431,7 @@ class WasMailerTests(unittest.TestCase):
         )
 
         self.assertEqual(exit_code, 0)
+        mock_recover_stale.assert_called_once_with()
         mock_send_ready.assert_called_once_with(
             source_email="sender@example.gov",
             override_recipients="test@example.gov",
@@ -434,10 +440,12 @@ class WasMailerTests(unittest.TestCase):
             include_previous_failures=False,
         )
 
+    @patch("was_mailer.email_reports.recover_stale_report_operations_in_db")
     @patch("was_mailer.email_reports.send_ready_assignee_digests")
     def test_main_assignee_digests_routes_to_digest_mode(
         self,
         mock_send_digests,
+        mock_recover_stale,
     ) -> None:
         """Route assignee digest CLI mode to the digest mailer."""
         exit_code = email_reports.main(
@@ -456,6 +464,7 @@ class WasMailerTests(unittest.TestCase):
         )
 
         self.assertEqual(exit_code, 0)
+        mock_recover_stale.assert_called_once_with()
         mock_send_digests.assert_called_once_with(
             source_email="sender@example.gov",
             override_recipients="test@example.gov",

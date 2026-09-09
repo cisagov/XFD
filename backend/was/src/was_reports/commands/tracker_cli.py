@@ -20,6 +20,7 @@ from was_reports.data.report_runs import (
     list_report_run_errors_from_db,
 )
 from was_reports.tracker.tracker_csv import write_tracker_csv
+from was_reports.utils.logging_config import configure_logging
 
 TABLE_COLUMNS = [
     ("ID", 8),
@@ -341,6 +342,7 @@ def mark_sent(args: argparse.Namespace) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS tracker CLI."""
+    configure_logging()
     args = parse_args(argv)
     try:
         if args.command == "export-csv":

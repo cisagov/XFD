@@ -142,6 +142,13 @@ WAS_QUALYS_RETRY_BASE_DELAY_SECONDS=1
 WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
 WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=1800
+WAS_OPERATION_HEARTBEAT_SECONDS=30
+WAS_REPORT_RUN_STALE_SECONDS=300
+WAS_EMAIL_CLAIM_STALE_SECONDS=300
+WAS_LOG_DIRECTORY=/output/logs
+WAS_LOG_RETENTION_DAYS=14
+WAS_LOG_MAX_BYTES=10485760
+WAS_LOG_BACKUP_COUNT=5
 WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
 WAS_OUTPUT_DIRECTORY=/output
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
@@ -154,6 +161,21 @@ AWS_DEFAULT_REGION=us-east-1
 WAS_EMAIL_SOURCE=verified-sender@example.gov
 WAS_SES_ROLE_ARN=arn:aws:iam::246048611598:role/SesSendEmail-cyber.dhs.gov
 ```
+
+Long-running report generation and report-email delivery refresh database lease
+timestamps every `WAS_OPERATION_HEARTBEAT_SECONDS`. A generation claim with no
+heartbeat for `WAS_REPORT_RUN_STALE_SECONDS` is marked failed before new work is
+claimed. A stale SES claim is placed on hold because delivery may have succeeded,
+so the software never blindly resends an uncertain email. Tracker-linked report
+failures are marked for manual handling with a safe failure summary, which is
+included in the complete batch's assignee digest.
+
+All WAS commands log to container stdout for `docker logs`. When `/output` is
+mounted, the same messages are retained on the host under `local-output/logs/`.
+Each process writes a timestamped `was-reporting-*.log` file, rotates it at 10
+MiB, and retains five segments. Command startup removes WAS log files older than
+14 days. Change the log settings only when operational retention requirements
+differ.
 
 Do not commit `.env`, database passwords, Qualys credentials, or generated
 reports.
