@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { parse } from 'query-string';
+import queryString from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
@@ -17,7 +17,7 @@ export const LoginGovCallback: React.FC = () => {
   const { push: historyPush } = useHistory();
 
   const handleLoginGovCB = useCallback(async () => {
-    const { state, code } = parse(window.location.search);
+    const { state, code } = queryString.parse(window.location.search);
     const nonce = localStorage.getItem('nonce');
     const origState = localStorage.getItem('state');
 
