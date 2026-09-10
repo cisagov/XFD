@@ -312,6 +312,14 @@ class ReportRunTests(unittest.TestCase):
                     "tech@example.gov",
                     "poc@example.gov",
                     None,
+                    "pdf",
+                    "Results",
+                    "Analyst",
+                    "",
+                    "",
+                    "",
+                    1788307200,
+                    1790985600,
                 )
             ]
         )
@@ -362,10 +370,18 @@ class ReportRunTests(unittest.TestCase):
                 "TAG1",
                 "s3://reports/was_reports/report.pdf",
                 42,
+                "pdf",
                 "password",
                 "distro@example.gov",
                 "tech@example.gov",
                 "poc@example.gov",
+                "Results",
+                "Analyst",
+                "",
+                "",
+                "",
+                1788307200,
+                1790985600,
             )
         )
 

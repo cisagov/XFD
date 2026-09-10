@@ -95,21 +95,40 @@ def send_report_run_email(
                 operation_name="report run {} email".format(report_run_id),
             )
         with heartbeat_context:
-            with materialize_report(
-                report_reference=report_run_email.output_path,
-                s3_client=s3_client,
-                storage_mode=storage_mode,
-                expected_local_root=(
-                    None
-                    if local_output_directory is None
-                    else Path(local_output_directory)
-                ),
-            ) as report_path:
+            report_context = nullcontext(None)
+            if report_run_email.output_path is not None:
+                report_context = materialize_report(
+                    report_reference=report_run_email.output_path,
+                    s3_client=s3_client,
+                    storage_mode=storage_mode,
+                    expected_local_root=(
+                        None
+                        if local_output_directory is None
+                        else Path(local_output_directory)
+                    ),
+                )
+            with report_context as report_path:
                 message = build_report_email(
                     source_email=source_email,
                     recipients=recipients,
                     stakeholder_tag=report_run_email.stakeholder_tag,
                     report_path=report_path,
+                    template=(
+                        "Results" if allow_held else report_run_email.template
+                    ),
+                    assignee_name=report_run_email.assignee_name,
+                    recent_nws=(
+                        None if allow_held else report_run_email.recent_nws
+                    ),
+                    remove_nws=(
+                        None if allow_held else report_run_email.remove_nws
+                    ),
+                    qualys_error=(
+                        None if allow_held else report_run_email.qualys_error
+                    ),
+                    last_scanned=report_run_email.last_scanned,
+                    next_scheduled=report_run_email.next_scheduled,
+                    analyst_delivery=allow_held,
                 )
 
             if dry_run:

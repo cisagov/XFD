@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 # Standard Python Libraries
+from dataclasses import replace
 from datetime import date, datetime, timezone
 import logging
 import time
@@ -229,7 +230,6 @@ def update_tracker(
 ) -> None:
     """Write rows and optionally remove repeatedly inaccessible apps."""
     conn = connect()
-    applications_to_delete: list[str] = []
     try:
         assignees = active_assignees(conn)
         effective_pull_date = data_pull_date or date.today()
@@ -242,16 +242,27 @@ def update_tracker(
                 conn=conn,
                 data_pull_date=effective_pull_date,
             )
+            applications_to_delete = [
+                app for app in item.removed_nws.split("<br>") if app
+            ]
+            if applications_to_delete and not item.fceb:
+                if not delete_apps:
+                    tracker_row = replace(
+                        tracker_row,
+                        template="Action Required",
+                        report_scan_notes="QUALYS DELETION REQUIRED",
+                    )
+                else:
+                    for webapp_url in applications_to_delete:
+                        delete_webapp(client, webapp_url)
+                    tracker_row = replace(
+                        tracker_row,
+                        template="Targets Removed",
+                        report_scan_notes="",
+                    )
             insert_daily_report_tracker_row(row=tracker_row, conn=conn)
-            if item.removed_nws and not item.fceb:
-                applications_to_delete.extend(
-                    app for app in item.removed_nws.split("<br>") if app
-                )
     finally:
         close(conn)
 
     if not delete_apps:
         LOGGER.info("Qualys web application deletion is disabled.")
-        return
-    for webapp_url in applications_to_delete:
-        delete_webapp(client, webapp_url)

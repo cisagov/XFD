@@ -16,6 +16,7 @@ from was_reports.commands.batch_runner import (
     summarize_report_failure,
 )
 from was_reports.commands.report_generator import validate_stakeholder_tag
+from was_reports.data.assignees import list_active_assignee_emails_from_db
 from was_reports.data.report_runs import (
     ActiveReportOperationError,
     complete_report_run_by_id,
@@ -23,7 +24,6 @@ from was_reports.data.report_runs import (
     fail_report_run_by_id,
     touch_report_run_by_id,
 )
-from was_reports.data.stakeholders import get_stakeholder_details_by_tag
 from was_reports.storage.s3_reports import delete_report
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import configure_logging
@@ -33,7 +33,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def validated_recipients(value: str) -> str:
-    """Reject empty or malformed delivery overrides instead of falling back."""
+    """Require explicit recipients configured as active WAS assignees."""
     recipients = unique_addresses(parse_email_addresses(value))
     if not recipients:
         raise ValueError("At least one email recipient is required.")
@@ -41,6 +41,20 @@ def validated_recipients(value: str) -> str:
         address = Address(addr_spec=recipient)
         if not address.username or not address.domain:
             raise ValueError("Recipients must be complete email addresses.")
+    approved_addresses = set()
+    for configured_value in list_active_assignee_emails_from_db():
+        approved_addresses.update(
+            address.lower() for address in parse_email_addresses(configured_value)
+        )
+    unapproved_addresses = [
+        recipient
+        for recipient in recipients
+        if recipient.lower() not in approved_addresses
+    ]
+    if unapproved_addresses:
+        raise ValueError(
+            "On-demand reports may be emailed only to active WAS assignees."
+        )
     return ",".join(recipients)
 
 
@@ -51,17 +65,7 @@ def run_on_demand(args: argparse.Namespace) -> int:
     source_email = None
     if args.send_email:
         source_email = require_env("WAS_EMAIL_SOURCE")
-        if args.test_recipients is not None:
-            recipients = validated_recipients(args.test_recipients)
-        else:
-            stakeholder = get_stakeholder_details_by_tag(stakeholder_tag)
-            if stakeholder is None:
-                raise ValueError("WAS stakeholder was not found.")
-            recipients = validated_recipients(
-                ",".join(
-                    [stakeholder.tech_poc_email or "", stakeholder.distro_email or ""]
-                )
-            )
+        recipients = validated_recipients(args.test_recipients)
     require_env("WAS_REPORTS_BUCKET_NAME")
     report_run = create_on_demand_report_run(stakeholder_tag, args.tracker_id)
     LOGGER.info("Created on-demand WAS report run %s.", report_run.id)
@@ -135,9 +139,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--create-missing-password", action="store_true")
     parser.add_argument("--tracker-id", type=int)
     parser.add_argument("--send-email", action="store_true")
-    recipients = parser.add_mutually_exclusive_group()
-    recipients.add_argument("--test-recipients")
-    recipients.add_argument("--stakeholder-recipients", action="store_true")
+    parser.add_argument(
+        "--test-recipients",
+        help="Explicit active WAS assignee recipients for on-demand delivery.",
+    )
     parser.add_argument(
         "--resource-root", default=getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
     )
@@ -146,7 +151,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=getenv("WAS_REPORT_STAGING_DIRECTORY", DEFAULT_STAGING_DIRECTORY),
     )
     args = parser.parse_args(argv)
-    has_recipients = args.test_recipients is not None or args.stakeholder_recipients
+    has_recipients = args.test_recipients is not None
     if args.send_email != has_recipients:
         parser.error("Use --send-email together with exactly one recipient option.")
     if args.tracker_id is not None and args.tracker_id <= 0:

@@ -205,7 +205,18 @@ class DailyReportTrackerTests(unittest.TestCase):
         """Find recent tracker rows without sent reports or existing claims."""
         conn = FakeConnection(
             fetchall_rows=[
-                (7, "TAG1", date(2026, 9, 1), 12345, 3, None, None, None),
+                (
+                    7,
+                    "TAG1",
+                    date(2026, 9, 1),
+                    12345,
+                    3,
+                    "Results",
+                    "",
+                    None,
+                    None,
+                    None,
+                ),
             ]
         )
 
@@ -244,6 +255,8 @@ class DailyReportTrackerTests(unittest.TestCase):
                     date(2026, 9, 1),
                     12345,
                     3,
+                    "Results",
+                    "",
                     8,
                     "failed",
                     "pending",
@@ -392,6 +405,20 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(rows, [])
         self.assertIn("report_status = %s", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7, "MANUAL", 25))
+
+    def test_list_tracker_table_rows_supports_no_row_limit(self) -> None:
+        """Return every matching tracker row when no limit is requested."""
+        conn = FakeConnection(fetchall_rows=[])
+
+        rows = list_tracker_table_rows(
+            conn=conn,
+            days_back=7,
+            limit=None,
+        )
+
+        self.assertEqual(rows, [])
+        self.assertNotIn("LIMIT %s", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (7,))
 
     def test_mark_manual_tracker_report_sent_updates_unsent_manual_row(self) -> None:
         """Set a manual report sent date using its tracker row ID."""

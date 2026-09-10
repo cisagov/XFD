@@ -73,6 +73,35 @@ def list_active_assignee_names(conn: connection) -> list[str]:
     return [row[0] for row in rows]
 
 
+def list_active_assignee_emails(conn: connection) -> list[str]:
+    """Return configured email addresses for active, email-enabled assignees."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT email
+            FROM was_assignees
+            WHERE active IS TRUE
+              AND email_enabled IS TRUE
+              AND NULLIF(BTRIM(email), '') IS NOT NULL
+            ORDER BY id ASC
+            """
+        )
+        rows = cursor.fetchall()
+
+    return [row[0] for row in rows]
+
+
+def list_active_assignee_emails_from_db() -> list[str]:
+    """Return active assignee email addresses using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_active_assignee_emails(conn)
+    finally:
+        close(conn)
+
+
 def upsert_assignee(
     name: str,
     conn: connection,

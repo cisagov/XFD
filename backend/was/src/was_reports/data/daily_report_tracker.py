@@ -62,6 +62,8 @@ class TrackerReportCandidate:
     data_pull_date: date
     schedule_id: int | None
     assignee_id: int | None
+    template: str | None = None
+    remove_nws: str | None = None
     report_run_id: int | None = None
     report_run_status: str | None = None
     report_email_status: str | None = None
@@ -222,6 +224,8 @@ def list_ready_report_candidates(
             tracker.data_pull_date,
             tracker.schedule_id,
             tracker.assignee_id,
+            tracker.template,
+            tracker.remove_nws,
             runs.id,
             runs.status,
             runs.email_status
@@ -262,9 +266,14 @@ def list_ready_report_candidates(
     else:
         query += """
           AND runs.id IS NULL
-          AND LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
+          AND (
+                LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
+             OR (
+                    LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'error'
+                AND BTRIM(COALESCE(tracker.qualys_error, '')) <> ''
+             )
+          )
           AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
-          AND BTRIM(COALESCE(tracker.qualys_error, '')) = ''
           AND stakeholders.manual_report IS NOT TRUE
         """
     if stakeholder_tag is not None:
@@ -286,9 +295,11 @@ def list_ready_report_candidates(
             data_pull_date=row[2],
             schedule_id=row[3],
             assignee_id=row[4],
-            report_run_id=row[5],
-            report_run_status=row[6],
-            report_email_status=row[7],
+            template=row[5],
+            remove_nws=row[6],
+            report_run_id=row[7],
+            report_run_status=row[8],
+            report_email_status=row[9],
         )
         for row in rows
     ]
@@ -713,7 +724,7 @@ def list_tracker_table_rows(
     days_back: int,
     assignee_name: str | None = None,
     report_status: str | None = None,
-    limit: int = 200,
+    limit: int | None = 200,
 ) -> list[TrackerTableRow]:
     """Return recent tracker rows without sensitive fields."""
     if days_back < 0:
@@ -728,7 +739,7 @@ def list_tracker_table_rows(
         normalized_report_status = report_status.strip().upper()
         if normalized_report_status not in {"MANUAL", "PENDING", "SENT"}:
             raise ValueError("Report status must be MANUAL, PENDING, or SENT.")
-    if limit < 1:
+    if limit is not None and limit < 1:
         raise ValueError("Limit must be greater than zero.")
 
     query = """
@@ -791,8 +802,10 @@ def list_tracker_table_rows(
     if normalized_report_status is not None:
         query += " AND report_status = %s"
         parameters.append(normalized_report_status)
-    query += " ORDER BY data_pull_date DESC, tag ASC LIMIT %s"
-    parameters.append(limit)
+    query += " ORDER BY data_pull_date DESC, tag ASC"
+    if limit is not None:
+        query += " LIMIT %s"
+        parameters.append(limit)
 
     with conn.cursor() as cursor:
         cursor.execute(query, tuple(parameters))
@@ -820,7 +833,7 @@ def list_tracker_table_rows_from_db(
     days_back: int,
     assignee_name: str | None = None,
     report_status: str | None = None,
-    limit: int = 200,
+    limit: int | None = 200,
 ) -> list[TrackerTableRow]:
     """Return recent assignee tracker rows using a managed connection."""
     # Third-Party Libraries

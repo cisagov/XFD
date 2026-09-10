@@ -50,12 +50,20 @@ class ReportRunEmail:
 
     id: int
     stakeholder_tag: str
-    output_path: str
+    output_path: str | None
     report_password: str | None
     distro_email: str | None
     tech_poc_email: str | None
     was_report_poc: str | None
     source_tracker_id: int | None = None
+    artifact_type: str | None = None
+    template: str | None = None
+    assignee_name: str | None = None
+    recent_nws: str | None = None
+    remove_nws: str | None = None
+    qualys_error: str | None = None
+    last_scanned: int | None = None
+    next_scheduled: int | None = None
 
 
 @dataclass(frozen=True)
@@ -913,13 +921,28 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 stakeholders.distro_email,
                 stakeholders.tech_poc_email,
                 stakeholders.was_report_poc,
-                runs.source_tracker_id
+                runs.source_tracker_id,
+                runs.artifact_type,
+                tracker.template,
+                COALESCE(assignees.name, tracker.assignee),
+                tracker.recent_nws,
+                tracker.remove_nws,
+                tracker.qualys_error,
+                stakeholders.last_scanned,
+                stakeholders.next_scheduled
             FROM was_report_runs AS runs
             JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = runs.stakeholder_tag
+            LEFT JOIN was_daily_report_tracker AS tracker
+              ON tracker.id = runs.source_tracker_id
+            LEFT JOIN was_assignees AS assignees
+              ON assignees.id = tracker.assignee_id
             WHERE runs.id = %s
               AND runs.status = %s
-              AND runs.output_path IS NOT NULL
+              AND (
+                    runs.output_path IS NOT NULL
+                 OR runs.artifact_type = 'notification'
+              )
               AND runs.emailed_at IS NULL
             """,
             (report_run_id, COMPLETED),
@@ -928,7 +951,7 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
 
     if row is None:
         raise KeyError(
-            "Completed report run {} with output path was not found.".format(
+            "Completed report run {} with a deliverable was not found.".format(
                 report_run_id
             )
         )
@@ -942,6 +965,14 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
         tech_poc_email=row[5],
         was_report_poc=row[6],
         source_tracker_id=row[7],
+        artifact_type=row[8],
+        template=row[9],
+        assignee_name=row[10],
+        recent_nws=row[11],
+        remove_nws=row[12],
+        qualys_error=row[13],
+        last_scanned=row[14],
+        next_scheduled=row[15],
     )
 
 
@@ -961,12 +992,27 @@ def list_report_runs_ready_for_email(
             stakeholders.distro_email,
             stakeholders.tech_poc_email,
             stakeholders.was_report_poc,
-            runs.source_tracker_id
+            runs.source_tracker_id,
+            runs.artifact_type,
+            tracker.template,
+            COALESCE(assignees.name, tracker.assignee),
+            tracker.recent_nws,
+            tracker.remove_nws,
+            tracker.qualys_error,
+            stakeholders.last_scanned,
+            stakeholders.next_scheduled
         FROM was_report_runs AS runs
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = runs.stakeholder_tag
+        LEFT JOIN was_daily_report_tracker AS tracker
+          ON tracker.id = runs.source_tracker_id
+        LEFT JOIN was_assignees AS assignees
+          ON assignees.id = tracker.assignee_id
         WHERE runs.status = %s
-          AND runs.output_path IS NOT NULL
+          AND (
+                runs.output_path IS NOT NULL
+             OR runs.artifact_type = 'notification'
+          )
           AND runs.emailed_at IS NULL
           AND COALESCE(runs.email_status, %s) = ANY(%s)
     """
@@ -1005,6 +1051,14 @@ def list_report_runs_ready_for_email(
                 tech_poc_email=row[5],
                 was_report_poc=row[6],
                 source_tracker_id=row[7],
+                artifact_type=row[8],
+                template=row[9],
+                assignee_name=row[10],
+                recent_nws=row[11],
+                remove_nws=row[12],
+                qualys_error=row[13],
+                last_scanned=row[14],
+                next_scheduled=row[15],
             )
         )
 
@@ -1032,23 +1086,39 @@ def claim_report_run_email(
                 updated_at = NOW()
             WHERE id = %s
               AND status = %s
-              AND output_path IS NOT NULL
+              AND (
+                    output_path IS NOT NULL
+                 OR artifact_type = 'notification'
+              )
               AND emailed_at IS NULL
               AND COALESCE(email_status, %s) = ANY(%s)
-            RETURNING id, stakeholder_tag, output_path, source_tracker_id
+            RETURNING id, stakeholder_tag, output_path, source_tracker_id,
+                      artifact_type
         )
         SELECT
             claimed.id,
             claimed.stakeholder_tag,
             claimed.output_path,
             claimed.source_tracker_id,
+            claimed.artifact_type,
             stakeholders.report_password,
             stakeholders.distro_email,
             stakeholders.tech_poc_email,
-            stakeholders.was_report_poc
+            stakeholders.was_report_poc,
+            tracker.template,
+            COALESCE(assignees.name, tracker.assignee),
+            tracker.recent_nws,
+            tracker.remove_nws,
+            tracker.qualys_error,
+            stakeholders.last_scanned,
+            stakeholders.next_scheduled
         FROM claimed
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = claimed.stakeholder_tag
+        LEFT JOIN was_daily_report_tracker AS tracker
+          ON tracker.id = claimed.source_tracker_id
+        LEFT JOIN was_assignees AS assignees
+          ON assignees.id = tracker.assignee_id
     """
     parameters: list[object] = [
         EMAIL_SENDING,
@@ -1073,10 +1143,18 @@ def claim_report_run_email(
         stakeholder_tag=row[1],
         output_path=row[2],
         source_tracker_id=row[3],
-        report_password=row[4],
-        distro_email=row[5],
-        tech_poc_email=row[6],
-        was_report_poc=row[7],
+        artifact_type=row[4],
+        report_password=row[5],
+        distro_email=row[6],
+        tech_poc_email=row[7],
+        was_report_poc=row[8],
+        template=row[9],
+        assignee_name=row[10],
+        recent_nws=row[11],
+        remove_nws=row[12],
+        qualys_error=row[13],
+        last_scanned=row[14],
+        next_scheduled=row[15],
     )
 
 

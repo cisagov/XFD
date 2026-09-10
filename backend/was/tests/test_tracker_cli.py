@@ -207,6 +207,24 @@ class TrackerCliTests(unittest.TestCase):
             limit=200,
         )
 
+    @patch("was_reports.commands.tracker_cli.list_tracker_table_rows_from_db")
+    def test_show_table_accepts_all_rows(self, mock_list_rows) -> None:
+        """Remove the tracker row cap when all is requested."""
+        mock_list_rows.return_value = []
+        args = tracker_cli.parse_args(
+            ["show", "--days-back", "7", "--limit", "all"]
+        )
+
+        exit_code = tracker_cli.show_table(args)
+
+        self.assertEqual(exit_code, 0)
+        mock_list_rows.assert_called_once_with(
+            days_back=7,
+            assignee_name=None,
+            report_status=None,
+            limit=None,
+        )
+
     @patch("was_reports.commands.tracker_cli.list_report_run_errors_from_db")
     def test_show_errors_displays_persisted_failure(self, mock_list_errors) -> None:
         """Display persisted report failures without requiring runtime logs."""

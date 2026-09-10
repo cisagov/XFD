@@ -29,6 +29,7 @@ class OnDemandTests(unittest.TestCase):
             "fail_report_run_by_id",
             "send_report_run_email",
             "delete_report",
+            "list_active_assignee_emails_from_db",
         ):
             self.services[name] = self.stack.enter_context(
                 patch.object(on_demand_cli, name)
@@ -39,6 +40,9 @@ class OnDemandTests(unittest.TestCase):
         )
         self.services["generate_report_output"].return_value = "s3://test/8/report.pdf"
         self.services["send_report_run_email"].return_value = "test-message"
+        self.services["list_active_assignee_emails_from_db"].return_value = [
+            "analyst@example.gov"
+        ]
         self.stack.enter_context(
             patch.object(on_demand_cli, "getenv", return_value="/tmp")
         )
@@ -151,6 +155,20 @@ class OnDemandTests(unittest.TestCase):
                     recipient,
                 ]
                 self.assertEqual(on_demand_cli.main(arguments), 1)
+        self.services["create_on_demand_report_run"].assert_not_called()
+
+    def test_rejects_customer_recipient_for_on_demand_report(self) -> None:
+        """Limit explicit on-demand delivery to configured WAS assignees."""
+        arguments = [
+            "--tag",
+            "CROSSFEED",
+            "--send-email",
+            "--test-recipients",
+            "customer@example.gov",
+        ]
+
+        self.assertEqual(on_demand_cli.main(arguments), 1)
+
         self.services["create_on_demand_report_run"].assert_not_called()
 
     def test_tracker_selection_is_explicit(self) -> None:

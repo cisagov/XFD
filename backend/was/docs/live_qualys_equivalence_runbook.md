@@ -102,6 +102,10 @@ PDF, downloads that S3 object through the mailer, and sends one actual email.
 It does not depend on a recent-scan candidate or reuse a missing historical PDF.
 Approve the recipient and tag before running. From `backend/was`:
 
+The recipient must be configured as active and email-enabled in
+`was_assignees`. This on-demand workflow is for analyst delivery only and
+rejects customer contact addresses.
+
 ```bash
 set +x
 umask 077

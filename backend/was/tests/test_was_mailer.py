@@ -54,6 +54,25 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(recipients, ["test@example.gov"])
 
+    def test_recipient_addresses_combines_stakeholder_contacts(self) -> None:
+        """Include both technical and distribution stakeholder recipients."""
+        report_email = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path="/tmp/report.pdf",
+            report_password=None,
+            distro_email="team@example.gov",
+            tech_poc_email="tech@example.gov",
+            was_report_poc=None,
+        )
+
+        recipients = recipient_addresses(report_run_email=report_email)
+
+        self.assertEqual(
+            recipients,
+            ["tech@example.gov", "team@example.gov"],
+        )
+
     def test_build_report_email_attaches_pdf_without_password(self) -> None:
         """Build the report email without exposing the stakeholder password."""
         with tempfile.TemporaryDirectory() as directory:
@@ -69,9 +88,42 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message["From"], "sender@example.gov")
         self.assertEqual(message["To"], "recipient@example.gov")
-        self.assertEqual(message["Subject"], "WAS Report for TAG1")
+        self.assertEqual(message["Subject"], "TAG1 WAS Results")
         self.assertNotIn("password123", message.as_string())
         self.assertIn("TAG1_report_2026-08-26.pdf", message.as_string())
+
+    def test_build_all_nws_email_has_no_attachment(self) -> None:
+        """Send an All NWS notice without inventing a PDF attachment."""
+        message = build_report_email(
+            source_email="sender@example.gov",
+            recipients=["recipient@example.gov"],
+            stakeholder_tag="TAG1",
+            report_path=None,
+            template="All NWS",
+            assignee_name="Analyst Name",
+            recent_nws="<br>https://example.gov",
+        )
+
+        self.assertEqual(len(list(message.iter_attachments())), 0)
+        self.assertIn("No PDF report was generated", message.as_string())
+        self.assertIn("Analyst Name", message.as_string())
+
+    def test_build_report_email_lists_qualys_error_webapps(self) -> None:
+        """Tell customers which applications lack updated Qualys results."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                qualys_error="https://error.example.gov<br>",
+            )
+
+        self.assertIn("do not have updated results", message.as_string())
+        self.assertIn("https://error.example.gov", message.as_string())
 
     def test_build_report_email_requires_recipient(self) -> None:
         """Reject messages without recipients."""

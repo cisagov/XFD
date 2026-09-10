@@ -62,6 +62,13 @@ def positive_integer(value: str) -> int:
     return parsed_value
 
 
+def row_limit(value: str) -> int | None:
+    """Parse a positive tracker row limit or an all-rows request."""
+    if value.strip().lower() == "all":
+        return None
+    return positive_integer(value)
+
+
 def report_status_value(value: str) -> str:
     """Normalize and validate a tracker report status filter."""
     normalized_value = value.strip().upper()
@@ -142,9 +149,9 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     table_command.add_argument(
         "--limit",
-        type=positive_integer,
+        type=row_limit,
         default=200,
-        help="Maximum number of tracker rows to display.",
+        help="Maximum tracker rows to display, or 'all' for no row limit.",
     )
 
     errors_command = subcommands.add_parser(

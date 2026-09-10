@@ -51,6 +51,7 @@ from was_reports.utils.outputs import expected_pdf_output_path
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
+NO_REPORT_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
 
 
 @dataclass(frozen=True)
@@ -323,6 +324,42 @@ def run_recent_scan_reports(
                 "Skipping tracker row %s because another worker already claimed it.",
                 candidate.id,
             )
+            continue
+
+        if candidate.template in NO_REPORT_TEMPLATES:
+            try:
+                complete_report_run_by_id(
+                    report_run.id,
+                    artifact_type="notification",
+                )
+                LOGGER.info(
+                    "Tracker row %s requires a %s notification without a PDF.",
+                    candidate.id,
+                    candidate.template,
+                )
+                if send_email:
+                    message_id = send_report_run_email(
+                        report_run_id=report_run.id,
+                        source_email=(
+                            source_email or require_env("WAS_EMAIL_SOURCE")
+                        ),
+                        override_recipients=test_recipients,
+                        dry_run=dry_run_email,
+                    )
+                    if message_id or dry_run_email:
+                        sent_count += 1
+            except Exception as exception:
+                failed_count += 1
+                fail_report_run_by_id(
+                    report_run_id=report_run.id,
+                    error_message=summarize_report_failure(exception),
+                )
+                LOGGER.exception(
+                    "WAS no-report notification failed for tracker row %s",
+                    candidate.id,
+                )
+                if not continue_on_error:
+                    raise
             continue
 
         uploaded_reference = None

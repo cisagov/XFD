@@ -136,6 +136,38 @@ class WasOperatorMenuTests(unittest.TestCase):
             "This may take several minutes; please wait..."
         )
 
+    @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
+    def test_tracker_view_uses_default_row_limit(self, mock_tracker_main) -> None:
+        """Display no more than 200 tracker rows when the limit is blank."""
+        menu = self.build_menu(["", "", "", "", ""])
+
+        menu.view_tracker()
+
+        mock_tracker_main.assert_called_once_with(
+            ["show", "--days-back", "7", "--limit", "200"]
+        )
+
+    @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
+    def test_tracker_view_accepts_all_rows(self, mock_tracker_main) -> None:
+        """Allow an operator to request every matching tracker row."""
+        menu = self.build_menu(["30", "Analyst", "pending", "all", ""])
+
+        menu.view_tracker()
+
+        mock_tracker_main.assert_called_once_with(
+            [
+                "show",
+                "--days-back",
+                "30",
+                "--limit",
+                "all",
+                "--assignee",
+                "Analyst",
+                "--report-status",
+                "pending",
+            ]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

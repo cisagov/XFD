@@ -407,6 +407,57 @@ class BatchRunnerTests(unittest.TestCase):
             dry_run=False,
         )
 
+    @patch("was_reports.commands.batch_runner.send_report_run_email")
+    @patch("was_reports.commands.batch_runner.send_ready_report_emails")
+    @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
+    @patch("was_reports.commands.batch_runner.generate_report_output")
+    @patch("was_reports.commands.batch_runner.create_report_run_for_tracker")
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_all_nws_sends_notification_without_generating_pdf(
+        self,
+        mock_list_candidates,
+        mock_create_run,
+        mock_generate_report,
+        mock_complete_run,
+        mock_send_ready,
+        mock_send_report,
+    ) -> None:
+        """Complete and send an All NWS notification without creating a PDF."""
+        mock_list_candidates.return_value = [
+            TrackerReportCandidate(
+                id=9,
+                tag="TAG1",
+                data_pull_date=date(2026, 9, 1),
+                schedule_id=123,
+                assignee_id=3,
+                template="All NWS",
+            )
+        ]
+        mock_create_run.return_value = ReportRun(
+            id=42,
+            stakeholder_tag="TAG1",
+            status="running",
+        )
+        mock_send_ready.return_value = 0
+        mock_send_report.return_value = "message-id"
+
+        summary = batch_runner.run_recent_scan_reports(
+            resource_root="/WAS_REPORT_RESOURCES",
+            python_executable="/usr/local/bin/python",
+            stakeholder_tag="TAG1",
+            send_email=True,
+            source_email="reports@example.gov",
+        )
+
+        self.assertEqual(summary.generated, 0)
+        self.assertEqual(summary.sent, 1)
+        mock_generate_report.assert_not_called()
+        mock_complete_run.assert_called_once_with(
+            42,
+            artifact_type="notification",
+        )
+        mock_send_report.assert_called_once()
+
     @patch("was_reports.commands.batch_runner.mark_tracker_report_manual_by_id")
     @patch("was_reports.commands.batch_runner.fail_report_run_by_id")
     @patch("was_reports.commands.batch_runner.generate_report_output")

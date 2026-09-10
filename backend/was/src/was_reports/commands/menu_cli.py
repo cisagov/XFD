@@ -104,6 +104,23 @@ class WasOperatorMenu:
                 return parsed_value
             self.output("Enter a whole number of zero or greater.")
 
+    def prompt_row_limit(self, prompt: str, default: int = 200) -> str:
+        """Prompt for a positive row limit or all rows."""
+        while True:
+            raw_value = self.input(prompt).strip()
+            if not raw_value:
+                return str(default)
+            if raw_value.lower() == "all":
+                return "all"
+            try:
+                parsed_value = int(raw_value)
+            except ValueError:
+                self.output("Enter a whole number greater than zero, or all.")
+                continue
+            if parsed_value > 0:
+                return str(parsed_value)
+            self.output("Enter a whole number greater than zero, or all.")
+
     def prompt_optional_nonnegative_integer(self, prompt: str) -> str:
         """Prompt for an optional whole number of zero or greater."""
         while True:
@@ -230,7 +247,9 @@ class WasOperatorMenu:
         send_email = self.confirm("Email the report after archiving to S3?")
         recipient_summary = "no email"
         if send_email:
-            recipients = self.prompt_required("Recipient email address(es): ")
+            recipients = self.prompt_required(
+                "Active WAS assignee email address(es): "
+            )
             arguments.extend(["--send-email", "--test-recipients", recipients])
             recipient_summary = "email to {}".format(recipients)
         tracker_id = self.prompt_optional("Existing tracker row ID [none]: ")
@@ -339,7 +358,14 @@ class WasOperatorMenu:
         report_status = self.prompt_optional(
             "Report status [all/manual/pending/sent]: "
         ).lower()
-        arguments = ["show", "--days-back", str(days_back)]
+        row_limit = self.prompt_row_limit("Rows to display [200, or all]: ")
+        arguments = [
+            "show",
+            "--days-back",
+            str(days_back),
+            "--limit",
+            row_limit,
+        ]
         if assignee:
             arguments.extend(["--assignee", assignee])
         if report_status and report_status != "all":

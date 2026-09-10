@@ -38,10 +38,11 @@ make menu
 ```
 
 For an approved standalone functional test, select **Report generation**, then
-**5, Generate a new on-demand report**. Enter the approved stakeholder tag and
-recipient, and leave the tracker ID blank unless intentionally linking an
-existing test tracker row. This generates a PDF, archives it to S3, and
-optionally emails it. It does not require recent-scan eligibility.
+**5, Generate a new on-demand report**. Enter the approved stakeholder tag and,
+if emailing, an address configured for an active WAS assignee. Leave the tracker
+ID blank unless intentionally linking an existing test tracker row. This
+generates a PDF, archives it to S3, and optionally emails it to analysts. It does
+not require recent-scan eligibility and does not deliver directly to customers.
 
 ### Update And Rebuild Cycle
 
@@ -717,6 +718,39 @@ docker run --rm \
 non-production validation. The mailer does not include the report password in
 the email body.
 
+For operational tracker-driven delivery, the mailer always combines
+`tech_poc_email` and `distro_email`, removes duplicate addresses, and signs the
+customer message with the assigned analyst's name. Password delivery is an
+onboarding or analyst-managed process and is not performed by report automation.
+
+Tracker templates control delivery behavior:
+
+- `Results`, `Action Required`, `FCEB Action Required`, and `Targets Removed`
+  include the generated PDF.
+- `All NWS` and `FCEB All NWS` send a notification without generating or
+  attaching a PDF.
+- FCEB web applications are never automatically removed for NWS results.
+- Non-FCEB removal candidates require an explicitly destructive tracker refresh.
+  If deletion is disabled, the row is marked for analyst action and no email
+  claims that a target was removed.
+- A `Targets Removed` row is stored only after the Qualys deletion calls return
+  successfully. A separate destructive-action audit record remains deferred to
+  its approved future sprint.
+- Qualys error application URLs are listed in the customer message to identify
+  applications without updated results. Report-generation and delivery failures
+  remain in the assignee digest instead of producing immediate customer mail.
+
+Customer messages display available scan and schedule timestamps in Eastern
+Time, include the approved Cyber Hygiene and scanner allowlist links, and retain
+the temporary sensitive-data attachment notice until Qualys restores that
+capability. Removal eligibility uses two consecutive inaccessible scans.
+
+The exported Power Automate flow and Outlook `.msg` files are reference material
+only. Production code does not load or deploy them. Runtime messages are built
+from the tracker template in `src/was_mailer/message.py`, using the approved
+rules documented here when reference wording conflicts. The production workflow
+does not send Microsoft Teams notifications.
+
 Run the WAS mailer for one completed report run:
 
 ```bash
@@ -867,8 +901,11 @@ make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 
 `DAYS_BACK=7` includes today and the previous seven calendar days. The
 assignee match is case-insensitive and must otherwise match the stored name.
-The terminal output is limited to 200 rows by default and excludes report
-passwords, POC email addresses, and customer notes.
+The terminal output excludes report passwords, POC email addresses, and
+customer notes. In the operator menu, `View tracker table` prompts for the
+number of rows to display. Press Enter to use the 200-row default, enter a
+positive whole number for a custom limit, or enter `all` to display every row
+matching the selected filters.
 
 Display only manual tracker rows across all assignees:
 
@@ -891,6 +928,9 @@ docker run --rm \
   --days-back 7 \
   --limit 100
 ```
+
+Use `--limit all` to remove the row limit. Large result sets may take longer to
+display and can produce substantial terminal output.
 
 Record the sent date when a manual report was delivered outside the automated
 SES workflow:
@@ -1113,11 +1153,13 @@ make on-demand-report TAG="CROSSFEED" SEND_EMAIL=1 \
 The command prints the new run ID, S3 reference, and SES message ID. It uses
 the stakeholder's stored encryption password, generating and storing one only
 if missing. It sends no assignee digest. Successful SES acceptance is not
-proof of inbox delivery.
+proof of inbox delivery. Every supplied recipient must match an active,
+email-enabled address in `was_assignees`; customer contacts are rejected for
+on-demand delivery.
 
 In `make menu`, select **Report generation**, then **5, Generate a new
 on-demand report**. Enter the tag, choose whether to email, enter the explicit
-recipient addresses if sending, and confirm the displayed operation. Leave
+active-assignee addresses if sending, and confirm the displayed operation. Leave
 the tracker ID blank for a standalone run. Options 2 and 3 remain eligibility
 driven and are not force-generation commands.
 
@@ -1151,8 +1193,8 @@ run. Existing scheduled batch eligibility is unchanged. A crashed run left in
 not blind regeneration or database status resets.
 
 The lower-level `was-report-on-demand` CLI defaults to archive-only and requires
-`--send-email` plus either `--test-recipients` or `--stakeholder-recipients` to
-send. `was-reports` remains local-PDF-only. The on-demand command explicitly uses
+`--send-email` plus `--test-recipients` containing only active WAS assignee
+addresses to send. `was-reports` remains local-PDF-only. The on-demand command explicitly uses
 S3 even if `WAS_REPORT_STORAGE=local`; the bucket and IAM permissions must be
 configured. The updated container enables unbuffered output and a writable
 Matplotlib cache. No schema migration is required for the `held` status because
