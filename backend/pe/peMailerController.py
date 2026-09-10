@@ -182,6 +182,9 @@ def start_local_docker_mailer_task(
         # check if forwarded here.
         "PE_API_URL": "http://127.0.0.1:8000",
         "PE_API_KEY": os.getenv("PE_API_KEY", ""),
+        "CYHY_DASH_DB_NAME": os.getenv("DATABASE_NAME", ""),
+        "CYHY_DASH_DB_USERNAME": os.getenv("DATABASE_USER", ""),
+        "CYHY_DASH_DB_PASSWORD": os.getenv("DATABASE_PASSWORD", ""),
     }
     if summary_to:
         environment["MAILER_SUMMARY_TO"] = summary_to

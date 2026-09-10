@@ -194,6 +194,9 @@ def start_local_docker_report_task(
         "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD", ""),
         "PE_API_URL": os.getenv("PE_API_URL", "http://127.0.0.1:8000"),
         "PE_API_KEY": os.getenv("PE_API_KEY", ""),
+        "CYHY_DASH_DB_NAME": os.getenv("DATABASE_NAME", ""),
+        "CYHY_DASH_DB_USERNAME": os.getenv("DATABASE_USER", ""),
+        "CYHY_DASH_DB_PASSWORD": os.getenv("DATABASE_PASSWORD", ""),
     }
     for key, value in (
         (item["name"], item["value"]) for item in report_flare_environment()
