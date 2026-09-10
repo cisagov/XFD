@@ -9,6 +9,9 @@ from datetime import datetime, timedelta
 import logging
 from typing import TYPE_CHECKING
 
+# Third-Party Libraries
+from psycopg2 import sql
+
 if TYPE_CHECKING:
     # Third-Party Libraries
     from psycopg2.extensions import connection
@@ -69,9 +72,248 @@ class ReportRunError:
     email_error: str | None
 
 
+@dataclass(frozen=True)
+class QualysReportPollingState:
+    """Qualys report identifiers retained for restart-safe polling."""
+
+    detail_report_id: str | None = None
+    xml_report_id: str | None = None
+
+
+QUALYS_REPORT_COLUMNS = {
+    "detail": (
+        "qualys_detail_report_id",
+        "qualys_detail_report_status",
+        "qualys_detail_last_polled_at",
+    ),
+    "xml": (
+        "qualys_xml_report_id",
+        "qualys_xml_report_status",
+        "qualys_xml_last_polled_at",
+    ),
+}
+
+
+def qualys_report_columns(artifact_label: str) -> tuple[str, str, str]:
+    """Return approved report-state columns for one Qualys artifact label."""
+    normalized_label = artifact_label.strip().lower()
+    try:
+        return QUALYS_REPORT_COLUMNS[normalized_label]
+    except KeyError as error:
+        raise ValueError("Qualys artifact label must be detail or xml.") from error
+
+
+def get_qualys_report_polling_state(
+    report_run_id: int,
+    conn: connection,
+) -> QualysReportPollingState:
+    """Return persisted Qualys report identifiers for one report run."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT qualys_detail_report_id, qualys_xml_report_id
+            FROM was_report_runs
+            WHERE id = %s
+            """,
+            (report_run_id,),
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise LookupError("WAS report run {} was not found.".format(report_run_id))
+    return QualysReportPollingState(
+        detail_report_id=row[0],
+        xml_report_id=row[1],
+    )
+
+
+def get_qualys_report_polling_state_by_id(
+    report_run_id: int,
+) -> QualysReportPollingState:
+    """Return Qualys polling state using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_qualys_report_polling_state(report_run_id, conn)
+    finally:
+        close(conn)
+
+
+def record_qualys_report_id(
+    report_run_id: int,
+    artifact_label: str,
+    report_id: str,
+    conn: connection,
+) -> None:
+    """Persist one Qualys report ID before status polling begins."""
+    id_column, status_column, polled_column = qualys_report_columns(artifact_label)
+    query = sql.SQL(
+        """
+        UPDATE was_report_runs
+        SET {id_column} = %s,
+            {status_column} = NULL,
+            {polled_column} = NULL,
+            updated_at = NOW()
+        WHERE id = %s
+          AND status = %s
+        RETURNING id
+        """
+    ).format(
+        id_column=sql.Identifier(id_column),
+        status_column=sql.Identifier(status_column),
+        polled_column=sql.Identifier(polled_column),
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (report_id, report_run_id, RUNNING))
+            if cursor.fetchone() is None:
+                raise ActiveReportOperationError(
+                    "Report run {} no longer owns the generation lease.".format(
+                        report_run_id
+                    )
+                )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def record_qualys_report_id_by_run_id(
+    report_run_id: int,
+    artifact_label: str,
+    report_id: str,
+) -> None:
+    """Persist a Qualys report ID using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        record_qualys_report_id(report_run_id, artifact_label, report_id, conn)
+    finally:
+        close(conn)
+
+
+def clear_qualys_report_id(
+    report_run_id: int,
+    artifact_label: str,
+    report_id: str,
+    conn: connection,
+) -> None:
+    """Clear a Qualys report ID after its temporary report is deleted."""
+    id_column, status_column, polled_column = qualys_report_columns(artifact_label)
+    query = sql.SQL(
+        """
+        UPDATE was_report_runs
+        SET {id_column} = NULL,
+            {status_column} = NULL,
+            {polled_column} = NULL,
+            updated_at = NOW()
+        WHERE id = %s
+          AND status = %s
+          AND {id_column} = %s
+        RETURNING id
+        """
+    ).format(
+        id_column=sql.Identifier(id_column),
+        status_column=sql.Identifier(status_column),
+        polled_column=sql.Identifier(polled_column),
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (report_run_id, RUNNING, report_id))
+            if cursor.fetchone() is None:
+                raise ActiveReportOperationError(
+                    "Report run {} no longer owns Qualys report {}.".format(
+                        report_run_id,
+                        report_id,
+                    )
+                )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def clear_qualys_report_id_by_run_id(
+    report_run_id: int,
+    artifact_label: str,
+    report_id: str,
+) -> None:
+    """Clear a Qualys report ID using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        clear_qualys_report_id(
+            report_run_id,
+            artifact_label,
+            report_id,
+            conn,
+        )
+    finally:
+        close(conn)
+
+
+def record_qualys_report_status(
+    report_run_id: int,
+    artifact_label: str,
+    status: str,
+    conn: connection,
+) -> None:
+    """Persist the latest status observed while polling a Qualys report."""
+    _, status_column, polled_column = qualys_report_columns(artifact_label)
+    query = sql.SQL(
+        """
+        UPDATE was_report_runs
+        SET {status_column} = %s,
+            {polled_column} = NOW(),
+            updated_at = NOW()
+        WHERE id = %s
+          AND status = %s
+        RETURNING id
+        """
+    ).format(
+        status_column=sql.Identifier(status_column),
+        polled_column=sql.Identifier(polled_column),
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (status, report_run_id, RUNNING))
+            if cursor.fetchone() is None:
+                raise ActiveReportOperationError(
+                    "Report run {} no longer owns the generation lease.".format(
+                        report_run_id
+                    )
+                )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def record_qualys_report_status_by_run_id(
+    report_run_id: int,
+    artifact_label: str,
+    status: str,
+) -> None:
+    """Persist a Qualys polling status using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        record_qualys_report_status(report_run_id, artifact_label, status, conn)
+    finally:
+        close(conn)
+
+
 def _positive_seconds(name: str, default: int) -> int:
     """Return a positive timeout configured through the environment."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.utils.env import getenv
 
     raw_value = getenv(name, str(default))
@@ -172,6 +414,7 @@ def recover_stale_report_operations(conn: connection) -> tuple[int, int]:
 def recover_stale_report_operations_in_db() -> tuple[int, int]:
     """Recover stale report operations using a managed connection."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -206,6 +449,7 @@ def touch_report_run(report_run_id: int, conn: connection) -> bool:
 def touch_report_run_by_id(report_run_id: int) -> bool:
     """Refresh a report-generation lease using a managed connection."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -241,6 +485,7 @@ def touch_report_email_claim(report_run_id: int, conn: connection) -> bool:
 def touch_report_email_claim_by_id(report_run_id: int) -> bool:
     """Refresh a report-email lease using a managed connection."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

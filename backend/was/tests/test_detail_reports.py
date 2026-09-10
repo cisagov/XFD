@@ -32,7 +32,10 @@ class FakeConnection:
                 "http_method": http_method,
             }
         )
-        return self.responses.pop(0)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 class FakeResponse:
@@ -131,15 +134,19 @@ class DetailReportsTests(unittest.TestCase):
         )
         sleep_calls: list[int] = []
 
-        detail_reports.wait_for_report_completion(
-            client=QualysClient(connection),
-            report_id="123",
-            sleep_seconds=1,
-            sleep_function=sleep_calls.append,
-        )
+        with self.assertLogs(detail_reports.LOGGER, level="INFO") as captured:
+            detail_reports.wait_for_report_completion(
+                client=QualysClient(connection),
+                report_id="123",
+                sleep_seconds=1,
+                sleep_function=sleep_calls.append,
+            )
 
         self.assertEqual(sleep_calls, [1])
         self.assertEqual(len(connection.calls), 2)
+        messages = " ".join(captured.output)
+        self.assertIn("status is RUNNING", messages)
+        self.assertIn("completed after", messages)
 
     def test_wait_for_report_completion_rejects_error_status(self) -> None:
         """Fail when Qualys returns an error status."""
@@ -160,8 +167,56 @@ class DetailReportsTests(unittest.TestCase):
                 sleep_function=lambda seconds: None,
             )
 
+    def test_wait_for_report_completion_rejects_canceled_status(self) -> None:
+        """Fail when Qualys reports that generation was canceled."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <data><Report><status>CANCELED</status></Report></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "terminal status CANCELED"):
+            detail_reports.wait_for_report_completion(
+                client=QualysClient(connection),
+                report_id="123",
+                sleep_function=lambda seconds: None,
+            )
+
+    def test_wait_for_report_completion_continues_after_transient_failure(self) -> None:
+        """Continue polling after one status request exhausts its retries."""
+        connection = FakeConnection(
+            [
+                requests.ReadTimeout("timed out"),
+                """
+                <ServiceResponse>
+                    <data><Report><status>COMPLETE</status></Report></data>
+                </ServiceResponse>
+                """,
+            ]
+        )
+        sleep_calls: list[int] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=1),
+        )
+
+        with self.assertLogs(detail_reports.LOGGER, level="WARNING") as captured:
+            detail_reports.wait_for_report_completion(
+                client=client,
+                report_id="123",
+                sleep_seconds=1,
+                sleep_function=sleep_calls.append,
+            )
+
+        self.assertEqual(sleep_calls, [1])
+        self.assertIn("Polling will continue", " ".join(captured.output))
+
     def test_wait_for_report_completion_has_bounded_timeout(self) -> None:
-        """Stop polling when a Qualys report never reaches a terminal state."""
+        """Honor an explicitly configured positive polling timeout."""
         connection = FakeConnection(
             [
                 """
@@ -181,6 +236,15 @@ class DetailReportsTests(unittest.TestCase):
                 sleep_function=lambda seconds: None,
                 monotonic_function=lambda: next(monotonic_values),
             )
+
+    @patch("was_reports.reporting.detail_reports.getenv", return_value="0")
+    def test_report_poll_timeout_zero_disables_elapsed_timeout(
+        self,
+        mock_getenv,
+    ) -> None:
+        """Treat a zero report polling timeout as unlimited."""
+        self.assertIsNone(detail_reports.report_poll_timeout_seconds_from_environment())
+        mock_getenv.assert_called_once()
 
     def test_download_detail_pdf_sets_auth_and_writes_file(self) -> None:
         """Download detail PDF content using Qualys credentials."""

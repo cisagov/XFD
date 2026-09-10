@@ -3,6 +3,8 @@
 # Standard Python Libraries
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import partial
+import logging
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
@@ -14,6 +16,7 @@ from was_reports.reporting import detail_reports
 from was_reports.utils.qualys_config import QualysCredentials
 
 DETAIL_REPORT_WEBAPP_LIMIT = 35
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,11 @@ def retrieve_report_source_data(
     output_directory: Path,
     python_executable: str,
     report_request_key: str | None = None,
+    existing_detail_report_id: str | None = None,
+    existing_xml_report_id: str | None = None,
+    report_id_recorder: Callable[[str, str], None] | None = None,
+    report_id_clearer: Callable[[str, str], None] | None = None,
+    report_status_recorder: Callable[[str, str], None] | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
     report_waiter: Callable = detail_reports.wait_for_report_completion,
 ) -> ReportSourceData:
@@ -66,42 +74,68 @@ def retrieve_report_source_data(
     tag_id = report_data.get_tag_id(client, stakeholder_tag)
     detail_pdf_path = None
     if web_application_count < DETAIL_REPORT_WEBAPP_LIMIT:
-        detail_report_id = report_data.create_detail_pdf_report(
+        detail_report_id = existing_detail_report_id
+        if detail_report_id is None:
+            detail_report_id = report_data.create_detail_pdf_report(
+                client=client,
+                report_name=report_request_name(
+                    stakeholder_tag,
+                    report_request_key,
+                    "DETAIL",
+                ),
+                target_id=tag_id,
+                template_path=resource_root / "assets" / "was_report.xml",
+            )
+            if report_id_recorder is not None:
+                report_id_recorder("detail", detail_report_id)
+        else:
+            LOGGER.info("Resuming Qualys detail report %s.", detail_report_id)
+        detail_arguments = {
+            "client": client,
+            "report_id": detail_report_id,
+            "filename": stakeholder_tag,
+            "credentials": credentials,
+            "output_directory": output_directory,
+            "resource_root": resource_root,
+            "from_webapp": False,
+            "python_executable": python_executable,
+        }
+        if report_status_recorder is not None:
+            detail_arguments["status_callback"] = partial(
+                report_status_recorder,
+                "detail",
+            )
+        detail_pdf_path = detail_downloader(**detail_arguments)
+
+    xml_report_id = existing_xml_report_id
+    if xml_report_id is None:
+        xml_report_id = report_data.create_webapp_xml_report(
             client=client,
             report_name=report_request_name(
                 stakeholder_tag,
                 report_request_key,
-                "DETAIL",
+                "XML",
             ),
-            target_id=tag_id,
+            tag_id=tag_id,
             template_path=resource_root / "assets" / "was_report.xml",
         )
-        detail_pdf_path = detail_downloader(
-            client=client,
-            report_id=detail_report_id,
-            filename=stakeholder_tag,
-            credentials=credentials,
-            output_directory=output_directory,
-            resource_root=resource_root,
-            from_webapp=False,
-            python_executable=python_executable,
-        )
-
-    xml_report_id = report_data.create_webapp_xml_report(
-        client=client,
-        report_name=report_request_name(
-            stakeholder_tag,
-            report_request_key,
-            "XML",
-        ),
-        tag_id=tag_id,
-        template_path=resource_root / "assets" / "was_report.xml",
-    )
+        if report_id_recorder is not None:
+            report_id_recorder("xml", xml_report_id)
+    else:
+        LOGGER.info("Resuming Qualys XML report %s.", xml_report_id)
     try:
-        report_waiter(client=client, report_id=xml_report_id)
+        waiter_arguments = {"client": client, "report_id": xml_report_id}
+        if report_status_recorder is not None:
+            waiter_arguments["status_callback"] = partial(
+                report_status_recorder,
+                "xml",
+            )
+        report_waiter(**waiter_arguments)
         report_xml = report_data.get_report_xml(client, xml_report_id)
     except Exception:
         report_data.delete_report(client, xml_report_id)
+        if report_id_clearer is not None:
+            report_id_clearer("xml", xml_report_id)
         raise
 
     return ReportSourceData(
@@ -123,6 +157,11 @@ def managed_report_source_data(
     output_directory: Path,
     python_executable: str,
     report_request_key: str | None = None,
+    existing_detail_report_id: str | None = None,
+    existing_xml_report_id: str | None = None,
+    report_id_recorder: Callable[[str, str], None] | None = None,
+    report_id_clearer: Callable[[str, str], None] | None = None,
+    report_status_recorder: Callable[[str, str], None] | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
     report_waiter: Callable = detail_reports.wait_for_report_completion,
 ) -> Iterator[ReportSourceData]:
@@ -135,6 +174,11 @@ def managed_report_source_data(
         output_directory=output_directory,
         python_executable=python_executable,
         report_request_key=report_request_key,
+        existing_detail_report_id=existing_detail_report_id,
+        existing_xml_report_id=existing_xml_report_id,
+        report_id_recorder=report_id_recorder,
+        report_id_clearer=report_id_clearer,
+        report_status_recorder=report_status_recorder,
         detail_downloader=detail_downloader,
         report_waiter=report_waiter,
     )
@@ -142,3 +186,5 @@ def managed_report_source_data(
         yield source_data
     finally:
         report_data.delete_report(client, source_data.xml_report_id)
+        if report_id_clearer is not None:
+            report_id_clearer("xml", source_data.xml_report_id)

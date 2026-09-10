@@ -64,6 +64,59 @@ class FakeConnection:
 class ReportRunTests(unittest.TestCase):
     """Validate report run persistence helpers."""
 
+    def test_get_qualys_report_polling_state_returns_saved_ids(self) -> None:
+        """Load report IDs used to resume Qualys polling after a restart."""
+        conn = FakeConnection(row=("detail-123", "xml-456"))
+
+        state = report_runs.get_qualys_report_polling_state(7, conn)
+
+        self.assertEqual(state.detail_report_id, "detail-123")
+        self.assertEqual(state.xml_report_id, "xml-456")
+        self.assertEqual(conn.cursor_instance.parameters, (7,))
+
+    def test_record_qualys_report_id_requires_active_lease(self) -> None:
+        """Persist a created Qualys report ID only for the active worker."""
+        conn = FakeConnection(row=(7,))
+
+        report_runs.record_qualys_report_id(7, "xml", "xml-456", conn)
+
+        self.assertTrue(conn.committed)
+        self.assertIn("qualys_xml_report_id", str(conn.cursor_instance.query))
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            ("xml-456", 7, report_runs.RUNNING),
+        )
+
+    def test_record_qualys_report_status_rejects_expired_lease(self) -> None:
+        """Prevent a stale poller from updating a reclaimed report run."""
+        conn = FakeConnection(row=None)
+
+        with self.assertRaises(report_runs.ActiveReportOperationError):
+            report_runs.record_qualys_report_status(
+                7,
+                "detail",
+                "RUNNING",
+                conn,
+            )
+
+        self.assertTrue(conn.rolled_back)
+
+    def test_clear_qualys_report_id_requires_matching_active_report(self) -> None:
+        """Clear only the temporary report owned by the active run lease."""
+        conn = FakeConnection(row=(7,))
+
+        report_runs.clear_qualys_report_id(7, "xml", "xml-456", conn)
+
+        self.assertTrue(conn.committed)
+        self.assertIn(
+            "qualys_xml_report_id",
+            str(conn.cursor_instance.query),
+        )
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (7, report_runs.RUNNING, "xml-456"),
+        )
+
     def test_create_report_run_inserts_running_record(self) -> None:
         """Create a running report execution record."""
         conn = FakeConnection(row=(7, "TAG1", report_runs.RUNNING))

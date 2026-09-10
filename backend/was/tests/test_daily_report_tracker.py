@@ -83,7 +83,6 @@ class DailyReportTrackerTests(unittest.TestCase):
         """Insert tracker fields in workbook column order."""
         conn = FakeConnection()
         row = DailyReportTrackerRow(
-            source_row_number=2,
             data_pull_date=date(2026, 8, 26),
             tag="CUSTOMER_TAG",
             scan_name="WAVS - CUSTOMER_TAG",
@@ -115,18 +114,17 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(row_id, 7)
         self.assertTrue(conn.committed)
         self.assertIn("was_daily_report_tracker", conn.cursor_instance.query)
-        self.assertEqual(conn.cursor_instance.parameters[0], 2)
-        self.assertEqual(conn.cursor_instance.parameters[1], date(2026, 8, 26))
-        self.assertEqual(conn.cursor_instance.parameters[2], "CUSTOMER_TAG")
-        self.assertEqual(conn.cursor_instance.parameters[4], 3)
-        self.assertEqual(conn.cursor_instance.parameters[15], "5, 1, 0")
-        self.assertEqual(conn.cursor_instance.parameters[19], "STATIC PASSWORD")
-        self.assertEqual(conn.cursor_instance.parameters[20], 12345)
+        self.assertEqual(conn.cursor_instance.parameters[0], date(2026, 8, 26))
+        self.assertEqual(conn.cursor_instance.parameters[1], "CUSTOMER_TAG")
+        self.assertEqual(conn.cursor_instance.parameters[3], 3)
+        self.assertEqual(conn.cursor_instance.parameters[14], "5, 1, 0")
+        self.assertEqual(conn.cursor_instance.parameters[18], "STATIC PASSWORD")
+        self.assertEqual(conn.cursor_instance.parameters[19], 12345)
         self.assertEqual(
-            conn.cursor_instance.parameters[22],
+            conn.cursor_instance.parameters[21],
             datetime(2026, 8, 26, tzinfo=timezone.utc),
         )
-        self.assertEqual(conn.cursor_instance.parameters[23], "message-id")
+        self.assertEqual(conn.cursor_instance.parameters[22], "message-id")
 
     def test_latest_tracker_pull_date_returns_database_value(self) -> None:
         """Return the latest tracker pull date as UTC midnight."""
@@ -142,7 +140,6 @@ class DailyReportTrackerTests(unittest.TestCase):
             fetchall_rows=[
                 (
                     1,
-                    None,
                     date(2026, 8, 26),
                     "TAG1",
                     "Scan 1",
@@ -168,7 +165,6 @@ class DailyReportTrackerTests(unittest.TestCase):
                 ),
                 (
                     2,
-                    None,
                     date(2026, 8, 26),
                     "TAG2",
                     "Scan 2",
@@ -295,7 +291,6 @@ class DailyReportTrackerTests(unittest.TestCase):
         conn = FakeConnection(
             fetchall_rows=[
                 (
-                    None,
                     date(2026, 8, 26),
                     "TAG1",
                     "Scan 1",

@@ -129,6 +129,92 @@ class ReportRetrievalTests(unittest.TestCase):
             report_id="xml-789",
         )
 
+    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_detail_pdf_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
+    def test_retrieve_source_data_resumes_persisted_reports(
+        self,
+        mock_count_webapps,
+        mock_get_tag_id,
+        mock_create_detail_report,
+        mock_create_xml_report,
+        mock_get_report_xml,
+    ) -> None:
+        """Reuse persisted report IDs instead of submitting duplicate reports."""
+        mock_count_webapps.return_value = 34
+        mock_get_tag_id.return_value = "tag-123"
+        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        detail_downloader = Mock(return_value=Path("/output/TAGDetails.pdf"))
+        report_waiter = Mock()
+        status_recorder = Mock()
+
+        source_data = report_retrieval.retrieve_report_source_data(
+            client=self.client,
+            stakeholder_tag="TAG",
+            credentials=self.credentials,
+            resource_root=self.resource_root,
+            output_directory=self.output_directory,
+            python_executable="python3",
+            existing_detail_report_id="detail-existing",
+            existing_xml_report_id="xml-existing",
+            report_status_recorder=status_recorder,
+            detail_downloader=detail_downloader,
+            report_waiter=report_waiter,
+        )
+
+        self.assertEqual(source_data.xml_report_id, "xml-existing")
+        mock_create_detail_report.assert_not_called()
+        mock_create_xml_report.assert_not_called()
+        self.assertEqual(
+            detail_downloader.call_args.kwargs["report_id"],
+            "detail-existing",
+        )
+        detail_downloader.call_args.kwargs["status_callback"]("RUNNING")
+        status_recorder.assert_called_with("detail", "RUNNING")
+        self.assertEqual(
+            report_waiter.call_args.kwargs["report_id"],
+            "xml-existing",
+        )
+
+    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
+    def test_retrieve_source_data_records_new_xml_report_id(
+        self,
+        mock_count_webapps,
+        mock_get_tag_id,
+        mock_create_xml_report,
+        mock_get_report_xml,
+    ) -> None:
+        """Persist a new Qualys report ID before polling starts."""
+        mock_count_webapps.return_value = 35
+        mock_get_tag_id.return_value = "tag-123"
+        mock_create_xml_report.return_value = "xml-new"
+        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        report_id_recorder = Mock()
+
+        report_retrieval.retrieve_report_source_data(
+            client=self.client,
+            stakeholder_tag="TAG",
+            credentials=self.credentials,
+            resource_root=self.resource_root,
+            output_directory=self.output_directory,
+            python_executable="python3",
+            report_id_recorder=report_id_recorder,
+            report_waiter=Mock(),
+        )
+
+        report_id_recorder.assert_called_once_with("xml", "xml-new")
+
     @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
     def test_retrieve_source_data_rejects_empty_tag(
         self,
@@ -169,6 +255,7 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_create_xml_report.return_value = "xml-789"
         mock_get_report_xml.side_effect = RuntimeError("download failed")
         report_waiter = Mock()
+        report_id_clearer = Mock()
 
         with self.assertRaises(RuntimeError):
             report_retrieval.retrieve_report_source_data(
@@ -178,10 +265,12 @@ class ReportRetrievalTests(unittest.TestCase):
                 resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
+                report_id_clearer=report_id_clearer,
                 report_waiter=report_waiter,
             )
 
         mock_delete_report.assert_called_once_with(self.client, "xml-789")
+        report_id_clearer.assert_called_once_with("xml", "xml-789")
         report_waiter.assert_called_once_with(
             client=self.client,
             report_id="xml-789",
@@ -204,6 +293,7 @@ class ReportRetrievalTests(unittest.TestCase):
             detail_pdf_path=None,
         )
         mock_retrieve_source_data.return_value = source_data
+        report_id_clearer = Mock()
 
         with self.assertRaises(RuntimeError):
             with report_retrieval.managed_report_source_data(
@@ -213,10 +303,12 @@ class ReportRetrievalTests(unittest.TestCase):
                 resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
+                report_id_clearer=report_id_clearer,
             ):
                 raise RuntimeError("transformation failed")
 
         mock_delete_report.assert_called_once_with(self.client, "xml-789")
+        report_id_clearer.assert_called_once_with("xml", "xml-789")
 
 
 if __name__ == "__main__":

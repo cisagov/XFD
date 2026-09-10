@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 class DailyReportTrackerRow:
     """Database representation of one WAS daily report tracker row."""
 
-    source_row_number: int | None = None
     data_pull_date: date | None = None
     tag: str | None = None
     scan_name: str | None = None
@@ -95,7 +94,6 @@ def insert_daily_report_tracker_row(
             cursor.execute(
                 """
                 INSERT INTO was_daily_report_tracker (
-                    source_row_number,
                     data_pull_date,
                     tag,
                     scan_name,
@@ -124,12 +122,11 @@ def insert_daily_report_tracker_row(
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s
+                    %s, %s
                 )
                 RETURNING id
                 """,
                 (
-                    row.source_row_number,
                     row.data_pull_date,
                     row.tag,
                     row.scan_name,
@@ -429,7 +426,6 @@ def list_ready_assignee_digests(
     query = """
         SELECT
             tracker.id,
-            tracker.source_row_number,
             tracker.data_pull_date,
             tracker.tag,
             tracker.scan_name,
@@ -482,37 +478,36 @@ def list_ready_assignee_digests(
     digests_by_assignee: dict[int, AssigneeDigest] = {}
     for row in rows:
         tracker_row = DailyReportTrackerRow(
-            source_row_number=row[1],
-            data_pull_date=row[2],
-            tag=row[3],
-            scan_name=row[4],
-            assignee_id=row[5],
-            assignee=row[6],
-            status=row[7],
-            result=row[8],
-            report_sent_date=row[9],
-            report_scan_notes=row[10],
-            scan_start_date=row[11],
-            next_scan_date=row[12],
-            poc=row[13],
-            poc_email=row[14],
-            customer_notes=row[15],
-            nws=row[16],
-            template=row[17],
-            recent_nws=row[18],
-            remove_nws=row[19],
-            legacy_password=row[20],
-            schedule_id=row[21],
-            qualys_error=row[22],
+            data_pull_date=row[1],
+            tag=row[2],
+            scan_name=row[3],
+            assignee_id=row[4],
+            assignee=row[5],
+            status=row[6],
+            result=row[7],
+            report_sent_date=row[8],
+            report_scan_notes=row[9],
+            scan_start_date=row[10],
+            next_scan_date=row[11],
+            poc=row[12],
+            poc_email=row[13],
+            customer_notes=row[14],
+            nws=row[15],
+            template=row[16],
+            recent_nws=row[17],
+            remove_nws=row[18],
+            legacy_password=row[19],
+            schedule_id=row[20],
+            qualys_error=row[21],
         )
-        if row[5] not in digests_by_assignee:
-            digests_by_assignee[row[5]] = AssigneeDigest(
-                assignee_id=row[5],
-                assignee=row[6],
-                email=row[23],
+        if row[4] not in digests_by_assignee:
+            digests_by_assignee[row[4]] = AssigneeDigest(
+                assignee_id=row[4],
+                assignee=row[5],
+                email=row[22],
                 rows=[],
             )
-        digests_by_assignee[row[5]].rows.append(tracker_row)
+        digests_by_assignee[row[4]].rows.append(tracker_row)
 
     return list(digests_by_assignee.values())
 
@@ -608,7 +603,6 @@ def list_tracker_rows_for_export(
             raise ValueError("Assignee name must not be empty.")
     query = """
         SELECT
-            source_row_number,
             data_pull_date,
             tag,
             scan_name,
@@ -663,28 +657,27 @@ def list_tracker_rows_for_export(
 
     return [
         DailyReportTrackerRow(
-            source_row_number=row[0],
-            data_pull_date=row[1],
-            tag=row[2],
-            scan_name=row[3],
-            assignee_id=row[4],
-            assignee=row[5],
-            status=row[6],
-            result=row[7],
-            report_sent_date=row[8],
-            report_scan_notes=row[9],
-            scan_start_date=row[10],
-            next_scan_date=row[11],
-            poc=row[12],
-            poc_email=row[13],
-            customer_notes=row[14],
-            nws=row[15],
-            template=row[16],
-            recent_nws=row[17],
-            remove_nws=row[18],
-            legacy_password=row[19],
-            schedule_id=row[20],
-            qualys_error=row[21],
+            data_pull_date=row[0],
+            tag=row[1],
+            scan_name=row[2],
+            assignee_id=row[3],
+            assignee=row[4],
+            status=row[5],
+            result=row[6],
+            report_sent_date=row[7],
+            report_scan_notes=row[8],
+            scan_start_date=row[9],
+            next_scan_date=row[10],
+            poc=row[11],
+            poc_email=row[12],
+            customer_notes=row[13],
+            nws=row[14],
+            template=row[15],
+            recent_nws=row[16],
+            remove_nws=row[17],
+            legacy_password=row[18],
+            schedule_id=row[19],
+            qualys_error=row[20],
         )
         for row in rows
     ]

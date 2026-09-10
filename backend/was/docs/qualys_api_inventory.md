@@ -62,7 +62,7 @@ report and tracker workflows and are covered by unit tests.
 | `get_report_status` | `report_data.get_report_status` |
 | `delete_report` | `report_data.delete_report` |
 | `download_report` direct HTTP download | `detail_reports.download_detail_pdf` |
-| `download_report` status polling | `detail_reports.wait_for_report_completion` |
+| `download_report` status polling | `detail_reports.wait_for_report_completion`, which polls until `COMPLETE`, stops on terminal failure, survives transient request failures, and emits periodic progress logs. |
 | `qualys_redact` | `pdf_helpers.redact_qualys_pdf` |
 | `watermarker` | `pdf_helpers.apply_watermark` |
 | `unfirstpagify` | `pdf_helpers.remove_first_page` |
@@ -109,8 +109,13 @@ source files.
   response is honored up to `WAS_QUALYS_RETRY_MAX_DELAY_SECONDS`.
 - Qualys create, update, ignore, and delete operations remain single-attempt to
   prevent duplicate reports or repeated administrative side effects.
-- Every production request has a bounded timeout, and detail-report status
-  polling has a separate total timeout.
+- Every individual production request has a bounded timeout. Report-status
+  polling continues until `COMPLETE` by default, with an optional positive
+  total timeout available through configuration.
+- Active Qualys detail and XML report IDs and observed statuses are stored on
+  the database report run. A reclaimed tracker-linked run resumes those reports
+  rather than submitting duplicate create requests. Temporary XML report state
+  is cleared after the Qualys report is deleted.
 - Retry logs include the endpoint, attempt number, and delay. Request payloads,
   response bodies, and credentials are not logged by the WAS-owned client.
 

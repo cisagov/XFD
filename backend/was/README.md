@@ -71,6 +71,29 @@ add required keys without replacing secrets. Documentation-only changes do not
 require rebuilding. After an approved live test, verify the S3 object, database
 run status, inbox delivery, and PDF content, not just the exit code.
 
+## Workstation Access To The WAS EC2
+
+Cross-platform Python access scripts are located in
+`scripts/awsAccessScripts`. They replace the local Bash, GNU Screen, `lsof`,
+and `nc` workflow for Windows users while also supporting macOS and Linux.
+Workstations still require Python 3.10 or newer, AWS CLI v2, the AWS Session
+Manager plugin, OpenSSH, an approved AWS CLI profile, and the approved SSH key
+pair. Detailed setup is in `scripts/awsAccessScripts/README.md`.
+
+From Windows PowerShell, set the WAS instance ID for the current window and run:
+
+```powershell
+cd scripts\awsAccessScripts
+$env:INSTANCE_ID_WAS = "i-replace-with-approved-instance-id"
+py .\checkAccessorWAS.py
+py .\sshConnectWAS.py
+```
+
+The tunnel listens on local port `7777`. Diagnostics are retained at
+`%USERPROFILE%\.was-access\tunnel.log`. Use `WAS_AWS_PROFILE` when the approved
+AWS profile is not named `default`; do not add access keys or instance IDs to
+the repository.
+
 ## Current Architecture
 
 - `was-report-batch` is the default container command for scheduled reports.
@@ -143,7 +166,9 @@ WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
 WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS=300
 WAS_QUALYS_CREATE_RECONCILE_POLL_SECONDS=10
-WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=1800
+WAS_QUALYS_REPORT_POLL_SECONDS=60
+WAS_QUALYS_REPORT_PROGRESS_SECONDS=300
+WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=0
 WAS_OPERATION_HEARTBEAT_SECONDS=30
 WAS_REPORT_RUN_STALE_SECONDS=300
 WAS_EMAIL_CLAIM_STALE_SECONDS=300
@@ -214,8 +239,30 @@ repeating them could duplicate or alter Qualys state. Every generated report
 uses a unique name containing its database run ID. If a create response times
 out, WAS searches Qualys for that exact name and format for up to
 `WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS`, recovers the assigned Qualys
-report ID, and continues polling. Report-status polling stops after
-`WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` instead of waiting indefinitely.
+report ID, and continues polling. Report-status polling runs every
+`WAS_QUALYS_REPORT_POLL_SECONDS` until Qualys returns `COMPLETE` or a terminal
+failure status. Progress is written to the terminal and retained log every
+`WAS_QUALYS_REPORT_PROGRESS_SECONDS`. The default value of `0` for
+`WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` allows multi-hour reports to continue
+without an elapsed-time cutoff. Set a positive number of seconds only when an
+environment requires a bounded polling window.
+
+Active Qualys detail and XML report IDs, current statuses, and last-poll
+timestamps are stored on `was_report_runs`. If a tracker-linked failed run is
+reclaimed after a container interruption, report generation reuses those IDs
+and resumes polling instead of creating duplicate Qualys reports. The temporary
+XML report ID is cleared after Qualys cleanup so a later retry cannot reference
+a deleted report. Apply the polling-state update to an existing WAS database
+before deploying this code:
+
+```bash
+PGPASSWORD="$WAS_DB_PASSWORD" psql \
+  --host "$WAS_DB_HOST" \
+  --port "$WAS_DB_PORT" \
+  --username "$WAS_DB_USERNAME" \
+  --dbname "$WAS_DB_NAME" \
+  --file schema/updates/009_add_qualys_report_polling_state.sql
+```
 
 ### Qualys API Rate Limit
 

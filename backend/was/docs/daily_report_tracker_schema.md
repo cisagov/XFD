@@ -39,8 +39,6 @@ This document maps the legacy daily report tracker workbook to the Postgres
 
 ## Operational Notes
 
-- `source_row_number` is included so imports can preserve the workbook row
-  origin.
 - `assignee_id` links tracker rows to `was_assignees.id`. The original workbook
   name is still preserved in `assignee` for auditability during migration.
 - No uniqueness constraint is applied yet because the workbook appears to

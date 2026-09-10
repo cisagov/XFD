@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -53,6 +54,11 @@ def generate_unencrypted_report(
     python_executable: str,
     current_time: datetime,
     report_request_key: str | None = None,
+    existing_detail_report_id: str | None = None,
+    existing_xml_report_id: str | None = None,
+    report_id_recorder: Callable[[str, str], None] | None = None,
+    report_id_clearer: Callable[[str, str], None] | None = None,
+    report_status_recorder: Callable[[str, str], None] | None = None,
 ) -> Path:
     """Generate one unencrypted PDF through the production WAS modules."""
     organization_name = resolve_organization_name(client, stakeholder_tag)
@@ -64,6 +70,11 @@ def generate_unencrypted_report(
         output_directory=paths.output_directory,
         python_executable=python_executable,
         report_request_key=report_request_key,
+        existing_detail_report_id=existing_detail_report_id,
+        existing_xml_report_id=existing_xml_report_id,
+        report_id_recorder=report_id_recorder,
+        report_id_clearer=report_id_clearer,
+        report_status_recorder=report_status_recorder,
     ) as source_data:
         transformation = report_transformer.transform_report_to_csv(
             report_xml=source_data.report_xml,
@@ -135,6 +146,11 @@ def generate_encrypted_report(
     current_time: datetime,
     report_password: str,
     report_request_key: str | None = None,
+    existing_detail_report_id: str | None = None,
+    existing_xml_report_id: str | None = None,
+    report_id_recorder: Callable[[str, str], None] | None = None,
+    report_id_clearer: Callable[[str, str], None] | None = None,
+    report_status_recorder: Callable[[str, str], None] | None = None,
 ) -> Path:
     """Generate an encrypted report in an isolated, concurrency-safe workspace."""
     with report_workspace.report_output_lock(
@@ -161,6 +177,11 @@ def generate_encrypted_report(
                 python_executable=python_executable,
                 current_time=current_time,
                 report_request_key=report_request_key,
+                existing_detail_report_id=existing_detail_report_id,
+                existing_xml_report_id=existing_xml_report_id,
+                report_id_recorder=report_id_recorder,
+                report_id_clearer=report_id_clearer,
+                report_status_recorder=report_status_recorder,
             )
             encrypted_pdf_path = encrypt_pdf_in_place(pdf_path, report_password)
             return publish_encrypted_pdf(

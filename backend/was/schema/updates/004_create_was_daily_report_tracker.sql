@@ -10,8 +10,6 @@ CREATE TABLE IF NOT EXISTS was_assignees (
 
 CREATE TABLE IF NOT EXISTS was_daily_report_tracker (
     id                       BIGSERIAL PRIMARY KEY,
-    source_row_number        INTEGER,
-
     data_pull_date           DATE,
     tag                      VARCHAR(128),
     scan_name                TEXT,

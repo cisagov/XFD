@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import argparse
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 import sys
 from tempfile import gettempdir
@@ -40,9 +41,7 @@ def resolve_report_password(
         return create_report_password(stakeholder_tag)
 
     raise RuntimeError(
-        "No report password found for stakeholder tag {}.".format(
-            stakeholder_tag
-        )
+        "No report password found for stakeholder tag {}.".format(stakeholder_tag)
     )
 
 
@@ -81,11 +80,16 @@ def generate_production_report(
 ) -> Path:
     """Run the production report pipeline and return its encrypted PDF."""
     # Third-Party Libraries
+    from was_reports.data.report_runs import (
+        QualysReportPollingState,
+        clear_qualys_report_id_by_run_id,
+        get_qualys_report_polling_state_by_id,
+        record_qualys_report_id_by_run_id,
+        record_qualys_report_status_by_run_id,
+    )
     from was_reports.qualys.qualys_client import create_qualys_client
     from was_reports.reporting.report_service import generate_encrypted_report
-    from was_reports.utils.qualys_config import (
-        load_qualys_credentials_from_environment,
-    )
+    from was_reports.utils.qualys_config import load_qualys_credentials_from_environment
 
     current_time = datetime.now(timezone.utc)
     report_request_key = (
@@ -95,6 +99,24 @@ def generate_production_report(
     )
     credentials = load_qualys_credentials_from_environment()
     client = create_qualys_client(credentials)
+    polling_state = QualysReportPollingState()
+    report_id_recorder = None
+    report_id_clearer = None
+    report_status_recorder = None
+    if report_run_id is not None:
+        polling_state = get_qualys_report_polling_state_by_id(report_run_id)
+        report_id_recorder = partial(
+            record_qualys_report_id_by_run_id,
+            report_run_id,
+        )
+        report_id_clearer = partial(
+            clear_qualys_report_id_by_run_id,
+            report_run_id,
+        )
+        report_status_recorder = partial(
+            record_qualys_report_status_by_run_id,
+            report_run_id,
+        )
     return generate_encrypted_report(
         client=client,
         credentials=credentials,
@@ -106,6 +128,11 @@ def generate_production_report(
         current_time=current_time,
         report_password=report_password,
         report_request_key=report_request_key,
+        existing_detail_report_id=polling_state.detail_report_id,
+        existing_xml_report_id=polling_state.xml_report_id,
+        report_id_recorder=report_id_recorder,
+        report_id_clearer=report_id_clearer,
+        report_status_recorder=report_status_recorder,
     )
 
 
@@ -115,9 +142,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "WAS_RESOURCE_ROOT",
         "/WAS_REPORT_RESOURCES",
     )
-    default_output_directory = getenv(
-        "WAS_OUTPUT_DIRECTORY", "/output"
-    )
+    default_output_directory = getenv("WAS_OUTPUT_DIRECTORY", "/output")
     default_workspace_root = getenv(
         "WAS_WORKSPACE_ROOT",
         DEFAULT_WORKSPACE_ROOT,
@@ -141,16 +166,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--create-missing-password",
         action="store_true",
-        help=(
-            "Create and save a stakeholder report password when one is absent."
-        ),
+        help=("Create and save a stakeholder report password when one is absent."),
     )
     parser.add_argument(
         "--change-password",
         action="store_true",
-        help=(
-            "Generate and store a new stakeholder report password, then exit."
-        ),
+        help=("Generate and store a new stakeholder report password, then exit."),
     )
     parser.add_argument(
         "--report-run-id",
@@ -160,9 +181,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--resource-root",
         default=default_resource_root,
-        help=(
-            "Directory containing production WAS templates and report assets."
-        ),
+        help=("Directory containing production WAS templates and report assets."),
     )
     parser.add_argument(
         "--python-executable",

@@ -55,6 +55,12 @@ CREATE TABLE was_report_runs (
     started_at             TIMESTAMPTZ DEFAULT NOW(),
     completed_at           TIMESTAMPTZ,
     error_message          TEXT,
+    qualys_detail_report_id VARCHAR(64),
+    qualys_detail_report_status VARCHAR(32),
+    qualys_detail_last_polled_at TIMESTAMPTZ,
+    qualys_xml_report_id    VARCHAR(64),
+    qualys_xml_report_status VARCHAR(32),
+    qualys_xml_last_polled_at TIMESTAMPTZ,
     created_at             TIMESTAMPTZ DEFAULT NOW(),
     updated_at             TIMESTAMPTZ DEFAULT NOW()
 );
@@ -89,8 +95,6 @@ CREATE TABLE was_assignees (
 
 CREATE TABLE was_daily_report_tracker (
     id                       BIGSERIAL PRIMARY KEY,
-    source_row_number        INTEGER,
-
     data_pull_date           DATE,
     tag                      VARCHAR(128),
     scan_name                TEXT,
