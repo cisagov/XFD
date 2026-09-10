@@ -73,7 +73,7 @@ def manage_elasticsearch_indices(dangerouslyforce):
             run_logged_step(
                 "manage_elasticsearch_indices.delete_all",
                 es_client.delete_all,
-                raise_on_error=False,
+                raise_on_error=True,
             )
         except Exception:
             LOGGER.exception(
