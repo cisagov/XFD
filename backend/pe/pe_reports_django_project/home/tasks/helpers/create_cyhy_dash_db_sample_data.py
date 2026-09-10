@@ -46,7 +46,7 @@ def populate_cyhy_dash_db_sample_data():
                     cvssV4ImpactScore DOUBLE PRECISION NULL,
 
                     weaknesses TEXT[] NULL,
-                    references TEXT[] NULL,
+                    "references" TEXT[] NULL,
 
                     CONSTRAINT cve_pkey PRIMARY KEY (id),
                     CONSTRAINT cve_name_key UNIQUE (name)
@@ -72,7 +72,7 @@ def populate_cyhy_dash_db_sample_data():
                     cvssV3ExploitabilityScore,
                     cvssV3ImpactScore,
                     weaknesses,
-                    references,
+                    "references"
                 )
                 VALUES (
                     %s,
@@ -108,7 +108,7 @@ def populate_cyhy_dash_db_sample_data():
                     cvssV3ExploitabilityScore = EXCLUDED.cvssV3ExploitabilityScore,
                     cvssV3ImpactScore = EXCLUDED.cvssV3ImpactScore,
                     weaknesses = EXCLUDED.weaknesses,
-                    references = EXCLUDED.references,
+                    "references" = EXCLUDED."references";
                 """,
                 (
                     "11111111-1111-1111-1111-111111111111",
