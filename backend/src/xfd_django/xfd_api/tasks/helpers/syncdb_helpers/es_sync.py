@@ -69,11 +69,16 @@ def manage_elasticsearch_indices(dangerouslyforce):
     )
 
     if dangerouslyforce:
-        run_logged_step(
-            "manage_elasticsearch_indices.delete_all",
-            es_client.delete_all,
-            raise_on_error=False,
-        )
+        try:
+            run_logged_step(
+                "manage_elasticsearch_indices.delete_all",
+                es_client.delete_all,
+                raise_on_error=False,
+            )
+        except Exception:
+            LOGGER.exception(
+                "Skipping Elasticsearch index sync because delete_all failed."
+            )
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_organizations_index",
