@@ -1,6 +1,6 @@
 .PHONY: init plan apply format
 
-# The runner registration token is NOT stored in a file. Pass it at plan/apply time 😭
+# Runner token is passed at plan/apply time, not stored in a file:
 # make plan RUNNER_TOKEN=xxxxxxxx
 # make apply
 
