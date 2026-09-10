@@ -226,7 +226,11 @@ def parse_created_report_id(response_xml: str) -> str:
 def build_report_search_payload(report_name: str, report_format: str) -> str:
     """Build an exact Qualys report search for timeout reconciliation."""
     root = E.ServiceRequest(
-        E.preferences(E.limitResults("100"), E.verbose("true")),
+        E.preferences(
+            E.limitResults("100"),
+            E.startFromOffset("1"),
+            E.verbose("true"),
+        ),
         E.filters(
             E.Criteria(report_name, field="name", operator="EQUALS"),
             E.Criteria(report_format, field="format", operator="EQUALS"),

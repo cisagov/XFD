@@ -292,7 +292,17 @@ class ReportDataTests(unittest.TestCase):
         self.assertEqual(reports[0].report_id, "7429186")
         self.assertEqual(reports[0].status, "COMPLETE")
         self.assertEqual(connection.calls[0]["endpoint"], "/search/was/report")
-        self.assertIn("WAS-USAID-RUN-13-XML", connection.calls[0]["payload"])
+        payload = connection.calls[0]["payload"]
+        self.assertIn("WAS-USAID-RUN-13-XML", payload)
+        self.assertIn("<startFromOffset>1</startFromOffset>", payload)
+        self.assertLess(
+            payload.index("<limitResults>100</limitResults>"),
+            payload.index("<startFromOffset>1</startFromOffset>"),
+        )
+        self.assertLess(
+            payload.index("<startFromOffset>1</startFromOffset>"),
+            payload.index("<verbose>true</verbose>"),
+        )
 
     @patch("was_reports.qualys.report_data.reconcile_created_report")
     def test_create_report_recovers_id_after_read_timeout(
