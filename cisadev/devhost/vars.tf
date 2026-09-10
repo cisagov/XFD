@@ -74,6 +74,11 @@ variable "devhost_password" {
   description = "Initial login password. Passed via -var at apply; must be changed on first login."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.devhost_password) > 0
+    error_message = "devhost_password must not be empty."
+  }
 }
 
 variable "desktop" {
