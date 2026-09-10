@@ -25,7 +25,7 @@ type BasePopperSlotProps = {
     | ((theme: Theme) => Record<string, unknown>);
 };
 
-export const AppDataGrid = <R extends GridValidRowModel>(
+export const CustomDataGrid = <R extends GridValidRowModel>(
   props: DataGridProps<R>
 ) => {
   const { slotProps, ...rest } = props;
@@ -50,18 +50,18 @@ export const AppDataGrid = <R extends GridValidRowModel>(
 
     if (typeof consumerPanelSx === 'function') {
       return {
-        ...baseSx,
-        ...consumerPanelSx(theme)
+        ...consumerPanelSx(theme),
+        ...baseSx
       };
     }
 
     if (Array.isArray(consumerPanelSx)) {
-      return Object.assign({}, baseSx, ...consumerPanelSx);
+      return Object.assign({}, ...consumerPanelSx, baseSx);
     }
 
     return {
-      ...baseSx,
-      ...consumerPanelSx
+      ...consumerPanelSx,
+      ...baseSx
     };
   };
 
@@ -78,18 +78,18 @@ export const AppDataGrid = <R extends GridValidRowModel>(
 
     if (typeof consumerBasePopperSx === 'function') {
       return {
-        ...baseSx,
-        ...consumerBasePopperSx(theme)
+        ...consumerBasePopperSx(theme),
+        ...baseSx
       };
     }
 
     if (Array.isArray(consumerBasePopperSx)) {
-      return Object.assign({}, baseSx, ...consumerBasePopperSx);
+      return Object.assign({}, ...consumerBasePopperSx, baseSx);
     }
 
     return {
-      ...baseSx,
-      ...consumerBasePopperSx
+      ...consumerBasePopperSx,
+      ...baseSx
     };
   };
 
@@ -128,4 +128,4 @@ export const AppDataGrid = <R extends GridValidRowModel>(
   );
 };
 
-export default AppDataGrid;
+export default CustomDataGrid;

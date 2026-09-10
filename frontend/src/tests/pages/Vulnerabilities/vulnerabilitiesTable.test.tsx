@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, screen, testUser } from 'test-utils';
+import { render, screen, testUser, waitFor } from 'test-utils';
 import { makeVulnResponse } from '@/test-utils/vulnerabilities';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import type { AuthUser } from '../../../context/';
 import Vulnerabilities from '../../../pages/Vulnerabilities/Vulnerabilities';
+import userEvent from '@testing-library/user-event';
 
 const titlePool = [
   'CVE-2013-4041 Risky Vuln',
@@ -484,5 +485,41 @@ describe('Vulnerabilities component', () => {
 
     expect(kevColumnHeader).toBeInTheDocument();
     expect(ransomwareColumnHeader).toBeInTheDocument();
+  });
+
+  describe('zIndex adjustment to accommodate appBar', () => {
+    it('should have correct zIndex for the filter panel', async () => {
+      apiPostMock.mockResolvedValueOnce(sampleResponse);
+
+      const user = userEvent.setup();
+
+      render(<Vulnerabilities />, {
+        initialHistory: ['/vulnerabilities'],
+        authContext: {
+          apiPost: apiPostMock,
+          currentOrganization: null,
+          user: testUser as unknown as AuthUser
+        }
+      });
+
+      const grid = await screen.findByRole('grid');
+      expect(grid).toBeInTheDocument();
+
+      const filterButton = await screen.findByRole('button', {
+        name: /filter/i
+      });
+      await user.click(filterButton);
+
+      const panel = await waitFor(() => {
+        const element = document.querySelector(
+          '.MuiDataGrid-panel'
+        ) as HTMLElement | null;
+
+        expect(element).not.toBeNull();
+        return element as HTMLElement;
+      });
+
+      expect(getComputedStyle(panel).zIndex).toBe('1099');
+    });
   });
 });
