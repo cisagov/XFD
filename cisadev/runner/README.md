@@ -3,7 +3,27 @@
 Terraform configuration for provisioning the self-hosted GitHub Actions runner
 EC2 instance in the CISADEV environment.
 
-## Installing Terraform on the Worker EC2
+## Where to run this from
+
+You need a host inside CISADEV with Terraform, the AWS CLI, and the same IAM
+instance profile used to provision the runner.
+
+**Recommended: the developer dev host.** The dev host (see `../devhost/`)
+already has Terraform and the AWS CLI installed. If it is launched with the same
+instance profile you used on the worker, it already has the permissions to
+create the runner — the permissions are on the role, not the machine. So you can
+spin up the dev host and provision the runner from it directly, skipping the
+separate worker setup below.
+
+- Launch the dev host with the same instance profile (e.g.
+  `CustomEc2-InstanceProfile`) set in `../devhost/devhost.tfvars`.
+- Then follow "Provisioning the Runner EC2" below from `cisadev/runner/`.
+
+**Older approach (still valid): a dedicated worker EC2** with Terraform
+installed by hand — documented in the next section. This will be removed once
+the dev-host flow is confirmed.
+
+## Installing Terraform on the Worker EC2 (older approach)
 
 The runner EC2 is provisioned by running Terraform from a worker EC2 inside
 CISADEV. Install Terraform on that worker (Ubuntu) using the official HashiCorp
@@ -73,7 +93,7 @@ subnet, security group) are read from SSM Parameter Store, not committed.
 
 ### One-command provision
 
-From the `cisadev/` directory:
+From the `cisadev/runner/` directory:
 
 ```bash
 ./bootstrap.sh <RUNNER_TOKEN> <CROWDSTRIKE_CID>
