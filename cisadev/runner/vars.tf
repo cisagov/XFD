@@ -49,7 +49,7 @@ variable "tags" {
 }
 
 # --- SSM Parameter Store paths (values resolved at plan/apply time) ---
-# The actual AMI/subnet/SG IDs live in SSM Parameter Store in CISADEV, not in version control. 
+# The actual AMI/subnet/SG IDs live in SSM Parameter Store in CISADEV, not in version control.
 variable "ssm_ami_id" {
   description = "SSM parameter path for the Ubuntu AMI ID"
   type        = string
