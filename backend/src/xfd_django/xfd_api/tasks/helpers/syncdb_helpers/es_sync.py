@@ -19,13 +19,15 @@ ORGANIZATION_CHUNK_SIZE = 50
 LOGGER = logging.getLogger(__name__)
 
 
-def run_logged_step(step_name, func, *args, **kwargs):
+def run_logged_step(step_name, func, *args, raise_on_error=True, **kwargs):
     """
     Run a single sync step with isolated logging.
 
     Logs the start, success, duration, and full exception traceback for the
-    specific step. Exceptions are re-raised so upstream callers see the real
-    failure instead of a generalized or swallowed error.
+    specific step.
+
+    If raise_on_error is True, exceptions are re-raised.
+    If raise_on_error is False, exceptions are logged and execution continues.
     """
     LOGGER.info("START: %s", step_name)
     start_time = time.monotonic()
@@ -35,7 +37,11 @@ def run_logged_step(step_name, func, *args, **kwargs):
     except Exception:
         elapsed = time.monotonic() - start_time
         LOGGER.exception("FAILED: %s after %.2f seconds", step_name, elapsed)
-        raise
+
+        if raise_on_error:
+            raise
+
+        return None
 
     elapsed = time.monotonic() - start_time
     LOGGER.info("SUCCESS: %s completed in %.2f seconds", step_name, elapsed)
@@ -52,9 +58,10 @@ def manage_elasticsearch_indices(dangerouslyforce):
     - sync organizations index
     - sync domains index
     - sync CVEs index
+    - log ES errors but do not fail the entire syncmdl command
 
-    This version only changes logging/error isolation. It does not add document
-    sync operations here.
+    This keeps CI behavior consistent with the original implementation while
+    still making logs more specific.
     """
     LOGGER.info(
         "Beginning Elasticsearch index management. dangerouslyforce=%s",
@@ -65,29 +72,34 @@ def manage_elasticsearch_indices(dangerouslyforce):
         run_logged_step(
             "manage_elasticsearch_indices.delete_all",
             es_client.delete_all,
+            raise_on_error=False,
         )
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_organizations_index",
         es_client.sync_organizations_index,
+        raise_on_error=False,
     )
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_domains_index",
         es_client.sync_domains_index,
+        raise_on_error=False,
     )
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_cves_index",
         es_client.sync_cves_index,
+        raise_on_error=False,
     )
 
-    LOGGER.info("Elasticsearch indices synchronized.")
+    LOGGER.info("Elasticsearch indices synchronization attempted.")
 
 
 def chunked_iterable(iterable, size):
     """Yield successive chunks of size `size` from `iterable`."""
     iterator = iter(iterable)
+
     while True:
         chunk = list(islice(iterator, size))
         if not chunk:
@@ -110,7 +122,7 @@ def sync_es_organizations():
     - fetch active organizations
     - sync active organizations in chunks
 
-    This version isolates each major step and each chunk for clearer logs.
+    This function still raises failures, matching the original behavior.
     """
     LOGGER.info("Beginning Elasticsearch organization sync.")
 
@@ -235,7 +247,7 @@ def sync_es_cves():
     - attach organization_ids to each CVE
     - update CVEs in ES
 
-    This version isolates each major step for clearer logs.
+    This function still raises failures, matching the original behavior.
     """
     LOGGER.info("Beginning Elasticsearch CVE sync.")
 
