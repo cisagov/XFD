@@ -4,6 +4,10 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+# Third-Party Libraries
+import requests
 
 # First-Party Libraries
 from was_reports.qualys import report_data
@@ -27,7 +31,10 @@ class FakeConnection:
                 "http_method": http_method,
             }
         )
-        return self.responses.pop(0)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def write_report_template(directory: str, filename: str) -> Path:
@@ -256,6 +263,112 @@ class ReportDataTests(unittest.TestCase):
                     <responseCode>INVALID_REQUEST</responseCode>
                 </ServiceResponse>
                 """
+            )
+
+    def test_search_reports_returns_exact_report_reference(self) -> None:
+        """Search Qualys reports by the unique WAS name and format."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <data><list><Report>
+                        <id>7429186</id>
+                        <name>WAS-USAID-RUN-13-XML</name>
+                        <format>XML</format>
+                        <status>COMPLETE</status>
+                    </Report></list></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+
+        reports = report_data.search_reports(
+            QualysClient(connection),
+            "WAS-USAID-RUN-13-XML",
+            "XML",
+        )
+
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0].report_id, "7429186")
+        self.assertEqual(reports[0].status, "COMPLETE")
+        self.assertEqual(connection.calls[0]["endpoint"], "/search/was/report")
+        self.assertIn("WAS-USAID-RUN-13-XML", connection.calls[0]["payload"])
+
+    @patch("was_reports.qualys.report_data.reconcile_created_report")
+    def test_create_report_recovers_id_after_read_timeout(
+        self,
+        mock_reconcile_created_report,
+    ) -> None:
+        """Recover a Qualys report ID without repeating an uncertain create."""
+        connection = FakeConnection([requests.ReadTimeout("timed out")])
+        mock_reconcile_created_report.return_value = "7429186"
+
+        report_id = report_data.create_report_with_recovery(
+            client=QualysClient(connection),
+            payload="<ServiceRequest />",
+            report_name="WAS-USAID-RUN-13-XML",
+            report_format="XML",
+            operation_label="XML report",
+        )
+
+        self.assertEqual(report_id, "7429186")
+        self.assertEqual(len(connection.calls), 1)
+        mock_reconcile_created_report.assert_called_once()
+
+    def test_reconcile_created_report_polls_until_report_is_searchable(self) -> None:
+        """Wait for Qualys search visibility after an uncertain create response."""
+        connection = FakeConnection(
+            [
+                "<ServiceResponse><data><list /></data></ServiceResponse>",
+                """
+                <ServiceResponse>
+                    <data><list><Report>
+                        <id>7429186</id>
+                        <name>WAS-USAID-RUN-13-XML</name>
+                        <format>XML</format>
+                    </Report></list></data>
+                </ServiceResponse>
+                """,
+            ]
+        )
+        sleep_calls: list[float] = []
+        monotonic_values = iter([0.0, 1.0])
+
+        report_id = report_data.reconcile_created_report(
+            client=QualysClient(connection),
+            report_name="WAS-USAID-RUN-13-XML",
+            report_format="XML",
+            operation_label="XML report",
+            timeout_seconds=30.0,
+            poll_seconds=2.0,
+            sleep_function=sleep_calls.append,
+            monotonic_function=lambda: next(monotonic_values),
+        )
+
+        self.assertEqual(report_id, "7429186")
+        self.assertEqual(sleep_calls, [2.0])
+        self.assertEqual(len(connection.calls), 2)
+
+    def test_reconcile_created_report_rejects_duplicate_unique_names(self) -> None:
+        """Stop when duplicate reports make automatic recovery ambiguous."""
+        response = """
+            <ServiceResponse><data><list>
+                <Report><id>1</id><name>WAS-TAG-RUN-1-XML</name><format>XML</format></Report>
+                <Report><id>2</id><name>WAS-TAG-RUN-1-XML</name><format>XML</format></Report>
+            </list></data></ServiceResponse>
+        """
+
+        with self.assertRaisesRegex(
+            report_data.QualysReportCreationUncertainError,
+            "Multiple Qualys",
+        ):
+            report_data.reconcile_created_report(
+                client=QualysClient(FakeConnection([response])),
+                report_name="WAS-TAG-RUN-1-XML",
+                report_format="XML",
+                operation_label="XML report",
+                timeout_seconds=30.0,
+                poll_seconds=2.0,
             )
 
     def test_get_report_xml_downloads_by_report_id(self) -> None:

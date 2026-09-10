@@ -80,6 +80,7 @@ class BatchRunnerTests(unittest.TestCase):
     def test_build_report_arguments_forwards_report_options(self) -> None:
         """Build one single-report invocation from batch options."""
         arguments = batch_runner.build_report_arguments(
+            report_run_id=17,
             stakeholder_tag="TAG1",
             resource_root="/WAS_REPORT_RESOURCES",
             output_directory="/WAS_REPORT_GENERATION/docs",
@@ -92,6 +93,8 @@ class BatchRunnerTests(unittest.TestCase):
             [
                 "--tag",
                 "TAG1",
+                "--report-run-id",
+                "17",
                 "--resource-root",
                 "/WAS_REPORT_RESOURCES",
                 "--output-directory",
@@ -113,6 +116,16 @@ class BatchRunnerTests(unittest.TestCase):
 
         self.assertEqual(message, "Report generation failed with exit code 2.")
         self.assertNotIn("secret-password", message)
+
+    def test_summarize_report_failure_preserves_safe_qualys_stage(self) -> None:
+        """Store actionable reconciliation context without request details."""
+        exception = batch_runner.QualysReportCreationUncertainError(
+            "Qualys XML report creation timed out."
+        )
+
+        message = batch_runner.summarize_report_failure(exception)
+
+        self.assertEqual(message, "Qualys XML report creation timed out.")
         self.assertNotIn("--encrypt", message)
 
     def test_summarize_report_failure_handles_missing_files(self) -> None:

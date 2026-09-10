@@ -28,6 +28,21 @@ class ReportSourceData:
     detail_pdf_path: Optional[Path]
 
 
+def report_request_name(
+    stakeholder_tag: str,
+    report_request_key: str | None,
+    artifact_label: str,
+) -> str:
+    """Return a unique, searchable Qualys report name for one WAS run."""
+    if report_request_key is None:
+        return stakeholder_tag
+    return "WAS-{}-{}-{}".format(
+        stakeholder_tag,
+        report_request_key,
+        artifact_label,
+    )
+
+
 def retrieve_report_source_data(
     client: QualysClient,
     stakeholder_tag: str,
@@ -35,7 +50,9 @@ def retrieve_report_source_data(
     resource_root: Path,
     output_directory: Path,
     python_executable: str,
+    report_request_key: str | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
+    report_waiter: Callable = detail_reports.wait_for_report_completion,
 ) -> ReportSourceData:
     """Retrieve the Qualys XML report and optional detail PDF artifact."""
     web_application_count = report_data.count_webapps(client, stakeholder_tag)
@@ -51,7 +68,11 @@ def retrieve_report_source_data(
     if web_application_count < DETAIL_REPORT_WEBAPP_LIMIT:
         detail_report_id = report_data.create_detail_pdf_report(
             client=client,
-            report_name=stakeholder_tag,
+            report_name=report_request_name(
+                stakeholder_tag,
+                report_request_key,
+                "DETAIL",
+            ),
             target_id=tag_id,
             template_path=resource_root / "assets" / "was_report.xml",
         )
@@ -68,11 +89,16 @@ def retrieve_report_source_data(
 
     xml_report_id = report_data.create_webapp_xml_report(
         client=client,
-        report_name=stakeholder_tag,
+        report_name=report_request_name(
+            stakeholder_tag,
+            report_request_key,
+            "XML",
+        ),
         tag_id=tag_id,
         template_path=resource_root / "assets" / "was_report.xml",
     )
     try:
+        report_waiter(client=client, report_id=xml_report_id)
         report_xml = report_data.get_report_xml(client, xml_report_id)
     except Exception:
         report_data.delete_report(client, xml_report_id)
@@ -96,7 +122,9 @@ def managed_report_source_data(
     resource_root: Path,
     output_directory: Path,
     python_executable: str,
+    report_request_key: str | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
+    report_waiter: Callable = detail_reports.wait_for_report_completion,
 ) -> Iterator[ReportSourceData]:
     """Yield report source data and delete its temporary Qualys XML report."""
     source_data = retrieve_report_source_data(
@@ -106,7 +134,9 @@ def managed_report_source_data(
         resource_root=resource_root,
         output_directory=output_directory,
         python_executable=python_executable,
+        report_request_key=report_request_key,
         detail_downloader=detail_downloader,
+        report_waiter=report_waiter,
     )
     try:
         yield source_data

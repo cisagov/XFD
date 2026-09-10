@@ -69,7 +69,7 @@ class QualysRetryPolicy:
             max_attempts=_environment_integer("WAS_QUALYS_MAX_ATTEMPTS", 4),
             request_timeout_seconds=_environment_float(
                 "WAS_QUALYS_REQUEST_TIMEOUT_SECONDS",
-                60.0,
+                120.0,
                 minimum=0.1,
             ),
             base_delay_seconds=_environment_float(

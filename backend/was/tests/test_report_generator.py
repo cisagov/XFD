@@ -21,6 +21,14 @@ class ReportGeneratorTests(unittest.TestCase):
         self.assertEqual(arguments.tag, "TEST_TAG")
         self.assertEqual(arguments.report_password, "password")
 
+    def test_parse_args_accepts_report_run_id(self) -> None:
+        """Accept the database run ID used in unique Qualys report names."""
+        arguments = report_generator.parse_args(
+            ["-t", "TEST_TAG", "--report-run-id", "17"]
+        )
+
+        self.assertEqual(arguments.report_run_id, 17)
+
     def test_parse_args_rejects_removed_legacy_pipeline(self) -> None:
         """Reject attempts to execute the frozen legacy report pipeline."""
         with self.assertRaises(SystemExit):
@@ -134,6 +142,7 @@ class ReportGeneratorTests(unittest.TestCase):
             output_directory=Path("/reports"),
             python_executable=report_generator.sys.executable,
             report_password="SecurePassword123!",
+            report_run_id=None,
         )
 
 

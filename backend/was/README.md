@@ -137,10 +137,12 @@ WAS_QUALYS_USERNAME=replace-me
 WAS_QUALYS_PASSWORD=replace-me
 WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
 WAS_QUALYS_MAX_ATTEMPTS=4
-WAS_QUALYS_REQUEST_TIMEOUT_SECONDS=60
+WAS_QUALYS_REQUEST_TIMEOUT_SECONDS=120
 WAS_QUALYS_RETRY_BASE_DELAY_SECONDS=1
 WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
+WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS=300
+WAS_QUALYS_CREATE_RECONCILE_POLL_SECONDS=10
 WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=1800
 WAS_OPERATION_HEARTBEAT_SECONDS=30
 WAS_REPORT_RUN_STALE_SECONDS=300
@@ -207,10 +209,13 @@ special-case XLSX paths are no longer required by the active tracker workflow.
 Qualys read operations retry transient connection failures, timeouts, HTTP
 `429`, and selected HTTP `5xx` responses. Retries use capped exponential
 backoff with jitter and honor `Retry-After` up to the configured maximum delay.
-Create, update, ignore, and delete operations are never automatically retried
-because repeating them could duplicate or alter Qualys state. Report-status
-polling stops after `WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` instead of waiting
-indefinitely.
+Create, update, ignore, and delete operations are never blindly retried because
+repeating them could duplicate or alter Qualys state. Every generated report
+uses a unique name containing its database run ID. If a create response times
+out, WAS searches Qualys for that exact name and format for up to
+`WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS`, recovers the assigned Qualys
+report ID, and continues polling. Report-status polling stops after
+`WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` instead of waiting indefinitely.
 
 ### Qualys API Rate Limit
 

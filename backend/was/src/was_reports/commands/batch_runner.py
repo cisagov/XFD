@@ -36,6 +36,7 @@ from was_reports.data.report_runs import (
     touch_report_run_by_id,
 )
 from was_reports.data.stakeholders import list_due_stakeholders_for_report
+from was_reports.qualys.report_data import QualysReportCreationUncertainError
 from was_reports.storage.s3_reports import (
     S3_STORAGE,
     VALID_STORAGE_MODES,
@@ -69,6 +70,9 @@ def current_epoch_seconds() -> int:
 
 def summarize_report_failure(exception: Exception) -> str:
     """Return a safe report failure summary for database storage."""
+    if isinstance(exception, QualysReportCreationUncertainError):
+        return str(exception)
+
     if isinstance(exception, subprocess.CalledProcessError):
         return "Report generation failed with exit code {}.".format(
             exception.returncode
@@ -81,6 +85,7 @@ def summarize_report_failure(exception: Exception) -> str:
 
 
 def build_report_arguments(
+    report_run_id: int,
     stakeholder_tag: str,
     resource_root: str,
     output_directory: str,
@@ -91,6 +96,8 @@ def build_report_arguments(
     arguments = [
         "--tag",
         stakeholder_tag,
+        "--report-run-id",
+        str(report_run_id),
         "--resource-root",
         resource_root,
         "--output-directory",
@@ -125,6 +132,7 @@ def generate_report_output(
             dir=str(staging_root),
         ) as run_directory:
             report_arguments = build_report_arguments(
+                report_run_id=report_run_id,
                 stakeholder_tag=stakeholder_tag,
                 resource_root=resource_root,
                 output_directory=run_directory,
@@ -145,6 +153,7 @@ def generate_report_output(
             )
 
     report_arguments = build_report_arguments(
+        report_run_id=report_run_id,
         stakeholder_tag=stakeholder_tag,
         resource_root=resource_root,
         output_directory=output_directory,

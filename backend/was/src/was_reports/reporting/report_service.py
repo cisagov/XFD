@@ -52,6 +52,7 @@ def generate_unencrypted_report(
     paths: ReportServicePaths,
     python_executable: str,
     current_time: datetime,
+    report_request_key: str | None = None,
 ) -> Path:
     """Generate one unencrypted PDF through the production WAS modules."""
     organization_name = resolve_organization_name(client, stakeholder_tag)
@@ -62,6 +63,7 @@ def generate_unencrypted_report(
         resource_root=paths.resource_root,
         output_directory=paths.output_directory,
         python_executable=python_executable,
+        report_request_key=report_request_key,
     ) as source_data:
         transformation = report_transformer.transform_report_to_csv(
             report_xml=source_data.report_xml,
@@ -132,6 +134,7 @@ def generate_encrypted_report(
     python_executable: str,
     current_time: datetime,
     report_password: str,
+    report_request_key: str | None = None,
 ) -> Path:
     """Generate an encrypted report in an isolated, concurrency-safe workspace."""
     with report_workspace.report_output_lock(
@@ -157,6 +160,7 @@ def generate_encrypted_report(
                 ),
                 python_executable=python_executable,
                 current_time=current_time,
+                report_request_key=report_request_key,
             )
             encrypted_pdf_path = encrypt_pdf_in_place(pdf_path, report_password)
             return publish_encrypted_pdf(

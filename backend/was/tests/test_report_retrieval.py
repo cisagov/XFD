@@ -49,6 +49,7 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_create_xml_report.return_value = "xml-789"
         mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
         detail_downloader = Mock(return_value=Path("/legacy/assets/TAGDetails.pdf"))
+        report_waiter = Mock()
 
         source_data = report_retrieval.retrieve_report_source_data(
             client=self.client,
@@ -57,7 +58,9 @@ class ReportRetrievalTests(unittest.TestCase):
             resource_root=self.resource_root,
             output_directory=self.output_directory,
             python_executable="python3",
+            report_request_key="RUN-17",
             detail_downloader=detail_downloader,
+            report_waiter=report_waiter,
         )
 
         self.assertEqual(source_data.web_application_count, 34)
@@ -69,6 +72,18 @@ class ReportRetrievalTests(unittest.TestCase):
             Path("/legacy/assets/TAGDetails.pdf"),
         )
         detail_downloader.assert_called_once()
+        self.assertEqual(
+            mock_create_detail_report.call_args.kwargs["report_name"],
+            "WAS-TAG-RUN-17-DETAIL",
+        )
+        self.assertEqual(
+            mock_create_xml_report.call_args.kwargs["report_name"],
+            "WAS-TAG-RUN-17-XML",
+        )
+        report_waiter.assert_called_once_with(
+            client=self.client,
+            report_id="xml-789",
+        )
 
     @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
     @patch(
@@ -93,6 +108,7 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_create_xml_report.return_value = "xml-789"
         mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
         detail_downloader = Mock()
+        report_waiter = Mock()
 
         source_data = report_retrieval.retrieve_report_source_data(
             client=self.client,
@@ -102,11 +118,16 @@ class ReportRetrievalTests(unittest.TestCase):
             output_directory=self.output_directory,
             python_executable="python3",
             detail_downloader=detail_downloader,
+            report_waiter=report_waiter,
         )
 
         self.assertIsNone(source_data.detail_pdf_path)
         mock_create_detail_report.assert_not_called()
         detail_downloader.assert_not_called()
+        report_waiter.assert_called_once_with(
+            client=self.client,
+            report_id="xml-789",
+        )
 
     @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
     def test_retrieve_source_data_rejects_empty_tag(
@@ -124,6 +145,7 @@ class ReportRetrievalTests(unittest.TestCase):
                 resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
+                report_waiter=Mock(),
             )
 
     @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
@@ -146,6 +168,7 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_get_tag_id.return_value = "tag-123"
         mock_create_xml_report.return_value = "xml-789"
         mock_get_report_xml.side_effect = RuntimeError("download failed")
+        report_waiter = Mock()
 
         with self.assertRaises(RuntimeError):
             report_retrieval.retrieve_report_source_data(
@@ -155,9 +178,14 @@ class ReportRetrievalTests(unittest.TestCase):
                 resource_root=self.resource_root,
                 output_directory=self.output_directory,
                 python_executable="python3",
+                report_waiter=report_waiter,
             )
 
         mock_delete_report.assert_called_once_with(self.client, "xml-789")
+        report_waiter.assert_called_once_with(
+            client=self.client,
+            report_id="xml-789",
+        )
 
     @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
     @patch("was_reports.reporting.report_retrieval.retrieve_report_source_data")

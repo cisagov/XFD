@@ -77,6 +77,7 @@ def generate_production_report(
     output_directory: Path,
     python_executable: str,
     report_password: str,
+    report_run_id: int | None = None,
 ) -> Path:
     """Run the production report pipeline and return its encrypted PDF."""
     # Third-Party Libraries
@@ -86,6 +87,12 @@ def generate_production_report(
         load_qualys_credentials_from_environment,
     )
 
+    current_time = datetime.now(timezone.utc)
+    report_request_key = (
+        "RUN-{}".format(report_run_id)
+        if report_run_id is not None
+        else "REQUEST-{}".format(current_time.strftime("%Y%m%dT%H%M%S%fZ"))
+    )
     credentials = load_qualys_credentials_from_environment()
     client = create_qualys_client(credentials)
     return generate_encrypted_report(
@@ -96,8 +103,9 @@ def generate_production_report(
         workspace_root=workspace_root,
         output_directory=output_directory,
         python_executable=python_executable,
-        current_time=datetime.now(timezone.utc),
+        current_time=current_time,
         report_password=report_password,
+        report_request_key=report_request_key,
     )
 
 
@@ -143,6 +151,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help=(
             "Generate and store a new stakeholder report password, then exit."
         ),
+    )
+    parser.add_argument(
+        "--report-run-id",
+        type=int,
+        help="Database report-run ID used for Qualys request reconciliation.",
     )
     parser.add_argument(
         "--resource-root",
@@ -192,6 +205,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         output_directory=Path(args.output_directory),
         python_executable=args.python_executable,
         report_password=report_password,
+        report_run_id=args.report_run_id,
     )
     return 0
 
