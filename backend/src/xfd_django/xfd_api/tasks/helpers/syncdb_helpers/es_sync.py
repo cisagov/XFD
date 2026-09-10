@@ -79,6 +79,7 @@ def manage_elasticsearch_indices(dangerouslyforce):
             LOGGER.exception(
                 "Skipping Elasticsearch index sync because delete_all failed."
             )
+            return
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_organizations_index",
