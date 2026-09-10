@@ -29,7 +29,7 @@ These calls are required for the current single-page PDF report generation path.
 | Endpoint | Method | Legacy Function | Purpose | Payload Source | Response Use | Migration Risk |
 | --- | --- | --- | --- | --- | --- | --- |
 | `/create/was/report` | `POST` | `create_webapp_report_v2` | Creates the XML WAS report for a stakeholder tag. | `src/was_reports/resources/assets/was_report.xml` with template, target tag, report name, and XML format. | Reads `responseCode` and `data.Report.id`. | High, template IDs and response fields must be verified against current Qualys WAS API docs. |
-| `/search/was/report` | `POST` | Recovery addition | Finds a uniquely named report after an uncertain create response so the create request is not repeated. | Exact report name and format with `limitResults`, `startFromOffset`, and `verbose` preferences in Qualys schema order. | Reads report ID, name, format, and status. | High, invalid pagination XML prevents safe timeout reconciliation and can encourage duplicate report creation. |
+| `/search/was/report` | `POST` | Recovery addition | Finds a uniquely named report after an uncertain create response so the create request is not repeated. | Exact report name and format filters, without a preferences block, matching the documented Qualys filtered-search request. | Reads report ID, name, format, and status. | High, invalid search XML prevents safe timeout reconciliation and can encourage duplicate report creation. |
 | `/download/was/report/<id>` | `GET` | `get_report` | Downloads generated XML report content. | Report ID from `/create/was/report`. | XML is parsed into findings, charts, summaries, and appendix data. | High, XML schema changes can alter report output. |
 | `/count/was/finding` | Not explicitly set by legacy call | `max_age` | Counts open critical and urgent findings by date range. | XML filter payload built in code. | Used for max-age calculations and trend context. | Medium, date filters and finding status semantics must be verified. |
 | `/search/was/finding` | `POST` | `get_ssn_and_cc` | Searches findings that indicate SSN or credit-card exposure. | XML filter payload built in code for relevant QIDs. | Parses payload request links for sensitive-data appendix fields. The exact HTTP 400 `Module is not supported for this agent` response is logged and represented as unavailable data so report generation can continue. Other API errors remain fatal. | High, sensitive-data handling and QID assumptions need explicit validation. |
@@ -117,9 +117,9 @@ source files.
   the database report run. A reclaimed tracker-linked run resumes those reports
   rather than submitting duplicate create requests. Temporary XML report state
   is cleared after the Qualys report is deleted.
-- Create-timeout reconciliation searches `/search/was/report` with
-  `startFromOffset=1` before `verbose`, as required by the Qualys report-search
-  XML schema.
+- Create-timeout reconciliation searches `/search/was/report` using only the
+  unique report name and format filters accepted by the documented Qualys
+  filtered-search request.
 - Retry logs include the endpoint, attempt number, and delay. Request payloads,
   response bodies, and credentials are not logged by the WAS-owned client.
 
