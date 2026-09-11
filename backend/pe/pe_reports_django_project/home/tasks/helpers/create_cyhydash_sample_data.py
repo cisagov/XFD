@@ -4,7 +4,7 @@
 from django.db import connections, transaction
 
 
-def populate_cyhy_dash_db_sample_data():
+def populate_cyhydash_sample_data():
     """Populate the cve table with sample data."""
     with transaction.atomic(using="cyhy_dash_db"):
         with connections["cyhy_dash_db"].cursor() as cursor:

@@ -47,10 +47,10 @@ DATABASES = {
     # CyHy dash DB connection
     "cyhy_dash_db": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("CYHY_DASH_DB_NAME", ""),
-        "USER": os.environ.get("CYHY_DASH_DB_USERNAME", ""),
-        "PASSWORD": os.environ.get("CYHY_DASH_DB_PASSWORD", ""),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "NAME": os.environ.get("DATABASE_NAME", ""),
+        "USER": os.environ.get("DATABASE_USER", ""),
+        "PASSWORD": os.environ.get("DATABASE_PASSWORD", ""),
+        "HOST": os.environ.get("DATABASE_HOST", "localhost"),
         "PORT": "5432",
     },
 }

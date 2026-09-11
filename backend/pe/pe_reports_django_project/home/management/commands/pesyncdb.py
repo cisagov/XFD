@@ -6,9 +6,7 @@ import os
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 from django.db import connections
-from home.tasks.helpers.create_cyhy_dash_db_sample_data import (
-    populate_cyhy_dash_db_sample_data,
-)
+from home.tasks.helpers.create_cyhydash_sample_data import populate_cyhydash_sample_data
 from home.tasks.helpers.create_sample_data import populate_sample_data
 from home.tasks.local_db_functions import ensure_local_db_functions
 from home.tasks.local_report_views import ensure_local_report_views
@@ -58,14 +56,14 @@ def setup_pe_database(stdout):
 
 def setup_cyhydash_database(stdout):
     """Create the PE database role and database using the Crossfeed admin connection."""
-    db_name = os.getenv("CYHY_DASH_DB_NAME", "")
-    db_user = os.getenv("CYHY_DASH_DB_USERNAME", "")
-    db_pass = os.getenv("CYHY_DASH_DB_PASSWORD", "")
+    db_name = os.getenv("DATABASE_NAME", "")
+    db_user = os.getenv("DATABASE_USER", "")
+    db_pass = os.getenv("DATABASE_PASSWORD", "")
     admin_user = os.getenv("DB_USERNAME", "")
 
     if not (db_name and db_user and db_pass and admin_user):
         raise ValueError(
-            "CYHY_DASH_DB_NAME, CYHY_DASH_DB_USERNAME, CYHY_DASH_DB_PASSWORD, and DB_USERNAME must be set."
+            "DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD, and DB_USERNAME must be set."
         )
 
     stdout.write("Setting up the CyHy Dashboard database and user...")
@@ -155,7 +153,7 @@ class Command(BaseCommand):
             )
 
             self.stdout.write("Populating CyHy Dash DB sample data...")
-            result = populate_cyhy_dash_db_sample_data()
+            result = populate_cyhydash_sample_data()
             self.stdout.write("Sample CyHy Dash DB data loaded")
 
         self.stdout.write("PE database sync complete.")
