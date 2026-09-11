@@ -270,12 +270,7 @@ class WasOperatorMenu:
         self.pause()
 
     def run_daily_batch(self) -> None:
-        """Confirm and execute the complete recent-scan report batch."""
-        if not self.confirm(
-            "Generate, upload, and email all eligible recent-scan reports?"
-        ):
-            self.output("Operation cancelled.")
-            return
+        """Execute a test-recipient or customer-delivery recent-scan batch."""
         arguments = [
             "--recent-scans",
             "--create-missing-password",
@@ -283,6 +278,40 @@ class WasOperatorMenu:
             "--send-email",
             "--send-assignee-digests",
         ]
+        self.output("1) Test batch using an active WAS assignee override")
+        self.output("2) Production batch using customer email addresses")
+        self.output("3) Cancel")
+        delivery_selection = self.input("Please select the delivery mode: ").strip()
+        if delivery_selection == "1":
+            recipients = self.prompt_required(
+                "Active WAS assignee email address(es) for all batch email: "
+            )
+            self.output(
+                "Customer addresses will not be used. Successful tracker rows will "
+                "be recorded as sent."
+            )
+            if not self.confirm(
+                "Generate, upload, and email all eligible reports only to {}?".format(
+                    recipients
+                )
+            ):
+                self.output("Operation cancelled.")
+                return
+            arguments.extend(["--test-recipients", recipients])
+        elif delivery_selection == "2":
+            self.output(
+                "WARNING: This will email eligible reports to customer technical and "
+                "distribution contacts."
+            )
+            confirmation = self.input(
+                "Type SEND CUSTOMER REPORTS to run the production batch: "
+            ).strip()
+            if confirmation != "SEND CUSTOMER REPORTS":
+                self.output("Operation cancelled.")
+                return
+        else:
+            self.output("Operation cancelled.")
+            return
         self.execute("recent-scan batch", lambda: batch_runner.main(arguments))
         self.pause()
 

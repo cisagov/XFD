@@ -979,6 +979,52 @@ class BatchRunnerTests(unittest.TestCase):
         )
         self.assertEqual(mock_run_recent.call_args.kwargs["stakeholder_tag"], "TAG1")
 
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    @patch("was_reports.commands.batch_runner.approved_analyst_recipients")
+    def test_main_validates_batch_test_recipient_before_processing(
+        self,
+        mock_approved_recipients,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Validate and normalize a batch recipient override before processing."""
+        mock_approved_recipients.return_value = [
+            "first@example.gov",
+            "second@example.gov",
+        ]
+        mock_run_recent.return_value = batch_runner.BatchExecutionSummary(
+            candidates=1,
+            generated=1,
+            sent=1,
+            failed=0,
+        )
+
+        exit_code = batch_runner.main(
+            [
+                "--recent-scans",
+                "--send-email",
+                "--test-recipients",
+                "first@example.gov; second@example.gov",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_approved_recipients.assert_called_once_with(
+            "first@example.gov; second@example.gov"
+        )
+        self.assertEqual(
+            mock_run_recent.call_args.kwargs["test_recipients"],
+            "first@example.gov,second@example.gov",
+        )
+        mock_update_tracker.assert_called_once_with(
+            delete_apps=False,
+            stakeholder_tag=None,
+        )
+        mock_recover_stale.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

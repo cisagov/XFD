@@ -41,6 +41,65 @@ class WasOperatorMenuTests(unittest.TestCase):
         self.assertEqual(menu.output.call_args_list[0].args[0], "WAS BANNER")
 
     @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
+    def test_complete_batch_requires_recipient_override(
+        self,
+        mock_batch_main,
+    ) -> None:
+        """Route every complete-batch email to the explicit test recipient."""
+        menu = self.build_menu(["1", "analyst@example.gov", "y", ""])
+
+        menu.run_daily_batch()
+
+        mock_batch_main.assert_called_once_with(
+            [
+                "--recent-scans",
+                "--create-missing-password",
+                "--continue-on-error",
+                "--send-email",
+                "--send-assignee-digests",
+                "--test-recipients",
+                "analyst@example.gov",
+            ]
+        )
+        menu.output.assert_any_call(
+            "Customer addresses will not be used. Successful tracker rows will be "
+            "recorded as sent."
+        )
+
+    @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
+    def test_complete_batch_requires_typed_customer_confirmation(
+        self,
+        mock_batch_main,
+    ) -> None:
+        """Require an explicit phrase before delivering reports to customers."""
+        menu = self.build_menu(["2", "SEND CUSTOMER REPORTS", ""])
+
+        menu.run_daily_batch()
+
+        mock_batch_main.assert_called_once_with(
+            [
+                "--recent-scans",
+                "--create-missing-password",
+                "--continue-on-error",
+                "--send-email",
+                "--send-assignee-digests",
+            ]
+        )
+
+    @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
+    def test_complete_batch_cancels_customer_delivery_without_phrase(
+        self,
+        mock_batch_main,
+    ) -> None:
+        """Do not start customer delivery without the exact safety phrase."""
+        menu = self.build_menu(["2", "no"])
+
+        menu.run_daily_batch()
+
+        mock_batch_main.assert_not_called()
+        menu.output.assert_any_call("Operation cancelled.")
+
+    @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
     def test_manual_report_delegates_to_tracked_batch_command(
         self,
         mock_batch_main,

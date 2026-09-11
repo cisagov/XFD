@@ -618,6 +618,14 @@ confirmation before write or delivery operations, `CLEAR` for removing contact
 values, and typed confirmation before exporting report passwords. Files are
 written under the mounted `local-output` directory.
 
+Report Generation option 1 asks the operator to choose a delivery mode. Test
+mode requires one or more active WAS assignee email addresses and delivers all
+customer report messages and assignee digests only to those override addresses.
+A successful test delivery still marks its report run and linked tracker row as
+sent, so operators must use it only for approved test data. Production mode uses
+the customer technical and distribution addresses and requires the operator to
+type `SEND CUSTOMER REPORTS` before the batch starts.
+
 The menu is a thin interface over the same Python command and data-service
 functions used by direct CLI commands. Operators can therefore use either the
 menu or commands such as `was-tracker`, `was-stakeholders`, and
@@ -689,6 +697,22 @@ docker run --rm \
   --continue-on-error \
   --send-email \
   --send-assignee-digests
+```
+
+For a controlled end-to-end batch test, redirect every report and digest to one
+or more active WAS assignees. Customer addresses are not used, but successful
+tracker rows are recorded as sent:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  --recent-scans \
+  --create-missing-password \
+  --continue-on-error \
+  --send-email \
+  --send-assignee-digests \
+  --test-recipients "operator@example.gov"
 ```
 
 Test one candidate without sending SES email. This still performs Qualys report

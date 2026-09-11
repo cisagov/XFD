@@ -18,6 +18,7 @@ from was_mailer.email_reports import (
     send_ready_report_emails,
     send_report_run_email,
 )
+from was_mailer.message import approved_analyst_recipients
 
 # First-Party Libraries
 from was_reports.commands import report_generator
@@ -615,6 +616,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     configure_logging()
     args = parse_args(argv)
     if args.recent_scans:
+        test_recipients = args.test_recipients
+        if test_recipients is not None:
+            test_recipients = ",".join(
+                approved_analyst_recipients(test_recipients)
+            )
         stakeholder_tag = args.tag.strip() if args.tag else None
         if args.tag and not stakeholder_tag:
             raise ValueError("Stakeholder tag must not be empty.")
@@ -641,7 +647,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             send_email=args.send_email,
             send_assignee_digests=args.send_assignee_digests,
             source_email=args.source_email,
-            test_recipients=args.test_recipients,
+            test_recipients=test_recipients,
             dry_run_email=args.dry_run_email,
             include_manual=args.include_manual,
         )
