@@ -3,7 +3,27 @@
 Terraform configuration for provisioning the self-hosted GitHub Actions runner
 EC2 instance in the CISADEV environment.
 
-## Installing Terraform on the Worker EC2
+## Where to run this from
+
+You need a host inside CISADEV with Terraform, the AWS CLI, and the same IAM
+instance profile used to provision the runner.
+
+**Recommended: the developer dev host.** The dev host (see `../devhost/`)
+already has Terraform and the AWS CLI installed. If it is launched with the same
+instance profile you used on the worker, it already has the permissions to
+create the runner — the permissions are on the role, not the machine. So you can
+spin up the dev host and provision the runner from it directly, skipping the
+separate worker setup below.
+
+- Launch the dev host with the same instance profile (e.g.
+  `CustomEc2-InstanceProfile`) set in `../devhost/devhost.tfvars`.
+- Then follow "Provisioning the Runner EC2" below from `cisadev/runner/`.
+
+**Older approach (still valid): a dedicated worker EC2** with Terraform
+installed by hand — documented in the next section. This will be removed once
+the dev-host flow is confirmed.
+
+## Installing Terraform on the Worker EC2 (older approach)
 
 The runner EC2 is provisioned by running Terraform from a worker EC2 inside
 CISADEV. Install Terraform on that worker (Ubuntu) using the official HashiCorp
@@ -56,42 +76,43 @@ terraform -version
 
 ## Provisioning the Runner EC2
 
-Once Terraform is installed and `main.tf` is present on the worker EC2 (with
-placeholder values replaced), provision the runner from the `cisadev/`
-directory.
+The config follows the `infrastructure/` pattern: variables in `vars.tf`,
+values in `cisadev.tfvars`, S3 backend in `cisadev.config`, and the bootstrap
+script templated from `user_data.sh.tpl`. Sensitive infrastructure IDs (AMI,
+subnet, security group) are read from SSM Parameter Store, not committed.
 
-> **Note:** The runner registration token is ephemeral (expires ~1 hour) and
-> must be requested from the GitHub Enterprise team before running these
-> commands. Replace the placeholder token in `main.tf` with the fresh token.
+### Prerequisites
 
-### 1. Initialize
+- **Terraform state S3 bucket** exists and its name is set in `cisadev.config`
+  (tracked in a separate ticket).
+- **SSM parameters** exist for the AMI, subnet, and security group at the paths
+  referenced in `cisadev.tfvars` (tracked in a separate ticket).
+- Placeholder values in `cisadev.tfvars` (`<...>`) are filled in.
+- A fresh **runner registration token** from the GitHub Enterprise team
+  (ephemeral, expires ~1 hour) and the **CrowdStrike CID**.
 
-```bash
-terraform init
-```
+### One-command provision
 
-### 2. Plan (review changes before applying)
-
-```bash
-terraform plan
-```
-
-### 3. Apply
+From the `cisadev/runner/` directory:
 
 ```bash
-terraform apply
+./bootstrap.sh <RUNNER_TOKEN> <CROWDSTRIKE_CID>
 ```
 
-Terraform will prompt for confirmation before creating resources — type `yes`
-to proceed. To skip the prompt (e.g., in automation):
+This runs `terraform init` with the S3 backend, then `terraform apply` with the
+tfvars plus the token and CID passed via `-var` (never written to a file).
+
+### Or run the steps manually
 
 ```bash
-terraform apply -auto-approve
+make init
+make plan RUNNER_TOKEN=<token>   # add -var crowdstrike_cid=<cid> if planning apply
+make apply
 ```
 
-The runner EC2 will boot, install dependencies via `user_data` (including
-CrowdStrike and the GitHub Actions runner), register with the enterprise runner
-group, and come online in a few minutes.
+The runner EC2 boots, installs dependencies via `user_data` (CrowdStrike + the
+GitHub Actions runner), registers with the enterprise runner group, and comes
+online in a few minutes.
 
 ## Verifying CrowdStrike Installation
 
