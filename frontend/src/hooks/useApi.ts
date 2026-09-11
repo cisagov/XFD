@@ -1,6 +1,85 @@
 import { useState, useCallback, useMemo } from 'react';
 // import { useMatomo } from '@datapunt/matomo-tracker-react';
 
+function getPayloadMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+
+  const value = payload as Record<string, unknown>;
+
+  if (typeof value.detail === 'string') {
+    return value.detail;
+  }
+
+  if (typeof value.message === 'string') {
+    return value.message;
+  }
+
+  if (typeof value.error === 'string') {
+    return value.error;
+  }
+
+  return undefined;
+}
+
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    (
+      error as {
+        isApiError?: unknown;
+      }
+    ).isApiError === true
+  );
+}
+
+export class ApiError<TPayload = unknown> extends Error {
+  readonly name = 'ApiError';
+  readonly isApiError = true;
+
+  readonly ok: Response['ok'];
+  readonly status: Response['status'];
+  readonly statusText: Response['statusText'];
+  readonly headers: Record<string, string>;
+  readonly url: Response['url'];
+  readonly redirected: Response['redirected'];
+  readonly type: Response['type'];
+  readonly bodyUsed: Response['bodyUsed'];
+
+  readonly payload: TPayload;
+  readonly detail?: string;
+
+  constructor(response: Response, payload?: TPayload, message?: string) {
+    const detail = getPayloadMessage(payload);
+
+    super(
+      message ||
+        detail ||
+        response.statusText ||
+        `Request failed with status ${response.status}`
+    );
+
+    this.ok = response.ok;
+    this.status = response.status;
+    this.statusText = response.statusText;
+
+    // Need to double check if normlizeHeaders is necessary anymore
+    this.headers = normalizeHeaders(
+      Object.fromEntries(response.headers.entries())
+    );
+
+    this.url = response.url;
+    this.redirected = response.redirected;
+    this.type = response.type;
+    this.bodyUsed = response.bodyUsed;
+
+    this.payload = payload as TPayload;
+    this.detail = detail;
+  }
+}
+
 const baseHeaders: HeadersInit = {
   'Content-Type': 'application/json',
   Accept: 'application/json'
@@ -137,7 +216,7 @@ export const useApi = (onError?: OnError) => {
             credentials: withCredentials ? 'include' : undefined
           });
 
-          const statusCode = response.status;
+          // const statusCode = response.status;
 
           let result: any;
           try {
@@ -150,16 +229,19 @@ export const useApi = (onError?: OnError) => {
           }
 
           if (!response.ok) {
-            const error = new Error(
-              result?.detail ||
-                result?.message ||
-                `Request failed with status code ${statusCode}`
-            );
-            throw Object.assign(error, {
-              statusCode,
-              body: result,
-              response: { status: statusCode, headers: response.headers }
-            });
+            // const error = new Error(
+            //   result?.detail ||
+            //     result?.message ||
+            //     `Request failed with status code ${statusCode}`
+            // );
+            //   throw Object.assign(error, {
+            //     statusCode,
+            //     body: result,
+            //     response: { status: statusCode, headers: response.headers }
+            //   });
+            // }
+
+            throw new ApiError(response, result);
           }
 
           showLoading && setRequestCount((cnt) => cnt - 1);
