@@ -79,6 +79,37 @@ class TrackerQualysScansTests(unittest.TestCase):
             next(iter(candidates.values())).launched_date, "2026-09-03T00:00:00Z"
         )
 
+    @patch("was_reports.tracker.qualys_scans.get_tag_id")
+    def test_schedule_without_any_next_launch_date_is_skipped(
+        self,
+        mock_get_tag_id,
+    ) -> None:
+        """Continue schedule discovery when an ad hoc next date is unavailable."""
+        client = Mock()
+        client.request.side_effect = [
+            (
+                "<ServiceResponse><data><WasScanSchedule><id>2</id>"
+                "<name>WAVS - TAG - Customer - Ad-Hoc</name>"
+                "<lastScan><launchedDate>2026-09-03T00:00:00Z</launchedDate>"
+                "</lastScan></WasScanSchedule></data></ServiceResponse>"
+            ),
+            "<ServiceResponse><data></data></ServiceResponse>",
+        ]
+
+        with self.assertLogs(
+            "was_reports.tracker.qualys_scans",
+            level="WARNING",
+        ) as captured_logs:
+            candidates = search_schedules(client, datetime(2026, 9, 1), set())
+
+        self.assertEqual(candidates, {})
+        self.assertEqual(client.request.call_count, 2)
+        mock_get_tag_id.assert_not_called()
+        self.assertIn(
+            "neither it nor its primary schedule has a next launch date",
+            captured_logs.output[0],
+        )
+
     def test_separate_executions_for_same_tag(self) -> None:
         """Different actual launches produce distinct groups for the same tag."""
         client = Mock()

@@ -679,6 +679,11 @@ Each tracker row is claimed once, generated, uploaded, emailed, and stamped with
 the report sent date. Metadata or generation failures are marked `MANUAL` for
 the assigned analyst.
 
+Qualys schedules without an actual launch timestamp are skipped. If an ad hoc
+schedule has no next launch date and its primary schedule also has no next
+launch date, that schedule is logged with its ID, name, and tag and skipped so
+the remaining batch can continue.
+
 Apply the tracker link once to an existing WAS database before using this mode:
 
 ```bash

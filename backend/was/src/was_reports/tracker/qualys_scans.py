@@ -205,18 +205,34 @@ def search_schedules(
             tag, stakeholder_name = parse_stakeholder_schedule_name(schedule_name)
             if stakeholder_tag is not None and tag != stakeholder_tag:
                 continue
+            launched_date = schedule.findtext("./lastScan/launchedDate")
+            if not launched_date:
+                LOGGER.warning(
+                    "Skipping Qualys schedule %s (%s) for tag %s because it has "
+                    "no actual launch timestamp.",
+                    schedule_id,
+                    normalize_schedule_name(schedule_name),
+                    tag,
+                )
+                continue
             cadence = schedule.findtext("./scheduling/occurrenceType") or ""
             next_scan_date = schedule.findtext("nextLaunchDate")
             if not next_scan_date:
-                next_scan_date = next_scan_date_for_adhoc(
-                    client=client,
-                    tag=tag,
-                    stakeholder_name=stakeholder_name,
-                )
-            launched_date = schedule.findtext("./lastScan/launchedDate")
-            if not launched_date:
-                LOGGER.warning("Skipping schedule without an actual launch timestamp.")
-                continue
+                try:
+                    next_scan_date = next_scan_date_for_adhoc(
+                        client=client,
+                        tag=tag,
+                        stakeholder_name=stakeholder_name,
+                    )
+                except LookupError:
+                    LOGGER.warning(
+                        "Skipping Qualys schedule %s (%s) for tag %s because "
+                        "neither it nor its primary schedule has a next launch date.",
+                        schedule_id,
+                        normalize_schedule_name(schedule_name),
+                        tag,
+                    )
+                    continue
             execution_key = scheduled_execution_key(schedule_id, launched_date)
             if execution_key not in stakeholders:
                 stakeholders[execution_key] = TrackerStakeholder(
