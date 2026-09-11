@@ -1,22 +1,30 @@
 /**
- * Unit test for the zIndex of the filter panel in the DataGrid component on the Vulnerabilities page.
+ * Unit tests for the CustomDataGrid component.
  */
 
 //React
 import React from 'react';
 
 //Testing utilities
-import { render, screen, testUser } from 'test-utils';
+import { render, screen } from 'test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
-//Types
-import type { AuthUser } from 'context';
-
 //Components
-import Vulnerabilities from '@/pages/Vulnerabilities/Vulnerabilities';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 
 const captured: { props?: any } = {};
 
+const columns = [
+  { field: 'id', headerName: 'ID', width: 90 },
+  { field: 'name', headerName: 'Name', width: 150 }
+];
+
+const rows = [
+  { id: 1, name: 'Row 1' },
+  { id: 2, name: 'Row 2' }
+];
+
+// Mock the DataGrid component to capture its props for testing z-index adjustments.
 vi.mock('@mui/x-data-grid', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mui/x-data-grid')>();
   return {
@@ -28,23 +36,14 @@ vi.mock('@mui/x-data-grid', async (importOriginal) => {
   };
 });
 
-describe('Vulnerabilities DataGrid panel zIndex', () => {
-  it('uses theme appBar minus 1 for filter panel z-index', async () => {
-    const apiPostMock = vi.fn().mockResolvedValue({ result: [], count: 0 });
-
-    render(<Vulnerabilities />, {
-      initialHistory: ['/vulnerabilities'],
-      authContext: {
-        apiPost: apiPostMock,
-        currentOrganization: null,
-        user: testUser as unknown as AuthUser
-      }
-    });
+// Test suite for the CustomDataGrid component.
+describe('CustomDataGrid', () => {
+  it('uses Theme appBar minus 1 for filter panel z-index', async () => {
+    render(<CustomDataGrid columns={columns} rows={rows} />);
 
     await screen.findByTestId('mock-grid');
 
     expect(captured.props).toBeDefined();
-
     const panelSx = captured.props.slotProps?.panel?.sx;
     expect(typeof panelSx).toBe('function');
 

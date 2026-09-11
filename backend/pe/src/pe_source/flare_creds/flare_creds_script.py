@@ -315,7 +315,7 @@ def get_stealer_log_creds(event_list, org_idents):
         # Otherwise, proceed to parse all creds from event details response
         event.update({"event_date": event.get("event_date")[:10]})
         LOGGER.info(
-            f"Retrieved details for event {idx+1} of {len(event_list)} - Type: {event_type}"
+            f"Retrieved details for event {idx + 1} of {len(event_list)} - Type: {event_type}"
         )
         # Parse any leaked credentials in this stealer_logs event
         cred_list = extract_stealer_log_creds(event, event_details, org_domain_idents)
@@ -552,7 +552,7 @@ def run_flare_creds(orgs_list):
                 ident_val = ident.get("value")
                 ident_id = ident.get("id")
                 LOGGER.info(
-                    f"Retrieving creds for identifier: {ident_val} ({ident_idx+1} of {len(org_idents)})"
+                    f"Retrieving creds for identifier: {ident_val} ({ident_idx + 1} of {len(org_idents)})"
                 )
                 # Look up credentials for this identifier
                 ident_creds = get_ident_creds(ident_id, start_date, end_date)
