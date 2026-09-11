@@ -13,7 +13,7 @@ from xfd_api.tasks.asm_sync import flag_cidr_changes
 from xfd_api.tasks.utils.link_ips_to_cidrs import bulk_assign_ips_to_cidrs
 from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
 from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
-from xfd_api.tasks.utils.vs_requests import fetch_orgs_from_redshift
+from xfd_api.tasks.utils.vs_requests import fetch_orgs_from_databricks
 from xfd_api.tasks.utils.vs_send_orgs_to_dmz import send_organizations_to_dmz
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 
@@ -45,7 +45,7 @@ def main():
     LOGGER.info("Started VS organization sync scan...")
 
     # Load request data
-    org_id_dict = fetch_orgs_from_redshift()
+    org_id_dict = fetch_orgs_from_databricks()
 
     # Close unseen cidrs
     flag_cidr_changes()

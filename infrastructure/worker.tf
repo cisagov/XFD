@@ -115,6 +115,14 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.ssm_redshift_host.arn,
           data.aws_ssm_parameter.ssm_redshift_password.arn,
           data.aws_ssm_parameter.ssm_redshift_user.arn,
+          # MODIFIED: replaced the 3 PAT-based Databricks ARNs (ssm_databricks_host,
+          # ssm_databricks_http_path, ssm_databricks_password) with the 4 OAuth
+          # service-principal ARNs matching the corrected variables.tf declarations
+          # and the query_databricks.py WorkspaceClient rewrite.
+          data.aws_ssm_parameter.ssm_databricks_server_hostname.arn,
+          data.aws_ssm_parameter.ssm_databricks_warehouse_id.arn,
+          data.aws_ssm_parameter.ssm_databricks_client_id.arn,
+          data.aws_ssm_parameter.ssm_databricks_client_secret.arn,
           data.aws_ssm_parameter.ssm_vs_pull_date_range.arn,
           data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn,
           data.aws_ssm_parameter.whoisxml_api_key.arn,
@@ -456,6 +464,22 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_user.arn}"
       },
       {
+        "name": "DATABRICKS_SERVER_HOSTNAME",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_databricks_server_hostname.arn}"
+      },
+      {
+        "name": "DATABRICKS_WAREHOUSE_ID",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_databricks_warehouse_id.arn}"
+      },
+      {
+        "name": "DATABRICKS_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_databricks_client_id.arn}"
+      },
+      {
+        "name": "DATABRICKS_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_databricks_client_secret.arn}"
+      },
+      {
         "name": "SHODAN_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
@@ -641,6 +665,18 @@ data "aws_ssm_parameter" "ssm_redshift_database" { name = var.ssm_redshift_datab
 data "aws_ssm_parameter" "ssm_redshift_user" { name = var.ssm_redshift_user }
 
 data "aws_ssm_parameter" "ssm_redshift_password" { name = var.ssm_redshift_password }
+
+# MODIFIED: replaced the 3 PAT-based data sources (ssm_databricks_host,
+# ssm_databricks_http_path, ssm_databricks_password) with the 4 OAuth
+# service-principal data sources, matching the corrected variable names in
+# variables.tf and the query_databricks.py WorkspaceClient rewrite.
+data "aws_ssm_parameter" "ssm_databricks_server_hostname" { name = var.ssm_databricks_server_hostname }
+
+data "aws_ssm_parameter" "ssm_databricks_warehouse_id" { name = var.ssm_databricks_warehouse_id }
+
+data "aws_ssm_parameter" "ssm_databricks_client_id" { name = var.ssm_databricks_client_id }
+
+data "aws_ssm_parameter" "ssm_databricks_client_secret" { name = var.ssm_databricks_client_secret }
 
 data "aws_ssm_parameter" "ssm_dmz_api_key" { name = var.ssm_dmz_api_key }
 

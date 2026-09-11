@@ -21,7 +21,7 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 
 
 def to_utc_naive(dt):
-    """Convert aware -> UTC naive for Redshift TIMESTAMP parameters or safely parse strings."""
+    """Convert aware -> UTC naive for Databricks TIMESTAMP parameters or safely parse strings."""
     if dt is None:
         return None
 

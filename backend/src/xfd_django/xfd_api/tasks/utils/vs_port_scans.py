@@ -19,7 +19,7 @@ from psycopg2 import sql
 from psycopg2.extras import execute_values
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
-from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen_bulk
+from xfd_api.tasks.utils.query_databricks import fetch_in_chunks_keyset_frozen_bulk
 from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import IngestionError, QueryError
 from xfd_mini_dl.models import Ip, LatestPortScan, Organization, PortScanServiceSummary
@@ -39,7 +39,7 @@ CHUNK_SIZE = 500_000
 
 
 @cloudwatch_metric()
-def fetch_port_scans_from_redshift(
+def fetch_port_scans_from_databricks(
     org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
 ):
     """
@@ -56,7 +56,7 @@ def fetch_port_scans_from_redshift(
     org_acronyms = list(org_id_dict.keys())
 
     for chunk in fetch_in_chunks_keyset_frozen_bulk(
-        table="vmtableau.port_scans",
+        table="cyber_insights_prd.cyhy_silver.port_scans",
         time_col="time",
         start_dt=ps_start_dt,
         end_dt=ps_end_dt,
@@ -79,7 +79,7 @@ def fetch_port_scans_from_redshift(
 
     if total_processed == 0:
         LOGGER.warning(
-            "No port scans found in Redshift for the requested organizations within the specified date range."
+            "No port scans found in Databricks for the requested organizations within the specified date range."
         )
     else:
         LOGGER.info(

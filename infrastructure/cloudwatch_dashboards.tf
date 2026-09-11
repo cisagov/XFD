@@ -403,12 +403,12 @@ resource "aws_cloudwatch_dashboard" "vulnScanningSync" {
             ["...", "False"],
             [".", "DurationSeconds", ".", "fetch_vuln_scan_chunks_frozen", ".", "True"],
             [".", "RecordCount", ".", ".", ".", "."],
-            [".", "DurationSeconds", ".", "fetch_port_scans_from_redshift", ".", "."],
+            [".", "DurationSeconds", ".", "fetch_port_scans_from_databricks", ".", "."],
             [".", "RecordCount", ".", ".", ".", "."],
             ["...", "False"],
             [".", "DurationSeconds", ".", "create_port_scan_summaries_bulk", ".", "True"],
             [".", "RecordCount", ".", ".", ".", "."],
-            [".", "DurationSeconds", ".", "fetch_tickets_from_redshift", ".", "."],
+            [".", "DurationSeconds", ".", "fetch_tickets_from_databricks", ".", "."],
             [".", "RecordCount", ".", ".", ".", "."]
           ]
         }
@@ -423,7 +423,7 @@ resource "aws_cloudwatch_dashboard" "vulnScanningSync" {
           view    = "table"
           stacked = false
           region  = var.aws_region
-          title   = "Redshift queries – Duration & RowCount"
+          title   = "Databricks queries – Duration & RowCount"
           period  = 60
           stat    = "Average"
           yAxis   = { left = { showUnits = false } }
@@ -431,7 +431,7 @@ resource "aws_cloudwatch_dashboard" "vulnScanningSync" {
           metrics = [
             [
               {
-                expression = "SEARCH(' {CyHy/Workers/Redshift,QueryName,Success} MetricName=\"DurationSeconds\" ', 'Average')"
+                expression = "SEARCH(' {CyHy/Workers/Databricks,QueryName,Success} MetricName=\"DurationSeconds\" ', 'Average')"
                 id         = "e1"
                 label      = "DurationSeconds"
                 region     = var.aws_region
@@ -439,7 +439,7 @@ resource "aws_cloudwatch_dashboard" "vulnScanningSync" {
             ],
             [
               {
-                expression = "SEARCH(' {CyHy/Workers/Redshift,QueryName,Success} MetricName=\"RowCount\" ', 'Sum')"
+                expression = "SEARCH(' {CyHy/Workers/Databricks,QueryName,Success} MetricName=\"RowCount\" ', 'Sum')"
                 id         = "e2"
                 label      = "RowCount"
                 region     = var.aws_region

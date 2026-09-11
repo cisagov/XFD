@@ -6,7 +6,7 @@ import os
 
 # Third-Party Libraries
 from django.utils import timezone
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift
+from xfd_api.tasks.utils.query_databricks import fetch_from_databricks
 from xfd_api.utils.scan_utils.alerting import QueryError
 from xfd_mini_dl.models import HostSummary, Organization
 
@@ -21,14 +21,14 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 
 
 def create_daily_host_summary(org_id_dict, summary_date=None):
-    """Create host summary records directly from Redshift data."""
+    """Create host summary records directly from Databricks data."""
     LOGGER.info("Started processing host scans...")
     if summary_date is None:
         summary_date = timezone.now().date()
 
-    LOGGER.info("Starting host summary creation directly from Redshift...")
+    LOGGER.info("Starting host summary creation directly from Databricks...")
 
-    redshift_query = """
+    databricks_query = """
     SELECT
         owner,
         -- existing metrics
@@ -38,8 +38,8 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
         SUM(CASE WHEN status = 'WAITING' THEN 1 ELSE 0 END) AS host_waiting_count,
         SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) AS host_running_count,
         SUM(CASE WHEN status = 'READY' THEN 1 ELSE 0 END)   AS host_ready_count,
-        SUM(CASE WHEN POSITION('\"up\":true'  IN json_serialize(state)) > 0 THEN 1 ELSE 0 END) AS up_host_count,
-        SUM(CASE WHEN POSITION('\"up\":false' IN json_serialize(state)) > 0 THEN 1 ELSE 0 END) AS down_host_count,
+        SUM(CASE WHEN POSITION('\"up\":true'  IN state_json) > 0 THEN 1 ELSE 0 END) AS up_host_count,
+        SUM(CASE WHEN POSITION('\"up\":false' IN state_json) > 0 THEN 1 ELSE 0 END) AS down_host_count,
         COUNT(DISTINCT ip) AS scanned_asset_count,
 
         -- PORTSCAN timestamps
@@ -47,8 +47,8 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             CASE
                 WHEN POSITION('\"PORTSCAN\":\"' IN ls) > 0 THEN
                     CASE
-                        WHEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ) >= GETDATE() - INTERVAL '120 days' THEN
-                        CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ)
+                        WHEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMP) >= GETDATE() - INTERVAL '120' DAY THEN
+                        TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMP)
                     END
             END
         ) AS port_scan_min_timestamp,
@@ -56,8 +56,8 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             CASE
                 WHEN POSITION('\"PORTSCAN\":\"' IN ls) > 0 THEN
                     CASE
-                        WHEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ) >= GETDATE() - INTERVAL '120 days' THEN
-                        CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ)
+                        WHEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMP) >= GETDATE() - INTERVAL '120' DAY THEN
+                        TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"PORTSCAN\":\"', 2), '\"', 1) AS TIMESTAMP)
                     END
             END
         ) AS port_scan_max_timestamp,
@@ -67,8 +67,8 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             CASE
                 WHEN POSITION('\"VULNSCAN\":\"' IN ls) > 0 THEN
                     CASE
-                        WHEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ) >= GETDATE() - INTERVAL '120 days' THEN
-                        CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ)
+                        WHEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMP) >= GETDATE() - INTERVAL '120' DAY THEN
+                        TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMP)
                     END
             END
         ) AS vuln_scan_min_timestamp,
@@ -76,27 +76,27 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             CASE
                 WHEN POSITION('\"VULNSCAN\":\"' IN ls) > 0 THEN
                     CASE
-                        WHEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ) >= GETDATE() - INTERVAL '120 days' THEN
-                        CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMPTZ)
+                        WHEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMP) >= GETDATE() - INTERVAL '120' DAY THEN
+                        TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"VULNSCAN\":\"', 2), '\"', 1) AS TIMESTAMP)
                     END
             END
         ) AS vuln_scan_max_timestamp,
 
         -- NETSCAN1 timestamps
         MIN(CASE WHEN POSITION('\"NETSCAN1\":\"' IN ls) > 0
-                THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN1\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan1_min_timestamp,
+                THEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN1\":\"', 2), '\"', 1) AS TIMESTAMP) END) AS net_scan1_min_timestamp,
         MAX(CASE WHEN POSITION('\"NETSCAN1\":\"' IN ls) > 0
-                THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN1\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan1_max_timestamp,
+                THEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN1\":\"', 2), '\"', 1) AS TIMESTAMP) END) AS net_scan1_max_timestamp,
 
         -- NETSCAN2 timestamps
         MIN(CASE WHEN POSITION('\"NETSCAN2\":\"' IN ls) > 0
-                THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan2_min_timestamp,
+                THEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMP) END) AS net_scan2_min_timestamp,
         MAX(CASE WHEN POSITION('\"NETSCAN2\":\"' IN ls) > 0
-                THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan2_max_timestamp,
+                THEN TRY_CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMP) END) AS net_scan2_max_timestamp,
 
         SUM(
             CASE
-                WHEN POSITION('\"up\":true' IN json_serialize(state)) > 0
+                WHEN POSITION('\"up\":true' IN state_json) > 0
                     AND POSITION('\"VULNSCAN\":\"' IN ls) > 0
                     AND DATE_TRUNC('day',
                             TRY_CAST(
@@ -106,9 +106,9 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                                         '\"',
                                         1
                                     )
-                                ) AS TIMESTAMPTZ
+                                ) AS TIMESTAMP
                             )
-                        ) >= DATE_TRUNC('day', GETDATE() - INTERVAL '11 days')
+                        ) >= DATE_TRUNC('day', GETDATE() - INTERVAL '11' DAY)
                 THEN 1 ELSE 0
             END
         ) AS recent_up_hosts_count
@@ -117,22 +117,22 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             owner,
             last_change,
             status,
-            state,
+            to_json(state) AS state_json,
             ip,
-            json_serialize(latest_scan) AS ls
-        FROM vmtableau.hosts
-        WHERE last_change >= GETDATE() - INTERVAL '100 days'
+            to_json(latest_scan) AS ls
+        FROM cyber_insights_prd.cyhy_silver.hosts
+        WHERE last_change >= GETDATE() - INTERVAL '100' DAY
     ) t
-    GROUP BY owner;
+    GROUP BY owner
     """
 
-    summary_rows = fetch_from_redshift(redshift_query)
+    summary_rows = fetch_from_databricks(databricks_query)
 
     if not summary_rows:
-        LOGGER.warning("No host data found in Redshift to summarize.")
+        LOGGER.warning("No host data found in Databricks to summarize.")
         return
 
-    LOGGER.info("Fetched %d host summary records from Redshift", len(summary_rows))
+    LOGGER.info("Fetched %d host summary records from Databricks", len(summary_rows))
 
     for row in summary_rows:
         try:
@@ -186,4 +186,4 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                 SCAN_NAME, str(e), "Error creating daily host summary"
             ) from e
 
-    LOGGER.info("Completed host summary creation from Redshift.")
+    LOGGER.info("Completed host summary creation from Databricks.")
