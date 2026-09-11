@@ -58,6 +58,7 @@ def parse_json(value):
             return value  # fallback to raw if invalid JSON
     return value
 
+
 def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
     """Parse a Databricks row (dict) into a structured dict for CveModel."""
     cna = parse_json(row.get("cna"))
@@ -88,13 +89,17 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "state": None,
         "date_reserved": None,
         "assigner_org_id": None,
-        "cna_provider_org_id": None,
-        "cna_provider_short_name": None,
-        "cna_provider_date_updated": None,
+        "cna_provider_org_id": row.get("cna_provider_metadata_org_id"),
+        "cna_provider_short_name": row.get("cna_provider_metadata_short_name"),
+        "cna_provider_date_updated": row.get("cna_provider_metadata_date_updated"),
         "weakness": weakness,
         "exploitation": row.get("exploitation"),
         "automatable": row.get("automatable"),
         "technical_impact": row.get("technical_impact"),
+        "adp_title": row.get("adp_title"),
+        "adp_provider": row.get("adp_provider"),
+        "ssvc_version": row.get("ssvc_version"),
+        "ssvc_timestamp": row.get("ssvc_timestamp"),
     }
 
 
@@ -227,6 +232,10 @@ def upsert_ssvc(cve_object, parsed: dict) -> None:
     exploitation = (parsed.get("exploitation") or "").lower() or None
     automatable = (parsed.get("automatable") or "").lower() or None
     technical_impact = (parsed.get("technical_impact") or "").lower() or None
+    adp_provider = (parsed.get("adp_provider") or "").lower() or None
+    adp_title = (parsed.get("adp_title") or "").lower() or None
+    ssvc_version = (parsed.get("ssvc_version") or "").lower() or None
+    ssvc_timestamp = (parsed.get("ssvc_timestamp") or "").lower() or None
 
     CveSsvc.objects.update_or_create(
         cve=cve_object,
@@ -234,10 +243,10 @@ def upsert_ssvc(cve_object, parsed: dict) -> None:
             "exploitation": exploitation,
             "automatable": automatable,
             "technical_impact": technical_impact,
-            "adp_provider": None,
-            "adp_title": None,
-            "ssvc_version": None,
-            "ssvc_timestamp": None,
+            "adp_provider": adp_provider,
+            "adp_title": adp_title,
+            "ssvc_version": ssvc_version,
+            "ssvc_timestamp": ssvc_timestamp,
             "adp_date_updated": None,
         },
     )
@@ -254,34 +263,24 @@ def upsert_cve_from_databricks_row(row: Dict[str, Any]) -> None:
 
 
 def build_databricks_sql() -> str:
-    """Build the Databricks SQL query for CVE data with keyset pagination.
-
-    Uses Databricks named parameter markers (:p0, :p1, :p2) per
-    query_databricks()'s calling convention - params are bound positionally
-    by list index, so a value referenced twice in the WHERE clause (the
-    keyset guard) is passed twice, matching the convention already used by
-    the keyset helpers in query_databricks.py.
-
-    The WHERE clause stands in for the old Redshift query's
-    `containers_adp IS NOT NULL` filter - "only rows that have been
-    assessed by the ADP/SSVC feed" - now just the flat `exploitation`
-    column being populated, since exploitation/automatable are sourced from
-    the flat row columns only (see parse_databricks_row()/upsert_ssvc()).
-    The old query's one-year modified-date filter has no equivalent column
-    on this table and is dropped; add one back here if cyhy_cve_data gains a
-    comparable column.
-    """
-
+    """Build the Databricks SQL query for CVE data with keyset pagination."""
     return """
            SELECT
                cve_id,
                affected_item,
                cna,
+               cna_provider_metadata_org_id,
+               cna_provider_metadata_short_name,
+               cna_provider_metadata_date_updated,
                exploitation,
                automatable,
                technical_impact,
-               weaknesses
-           FROM cyber_insights_prd.cyhy_silver.cyhy_cve_data
+               weaknesses,
+               adp_title,
+               adp_provider,
+               ssvc_version,
+               ssvc_timestamp
+           FROM cyber_insights_prd.cve_gold.cyhy_cve_data
            WHERE exploitation IS NOT NULL
              AND (:p0 = '' OR cve_id > :p1)
            ORDER BY cve_id
