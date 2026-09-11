@@ -269,6 +269,47 @@ resource "aws_instance" "db_accessor" {
   }
 }
 
+# AZ is taken from the subnet (backend on is_dmz, else the SSM-sourced db subnet) rather than from
+# aws_instance.db_accessor, so that replacing the instance -- e.g. terraform apply -replace to move
+# it onto a newer AMI -- does NOT surface the volume's availability_zone as "known after apply" and
+# trigger a replacement of the volume (which would destroy the data this volume exists to protect).
+# prevent_destroy is a hard stop against the same outcome; ignore_changes keeps a subnet AZ change
+# from proposing a volume replace on a routine apply.
+data "aws_subnet" "db_accessor" {
+  count = var.create_db_accessor_instance ? 1 : 0
+  id    = var.is_dmz ? aws_subnet.backend[0].id : data.aws_ssm_parameter.subnet_db_1_id[0].value
+}
+
+resource "aws_ebs_volume" "db_accessor_data" {
+  count             = var.create_db_accessor_instance ? 1 : 0
+  availability_zone = data.aws_subnet.db_accessor[0].availability_zone
+  size              = var.db_accessor_ebs_volume_size
+  type              = "gp3"
+  encrypted         = true
+  kms_key_id        = aws_kms_key.key.arn
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [availability_zone]
+  }
+
+  tags = {
+    Project           = var.project
+    Stage             = var.stage
+    Name              = "db_accessor-data"
+    Owner             = "Crossfeed managed resource"
+    FismaID           = "PRE-08561-GSS-08561"
+    OperationalStatus = "Stage"
+  }
+}
+
+resource "aws_volume_attachment" "db_accessor_data" {
+  count       = var.create_db_accessor_instance ? 1 : 0
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.db_accessor_data[0].id
+  instance_id = aws_instance.db_accessor[0].id
+}
+
 resource "aws_ssm_parameter" "lambda_sg_id" {
   name      = var.ssm_lambda_sg
   type      = "String"

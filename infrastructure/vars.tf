@@ -771,6 +771,12 @@ variable "db_accessor_instance_class" {
   default     = "t3.micro"
 }
 
+variable "db_accessor_ebs_volume_size" {
+  description = "Size in GiB of the additional EBS data volume attached to the db_accessor instance"
+  type        = number
+  default     = 1000
+}
+
 variable "elk_instance_class" {
   description = "elk_instance_class"
   type        = string
