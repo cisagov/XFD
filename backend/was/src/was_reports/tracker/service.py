@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import logging
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.special_cases import list_active_special_case_names
 from was_reports.qualys.qualys_client import QualysClient
@@ -61,10 +62,14 @@ def refresh_daily_tracker(
         stakeholders=stakeholders,
         keep_nws_tags=active_no_deletion_tags(),
     )
-    update_tracker(
+    persisted_count = update_tracker(
         client=client,
         tracker_items=tracker_items,
         delete_apps=delete_apps,
     )
-    LOGGER.info("Added %d rows to the WAS daily tracker.", len(tracker_items))
-    return len(tracker_items)
+    LOGGER.info(
+        "Persisted %d inserted/updated WAS tracker rows from %d candidates.",
+        persisted_count,
+        len(tracker_items),
+    )
+    return persisted_count

@@ -2,11 +2,13 @@
 
 # Standard Python Libraries
 import base64
+import csv
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
+import io
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 # Third-Party Libraries
 from lxml import objectify
@@ -92,17 +94,22 @@ def remove_html_tags(value: str) -> str:
     return "".join(extractor.parts)
 
 
-def remove_commas(value: object) -> str:
-    """Remove commas to preserve the legacy unquoted CSV field behavior."""
-    return str(value).replace(",", "")
-
-
-def quote_field(value: object) -> str:
-    """Quote a field when it contains CSV delimiters or quote characters."""
+def spreadsheet_safe_field(value: object) -> str:
+    """Preserve cell text while neutralizing spreadsheet formula prefixes."""
     field = str(value)
-    if "," in field or '"' in field:
-        return '"{}"'.format(field.replace('"', '""'))
+    if field.startswith(("\t", "\r", "\n")) or field.lstrip().startswith(
+        ("=", "+", "-", "@")
+    ):
+        return "'{}".format(field)
     return field
+
+
+def csv_row(values: Iterable[object]) -> str:
+    """Serialize one spreadsheet-safe CSV record without its terminator."""
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\r\n")
+    writer.writerow([spreadsheet_safe_field(value) for value in values])
+    return output.getvalue()[:-2]
 
 
 def optional_text(element, child_name: str, default: str = "None") -> str:
@@ -165,8 +172,8 @@ def parse_information_finding(element) -> InformationFinding:
 
 
 def clean_glossary_text(value: object) -> str:
-    """Remove HTML and newline characters from glossary text."""
-    return remove_html_tags(str(value)).replace("\n", "")
+    """Remove HTML markup without discarding textual line breaks."""
+    return remove_html_tags(str(value))
 
 
 def parse_qid_definitions(report) -> Dict[str, QidDefinition]:
@@ -203,8 +210,8 @@ def finding_age_days(first_detected: str, current_time: datetime) -> int:
 
 
 def decode_payload_response(encoded_response: str) -> str:
-    """Decode a Qualys payload response using legacy byte-string formatting."""
-    return remove_commas(str(base64.b64decode(encoded_response)))
+    """Decode a Qualys payload response while preserving commas and lines."""
+    return base64.b64decode(encoded_response).decode("utf-8", errors="replace")
 
 
 def information_csv_row(
@@ -213,16 +220,18 @@ def information_csv_row(
     qid_definition: QidDefinition,
 ) -> str:
     """Return one legacy-compatible information-gathered CSV row."""
-    return "{},{},{},{},{},{},{},{},{}".format(
-        finding.finding_id,
-        remove_commas(qid_definition.title),
-        finding.qid,
-        remove_commas(web_application_name),
-        finding.last_detected,
-        qid_definition.severity,
-        remove_commas(qid_definition.description),
-        remove_commas(qid_definition.impact),
-        remove_commas(qid_definition.solution),
+    return csv_row(
+        [
+            finding.finding_id,
+            qid_definition.title,
+            finding.qid,
+            web_application_name,
+            finding.last_detected,
+            qid_definition.severity,
+            qid_definition.description,
+            qid_definition.impact,
+            qid_definition.solution,
+        ]
     )
 
 
@@ -233,34 +242,42 @@ def vulnerability_csv_row(
 ) -> str:
     """Return one legacy-compatible vulnerability CSV row."""
     vulnerability_type = "Potential" if finding.potential else "Confirmed"
-    return "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
-        finding.finding_id,
-        remove_commas(qid_definition.title),
-        finding.qid,
-        qid_definition.severity,
-        qid_definition.cvss,
-        remove_commas(qid_definition.cwe),
-        remove_commas(qid_definition.cve),
-        finding.first_detected,
-        finding.last_detected,
-        qid_definition.group,
-        web_application_name,
-        remove_commas(finding.url),
-        quote_field(finding.payload_request),
-        decode_payload_response(finding.payload_response),
-        remove_commas(qid_definition.description),
-        remove_commas(qid_definition.impact),
-        remove_commas(qid_definition.solution),
-        vulnerability_type,
+    return csv_row(
+        [
+            finding.finding_id,
+            qid_definition.title,
+            finding.qid,
+            qid_definition.severity,
+            qid_definition.cvss,
+            qid_definition.cwe,
+            qid_definition.cve,
+            finding.first_detected,
+            finding.last_detected,
+            qid_definition.group,
+            web_application_name,
+            finding.url,
+            finding.payload_request,
+            decode_payload_response(finding.payload_response),
+            qid_definition.description,
+            qid_definition.impact,
+            qid_definition.solution,
+            vulnerability_type,
+        ]
     )
 
 
 def parse_report(report_xml: Union[str, bytes, object]):
     """Return a Qualys report XML root from text, bytes, or an XML element."""
     if isinstance(report_xml, str):
-        return objectify.fromstring(report_xml.encode("utf-8"))
+        return objectify.fromstring(
+            report_xml.encode("utf-8"),
+            parser=objectify.makeparser(resolve_entities=False, no_network=True),
+        )
     if isinstance(report_xml, bytes):
-        return objectify.fromstring(report_xml)
+        return objectify.fromstring(
+            report_xml,
+            parser=objectify.makeparser(resolve_entities=False, no_network=True),
+        )
     return report_xml
 
 
@@ -275,9 +292,7 @@ def transform_report_to_csv(
     qid_definitions = parse_qid_definitions(report)
     resolved_current_time = current_time or datetime.now(timezone.utc)
     vulnerability_filename = "vulnerability-list-{}.csv".format(stakeholder_tag)
-    information_filename = "information-gathered-list{}.csv".format(
-        stakeholder_tag
-    )
+    information_filename = "information-gathered-list{}.csv".format(stakeholder_tag)
     vulnerability_lines = [VULNERABILITY_HEADER]
     information_lines = [INFORMATION_HEADER]
     severities: List[str] = []
@@ -298,9 +313,7 @@ def transform_report_to_csv(
             )
 
         for vulnerability_element in web_application.xpath("./VULNERABILITY_LIST/*"):
-            vulnerability_finding = parse_vulnerability_finding(
-                vulnerability_element
-            )
+            vulnerability_finding = parse_vulnerability_finding(vulnerability_element)
             if vulnerability_finding.status == "FIXED":
                 continue
             qid_definition = qid_definitions[vulnerability_finding.qid]

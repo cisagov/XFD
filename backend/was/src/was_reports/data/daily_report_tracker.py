@@ -41,6 +41,9 @@ class DailyReportTrackerRow:
     assignee_emailed_at: datetime | None = None
     assignee_email_message_id: str | None = None
     assignee_email_error: str | None = None
+    id: int | None = None
+    scan_execution_key: str | None = None
+    digest_revision: int = 0
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,7 @@ class AssigneeDigest:
     assignee: str
     email: str
     rows: list[DailyReportTrackerRow]
+    claim_token: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,13 +123,17 @@ def insert_daily_report_tracker_row(
                     qualys_error,
                     assignee_emailed_at,
                     assignee_email_message_id,
-                    assignee_email_error
+                    assignee_email_error,
+                    scan_execution_key
                 )
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s
+                    %s, %s, %s
                 )
+                ON CONFLICT (scan_execution_key)
+                    WHERE scan_execution_key IS NOT NULL
+                DO UPDATE SET scan_execution_key = was_daily_report_tracker.scan_execution_key
                 RETURNING id
                 """,
                 (
@@ -153,6 +161,7 @@ def insert_daily_report_tracker_row(
                     row.assignee_emailed_at,
                     row.assignee_email_message_id,
                     row.assignee_email_error,
+                    row.scan_execution_key,
                 ),
             )
             inserted_row = cursor.fetchone()
@@ -432,6 +441,7 @@ def list_ready_assignee_digests(
     conn: connection,
     data_pull_date: date | None = None,
     limit: int | None = None,
+    include_previous_failures: bool = False,
 ) -> list[AssigneeDigest]:
     """Return unsent tracker rows grouped by active assignee email address."""
     query = """
@@ -458,19 +468,24 @@ def list_ready_assignee_digests(
             tracker.legacy_password,
             tracker.schedule_id,
             tracker.qualys_error,
-            assignees.email
+            assignees.email,
+            tracker.scan_execution_key,
+            tracker.digest_revision
         FROM was_daily_report_tracker tracker
         JOIN was_assignees assignees
           ON assignees.id = tracker.assignee_id
         WHERE tracker.assignee_emailed_at IS NULL
-          AND tracker.assignee_email_error IS NULL
+          AND tracker.assignee_email_status = ANY(%s)
           AND assignees.active IS TRUE
           AND assignees.email_enabled IS TRUE
           AND assignees.email IS NOT NULL
           AND BTRIM(assignees.email) <> ''
           AND tracker.data_pull_date IS NOT NULL
     """
-    parameters: list[object] = []
+    statuses = ["pending", "failed"] if include_previous_failures else ["pending"]
+    parameters: list[object] = [statuses]
+    if not include_previous_failures:
+        query += " AND tracker.assignee_email_error IS NULL"
 
     if data_pull_date is not None:
         query += " AND tracker.data_pull_date = %s"
@@ -489,6 +504,7 @@ def list_ready_assignee_digests(
     digests_by_assignee: dict[int, AssigneeDigest] = {}
     for row in rows:
         tracker_row = DailyReportTrackerRow(
+            id=row[0],
             data_pull_date=row[1],
             tag=row[2],
             scan_name=row[3],
@@ -510,6 +526,8 @@ def list_ready_assignee_digests(
             legacy_password=row[19],
             schedule_id=row[20],
             qualys_error=row[21],
+            scan_execution_key=row[23],
+            digest_revision=row[24],
         )
         if row[4] not in digests_by_assignee:
             digests_by_assignee[row[4]] = AssigneeDigest(
@@ -526,6 +544,7 @@ def list_ready_assignee_digests(
 def list_ready_assignee_digests_from_db(
     data_pull_date: date | None = None,
     limit: int | None = None,
+    include_previous_failures: bool = False,
 ) -> list[AssigneeDigest]:
     """Return ready assignee digests using a managed database connection."""
     # Third-Party Libraries
@@ -537,63 +556,173 @@ def list_ready_assignee_digests_from_db(
             conn=conn,
             data_pull_date=data_pull_date,
             limit=limit,
+            include_previous_failures=include_previous_failures,
         )
     finally:
         close(conn)
 
 
-def mark_assignee_digest_emailed(
-    conn: connection,
-    assignee_id: int,
-    data_pull_date: date,
-    message_id: str,
-) -> None:
-    """Mark tracker rows for an assignee and pull date as emailed."""
+def validate_digest_claim(row_ids: list[int], token: str) -> list[int]:
+    """Validate a nonempty, unique persisted snapshot and ownership token."""
+    if not token or not token.strip():
+        raise ValueError("A digest claim token is required.")
+    if not row_ids or any(type(row_id) is not int or row_id <= 0 for row_id in row_ids):
+        raise ValueError("Digest row IDs must be positive integers.")
+    if len(set(row_ids)) != len(row_ids):
+        raise ValueError("Digest row IDs must be unique.")
+    return sorted(row_ids)
+
+
+def claim_assignee_digest_rows(
+    row_ids: list[int],
+    token: str,
+    expected_revisions: dict[int, int] | None = None,
+) -> bool:
+    """Atomically claim every requested row or leave the entire snapshot unchanged."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    row_ids = validate_digest_claim(row_ids, token)
+    if expected_revisions is not None and (
+        set(expected_revisions) != set(row_ids)
+        or any(
+            type(value) is not int or value < 0 for value in expected_revisions.values()
+        )
+    ):
+        raise ValueError("Every digest row requires a nonnegative snapshot revision.")
+    conn = connect()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
+                SELECT id, digest_revision FROM was_daily_report_tracker
+                WHERE id = ANY(%s)
+                  AND assignee_emailed_at IS NULL
+                  AND assignee_email_status IN ('pending', 'failed')
+                ORDER BY id FOR UPDATE
+                """,
+                (row_ids,),
+            )
+            rows = cursor.fetchall()
+            if [row[0] for row in rows] != row_ids or (
+                expected_revisions is not None
+                and any(row[1] != expected_revisions[row[0]] for row in rows)
+            ):
+                conn.rollback()
+                return False
+            cursor.execute(
+                """
                 UPDATE was_daily_report_tracker
-                SET assignee_emailed_at = NOW(),
-                    assignee_email_message_id = %s,
+                SET assignee_email_status = 'sending',
+                    assignee_email_claim_token = %s,
+                    assignee_email_claimed_at = NOW(),
+                    digest_claimed_revision = digest_revision,
                     assignee_email_error = NULL,
                     updated_at = NOW()
-                WHERE assignee_id = %s
-                  AND data_pull_date = %s
-                  AND assignee_emailed_at IS NULL
+                WHERE id = ANY(%s)
                 """,
-                (message_id, assignee_id, data_pull_date),
+                (token, row_ids),
             )
-            conn.commit()
+        conn.commit()
+        return True
     except Exception:
         conn.rollback()
         raise
+    finally:
+        close(conn)
 
 
-def mark_assignee_digest_failed(
-    conn: connection,
-    assignee_id: int,
-    data_pull_date: date,
-    error_message: str,
+def finish_assignee_digest_rows(
+    row_ids: list[int],
+    token: str,
+    message_id: str | None = None,
+    error_message: str | None = None,
+    uncertain: bool = False,
 ) -> None:
-    """Record an assignee digest email failure for tracker rows."""
+    """Finish only a fully owned snapshot, holding any uncertain delivery."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    row_ids = validate_digest_claim(row_ids, token)
+    if (not message_id and not error_message) or (message_id and error_message):
+        raise ValueError("Supply exactly one digest delivery result.")
+    status = "held" if uncertain else ("sent" if message_id else "failed")
+    conn = connect()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                UPDATE was_daily_report_tracker
-                SET assignee_email_error = %s,
-                    updated_at = NOW()
-                WHERE assignee_id = %s
-                  AND data_pull_date = %s
-                  AND assignee_emailed_at IS NULL
+                SELECT id FROM was_daily_report_tracker
+                WHERE id = ANY(%s)
+                  AND assignee_email_status = 'sending'
+                  AND assignee_email_claim_token = %s
+                ORDER BY id FOR UPDATE
                 """,
-                (error_message, assignee_id, data_pull_date),
+                (row_ids, token),
             )
-            conn.commit()
+            if [row[0] for row in cursor.fetchall()] != row_ids:
+                raise RuntimeError("Digest claim ownership was lost.")
+            cursor.execute(
+                """
+                UPDATE was_daily_report_tracker
+                SET assignee_email_status = CASE
+                        WHEN %s = 'sent'
+                         AND digest_revision IS DISTINCT FROM digest_claimed_revision
+                            THEN 'pending'
+                        ELSE %s END,
+                    assignee_emailed_at = CASE
+                        WHEN %s = 'sent' AND digest_revision = digest_claimed_revision
+                            THEN NOW()
+                        ELSE NULL END,
+                    assignee_email_message_id = %s,
+                    assignee_email_error = %s,
+                    assignee_email_claim_token = NULL,
+                    assignee_email_claimed_at = NULL,
+                    digest_claimed_revision = NULL,
+                    updated_at = NOW()
+                WHERE id = ANY(%s)
+                  AND assignee_email_claim_token = %s
+                  AND assignee_email_status = 'sending'
+                """,
+                (status, status, status, message_id, error_message, row_ids, token),
+            )
+        conn.commit()
     except Exception:
         conn.rollback()
         raise
+    finally:
+        close(conn)
+
+
+def record_tracker_digest_failure(
+    tracker_id: int, conn: connection, error_message: str | None = None
+) -> None:
+    """Queue a failure revision and append an already-sanitized stage summary."""
+    note = "MANUAL: {}".format(error_message.strip()) if error_message else None
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE was_daily_report_tracker
+            SET digest_revision = digest_revision + 1,
+                assignee_emailed_at = NULL,
+                assignee_email_status = CASE
+                    WHEN assignee_email_status IN ('sending', 'held')
+                        THEN assignee_email_status
+                    ELSE 'pending' END,
+                assignee_email_error = CASE
+                    WHEN assignee_email_status IN ('sending', 'held')
+                        THEN assignee_email_error
+                    ELSE NULL END,
+                report_scan_notes = CASE
+                    WHEN %s IS NULL OR position(%s in COALESCE(report_scan_notes, '')) > 0
+                        THEN report_scan_notes
+                    ELSE concat_ws(E'\\n', NULLIF(report_scan_notes, ''), %s)
+                    END,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (note, note, note, tracker_id),
+        )
 
 
 def list_tracker_rows_for_export(
@@ -634,7 +763,9 @@ def list_tracker_rows_for_export(
             remove_nws,
             legacy_password,
             schedule_id,
-            qualys_error
+            qualys_error,
+            id,
+            scan_execution_key
         FROM was_daily_report_tracker
         WHERE 1 = 1
     """
@@ -689,6 +820,8 @@ def list_tracker_rows_for_export(
             legacy_password=row[18],
             schedule_id=row[19],
             qualys_error=row[20],
+            id=row[21],
+            scan_execution_key=row[22],
         )
         for row in rows
     ]

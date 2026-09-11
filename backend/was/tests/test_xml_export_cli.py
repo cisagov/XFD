@@ -1,9 +1,9 @@
 """Tests for the WAS XML export command."""
 
 # Standard Python Libraries
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 # Third-Party Libraries
@@ -11,7 +11,6 @@ from lxml import etree
 
 # First-Party Libraries
 from was_reports.commands import xml_export_cli
-
 
 REPORT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <WAS_WEBAPP_REPORT>
@@ -28,6 +27,14 @@ REPORT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 class XmlExportCliTests(unittest.TestCase):
     """Validate sanitized XML export behavior and CLI handling."""
 
+    def setUp(self) -> None:
+        """Isolate shared polling from external Qualys calls."""
+        polling = patch(
+            "was_reports.commands.xml_export_cli.wait_for_report_completion"
+        )
+        self.mock_poll = polling.start()
+        self.addCleanup(polling.stop)
+
     def test_sanitize_report_xml_removes_account_metadata(self) -> None:
         """Remove company and user details while preserving report content."""
         sanitized_xml = xml_export_cli.sanitize_report_xml(REPORT_XML)
@@ -36,6 +43,65 @@ class XmlExportCliTests(unittest.TestCase):
         self.assertIsNone(root.find("./HEADER/COMPANY_INFO"))
         self.assertIsNone(root.find("./HEADER/USER_INFO"))
         self.assertIsNotNone(root.find("./HEADER/GENERATION_DATETIME"))
+
+    @patch("was_reports.commands.xml_export_cli.delete_report")
+    @patch("was_reports.commands.xml_export_cli.get_report_xml")
+    @patch(
+        "was_reports.commands.xml_export_cli.create_webapp_xml_report",
+        return_value="456",
+    )
+    @patch("was_reports.commands.xml_export_cli.get_tag_id", return_value="123")
+    def test_poll_failure_prevents_download_and_preserves_primary_error(
+        self,
+        mock_tag,
+        mock_create,
+        mock_download,
+        mock_delete,
+    ) -> None:
+        """Never download unfinished reports or mask polling errors with cleanup."""
+        self.mock_poll.side_effect = TimeoutError("poll deadline")
+        mock_delete.side_effect = RuntimeError("cleanup failed")
+        with self.assertRaisesRegex(TimeoutError, "poll deadline"):
+            xml_export_cli.export_xml_report(
+                Mock(), "CUSTOMER", Path("template.xml"), Path("unused.xml")
+            )
+        mock_download.assert_not_called()
+        mock_delete.assert_called_once()
+
+    @patch("was_reports.commands.xml_export_cli.delete_report")
+    @patch(
+        "was_reports.commands.xml_export_cli.get_report_xml", return_value=REPORT_XML
+    )
+    @patch(
+        "was_reports.commands.xml_export_cli.create_webapp_xml_report",
+        return_value="456",
+    )
+    @patch("was_reports.commands.xml_export_cli.get_tag_id", return_value="123")
+    def test_each_export_has_a_unique_name_and_waits_before_download(
+        self,
+        mock_tag,
+        mock_create,
+        mock_download,
+        mock_delete,
+    ) -> None:
+        """Keep concurrent same-stakeholder requests distinct and ordered."""
+        order = Mock()
+        order.attach_mock(self.mock_poll, "poll")
+        order.attach_mock(mock_download, "download")
+        with tempfile.TemporaryDirectory() as directory:
+            for unused_index in range(2):
+                xml_export_cli.export_xml_report(
+                    Mock(),
+                    "CUSTOMER",
+                    Path("template.xml"),
+                    Path(directory) / "report.xml",
+                )
+        names = [call.kwargs["report_name"] for call in mock_create.call_args_list]
+        self.assertEqual(len(set(names)), 2)
+        self.assertEqual(
+            [call[0] for call in order.mock_calls],
+            ["poll", "download", "poll", "download"],
+        )
 
     def test_resolve_output_path_adds_xml_extension(self) -> None:
         """Add the XML extension when an operator omits it."""
@@ -82,6 +148,12 @@ class XmlExportCliTests(unittest.TestCase):
         self.assertNotIn("COMPANY_INFO", exported_xml)
         self.assertNotIn("USER_INFO", exported_xml)
         mock_delete_report.assert_called_once_with(unittest.mock.ANY, "456")
+        self.mock_poll.assert_called_once_with(unittest.mock.ANY, "456")
+        self.assertTrue(
+            mock_create_report.call_args.kwargs["report_name"].startswith(
+                "CUSTOMER_xml_"
+            )
+        )
 
     @patch("was_reports.commands.xml_export_cli.delete_report")
     @patch("was_reports.commands.xml_export_cli.get_report_xml")

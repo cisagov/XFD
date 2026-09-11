@@ -22,6 +22,25 @@ Keep this file updated whenever WAS API usage changes.
 - The legacy report output format remains unchanged until the later ReportLab
   migration phase.
 
+The production boundary now logs endpoint and elapsed time without raw response
+bodies or headers. XML payloads use serializer escaping and actual CDATA nodes,
+not global entity replacement. Sensitive-findings searches follow all returned
+pages using `lastId`/`startFromId` and reject non-advancing cursors. XML export
+uses a unique report name and waits for completion before downloading. Polling
+continues through retryable transport/HTTP failures but stops on permanent
+HTTP failures rather than waiting indefinitely. CSV attachments quote multiline
+fields and neutralize spreadsheet formula prefixes. The PDF implementation
+remains Mustache/XeLaTeX, with bounded, noninteractive rendering.
+
+Tracked report creation first searches its stable run-specific name, then
+persists `CREATE_REQUESTED` in the existing artifact status column before POST.
+After an uncertain response, later attempts reconcile that name rather than
+issuing another create request. Intent survives generation retries. If creation
+never becomes visible, an operator must reconcile it; clearing the marker to
+force another POST is not an automatic recovery action. XML and detail report
+IDs are retained on retrieval/rendering failure and cleared only after a
+confirmed cleanup following successful use.
+
 ## Required For Report Generation
 
 These calls are required for the current single-page PDF report generation path.

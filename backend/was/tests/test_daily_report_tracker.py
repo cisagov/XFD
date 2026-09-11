@@ -3,20 +3,23 @@
 # Standard Python Libraries
 from datetime import date, datetime, timezone
 import unittest
+from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import (
     DailyReportTrackerRow,
+    claim_assignee_digest_rows,
+    finish_assignee_digest_rows,
     insert_daily_report_tracker_row,
     latest_tracker_pull_date,
     list_ready_assignee_digests,
     list_ready_report_candidates,
     list_tracker_rows_for_export,
     list_tracker_table_rows,
-    mark_assignee_digest_emailed,
     mark_manual_tracker_report_sent,
     mark_tracker_report_manual,
+    record_tracker_digest_failure,
 )
 
 
@@ -162,6 +165,8 @@ class DailyReportTrackerTests(unittest.TestCase):
                     123,
                     None,
                     "analyst@example.gov",
+                    "scan:1",
+                    0,
                 ),
                 (
                     2,
@@ -187,6 +192,8 @@ class DailyReportTrackerTests(unittest.TestCase):
                     124,
                     None,
                     "analyst@example.gov",
+                    "scan:2",
+                    0,
                 ),
             ],
         )
@@ -199,7 +206,10 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(len(digests), 1)
         self.assertEqual(digests[0].email, "analyst@example.gov")
         self.assertEqual(len(digests[0].rows), 2)
-        self.assertEqual(conn.cursor_instance.parameters, (date(2026, 8, 26),))
+        self.assertEqual(
+            conn.cursor_instance.parameters, (["pending"], date(2026, 8, 26))
+        )
+        self.assertEqual([row.id for row in digests[0].rows], [1, 2])
 
     def test_list_ready_report_candidates_finds_unsent_finished_rows(self) -> None:
         """Find recent tracker rows without sent reports or existing claims."""
@@ -281,24 +291,6 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
         self.assertEqual(conn.cursor_instance.parameters, ("TAG1", 1))
 
-    def test_mark_assignee_digest_emailed_updates_matching_rows(self) -> None:
-        """Mark unsent rows for one assignee and pull date."""
-        conn = FakeConnection()
-
-        mark_assignee_digest_emailed(
-            conn=conn,
-            assignee_id=3,
-            data_pull_date=date(2026, 8, 26),
-            message_id="message-id",
-        )
-
-        self.assertTrue(conn.committed)
-        self.assertIn("assignee_emailed_at = NOW()", conn.cursor_instance.query)
-        self.assertEqual(
-            conn.cursor_instance.parameters,
-            ("message-id", 3, date(2026, 8, 26)),
-        )
-
     def test_list_tracker_rows_for_export_filters_rows(self) -> None:
         """Return tracker rows for CSV export."""
         conn = FakeConnection(
@@ -325,6 +317,8 @@ class DailyReportTrackerTests(unittest.TestCase):
                     None,
                     123,
                     None,
+                    1,
+                    "scan:1",
                 )
             ]
         )
@@ -438,6 +432,155 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn("report_sent_date IS NULL", conn.cursor_instance.query)
         self.assertIn("RETURNING tracker.id", conn.cursor_instance.query)
         self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
+
+
+class DigestLifecycleTests(unittest.TestCase):
+    """Exercise managed transactions at the database connection boundary."""
+
+    def setUp(self) -> None:
+        """Provide deterministic row ownership responses."""
+        self.connection = MagicMock()
+        self.cursor = self.connection.cursor.return_value.__enter__.return_value
+        self.cursor.fetchall.return_value = [(7,), (8,)]
+        connect = patch(
+            "was_reports.utils.database.connect", return_value=self.connection
+        )
+        close = patch("was_reports.utils.database.close")
+        connect.start()
+        close.start()
+        self.addCleanup(connect.stop)
+        self.addCleanup(close.stop)
+
+    def test_claim_locks_exact_snapshot(self) -> None:
+        """Claim every row in deterministic lock order before changing status."""
+        self.assertTrue(claim_assignee_digest_rows([8, 7], "token"))
+        self.assertIn(
+            "ORDER BY id FOR UPDATE", self.cursor.execute.call_args_list[0].args[0]
+        )
+        self.assertEqual(self.cursor.execute.call_args.args[1], ("token", [7, 8]))
+        self.connection.commit.assert_called_once()
+
+    def test_partial_claim_rolls_back(self) -> None:
+        """A busy or missing row prevents delivery of the entire snapshot."""
+        self.cursor.fetchall.return_value = [(7,)]
+        self.assertFalse(claim_assignee_digest_rows([7, 8], "token"))
+        self.assertEqual(self.cursor.execute.call_count, 1)
+        self.connection.rollback.assert_called_once()
+        self.connection.commit.assert_not_called()
+
+    def test_finish_uses_exact_ids_and_token(self) -> None:
+        """A newly added same-date row is never included in completion."""
+        finish_assignee_digest_rows([7, 8], "token", message_id="message")
+        self.assertEqual(
+            self.cursor.execute.call_args.args[1],
+            ("sent", "sent", "sent", "message", None, [7, 8], "token"),
+        )
+        self.connection.commit.assert_called_once()
+
+    def test_stale_finish_cannot_change_rows(self) -> None:
+        """A stale sender must not complete any part of another claim."""
+        self.cursor.fetchall.return_value = []
+        with self.assertRaises(RuntimeError):
+            finish_assignee_digest_rows([7, 8], "stale", message_id="message")
+        self.assertEqual(self.cursor.execute.call_count, 1)
+        self.connection.rollback.assert_called_once()
+
+    def test_payload_revision_must_match_at_claim(self) -> None:
+        """A failure between listing and claim cannot be acknowledged by old content."""
+        self.cursor.fetchall.return_value = [(7, 2), (8, 0)]
+        self.assertFalse(
+            claim_assignee_digest_rows([7, 8], "token", expected_revisions={7: 1, 8: 0})
+        )
+        self.connection.commit.assert_not_called()
+        self.connection.rollback.assert_called_once()
+
+    def test_claim_captures_payload_revision(self) -> None:
+        """Store the revision only after matching the delivered payload snapshot."""
+        self.cursor.fetchall.return_value = [(7, 2), (8, 0)]
+        self.assertTrue(
+            claim_assignee_digest_rows([7, 8], "token", expected_revisions={7: 2, 8: 0})
+        )
+        self.assertIn(
+            "digest_claimed_revision = digest_revision",
+            self.cursor.execute.call_args.args[0],
+        )
+
+    def test_finish_requeues_changed_revision(self) -> None:
+        """Only a matching revision can become sent, while the SES ID is retained."""
+        finish_assignee_digest_rows([7, 8], "token", message_id="message")
+        query = self.cursor.execute.call_args.args[0]
+        self.assertIn("digest_revision IS DISTINCT FROM digest_claimed_revision", query)
+        self.assertIn("THEN 'pending'", query)
+        self.assertIn("digest_revision = digest_claimed_revision", query)
+        self.assertIn("assignee_email_message_id = %s", query)
+
+    def test_failure_revision_preserves_active_and_held_delivery(self) -> None:
+        """Failure notification joins the caller transaction and never steals a claim."""
+        record_tracker_digest_failure(7, self.connection)
+        query, parameters = self.cursor.execute.call_args.args
+        self.assertEqual(parameters, (None, None, None, 7))
+        self.assertIn("digest_revision = digest_revision + 1", query)
+        self.assertIn("IN ('sending', 'held')", query)
+        self.assertNotIn("assignee_email_claim_token =", query)
+        self.assertNotIn("digest_claimed_revision =", query)
+        self.connection.commit.assert_not_called()
+        self.connection.rollback.assert_not_called()
+
+    def test_uncertain_delivery_is_held(self) -> None:
+        """Timeouts and ambiguous delivery stay outside automatic retries."""
+        finish_assignee_digest_rows(
+            [7, 8], "token", error_message="failed", uncertain=True
+        )
+        self.assertEqual(self.cursor.execute.call_args.args[1][0], "held")
+
+    def test_known_failure_can_be_explicitly_retried(self) -> None:
+        """Pre-send errors become failed rather than held."""
+        finish_assignee_digest_rows([7, 8], "token", error_message="failed")
+        self.assertEqual(self.cursor.execute.call_args.args[1][0], "failed")
+
+    def test_invalid_snapshot_fails_before_connect(self) -> None:
+        """Reject duplicate, missing, and invalid IDs and empty tokens."""
+        for row_ids, token in (
+            ([], "token"),
+            ([7, 7], "token"),
+            ([0], "token"),
+            ([7], ""),
+        ):
+            with self.subTest(row_ids=row_ids), self.assertRaises(ValueError):
+                claim_assignee_digest_rows(row_ids, token)
+        self.connection.cursor.assert_not_called()
+
+    def test_digest_retry_selection_excludes_held_and_sending(self) -> None:
+        """Failed rows require an explicit retry flag and never include uncertainty."""
+        for include_failures, expected in (
+            (False, ["pending"]),
+            (True, ["pending", "failed"]),
+        ):
+            conn = FakeConnection()
+            list_ready_assignee_digests(
+                conn, include_previous_failures=include_failures
+            )
+            self.assertEqual(conn.cursor_instance.parameters[0], expected)
+
+    def test_scan_conflict_preserves_metadata(self) -> None:
+        """Upserts return the existing ID without replacing delivery or analyst metadata."""
+        conn = FakeConnection()
+        self.assertEqual(
+            insert_daily_report_tracker_row(
+                DailyReportTrackerRow(
+                    scan_execution_key="scan:123", report_scan_notes="new"
+                ),
+                conn,
+            ),
+            7,
+        )
+        query = conn.cursor_instance.query
+        self.assertIn("ON CONFLICT (scan_execution_key)", query)
+        self.assertIn("WHERE scan_execution_key IS NOT NULL", query)
+        update = query.split("DO UPDATE SET", 1)[1].split("RETURNING", 1)[0]
+        self.assertNotIn("report_scan_notes", update)
+        self.assertNotIn("assignee_email", update)
+        self.assertEqual(conn.cursor_instance.parameters[-1], "scan:123")
 
 
 if __name__ == "__main__":

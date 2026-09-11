@@ -59,6 +59,7 @@ def generate_unencrypted_report(
     report_id_recorder: Callable[[str, str], None] | None = None,
     report_id_clearer: Callable[[str, str], None] | None = None,
     report_status_recorder: Callable[[str, str], None] | None = None,
+    report_creation_intent_claim: Callable[[str], bool] | None = None,
 ) -> Path:
     """Generate one unencrypted PDF through the production WAS modules."""
     organization_name = resolve_organization_name(client, stakeholder_tag)
@@ -75,15 +76,17 @@ def generate_unencrypted_report(
         report_id_recorder=report_id_recorder,
         report_id_clearer=report_id_clearer,
         report_status_recorder=report_status_recorder,
+        report_creation_intent_claim=report_creation_intent_claim,
     ) as source_data:
+        parsed_report = report_transformer.parse_report(source_data.report_xml)
         transformation = report_transformer.transform_report_to_csv(
-            report_xml=source_data.report_xml,
+            report_xml=parsed_report,
             stakeholder_tag=stakeholder_tag,
             asset_directory=paths.asset_directory,
             current_time=current_time,
         )
         finding_metrics = report_metrics.calculate_finding_metrics(
-            source_data.report_xml,
+            parsed_report,
             current_time,
         )
         chart_renderer.render_report_charts(
@@ -93,7 +96,7 @@ def generate_unencrypted_report(
             asset_directory=paths.asset_directory,
         )
         generated_artifacts = report_artifacts.generate_report_artifacts(
-            report_xml=source_data.report_xml,
+            report_xml=parsed_report,
             stakeholder_tag=stakeholder_tag,
             asset_directory=paths.asset_directory,
             client=client,
@@ -104,7 +107,7 @@ def generate_unencrypted_report(
             current_time=current_time,
         )
         template_data = report_template_data.build_template_data(
-            report_xml=source_data.report_xml,
+            report_xml=parsed_report,
             stakeholder_tag=stakeholder_tag,
             organization_name=organization_name,
             artifacts=report_template_data.TemplateArtifactInputs(
@@ -123,6 +126,7 @@ def generate_unencrypted_report(
             ),
             web_application_count=source_data.web_application_count,
             current_time=current_time,
+            finding_metrics=finding_metrics,
         )
         render_result = latex_renderer.render_report_pdf(
             template_path=paths.working_directory / "NEW_BIG.mustache",
@@ -151,6 +155,7 @@ def generate_encrypted_report(
     report_id_recorder: Callable[[str, str], None] | None = None,
     report_id_clearer: Callable[[str, str], None] | None = None,
     report_status_recorder: Callable[[str, str], None] | None = None,
+    report_creation_intent_claim: Callable[[str], bool] | None = None,
 ) -> Path:
     """Generate an encrypted report in an isolated, concurrency-safe workspace."""
     with report_workspace.report_output_lock(
@@ -182,6 +187,7 @@ def generate_encrypted_report(
                 report_id_recorder=report_id_recorder,
                 report_id_clearer=report_id_clearer,
                 report_status_recorder=report_status_recorder,
+                report_creation_intent_claim=report_creation_intent_claim,
             )
             encrypted_pdf_path = encrypt_pdf_in_place(pdf_path, report_password)
             return publish_encrypted_pdf(

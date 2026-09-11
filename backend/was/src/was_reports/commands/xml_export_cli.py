@@ -2,9 +2,11 @@
 
 # Standard Python Libraries
 import argparse
+import logging
 from pathlib import Path
 import sys
 from typing import List, Optional
+from uuid import uuid4
 
 # Third-Party Libraries
 from lxml import etree, objectify  # nosec B410
@@ -18,8 +20,11 @@ from was_reports.qualys.report_data import (
     get_report_xml,
     get_tag_id,
 )
+from was_reports.reporting.detail_reports import wait_for_report_completion
 from was_reports.utils.env import getenv
 from was_reports.utils.logging_config import configure_logging
+
+LOGGER = logging.getLogger(__name__)
 
 
 def sanitize_report_xml(report_xml: str) -> bytes:
@@ -60,18 +65,23 @@ def export_xml_report(
     tag_id = get_tag_id(client, stakeholder_tag)
     report_id = create_webapp_xml_report(
         client=client,
-        report_name=stakeholder_tag,
+        report_name="{}_xml_{}".format(stakeholder_tag, uuid4().hex),
         tag_id=tag_id,
         template_path=template_path,
     )
 
     try:
+        wait_for_report_completion(client, report_id)
         report_xml = get_report_xml(client, report_id)
         sanitized_xml = sanitize_report_xml(report_xml)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(sanitized_xml)
     finally:
-        delete_report(client, report_id)
+        try:
+            if not delete_report(client, report_id):
+                LOGGER.warning("Temporary XML report cleanup failed.")
+        except Exception:
+            LOGGER.warning("Temporary XML report cleanup failed.")
 
     return output_path
 
@@ -79,9 +89,7 @@ def export_xml_report(
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse XML export command-line arguments."""
     default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
-    default_output_directory = getenv(
-        "WAS_OUTPUT_DIRECTORY", "/output"
-    )
+    default_output_directory = getenv("WAS_OUTPUT_DIRECTORY", "/output")
 
     parser = argparse.ArgumentParser(
         description="Export a sanitized Qualys WAS report as XML."

@@ -1,10 +1,12 @@
 """Tests for the scheduled WAS batch runner."""
 
 # Standard Python Libraries
-from datetime import date
+from contextlib import ExitStack
+from datetime import date, datetime, timezone
 from pathlib import Path
 import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +16,7 @@ from was_reports.commands import batch_runner
 from was_reports.data.daily_report_tracker import TrackerReportCandidate
 from was_reports.data.report_runs import ReportRun
 from was_reports.data.stakeholders import Stakeholder, list_due_stakeholders
+from was_reports.storage import s3_reports
 
 
 class FakeCursor:
@@ -57,6 +60,208 @@ class FakeConnection:
 class BatchRunnerTests(unittest.TestCase):
     """Validate scheduled report batch behavior."""
 
+    def setUp(self) -> None:
+        """Keep database lease refreshes at the external test boundary."""
+        self.touch_patch = patch.object(
+            batch_runner, "touch_report_run_by_id", return_value=True
+        )
+        self.touch_report = self.touch_patch.start()
+        self.addCleanup(self.touch_patch.stop)
+
+    def write_report(self, arguments, *, current_time: datetime) -> None:
+        """Write an output artifact at the mocked generation boundary."""
+        output_directory = Path(arguments[arguments.index("--output-directory") + 1])
+        output_directory.mkdir(parents=True, exist_ok=True)
+        batch_runner.expected_pdf_output_path(
+            stakeholder_tag="TAG1",
+            output_directory=str(output_directory),
+            report_date=current_time.date(),
+        ).write_bytes(b"encrypted-test-pdf")
+
+    def test_output_and_s3_use_the_same_captured_utc_date(self) -> None:
+        """Keep output discovery and S3 keys stable across midnight and timezones."""
+        captured = datetime(2026, 9, 12, 0, 0, 1, tzinfo=timezone.utc)
+        generated_times = []
+
+        def generate(**arguments) -> Path:
+            """Write the output using the timestamp forwarded through the real CLI."""
+            generated_times.append(arguments["current_time"])
+            directory = arguments["output_directory"]
+            directory.mkdir(parents=True, exist_ok=True)
+            output = batch_runner.expected_pdf_output_path(
+                "TAG1", str(directory), arguments["current_time"].date()
+            )
+            output.write_bytes(b"encrypted-test-pdf")
+            return output
+
+        for mode in ("s3", "local"):
+            with self.subTest(
+                mode=mode
+            ), tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
+                clock = stack.enter_context(patch.object(batch_runner, "datetime"))
+                clock.now.side_effect = [
+                    captured,
+                    datetime(2026, 9, 13, tzinfo=timezone.utc),
+                ]
+                stack.enter_context(
+                    patch(
+                        "was_reports.data.report_runs.touch_report_run_by_id",
+                        return_value=True,
+                    )
+                )
+                stack.enter_context(
+                    patch.object(
+                        batch_runner.report_generator,
+                        "resolve_report_password",
+                        return_value="test-password",
+                    )
+                )
+                stack.enter_context(
+                    patch.object(
+                        batch_runner.report_generator,
+                        "generate_production_report",
+                        side_effect=generate,
+                    )
+                )
+                upload = stack.enter_context(
+                    patch.object(
+                        batch_runner,
+                        "upload_report",
+                        return_value="s3://reports/report.pdf",
+                    )
+                )
+                output = batch_runner.generate_report_output(
+                    report_run_id=42,
+                    generation_token="token",
+                    stakeholder_tag="TAG1",
+                    resource_root="/resources",
+                    python_executable="python3",
+                    create_missing_password=False,
+                    output_directory=directory,
+                    storage_mode=mode,
+                    staging_directory=directory,
+                )
+                clock.now.assert_called_once_with(timezone.utc)
+                self.assertEqual(generated_times[-1], captured)
+                if mode == "s3":
+                    self.assertEqual(
+                        upload.call_args.kwargs["report_date"], captured.date()
+                    )
+                    self.assertIn(
+                        "2026-09-12",
+                        upload.call_args.kwargs["report_path"].name,
+                    )
+                else:
+                    self.assertTrue(Path(output).is_file())
+                    self.assertIn("2026-09-12", Path(output).name)
+                    upload.assert_not_called()
+
+    def test_lost_lease_prevents_s3_upload(self) -> None:
+        """Reject a worker reclaimed while its PDF was being generated."""
+
+        def generate(arguments, *, current_time: datetime) -> None:
+            """Produce the PDF then simulate the lease being reclaimed."""
+            self.write_report(arguments, current_time=current_time)
+            self.touch_report.return_value = False
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(
+                batch_runner.report_generator, "main", side_effect=generate
+            ):
+                with patch.object(batch_runner, "upload_report") as upload:
+                    with self.assertRaises(batch_runner.OperationLeaseLostError):
+                        batch_runner.generate_report_output(
+                            report_run_id=42,
+                            generation_token="token",
+                            stakeholder_tag="TAG1",
+                            resource_root="/resources",
+                            python_executable="python3",
+                            create_missing_password=False,
+                            output_directory=directory,
+                            storage_mode="s3",
+                            staging_directory=directory,
+                        )
+                    upload.assert_not_called()
+
+    def test_recent_batch_retains_artifact_after_commit_acknowledgment_loss(
+        self,
+    ) -> None:
+        """Do not fail, delete, or email a run with uncertain commit results."""
+        candidate = TrackerReportCandidate(
+            id=9,
+            tag="TAG1",
+            data_pull_date=date.today(),
+            schedule_id=123,
+            assignee_id=3,
+        )
+        report_run = ReportRun(42, "TAG1", "running", generation_token="token")
+        durable_state = {}
+
+        def commit_then_disconnect(*arguments, **keywords) -> None:
+            """Simulate a durable commit followed by a lost database response."""
+            durable_state.update(keywords)
+            raise OSError("commit acknowledgment lost")
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    batch_runner,
+                    "list_ready_report_candidates_from_db",
+                    return_value=[candidate],
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    batch_runner,
+                    "create_report_run_for_tracker",
+                    return_value=report_run,
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    batch_runner,
+                    "generate_report_output",
+                    return_value="s3://reports/run-token.pdf",
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    batch_runner,
+                    "complete_report_run_by_id",
+                    side_effect=commit_then_disconnect,
+                )
+            )
+            fail = stack.enter_context(
+                patch.object(batch_runner, "fail_report_run_by_id")
+            )
+            delete = stack.enter_context(patch.object(s3_reports, "delete_report"))
+            send = stack.enter_context(
+                patch.object(batch_runner, "send_report_run_email")
+            )
+            summary = batch_runner.run_recent_scan_reports(
+                resource_root="/resources",
+                python_executable="python3",
+                continue_on_error=True,
+            )
+        self.assertEqual(summary.failed, 1)
+        self.assertEqual(summary.generated, 0)
+        self.assertEqual(durable_state["output_path"], "s3://reports/run-token.pdf")
+        self.assertEqual(durable_state["generation_token"], "token")
+        fail.assert_not_called()
+        delete.assert_not_called()
+        send.assert_not_called()
+
+    def test_lost_lease_failure_does_not_mutate_new_owner(self) -> None:
+        """Leave a reclaimed run and tracker untouched by the former worker."""
+        report_run = ReportRun(42, "TAG1", "running", generation_token="old")
+        with patch.object(batch_runner, "fail_report_run_by_id") as fail:
+            batch_runner.record_generation_failure(
+                report_run,
+                "lost",
+                batch_runner.OperationLeaseLostError("lost"),
+            )
+        fail.assert_not_called()
+
     def test_list_due_stakeholders_filters_manual_and_retired(self) -> None:
         """Query due stakeholders while excluding manual and retired rows."""
         conn = FakeConnection([("TAG1", "password", 1720000000, False, False)])
@@ -81,6 +286,7 @@ class BatchRunnerTests(unittest.TestCase):
         """Build one single-report invocation from batch options."""
         arguments = batch_runner.build_report_arguments(
             report_run_id=17,
+            generation_token="token",
             stakeholder_tag="TAG1",
             resource_root="/WAS_REPORT_RESOURCES",
             output_directory="/WAS_REPORT_GENERATION/docs",
@@ -95,6 +301,8 @@ class BatchRunnerTests(unittest.TestCase):
                 "TAG1",
                 "--report-run-id",
                 "17",
+                "--generation-token",
+                "token",
                 "--resource-root",
                 "/WAS_REPORT_RESOURCES",
                 "--output-directory",
@@ -117,7 +325,9 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertEqual(message, "Report generation failed with exit code 2.")
         self.assertNotIn("secret-password", message)
 
-    def test_summarize_report_failure_preserves_safe_qualys_stage(self) -> None:
+    def test_summarize_report_failure_preserves_safe_qualys_stage(
+        self,
+    ) -> None:
         """Store actionable reconciliation context without request details."""
         exception = batch_runner.QualysReportCreationUncertainError(
             "Qualys XML report creation timed out."
@@ -125,8 +335,60 @@ class BatchRunnerTests(unittest.TestCase):
 
         message = batch_runner.summarize_report_failure(exception)
 
-        self.assertEqual(message, "Qualys XML report creation timed out.")
+        self.assertIn("reconcile before retrying", message)
+        self.assertIn("QualysReportCreationUncertainError", message)
         self.assertNotIn("--encrypt", message)
+
+    def test_summarize_failure_excludes_qualys_exception_payload(self) -> None:
+        """Never persist Qualys payloads even for uncertain-create errors."""
+        error = batch_runner.QualysReportCreationUncertainError(
+            "password=private-password token=private-token"
+        )
+        message = batch_runner.summarize_report_failure(error)
+        self.assertNotIn("private-password", message)
+        self.assertNotIn("private-token", message)
+
+    def test_summarize_failure_uses_safe_exception_details(self) -> None:
+        """Preserve safe diagnostics without formatting the exception text."""
+        error = RuntimeError("private-password")
+        with patch.object(
+            batch_runner,
+            "exception_details",
+            return_value="RuntimeError sqlstate=42703",
+        ) as details:
+            message = batch_runner.summarize_report_failure(error)
+        details.assert_called_once_with(error)
+        self.assertIn("sqlstate=42703", message)
+        self.assertNotIn("private-password", message)
+
+    def test_summarize_failure_preserves_metadata_without_payload(
+        self,
+    ) -> None:
+        """Exercise the real diagnostic helper with database and HTTP metadata."""
+        error = RuntimeError("private-password private-token")
+        setattr(error, "pgcode", "42703")
+        setattr(
+            error,
+            "diag",
+            SimpleNamespace(
+                table_name="was_report_runs",
+                column_name="generation_token",
+                constraint_name=None,
+            ),
+        )
+        setattr(
+            error, "response", SimpleNamespace(status_code=503, text="private-body")
+        )
+        message = batch_runner.summarize_report_failure(error)
+        for detail in (
+            "SQLSTATE=42703",
+            "table_name=was_report_runs",
+            "column_name=generation_token",
+            "HTTP=503",
+        ):
+            self.assertIn(detail, message)
+        for sensitive in ("private-password", "private-token", "private-body"):
+            self.assertNotIn(sensitive, message)
 
     def test_summarize_report_failure_handles_missing_files(self) -> None:
         """Store a bounded message for missing report files."""
@@ -153,8 +415,18 @@ class BatchRunnerTests(unittest.TestCase):
             Stakeholder(tag="TAG2", report_password="password", next_scheduled=2),
         ]
         mock_create_run.side_effect = [
-            ReportRun(id=1, stakeholder_tag="TAG1", status="running"),
-            ReportRun(id=2, stakeholder_tag="TAG2", status="running"),
+            ReportRun(
+                id=1,
+                stakeholder_tag="TAG1",
+                status="running",
+                generation_token="token",
+            ),
+            ReportRun(
+                id=2,
+                stakeholder_tag="TAG2",
+                status="running",
+                generation_token="token",
+            ),
         ]
 
         failed_count = batch_runner.run_due_reports(
@@ -174,7 +446,7 @@ class BatchRunnerTests(unittest.TestCase):
     @patch("was_reports.commands.batch_runner.fail_report_run_by_id")
     @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
     @patch("was_reports.commands.batch_runner.create_report_run_for_tag")
-    @patch("was_reports.commands.batch_runner.LOGGER.exception")
+    @patch("was_reports.commands.batch_runner.LOGGER.error")
     @patch("was_reports.commands.batch_runner.list_due_stakeholders_for_report")
     def test_run_due_reports_can_continue_after_failure(
         self,
@@ -191,8 +463,18 @@ class BatchRunnerTests(unittest.TestCase):
             Stakeholder(tag="TAG2", report_password="password"),
         ]
         mock_create_run.side_effect = [
-            ReportRun(id=1, stakeholder_tag="TAG1", status="running"),
-            ReportRun(id=2, stakeholder_tag="TAG2", status="running"),
+            ReportRun(
+                id=1,
+                stakeholder_tag="TAG1",
+                status="running",
+                generation_token="token",
+            ),
+            ReportRun(
+                id=2,
+                stakeholder_tag="TAG2",
+                status="running",
+                generation_token="token",
+            ),
         ]
         mock_report_main.side_effect = [
             subprocess.CalledProcessError(
@@ -217,6 +499,7 @@ class BatchRunnerTests(unittest.TestCase):
         mock_fail_run.assert_called_once_with(
             report_run_id=1,
             error_message="Report generation failed with exit code 2.",
+            generation_token="token",
         )
 
     @patch("was_reports.commands.batch_runner.report_generator.main")
@@ -251,7 +534,12 @@ class BatchRunnerTests(unittest.TestCase):
             report_password="password",
             next_scheduled=1,
         )
-        report_run = ReportRun(id=42, stakeholder_tag="TAG1", status="running")
+        report_run = ReportRun(
+            id=42,
+            stakeholder_tag="TAG1",
+            status="running",
+            generation_token="token",
+        )
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(
                 batch_runner,
@@ -263,7 +551,11 @@ class BatchRunnerTests(unittest.TestCase):
                     "create_report_run_for_tag",
                     return_value=report_run,
                 ):
-                    with patch.object(batch_runner.report_generator, "main"):
+                    with patch.object(
+                        batch_runner.report_generator,
+                        "main",
+                        side_effect=self.write_report,
+                    ):
                         with patch.object(
                             batch_runner,
                             "upload_report",
@@ -284,17 +576,26 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertEqual(failed_count, 0)
         uploaded_path = mock_upload.call_args.kwargs["report_path"]
         self.assertIsInstance(uploaded_path, Path)
+        self.assertTrue(uploaded_path.name.endswith("-token.pdf"))
         self.assertFalse(uploaded_path.parent.exists())
         mock_complete.assert_called_once_with(
             42,
             output_path="s3://reports/was_reports/report.pdf",
             artifact_type="pdf",
+            generation_token="token",
         )
 
-    def test_run_due_reports_deletes_s3_object_when_completion_fails(self) -> None:
-        """Remove an uploaded object when its database completion update fails."""
+    def test_run_due_reports_retains_s3_object_when_completion_fails(
+        self,
+    ) -> None:
+        """Retain an uploaded object after an uncertain database commit."""
         stakeholder = Stakeholder(tag="TAG1", report_password="password")
-        report_run = ReportRun(id=42, stakeholder_tag="TAG1", status="running")
+        report_run = ReportRun(
+            id=42,
+            stakeholder_tag="TAG1",
+            status="running",
+            generation_token="token",
+        )
         report_uri = "s3://reports/was_reports/2026-08-28/TAG1/42/report.pdf"
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(
@@ -307,7 +608,11 @@ class BatchRunnerTests(unittest.TestCase):
                     "create_report_run_for_tag",
                     return_value=report_run,
                 ):
-                    with patch.object(batch_runner.report_generator, "main"):
+                    with patch.object(
+                        batch_runner.report_generator,
+                        "main",
+                        side_effect=self.write_report,
+                    ):
                         with patch.object(
                             batch_runner,
                             "upload_report",
@@ -319,7 +624,7 @@ class BatchRunnerTests(unittest.TestCase):
                                 side_effect=RuntimeError("database failed"),
                             ):
                                 with patch.object(
-                                    batch_runner,
+                                    s3_reports,
                                     "delete_report",
                                 ) as mock_delete:
                                     with patch.object(
@@ -337,7 +642,7 @@ class BatchRunnerTests(unittest.TestCase):
                                                 staging_directory=directory,
                                             )
 
-        mock_delete.assert_called_once_with(report_uri)
+        mock_delete.assert_not_called()
 
     @patch("was_reports.commands.batch_runner.send_report_run_email")
     @patch("was_reports.commands.batch_runner.send_ready_report_emails")
@@ -368,6 +673,7 @@ class BatchRunnerTests(unittest.TestCase):
             id=42,
             stakeholder_tag="TAG1",
             status="running",
+            generation_token="token",
         )
         mock_generate_report.return_value = "s3://reports/report.pdf"
         mock_send_ready.return_value = 0
@@ -399,6 +705,7 @@ class BatchRunnerTests(unittest.TestCase):
             42,
             output_path="s3://reports/report.pdf",
             artifact_type="pdf",
+            generation_token="token",
         )
         mock_send_report.assert_called_once_with(
             report_run_id=42,
@@ -437,6 +744,7 @@ class BatchRunnerTests(unittest.TestCase):
             id=42,
             stakeholder_tag="TAG1",
             status="running",
+            generation_token="token",
         )
         mock_send_ready.return_value = 0
         mock_send_report.return_value = "message-id"
@@ -455,10 +763,11 @@ class BatchRunnerTests(unittest.TestCase):
         mock_complete_run.assert_called_once_with(
             42,
             artifact_type="notification",
+            generation_token="token",
         )
         mock_send_report.assert_called_once()
 
-    @patch("was_reports.commands.batch_runner.mark_tracker_report_manual_by_id")
+    @patch("was_reports.data.daily_report_tracker.mark_tracker_report_manual_by_id")
     @patch("was_reports.commands.batch_runner.fail_report_run_by_id")
     @patch("was_reports.commands.batch_runner.generate_report_output")
     @patch("was_reports.commands.batch_runner.create_report_run_for_tracker")
@@ -485,6 +794,7 @@ class BatchRunnerTests(unittest.TestCase):
             id=42,
             stakeholder_tag="TAG1",
             status="running",
+            generation_token="token",
         )
         mock_generate_report.side_effect = RuntimeError("generation failed")
 
@@ -498,19 +808,16 @@ class BatchRunnerTests(unittest.TestCase):
         mock_fail_run.assert_called_once_with(
             report_run_id=42,
             error_message="RuntimeError occurred during report generation.",
+            generation_token="token",
         )
-        mock_mark_manual.assert_called_once_with(
-            9,
-            error_message="RuntimeError occurred during report generation.",
-        )
+        mock_mark_manual.assert_not_called()
 
     @patch("was_reports.commands.batch_runner.send_report_run_email")
     @patch("was_reports.commands.batch_runner.send_ready_report_emails")
     @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
     @patch("was_reports.commands.batch_runner.generate_report_output")
     @patch(
-        "was_reports.commands.batch_runner."
-        "retry_failed_report_run_for_tracker_by_id"
+        "was_reports.commands.batch_runner." "retry_failed_report_run_for_tracker_by_id"
     )
     @patch("was_reports.commands.batch_runner.create_report_run_for_tracker")
     @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
@@ -539,6 +846,7 @@ class BatchRunnerTests(unittest.TestCase):
             id=42,
             stakeholder_tag="TAG1",
             status="running",
+            generation_token="token",
         )
         mock_generate_report.return_value = "s3://reports/report.pdf"
         mock_send_ready.return_value = 0
@@ -566,6 +874,7 @@ class BatchRunnerTests(unittest.TestCase):
             42,
             output_path="s3://reports/report.pdf",
             artifact_type="pdf",
+            generation_token="token",
         )
 
     def test_main_requires_tag_for_manual_recent_scan_report(self) -> None:
@@ -632,9 +941,7 @@ class BatchRunnerTests(unittest.TestCase):
             ValueError,
             "Manual report generation requires --send-email.",
         ):
-            batch_runner.main(
-                ["--recent-scans", "--include-manual", "--tag", "TAG1"]
-            )
+            batch_runner.main(["--recent-scans", "--include-manual", "--tag", "TAG1"])
 
     @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")

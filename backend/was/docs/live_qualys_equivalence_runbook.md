@@ -40,6 +40,28 @@ Confirm all of the following before starting:
   `ses:SendRawEmail` for the approved sender; no named profile is needed.
 - Docker is running and the production image has been rebuilt from the current
   source.
+- Apply the additive hardening SQL in `daily_report_tracker_schema.md` before
+  starting the updated workers. Retain old logs and reconcile active claims.
+
+## Hardening Regression Checks
+
+Before live testing, run `make lint` and `make test`. Optional real PostgreSQL
+tests use `WAS_TEST_DATABASE_DSN` pointing only to a disposable database whose
+name starts with `was_test_`. The tests create and remove private test schemas;
+never supply the WAS RDS database here.
+
+For approved live validation, verify that:
+
+- A repeated tracker refresh does not add another row for an existing exact
+  scan execution; a later recurring execution has a different key.
+- Request/poll progress and sanitized failure metadata appear in the log.
+- An on-demand artifact is saved under its generation-specific S3 key and
+  can only be emailed to active analyst addresses, including via direct CLI.
+- An uncertain email or database completion is reconciled before any retry.
+- Digest completion marks only its claimed rows, not every row on that date.
+
+Synthetic and database tests do not replace checking the PDF content and the
+received email with approved Qualys data. ReportLab is not part of this update.
 
 ## Build And Verify The Image
 

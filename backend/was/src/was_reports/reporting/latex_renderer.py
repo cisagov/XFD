@@ -1,17 +1,20 @@
 """Render and compile the legacy Mustache and LaTeX WAS report."""
 
 # Standard Python Libraries
-import html
-import subprocess
 from dataclasses import dataclass
 from datetime import date
+import math
 from pathlib import Path
+import subprocess
 from typing import Callable, Mapping, Optional, Sequence
 
 # Third-Party Libraries
 import pystache
 
 LATEX_ESCAPE_MAP = {
+    "\\": r"\textbackslash{}",
+    "^": r"\textasciicircum{}",
+    "~": r"\textasciitilde{}",
     "$": r"\$",
     "%": r"\%",
     "&": r"\&",
@@ -36,11 +39,10 @@ class LatexRenderResult:
 
 
 def escape_latex(value: object) -> str:
-    """Escape the character set handled by the legacy report generator."""
-    escaped_value = str(value)
-    for latex_character, replacement in LATEX_ESCAPE_MAP.items():
-        escaped_value = escaped_value.replace(latex_character, replacement)
-    return escaped_value
+    """Escape untrusted text once without interpreting generated escapes."""
+    return "".join(
+        LATEX_ESCAPE_MAP.get(character, character) for character in str(value)
+    )
 
 
 def organization_name_width(organization_name: str) -> str:
@@ -62,10 +64,16 @@ def organization_name_width(organization_name: str) -> str:
 
 
 def validate_filename_component(value: str) -> str:
-    """Reject values that could write a report outside its working directory."""
+    """Reject path separators, control characters, and raw TeX argument syntax."""
     if not value or value in (".", ".."):
         raise ValueError("Report filename component cannot be empty or relative.")
-    if "/" in value or "\\" in value or "\x00" in value:
+    if any(
+        character in "/\\{}^~%$&#[]"
+        or ord(character) < 32
+        or 127 <= ord(character) <= 159
+        or character in "\u2028\u2029"
+        for character in value
+    ):
         raise ValueError("Report filename component contains an unsafe character.")
     return value
 
@@ -90,8 +98,9 @@ def render_latex_template(
     )
     working_directory.mkdir(parents=True, exist_ok=True)
     template_text = template_path.read_text(encoding="utf-8")
-    rendered_text = pystache.render(template_text, dict(template_data))
-    rendered_text = html.unescape(rendered_text)
+    rendered_text = pystache.Renderer(escape=lambda value: value).render(
+        template_text, dict(template_data)
+    )
     tex_path = working_directory / tex_filename
     tex_path.write_text(rendered_text, encoding="utf-8")
     return tex_path
@@ -102,17 +111,22 @@ def compile_latex_pdf(
     output_directory: Path,
     command_runner: Callable = subprocess.run,
     xelatex_executable: str = "xelatex",
+    timeout_seconds: float = 120.0,
 ) -> Path:
     """Compile LaTeX twice and return the expected PDF output path."""
     if not tex_path.is_file():
-        raise FileNotFoundError(
-            "WAS LaTeX source not found at {}.".format(tex_path)
-        )
+        raise FileNotFoundError("WAS LaTeX source not found at {}.".format(tex_path))
+    if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise ValueError("XeLaTeX timeout must be finite and positive.")
+    output_directory = output_directory.resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
     command: Sequence[str] = (
         xelatex_executable,
+        "-no-shell-escape",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
         "-output-directory={}".format(output_directory),
-        tex_path.name,
+        "./{}".format(tex_path.name),
     )
     for unused_pass_number in range(2):
         command_runner(
@@ -121,6 +135,8 @@ def compile_latex_pdf(
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            timeout=timeout_seconds,
         )
     pdf_path = output_directory / "{}.pdf".format(tex_path.stem)
     if not pdf_path.is_file():

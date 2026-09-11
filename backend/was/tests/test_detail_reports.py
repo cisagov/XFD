@@ -4,7 +4,7 @@
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # Third-Party Libraries
 import requests
@@ -85,6 +85,62 @@ class RetryingFakeSession(FakeSession):
 
 class DetailReportsTests(unittest.TestCase):
     """Validate detail-report helper behavior."""
+
+    def test_polling_does_not_start_another_request_at_deadline(self) -> None:
+        """Bound sleeps and stop before issuing a request after expiry."""
+        times = iter([0.0, 9.5, 10.0])
+        sleeper = Mock()
+        with patch.object(
+            detail_reports.report_data, "get_report_status", return_value="RUNNING"
+        ) as status:
+            with self.assertRaises(TimeoutError):
+                detail_reports.wait_for_report_completion(
+                    Mock(),
+                    "123",
+                    sleep_seconds=60,
+                    timeout_seconds=10,
+                    sleep_function=sleeper,
+                    monotonic_function=lambda: next(times),
+                )
+        sleeper.assert_called_once_with(0.5)
+        status.assert_called_once()
+
+    def test_polling_propagates_permanent_http_and_tls_errors(self) -> None:
+        """Do not loop on authorization, invalid requests, or certificate errors."""
+        errors: list[Exception] = [
+            requests.exceptions.SSLError("certificate validation failed")
+        ]
+        for status_code in (400, 401, 403, 404):
+            response = requests.Response()
+            response.status_code = status_code
+            errors.append(requests.HTTPError(response=response))
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                sleep = Mock()
+                with patch.object(
+                    detail_reports.report_data, "get_report_status", side_effect=error
+                ):
+                    with self.assertRaises(type(error)):
+                        detail_reports.wait_for_report_completion(
+                            Mock(), "123", sleep_function=sleep
+                        )
+                sleep.assert_not_called()
+
+    def test_polling_retries_throttling_and_server_failures(self) -> None:
+        """Continue status reads after transient HTTP failures."""
+        for status_code in (429, 500, 502, 503, 504):
+            response = requests.Response()
+            response.status_code = status_code
+            sleep = Mock()
+            with self.subTest(status_code=status_code), patch.object(
+                detail_reports.report_data,
+                "get_report_status",
+                side_effect=[requests.HTTPError(response=response), "COMPLETE"],
+            ):
+                detail_reports.wait_for_report_completion(
+                    Mock(), "123", sleep_function=sleep
+                )
+                sleep.assert_called_once()
 
     def test_sanitized_detail_filename_matches_legacy_behavior(self) -> None:
         """Remove URL characters from detail filenames."""

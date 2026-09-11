@@ -1,10 +1,13 @@
 """Tests for the legacy WAS Mustache template-data contract."""
 
 # Standard Python Libraries
-import unittest
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+import unittest
+from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import report_template_data
 from was_reports.reporting.report_artifacts import ReportArtifactResult
@@ -54,9 +57,7 @@ class ReportTemplateDataTests(unittest.TestCase):
         template_data = self.build_data()
 
         self.assertFalse(
-            report_template_data.REQUIRED_TEMPLATE_FIELDS.difference(
-                template_data
-            )
+            report_template_data.REQUIRED_TEMPLATE_FIELDS.difference(template_data)
         )
         self.assertEqual(template_data["OrgName"], "CISA \\& Partner")
         self.assertEqual(template_data["StartDate"], "26 Aug 2026")
@@ -64,6 +65,20 @@ class ReportTemplateDataTests(unittest.TestCase):
         self.assertEqual(template_data["RiskColor"], "CB0000")
         self.assertEqual(template_data["lev1"], "6")
         self.assertEqual(template_data["lev5"], "6")
+
+    def test_external_summary_cannot_inject_latex(self) -> None:
+        """Escape raw Qualys summary values before rendering trusted markup."""
+        summary = report_template_data.report_metrics.calculate_summary_metrics(
+            FIXTURE_PATH.read_bytes()
+        )
+        with patch(
+            "was_reports.reporting.report_template_data.report_metrics.calculate_summary_metrics",
+            return_value=replace(summary, security_risk=r"\input{secret}"),
+        ):
+            template_data = self.build_data()
+        self.assertEqual(
+            template_data["SecurityRisk"], r"\textbackslash{}input\{secret\}"
+        )
 
     def test_required_fields_match_preserved_template(self) -> None:
         """Detect placeholder additions or removals in the preserved template."""

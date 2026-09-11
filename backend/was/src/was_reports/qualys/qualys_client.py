@@ -15,6 +15,7 @@ from typing import Any, Callable, TypeVar
 # Third-Party Libraries
 import requests
 from was_reports.utils.env import getenv
+from was_reports.utils.logging_config import exception_details
 
 # First-Party Libraries
 from was_reports.utils.qualys_config import (
@@ -114,12 +115,16 @@ class TimeoutSession:
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         """Send a GET request using the configured default timeout."""
         kwargs.setdefault("timeout", self._timeout_seconds)
-        return self._session.get(url, **kwargs)
+        response = self._session.get(url, **kwargs)
+        response.raise_for_status()
+        return response
 
     def post(self, url: str, **kwargs: Any) -> requests.Response:
         """Send a POST request using the configured default timeout."""
         kwargs.setdefault("timeout", self._timeout_seconds)
-        return self._session.post(url, **kwargs)
+        response = self._session.post(url, **kwargs)
+        response.raise_for_status()
+        return response
 
 
 @dataclass(frozen=True)
@@ -164,6 +169,8 @@ def _retry_after_seconds(error: Exception) -> float | None:
 
 def _is_retryable_error(error: Exception) -> bool:
     """Return whether an exception represents a transient Qualys failure."""
+    if isinstance(error, requests.exceptions.SSLError):
+        return False
     if isinstance(error, (requests.ConnectionError, requests.Timeout)):
         return True
     if not isinstance(error, requests.HTTPError) or error.response is None:
@@ -237,15 +244,33 @@ class QualysClient:
 
     def request(self, qualys_request: QualysRequest) -> str:
         """Execute a Qualys request, retrying only read-safe transient failures."""
-        if not is_retry_safe(qualys_request):
-            return self._request_once(qualys_request)
-        return execute_retryable_operation(
-            operation=lambda: self._request_once(qualys_request),
-            operation_name=qualys_request.endpoint,
-            policy=self._retry_policy,
-            sleep_function=self._sleep_function,
-            random_function=self._random_function,
+        started = time.monotonic()
+        LOGGER.info("Requesting Qualys %s.", qualys_request.endpoint)
+        try:
+            if not is_retry_safe(qualys_request):
+                result = self._request_once(qualys_request)
+            else:
+                result = execute_retryable_operation(
+                    operation=lambda: self._request_once(qualys_request),
+                    operation_name=qualys_request.endpoint,
+                    policy=self._retry_policy,
+                    sleep_function=self._sleep_function,
+                    random_function=self._random_function,
+                )
+        except Exception as error:
+            LOGGER.warning(
+                "Qualys %s failed after %.1f seconds: %s.",
+                qualys_request.endpoint,
+                time.monotonic() - started,
+                exception_details(error),
+            )
+            raise
+        LOGGER.info(
+            "Qualys %s completed in %.1f seconds.",
+            qualys_request.endpoint,
+            time.monotonic() - started,
         )
+        return result
 
     def _request_once(self, qualys_request: QualysRequest) -> str:
         """Execute one request through the Qualys connector interface."""
@@ -281,6 +306,7 @@ def create_qualys_client(
     # Third-Party Libraries
     from qualysapi.connector import QGConnector
 
+    logging.getLogger("qualysapi.connector").disabled = True
     connection = QGConnector(
         auth=(resolved_credentials.username, resolved_credentials.password),
         server=resolved_credentials.hostname,

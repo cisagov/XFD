@@ -1,10 +1,12 @@
 """Tests for WAS mailer message and SES delivery helpers."""
 
 # Standard Python Libraries
+from contextlib import contextmanager
 from datetime import date
 import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -12,6 +14,7 @@ from unittest.mock import Mock, patch
 # First-Party Libraries
 from was_mailer import email_reports
 from was_mailer.message import (
+    approved_analyst_recipients,
     build_assignee_digest_email,
     build_report_email,
     parse_email_addresses,
@@ -23,6 +26,15 @@ from was_reports.data.report_runs import ReportRunEmail
 
 class WasMailerTests(unittest.TestCase):
     """Validate WAS mailer behavior."""
+
+    def setUp(self) -> None:
+        """Keep lease checks isolated from the database."""
+        heartbeat = patch(
+            "was_mailer.email_reports.touch_report_email_claim_by_id",
+            return_value=True,
+        )
+        heartbeat.start()
+        self.addCleanup(heartbeat.stop)
 
     def test_parse_email_addresses_accepts_semicolon_and_comma(self) -> None:
         """Parse recipient lists from common stakeholder formats."""
@@ -212,7 +224,9 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message_id, "message-id")
         self.assertEqual(ses_client.send_raw_email.call_count, 1)
-        mock_mark_emailed.assert_called_once_with(1, "message-id")
+        mock_mark_emailed.assert_called_once_with(
+            1, "message-id", email_claim_token=None
+        )
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
@@ -259,7 +273,9 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message_id, "message-id")
         self.assertFalse(downloaded_paths[0].exists())
-        mock_mark_emailed.assert_called_once_with(1, "message-id")
+        mock_mark_emailed.assert_called_once_with(
+            1, "message-id", email_claim_token=None
+        )
 
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
@@ -300,6 +316,7 @@ class WasMailerTests(unittest.TestCase):
             report_run_id=1,
             error_message="WAS report email delivery failed.",
             hold_for_manual_retry=False,
+            email_claim_token=None,
         )
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
@@ -341,7 +358,7 @@ class WasMailerTests(unittest.TestCase):
         self.assertEqual(mock_logger_info.call_count, 1)
 
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
-    @patch("was_mailer.email_reports.LOGGER.exception")
+    @patch("was_mailer.email_reports.LOGGER.error")
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
     def test_send_report_run_email_records_failure(
         self,
@@ -377,7 +394,8 @@ class WasMailerTests(unittest.TestCase):
         mock_mark_failed.assert_called_once_with(
             report_run_id=1,
             error_message="WAS report email delivery failed.",
-            hold_for_manual_retry=False,
+            hold_for_manual_retry=True,
+            email_claim_token=None,
         )
         self.assertEqual(mock_logger_exception.call_count, 1)
 
@@ -416,7 +434,7 @@ class WasMailerTests(unittest.TestCase):
                     local_output_directory=directory,
                 )
 
-        mock_mark_failed.assert_not_called()
+        self.assertTrue(mock_mark_failed.call_args.kwargs["hold_for_manual_retry"])
 
     @patch("was_mailer.email_reports.send_report_run_email")
     @patch("was_mailer.email_reports.list_report_runs_ready_for_email_from_db")
@@ -523,32 +541,283 @@ class WasMailerTests(unittest.TestCase):
             dry_run=True,
             data_pull_date=date(2026, 8, 26),
             limit=5,
+            include_previous_failures=False,
         )
 
-    @patch("was_mailer.email_reports.mark_assignee_digest_success_for_dates")
+    @patch("was_mailer.email_reports.approved_analyst_recipients")
+    @patch("was_mailer.email_reports.finish_assignee_digest_rows")
+    @patch("was_mailer.email_reports.claim_assignee_digest_rows", return_value=True)
     def test_send_assignee_digest_email_sends_with_ses(
-        self,
-        mock_mark_success,
+        self, mock_claim, mock_finish, mock_recipients
     ) -> None:
-        """Send an assignee digest through SES."""
+        """Finish only the exact claimed snapshot using its ownership token."""
+        mock_recipients.return_value = ["analyst@example.gov"]
         digest = AssigneeDigest(
             assignee_id=3,
             assignee="Analyst",
             email="analyst@example.gov",
-            rows=[DailyReportTrackerRow(data_pull_date=date(2026, 8, 26))],
+            rows=[DailyReportTrackerRow(id=81, data_pull_date=date(2026, 8, 26))],
         )
         ses_client = Mock()
         ses_client.send_raw_email.return_value = {"MessageId": "message-id"}
+        result = email_reports.send_assignee_digest_email(
+            digest, "sender@example.gov", ses_client=ses_client
+        )
+        self.assertEqual(result, "message-id")
+        row_ids, token = mock_claim.call_args.args
+        self.assertEqual(row_ids, [81])
+        mock_finish.assert_called_once_with(row_ids, token, message_id="message-id")
 
-        message_id = email_reports.send_assignee_digest_email(
-            assignee_digest=digest,
-            source_email="sender@example.gov",
-            ses_client=ses_client,
+
+class DeliveryPolicyTests(unittest.TestCase):
+    """Cover purpose enforcement and snapshot claim failure boundaries."""
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_completion_follows_heartbeat_shutdown(self, claim, finish, failed):
+        """Terminal status must not invalidate a still-running heartbeat."""
+        claim.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+            template="All NWS",
+            email_claim_token="token",
+        )
+        events = []
+
+        @contextmanager
+        def heartbeat_context(**kwargs):
+            """Assert final status has not changed at the last heartbeat tick."""
+            events.append("heartbeat-start")
+            yield
+            finish.assert_not_called()
+            events.append("heartbeat-stop")
+
+        def finish_delivery(*args, **kwargs):
+            """Verify the heartbeat is stopped before terminal persistence."""
+            self.assertEqual(events[-1], "heartbeat-stop")
+            events.append("sent")
+
+        finish.side_effect = finish_delivery
+        client = Mock()
+        client.send_raw_email.return_value = {"MessageId": "message"}
+        with patch.object(email_reports, "operation_heartbeat", heartbeat_context):
+            self.assertEqual(
+                email_reports.send_report_run_email(
+                    1, "sender@example.gov", ses_client=client
+                ),
+                "message",
+            )
+        self.assertEqual(events, ["heartbeat-start", "heartbeat-stop", "sent"])
+        failed.assert_not_called()
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_post_send_heartbeat_loss_is_held(self, claim, finish, failed):
+        """Lease uncertainty after SES acceptance must not become retryable."""
+        claim.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+            template="All NWS",
+            email_claim_token="token",
         )
 
-        self.assertEqual(message_id, "message-id")
-        self.assertEqual(ses_client.send_raw_email.call_count, 1)
-        mock_mark_success.assert_called_once_with(digest, "message-id")
+        @contextmanager
+        def lost_heartbeat(**kwargs):
+            """Simulate ownership loss while waiting for SES completion."""
+            yield
+            raise RuntimeError("lease lost")
+
+        client = Mock()
+        client.send_raw_email.return_value = {"MessageId": "message"}
+        with patch.object(email_reports, "operation_heartbeat", lost_heartbeat):
+            with self.assertRaises(RuntimeError):
+                email_reports.send_report_run_email(
+                    1, "sender@example.gov", ses_client=client
+                )
+        finish.assert_not_called()
+        self.assertTrue(failed.call_args.kwargs["hold_for_manual_retry"])
+        self.assertEqual(failed.call_args.kwargs["email_claim_token"], "token")
+
+    @patch("was_mailer.message.list_active_assignee_emails_from_db")
+    def test_analyst_policy_rejects_missing_and_unapproved_recipients(self, active):
+        """Never fall back to customer contacts for an analyst report."""
+        active.return_value = ["analyst@example.gov"]
+        report = SimpleNamespace(delivery_purpose="analyst")
+        for recipients in (None, "", "customer@example.gov", "not-an-email"):
+            with self.subTest(recipients=recipients), self.assertRaises(ValueError):
+                recipient_addresses(report, recipients)
+        self.assertEqual(
+            approved_analyst_recipients("ANALYST@example.gov;analyst@example.gov"),
+            ["ANALYST@example.gov"],
+        )
+
+    def test_unknown_purpose_fails_closed(self):
+        """Reject unrecognized persisted policy rather than defaulting to customers."""
+        with self.assertRaises(ValueError):
+            recipient_addresses(SimpleNamespace(delivery_purpose="unknown"), "a@b.gov")
+
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.touch_report_email_claim_by_id", return_value=True)
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_held_customer_preserves_customer_template(self, claim, touch, finish):
+        """Claim permission does not change the persisted delivery purpose."""
+        claim.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+            template="All NWS",
+            delivery_purpose="customer",
+            email_claim_token="token",
+        )
+        client = Mock()
+        client.send_raw_email.return_value = {"MessageId": "message"}
+        email_reports.send_report_run_email(
+            1, "sender@example.gov", allow_held=True, ses_client=client
+        )
+        message_bytes = client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
+        self.assertIn(b"No PDF report was generated", message_bytes)
+        self.assertNotIn(b"Analyst Copy", message_bytes)
+        finish.assert_called_once_with(1, "message", email_claim_token="token")
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_direct_analyst_delivery_requires_explicit_recipients(self, claim, failed):
+        """Direct mailer callers cannot bypass analyst authorization."""
+        claim.return_value = SimpleNamespace(
+            delivery_purpose="analyst", email_claim_token="token"
+        )
+        client = Mock()
+        with self.assertRaises(ValueError):
+            email_reports.send_report_run_email(
+                1, "sender@example.gov", ses_client=client
+            )
+        client.send_raw_email.assert_not_called()
+        self.assertTrue(failed.call_args.kwargs["hold_for_manual_retry"])
+
+    def digest(self):
+        """Return a minimal persisted snapshot for lifecycle tests."""
+        return SimpleNamespace(
+            assignee_id=3,
+            email="analyst@example.gov",
+            rows=[
+                SimpleNamespace(id=81, digest_revision=0),
+                SimpleNamespace(id=82, digest_revision=0),
+            ],
+        )
+
+    @patch("was_mailer.email_reports.claim_assignee_digest_rows", return_value=False)
+    @patch("was_mailer.email_reports.finish_assignee_digest_rows")
+    def test_digest_claim_conflict_does_not_send_or_finish(self, finish, claim):
+        """A competing sender cannot finish or send an unowned snapshot."""
+        client = Mock()
+        self.assertIsNone(
+            email_reports.send_assignee_digest_email(
+                self.digest(), "sender@example.gov", ses_client=client
+            )
+        )
+        client.send_raw_email.assert_not_called()
+        finish.assert_not_called()
+
+    @patch("was_mailer.email_reports.claim_assignee_digest_rows", return_value=True)
+    @patch("was_mailer.email_reports.finish_assignee_digest_rows")
+    @patch(
+        "was_mailer.email_reports.approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
+    @patch("was_mailer.email_reports.build_assignee_digest_email")
+    def test_digest_transport_uncertainty_is_held(
+        self, build, recipients, finish, claim
+    ):
+        """A timeout after send begins must not enter automatic retries."""
+        client = Mock()
+        client.send_raw_email.side_effect = TimeoutError("sensitive detail")
+        with self.assertRaises(TimeoutError):
+            email_reports.send_assignee_digest_email(
+                self.digest(), "sender@example.gov", ses_client=client
+            )
+        row_ids, token = claim.call_args.args
+        finish.assert_called_once_with(
+            row_ids,
+            token,
+            error_message="WAS assignee digest email delivery failed.",
+            uncertain=True,
+        )
+
+    @patch("was_mailer.email_reports.claim_assignee_digest_rows", return_value=True)
+    @patch("was_mailer.email_reports.finish_assignee_digest_rows")
+    @patch(
+        "was_mailer.email_reports.approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
+    @patch("was_mailer.email_reports.build_assignee_digest_email")
+    def test_digest_completion_failure_is_uncertain(
+        self, build, recipients, finish, claim
+    ):
+        """An accepted delivery with a failed write stays out of automatic retries."""
+        client = Mock()
+        client.send_raw_email.return_value = {"MessageId": "message"}
+        finish.side_effect = [RuntimeError(), None]
+        with self.assertRaises(RuntimeError):
+            email_reports.send_assignee_digest_email(
+                self.digest(), "sender@example.gov", ses_client=client
+            )
+        self.assertTrue(finish.call_args.kwargs["uncertain"])
+        self.assertEqual(client.send_raw_email.call_count, 1)
+
+    @patch("was_mailer.email_reports.claim_assignee_digest_rows", return_value=True)
+    @patch("was_mailer.email_reports.finish_assignee_digest_rows")
+    @patch(
+        "was_mailer.email_reports.approved_analyst_recipients", side_effect=ValueError()
+    )
+    def test_digest_pre_send_failure_is_retryable(self, recipients, finish, claim):
+        """Persist known pre-send failure without marking uncertainty."""
+        with self.assertRaises(ValueError):
+            email_reports.send_assignee_digest_email(
+                self.digest(), "sender@example.gov"
+            )
+        self.assertFalse(finish.call_args.kwargs["uncertain"])
+
+    @patch("was_mailer.email_reports.list_ready_assignee_digests_from_db")
+    @patch("was_mailer.email_reports.send_assignee_digest_email")
+    def test_digest_batch_continues_and_retries_are_explicit(self, send, listing):
+        """One failed item does not prevent delivery to the next assignee."""
+        listing.return_value = [self.digest(), self.digest()]
+        send.side_effect = [RuntimeError(), "message"]
+        self.assertEqual(
+            email_reports.send_ready_assignee_digests(
+                "sender@example.gov", include_previous_failures=True
+            ),
+            1,
+        )
+        self.assertTrue(listing.call_args.kwargs["include_previous_failures"])
+        self.assertEqual(send.call_count, 2)
+
+    @patch("was_mailer.email_reports.list_report_runs_ready_for_email_from_db")
+    @patch("was_mailer.email_reports.send_report_run_email")
+    def test_report_batch_continues_after_item_error(self, send, listing):
+        """A failed run does not stop unrelated report deliveries."""
+        listing.return_value = [SimpleNamespace(id=1), SimpleNamespace(id=2)]
+        send.side_effect = [RuntimeError(), "message"]
+        self.assertEqual(
+            email_reports.send_ready_report_emails("sender@example.gov"), 1
+        )
+        self.assertEqual(send.call_count, 2)
 
 
 if __name__ == "__main__":

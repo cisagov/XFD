@@ -17,12 +17,14 @@ from was_reports.utils import logging_config, operation_lease
 class OperationReliabilityTests(unittest.TestCase):
     """Validate stale-operation recovery, heartbeats, and log cleanup."""
 
-    def test_recover_stale_operations_fails_generation_and_holds_email(self) -> None:
+    def test_recover_stale_operations_fails_generation_and_holds_email(
+        self,
+    ) -> None:
         """Recover stale work without blindly retrying uncertain email."""
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
-        cursor.fetchone.return_value = (1,)
-        cursor.fetchall.return_value = [(8,)]
+        cursor.fetchone.return_value = (1, [])
+        cursor.fetchall.return_value = [(8, None, "customer")]
 
         with patch.object(report_runs, "_positive_seconds", return_value=300):
             recovered = report_runs.recover_stale_report_operations(conn)
@@ -45,12 +47,22 @@ class OperationReliabilityTests(unittest.TestCase):
             "heartbeat_seconds",
             return_value=30,
         ):
+            thread_class.return_value.is_alive.return_value = False
             with operation_lease.operation_heartbeat(heartbeat, "test operation"):
                 pass
 
         thread = thread_class.return_value
         thread.start.assert_called_once_with()
         thread.join.assert_called_once_with(timeout=31)
+
+    def test_thread_start_failure_restores_ownership_context(self) -> None:
+        """Do not leak a dead operation guard when worker startup fails."""
+        with patch.object(operation_lease, "Thread") as thread_class:
+            thread_class.return_value.start.side_effect = RuntimeError("start failed")
+            with self.assertRaises(RuntimeError):
+                with operation_lease.operation_heartbeat(lambda: True, "test"):
+                    self.fail("Work must not begin when the heartbeat cannot start.")
+        self.assertIsNone(operation_lease.CURRENT_OWNERSHIP_CHECK.get())
 
     def test_remove_expired_logs_preserves_recent_files(self) -> None:
         """Delete WAS logs older than retention without removing recent logs."""
@@ -61,7 +73,10 @@ class OperationReliabilityTests(unittest.TestCase):
             expired_log.write_text("old", encoding="utf-8")
             recent_log.write_text("new", encoding="utf-8")
             expired_time = datetime.now(timezone.utc) - timedelta(days=15)
-            os.utime(expired_log, (expired_time.timestamp(), expired_time.timestamp()))
+            os.utime(
+                expired_log,
+                (expired_time.timestamp(), expired_time.timestamp()),
+            )
 
             logging_config.remove_expired_logs(log_directory, retention_days=14)
 

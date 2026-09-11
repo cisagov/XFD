@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -18,6 +19,18 @@ class TrackerStakeholder:
     launched_date: str
     schedule_id: int
     cadence: str
+    tag: str = ""
+    schedule_name: str = ""
+
+
+def scheduled_execution_key(schedule_id: int, launched_date: str) -> str:
+    """Identify a schedule execution using its actual UTC launch instant."""
+    launch = datetime.fromisoformat(launched_date.replace("Z", "+00:00"))
+    if launch.tzinfo is None:
+        raise ValueError("Qualys launch timestamp must include a timezone.")
+    return "schedule:{}:{}".format(
+        schedule_id, launch.astimezone(timezone.utc).isoformat()
+    )
 
 
 @dataclass(frozen=True)
@@ -37,6 +50,7 @@ class TrackerItem:
     fceb: bool
     schedule_id: int
     qualys_errors: str
+    scan_execution_key: str | None = None
 
 
 QualysScan = Any

@@ -66,6 +66,11 @@ or worker-script changes. Menu and Make commands do not rebuild automatically.
 Already-running containers retain their original image; new runs use the newly
 built image.
 
+Before deploying the ownership and tracker hardening update, apply the
+[existing-database upgrade](docs/daily_report_tracker_schema.md#existing-database-hardening-upgrade).
+Stop old workers first. Do not run the full table-creation script against an
+existing database. The new code requires the additional columns and index.
+
 Changes only to `.env` do not require a build; start a new container to load
 them. Compare updated `dev.env` with your local configuration after pulls and
 add required keys without replacing secrets. Documentation-only changes do not
@@ -198,12 +203,30 @@ so the software never blindly resends an uncertain email. Tracker-linked report
 failures are marked for manual handling with a safe failure summary, which is
 included in the complete batch's assignee digest.
 
+Generation and email claims carry unique ownership tokens. An expired worker
+cannot update a replacement worker's state. Heartbeat failures stop subsequent
+side effects rather than silently continuing. S3 keys include a generation token
+so an old worker cannot overwrite the replacement artifact. If upload succeeds
+but database completion is uncertain, retain the object and reconcile the run;
+do not delete the object or resend email blindly.
+SES SDK-level retries are disabled for delivery requests, so an uncertain send
+is not repeated internally before the application can place it on hold.
+
 All WAS commands log to container stdout for `docker logs`. When `/output` is
 mounted, the same messages are retained on the host under `local-output/logs/`.
 Each process writes a timestamped `was-reporting-*.log` file, rotates it at 10
 MiB, and retains five segments. Command startup removes WAS log files older than
 14 days. Change the log settings only when operational retention requirements
 differ.
+
+Log files are owner-readable only, including rotated files. Their random suffix
+prevents separate containers with the same PID and start second from sharing a
+file. Qualys requests log endpoint, elapsed time, and safe HTTP error metadata,
+not raw scanner response bodies or headers. Database failures include SQLSTATE
+and available table/column names without SQL values. Connection establishment
+is bounded by `WAS_DB_CONNECT_TIMEOUT_SECONDS` (default `10`). Inventory queries
+also show which stakeholder count is being retrieved and progress through the
+list.
 
 Do not commit `.env`, database passwords, Qualys credentials, or generated
 reports.
@@ -736,6 +759,13 @@ Tracker templates control delivery behavior:
 - A `Targets Removed` row is stored only after the Qualys deletion calls return
   successfully. A separate destructive-action audit record remains deferred to
   its approved future sprint.
+- Opt-in deletion first commits a `MANUAL QUALYS DELETION PENDING` tracker
+  claim. Interrupted or failed deletions require reconciliation, not automatic
+  replay. A non-destructive `QUALYS DELETION REQUIRED` row can be processed by
+  a subsequent explicit deletion refresh before reporting has started.
+- Historical date-only rows with the same schedule and Eastern scan date
+  require reconciliation instead of guessing an execution timestamp and
+  generating a duplicate report. Already-finished keyed rows are not reinserted.
 - Qualys error application URLs are listed in the customer message to identify
   applications without updated results. Report-generation and delivery failures
   remain in the assignee digest instead of producing immediate customer mail.
@@ -774,6 +804,12 @@ Assignee tracker digest emails use `was_assignees.email`. Populate that field
 before enabling production delivery. `--test-recipients` should be used for
 validation because it overrides the assignee email recipients.
 Each digest includes a CSV attachment containing that assignee's tracker rows.
+The mailer claims exact row IDs atomically, so another sender cannot claim the
+same snapshot and later rows are not incorrectly marked sent. Known failures
+require `--include-previous-failures`; uncertain sends remain held for review.
+Do not reset a held or interrupted digest without verifying SES delivery.
+Digest revisions preserve report failures arriving during a send: successful
+delivery acknowledges only the claimed revision, leaving newer failures pending.
 
 Apply the existing database update script before using this command against an
 already-created WAS database:
@@ -1180,6 +1216,7 @@ Use the explicit mailer command to send or retry an already archived report:
 docker run --rm --env-file .env --entrypoint was-mailer was-reporting \
   --report-run-id NEW_RUN_ID \
   --test-recipients "craig.duhn@associates.cisa.dhs.gov" \
+  --delivery-purpose analyst \
   --include-previous-failures
 ```
 
@@ -1197,8 +1234,10 @@ The lower-level `was-report-on-demand` CLI defaults to archive-only and requires
 addresses to send. `was-reports` remains local-PDF-only. The on-demand command explicitly uses
 S3 even if `WAS_REPORT_STORAGE=local`; the bucket and IAM permissions must be
 configured. The updated container enables unbuffered output and a writable
-Matplotlib cache. No schema migration is required for the `held` status because
-the existing `email_status` column is text without an enumerated constraint.
+Matplotlib cache. Persisted `delivery_purpose=analyst` enforces analyst-only
+recipients in the direct mailer as well as the menu. The internal `allow_held`
+claim option changes eligibility only; it does not override the stored purpose or select a different
+customer template. Apply the schema upgrade linked above before deployment.
 
 Follow `docs/live_qualys_equivalence_runbook.md` for S3, database, inbox, and
 failure verification. Do not declare the live test passed solely because a

@@ -1,14 +1,17 @@
 """Email message helpers for WAS report delivery."""
 
 # Standard Python Libraries
-from email.message import EmailMessage
 from datetime import datetime, timezone
+from email.headerregistry import Address
+from email.message import EmailMessage
 from html import escape
 from pathlib import Path
 from typing import Iterable, List
 from zoneinfo import ZoneInfo
 
 # Third-Party Libraries
+from was_reports.data.assignees import list_active_assignee_emails_from_db
+
 # First-Party Libraries
 from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
 
@@ -54,6 +57,10 @@ def recipient_addresses(
     override_recipients: str | None = None,
 ) -> List[str]:
     """Return final recipients for a WAS report email."""
+    if report_run_email.delivery_purpose not in {"customer", "analyst"}:
+        raise ValueError("Unknown WAS report delivery purpose.")
+    if report_run_email.delivery_purpose == "analyst":
+        return approved_analyst_recipients(override_recipients)
     if override_recipients:
         return unique_addresses(parse_email_addresses(override_recipients))
 
@@ -61,6 +68,25 @@ def recipient_addresses(
     addresses.extend(parse_email_addresses(report_run_email.tech_poc_email))
     addresses.extend(parse_email_addresses(report_run_email.distro_email))
     return unique_addresses(addresses)
+
+
+def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
+    """Require explicit, valid recipients that are currently active assignees."""
+    recipients = unique_addresses(parse_email_addresses(raw_addresses))
+    if not recipients:
+        raise ValueError("At least one explicit analyst recipient is required.")
+    for recipient in recipients:
+        address = Address(addr_spec=recipient)
+        if not address.username or not address.domain:
+            raise ValueError("Recipients must be complete email addresses.")
+    approved = {
+        address.lower()
+        for configured in list_active_assignee_emails_from_db()
+        for address in parse_email_addresses(configured)
+    }
+    if any(recipient.lower() not in approved for recipient in recipients):
+        raise ValueError("Analyst delivery requires active WAS assignees.")
+    return recipients
 
 
 def build_report_email(
@@ -201,9 +227,7 @@ def report_email_body(
         [
             "",
             "Last scan: {}".format(eastern_timestamp(last_scanned)),
-            "Next scheduled scan: {}".format(
-                eastern_timestamp(next_scheduled)
-            ),
+            "Next scheduled scan: {}".format(eastern_timestamp(next_scheduled)),
             "",
         ]
     )
@@ -263,7 +287,7 @@ def report_email_html(plain_body: str, stakeholder_tag: str) -> str:
             paragraphs.append("<div>{}</div>".format(escape(line)))
     return (
         "<!doctype html><html><body>"
-        "<h1 style=\"font-size:1.25rem\">WAS Results for {}</h1>{}"
+        '<h1 style="font-size:1.25rem">WAS Results for {}</h1>{}'
         "</body></html>"
     ).format(escape(stakeholder_tag), "".join(paragraphs))
 

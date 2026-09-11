@@ -13,6 +13,7 @@ import requests
 # First-Party Libraries
 from was_reports.qualys import report_data
 from was_reports.qualys.qualys_client import (
+    RETRYABLE_STATUS_CODES,
     QualysClient,
     QualysRetryPolicy,
     TimeoutSession,
@@ -128,10 +129,27 @@ def wait_for_report_completion(
         resolved_sleep_seconds,
     )
     while True:
+        if (
+            last_status is not None
+            and resolved_timeout_seconds is not None
+            and monotonic_function() - started_at >= resolved_timeout_seconds
+        ):
+            raise TimeoutError(
+                "Qualys report {} did not complete within {} seconds.".format(
+                    report_id, resolved_timeout_seconds
+                )
+            )
         poll_error = None
         try:
             status = report_data.get_report_status(client, report_id)
         except requests.RequestException as error:
+            if isinstance(error, requests.exceptions.SSLError):
+                raise
+            transient = isinstance(error, (requests.ConnectionError, requests.Timeout))
+            if isinstance(error, requests.HTTPError) and error.response is not None:
+                transient = error.response.status_code in RETRYABLE_STATUS_CODES
+            if not transient:
+                raise
             poll_error = error
             status = None
 
@@ -186,7 +204,12 @@ def wait_for_report_completion(
                     resolved_timeout_seconds,
                 )
             )
-        sleep_function(resolved_sleep_seconds)
+        remaining_seconds = (
+            resolved_timeout_seconds - (checked_at - started_at)
+            if resolved_timeout_seconds is not None
+            else resolved_sleep_seconds
+        )
+        sleep_function(min(resolved_sleep_seconds, remaining_seconds))
 
 
 def _download_response(session: Any, url: str) -> Any:

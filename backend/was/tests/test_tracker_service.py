@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.tracker import service
 from was_reports.tracker.models import TrackerItem, TrackerStakeholder
@@ -92,6 +93,7 @@ class TrackerServiceTests(unittest.TestCase):
         mock_search_scans.return_value = scan_groups
         mock_special_cases.return_value = {"CROSSFEED"}
         mock_create_items.return_value = tracker_items
+        mock_update_tracker.return_value = 0
 
         result = service.refresh_daily_tracker(
             client=client,
@@ -99,7 +101,7 @@ class TrackerServiceTests(unittest.TestCase):
             stakeholder_tag="CROSSFEED",
         )
 
-        self.assertEqual(result, 1)
+        self.assertEqual(result, 0)
         mock_search_schedules.assert_called_once_with(
             client=client,
             input_date=input_date,

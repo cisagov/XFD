@@ -1,12 +1,13 @@
 """Test isolated SES role assumption without making AWS requests."""
 
+# Standard Python Libraries
 from datetime import datetime, timedelta, timezone
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
+# Third-Party Libraries
 from botocore.credentials import Credentials
 from botocore.exceptions import ClientError, NoCredentialsError
-
 from was_mailer.ses_client import SesRoleProvider, create_ses_client
 
 ROLE_ARN = "arn:aws:iam::123456789012:role/test-ses"
@@ -21,7 +22,11 @@ class SesClientTests(unittest.TestCase):
             "was_mailer.ses_client.boto3.Session"
         ) as session_factory:
             client = create_ses_client()
-        session_factory.return_value.client.assert_called_once_with("ses")
+        session_factory.return_value.client.assert_called_once_with("ses", config=ANY)
+        self.assertEqual(
+            session_factory.return_value.client.call_args.kwargs["config"].retries,
+            {"total_max_attempts": 1, "mode": "standard"},
+        )
         self.assertIs(client, session_factory.return_value.client.return_value)
 
     def test_invalid_role_rejected(self) -> None:
@@ -46,7 +51,11 @@ class SesClientTests(unittest.TestCase):
         source_session.client.assert_not_called()
         core_session.return_value.register_component.assert_called_once()
         destination_session.client.assert_called_once_with(
-            "ses", region_name="us-east-1"
+            "ses", region_name="us-east-1", config=ANY
+        )
+        self.assertEqual(
+            destination_session.client.call_args.kwargs["config"].retries,
+            {"total_max_attempts": 1, "mode": "standard"},
         )
 
     def test_credentials_refresh_and_fail_closed(self) -> None:
@@ -83,6 +92,9 @@ class SesClientTests(unittest.TestCase):
         assume_role.assert_called_with(
             RoleArn=ROLE_ARN, RoleSessionName="was-reporting"
         )
+        for client_call in source_session.client.call_args_list:
+            self.assertEqual(client_call.args, ("sts",))
+            self.assertNotIn("config", client_call.kwargs)
 
     def test_missing_source_credentials(self) -> None:
         """Fail clearly rather than creating an unsigned SES client."""

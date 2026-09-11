@@ -1,18 +1,103 @@
 """Tests for legacy-compatible Mustache and LaTeX report rendering."""
 
 # Standard Python Libraries
+from datetime import date
+from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from datetime import date
-from pathlib import Path
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import latex_renderer
 
 
 class LatexRendererTests(unittest.TestCase):
     """Validate deterministic LaTeX rendering and compilation behavior."""
+
+    def test_filename_rejects_tex_syntax_and_control_characters(self) -> None:
+        """Reject filename characters that can escape raw TeX arguments."""
+        for character in (
+            "{",
+            "}",
+            "^",
+            "\n",
+            "\r",
+            "\t",
+            "\\",
+            "/",
+            "%",
+            "$",
+            "&",
+            "#",
+            "~",
+            "[",
+            "]",
+            "\x00",
+            "\x7f",
+            "\x85",
+            "\u2028",
+            "\u2029",
+        ):
+            with self.subTest(character=character), self.assertRaises(ValueError):
+                latex_renderer.validate_filename_component(
+                    "report{}name.csv".format(character)
+                )
+
+    def test_filename_preserves_normal_names_without_renaming(self) -> None:
+        """Retain spaces, underscores, hyphens, dots, letters, and digits."""
+        filename = "Agency Report_2026-09.11.csv"
+        self.assertEqual(latex_renderer.validate_filename_component(filename), filename)
+
+    def test_render_preserves_preescaped_text_and_trusted_latex(self) -> None:
+        """Keep CSV formula prefixes out of PDF text without double escaping."""
+        organization = r"=Research & Analysis_Unit \ Lab ^ ~ &#92;input"
+        escaped_organization = latex_renderer.escape_latex(organization)
+        trusted_block = r"\textbf{Attachment}"
+        with tempfile.TemporaryDirectory() as directory:
+            working_directory = Path(directory)
+            template = working_directory / "report.mustache"
+            template.write_text("{{OrgName}}|{{Count}}|{{PdfFile}}", encoding="utf-8")
+            rendered = latex_renderer.render_latex_template(
+                template,
+                {
+                    "OrgName": escaped_organization,
+                    "Count": "-1",
+                    "PdfFile": trusted_block,
+                },
+                "CUSTOMER",
+                working_directory,
+            ).read_text(encoding="utf-8")
+        self.assertEqual(
+            rendered, "{}|-1|{}".format(escaped_organization, trusted_block)
+        )
+        self.assertTrue(rendered.startswith("=Research"))
+        self.assertIn(r"\&\#92;input", rendered)
+
+    def test_escape_latex_neutralizes_commands_without_reescaping(self) -> None:
+        """Escape input once, including command and superscript characters."""
+        self.assertEqual(
+            latex_renderer.escape_latex(r"\input{private}^~"),
+            r"\textbackslash{}input\{private\}\textasciicircum{}\textasciitilde{}",
+        )
+
+    def test_compile_timeout_stops_before_second_pass(self) -> None:
+        """Propagate a bounded process timeout without attempting another pass."""
+        calls = []
+
+        def command_runner(command, **options) -> None:
+            """Simulate XeLaTeX exceeding its process deadline."""
+            calls.append(command)
+            raise subprocess.TimeoutExpired(command, options["timeout"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            tex_path = Path(directory) / "report.tex"
+            tex_path.write_text("report", encoding="utf-8")
+            with self.assertRaises(subprocess.TimeoutExpired):
+                latex_renderer.compile_latex_pdf(
+                    tex_path, Path(directory), command_runner=command_runner
+                )
+        self.assertEqual(len(calls), 1)
 
     def test_escape_latex_preserves_legacy_mapping(self) -> None:
         """Escape the same special characters as the original generator."""
@@ -88,7 +173,13 @@ class LatexRendererTests(unittest.TestCase):
             """Record the command and create output after the second pass."""
             commands.append((command, options))
             if len(commands) == 2:
-                output_directory = Path(command[1].split("=", 1)[1])
+                output_directory = Path(
+                    next(
+                        argument.split("=", 1)[1]
+                        for argument in command
+                        if argument.startswith("-output-directory=")
+                    )
+                )
                 (output_directory / "CUSTOMER_report_2026-08-27.pdf").write_bytes(
                     b"%PDF-1.4"
                 )
@@ -108,10 +199,16 @@ class LatexRendererTests(unittest.TestCase):
         self.assertEqual(len(commands), 2)
         self.assertEqual(commands[0][0][0], "xelatex")
         self.assertTrue(commands[0][1]["check"])
+        self.assertEqual(commands[0][1]["timeout"], 120.0)
+        self.assertEqual(commands[0][1]["stdin"], subprocess.DEVNULL)
+        self.assertIn("-no-shell-escape", commands[0][0])
+        self.assertIn("-interaction=nonstopmode", commands[0][0])
+        self.assertIn("-halt-on-error", commands[0][0])
         self.assertEqual(pdf_path.name, "CUSTOMER_report_2026-08-27.pdf")
 
     def test_compile_latex_propagates_command_failure(self) -> None:
         """Stop immediately when XeLaTeX reports a compilation failure."""
+
         def command_runner(command, **options) -> None:
             """Simulate a failed XeLaTeX process."""
             raise subprocess.CalledProcessError(1, command)

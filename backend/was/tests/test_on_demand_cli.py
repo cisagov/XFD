@@ -28,21 +28,25 @@ class OnDemandTests(unittest.TestCase):
             "complete_report_run_by_id",
             "fail_report_run_by_id",
             "send_report_run_email",
-            "delete_report",
-            "list_active_assignee_emails_from_db",
         ):
             self.services[name] = self.stack.enter_context(
                 patch.object(on_demand_cli, name)
             )
         self.services["require_env"].return_value = "approved@example.gov"
         self.services["create_on_demand_report_run"].return_value = SimpleNamespace(
-            id=8
+            id=8, generation_token="generation-token"
         )
         self.services["generate_report_output"].return_value = "s3://test/8/report.pdf"
         self.services["send_report_run_email"].return_value = "test-message"
-        self.services["list_active_assignee_emails_from_db"].return_value = [
-            "analyst@example.gov"
-        ]
+        self.stack.enter_context(
+            patch(
+                "was_mailer.message.list_active_assignee_emails_from_db",
+                return_value=["analyst@example.gov"],
+            )
+        )
+        self.stack.enter_context(
+            patch.object(on_demand_cli, "touch_report_run_by_id", return_value=True)
+        )
         self.stack.enter_context(
             patch.object(on_demand_cli, "getenv", return_value="/tmp")
         )
@@ -63,7 +67,10 @@ class OnDemandTests(unittest.TestCase):
             "CROSSFEED", None
         )
         self.services["complete_report_run_by_id"].assert_called_once_with(
-            8, output_path="s3://test/8/report.pdf", artifact_type="pdf"
+            8,
+            output_path="s3://test/8/report.pdf",
+            artifact_type="pdf",
+            generation_token="generation-token",
         )
         self.services["send_report_run_email"].assert_not_called()
 
@@ -91,6 +98,7 @@ class OnDemandTests(unittest.TestCase):
             override_recipients="analyst@example.gov",
             storage_mode="s3",
             allow_held=True,
+            delivery_purpose="analyst",
         )
 
     def test_generation_failure_does_not_email(self) -> None:
@@ -102,7 +110,9 @@ class OnDemandTests(unittest.TestCase):
         self.services["complete_report_run_by_id"].assert_not_called()
         self.services["send_report_run_email"].assert_not_called()
         self.services["fail_report_run_by_id"].assert_called_once_with(
-            8, "RuntimeError occurred during report generation."
+            8,
+            "RuntimeError occurred during report generation.",
+            generation_token="generation-token",
         )
 
     def test_completion_failure_retains_artifact_without_email(self) -> None:
@@ -111,19 +121,15 @@ class OnDemandTests(unittest.TestCase):
         self.assertEqual(on_demand_cli.main(self.arguments(email=True)), 1)
         self.services["send_report_run_email"].assert_not_called()
         self.services["fail_report_run_by_id"].assert_not_called()
-        self.services["delete_report"].assert_not_called()
 
-    def test_expired_lease_removes_uploaded_artifact(self) -> None:
-        """Remove an uploaded report when generation ownership has expired."""
-        self.services["complete_report_run_by_id"].side_effect = (
-            report_runs.ActiveReportOperationError("lease expired")
-        )
+    def test_expired_lease_retains_uploaded_artifact(self) -> None:
+        """Retain the token-specific artifact when generation ownership expires."""
+        self.services[
+            "complete_report_run_by_id"
+        ].side_effect = report_runs.ActiveReportOperationError("lease expired")
 
         self.assertEqual(on_demand_cli.main(self.arguments(email=True)), 1)
 
-        self.services["delete_report"].assert_called_once_with(
-            "s3://test/8/report.pdf"
-        )
         self.services["send_report_run_email"].assert_not_called()
 
     def test_email_failure_preserves_completed_generation(self) -> None:
@@ -235,7 +241,7 @@ class OnDemandClaimTests(unittest.TestCase):
         self.assertEqual(result.id, 8)
         self.assertIn("FOR UPDATE", cursor.execute.call_args_list[0].args[0])
         self.assertEqual(
-            cursor.execute.call_args.args[1],
+            cursor.execute.call_args.args[1][:5],
             ("CROSSFEED", "running", None, None, "held"),
         )
         connection.commit.assert_called_once()
@@ -246,7 +252,8 @@ class OnDemandClaimTests(unittest.TestCase):
             [(False,), None, ("CROSSFEED", None), (8, "CROSSFEED", "running")], 9
         )
         self.assertEqual(result.id, 8)
-        self.assertEqual(cursor.execute.call_args.args[1][-2:], (9, "held"))
+        self.assertEqual(cursor.execute.call_args.args[1][3:5], (9, "held"))
+        self.assertIn("analyst", cursor.execute.call_args.args[1])
 
     def test_held_runs_require_explicit_email_claim(self) -> None:
         """Scheduled mailers cannot race an explicit test-recipient send."""
@@ -254,17 +261,21 @@ class OnDemandClaimTests(unittest.TestCase):
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None
         report_runs.claim_report_run_email(8, connection)
-        self.assertNotIn("held", cursor.execute.call_args.args[1][-1])
+        self.assertNotIn("held", cursor.execute.call_args.args[1][-2])
         report_runs.claim_report_run_email(8, connection, allow_held=True)
-        self.assertIn("held", cursor.execute.call_args.args[1][-1])
+        self.assertIn("held", cursor.execute.call_args.args[1][-2])
 
     def test_failed_explicit_send_stays_held(self) -> None:
         """Prevent failed test emails from entering automated recipient queues."""
         connection = MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
-        cursor.fetchone.return_value = (8,)
+        cursor.fetchone.return_value = (8, None, "analyst")
         report_runs.mark_report_run_email_failed(
-            8, "Delivery failed.", connection, hold_for_manual_retry=True
+            8,
+            "Delivery failed.",
+            connection,
+            hold_for_manual_retry=True,
+            email_claim_token="token",
         )
         self.assertEqual(cursor.execute.call_args.args[1][1], "held")
 

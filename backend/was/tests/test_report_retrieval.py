@@ -1,6 +1,7 @@
 """Tests for WAS Qualys source-data retrieval orchestration."""
 
 # Standard Python Libraries
+from contextlib import ExitStack
 from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
@@ -8,11 +9,269 @@ from unittest.mock import Mock, patch
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import report_retrieval
+from was_reports.utils.operation_lease import (
+    OperationLeaseLostError,
+    operation_heartbeat,
+)
 from was_reports.utils.qualys_config import QualysCredentials
 
 
 class ReportRetrievalTests(unittest.TestCase):
     """Validate the active WAS report retrieval sequence."""
+
+    def test_standalone_names_are_unique_without_persistent_request_keys(
+        self,
+    ) -> None:
+        """Do not reuse a stakeholder-only name for independent local requests."""
+        first = report_retrieval.report_request_name("TAG", None, "XML")
+        second = report_retrieval.report_request_name("TAG", None, "XML")
+        self.assertNotEqual(first, second)
+        self.assertTrue(first.startswith("WAS-TAG-REQUEST-"))
+
+    def test_polling_uncertainty_preserves_reference_for_retry(self) -> None:
+        """Retry with the same ID after timeout or status-persistence failure."""
+        for error in (
+            TimeoutError("poll timeout"),
+            OSError("commit uncertain"),
+        ):
+            with self.subTest(error=type(error).__name__), ExitStack() as stack:
+                stack.enter_context(
+                    patch.object(
+                        report_retrieval.report_data,
+                        "count_webapps",
+                        return_value=35,
+                    )
+                )
+                stack.enter_context(
+                    patch.object(
+                        report_retrieval.report_data,
+                        "get_tag_id",
+                        return_value="tag-1",
+                    )
+                )
+                stack.enter_context(
+                    patch.object(
+                        report_retrieval.report_data,
+                        "get_report_xml",
+                        return_value="<report />",
+                    )
+                )
+                create = stack.enter_context(
+                    patch.object(
+                        report_retrieval.report_data,
+                        "create_webapp_xml_report",
+                    )
+                )
+                delete = stack.enter_context(
+                    patch.object(report_retrieval.report_data, "delete_report")
+                )
+                clear = Mock()
+                waiter = Mock(side_effect=[error, None])
+                arguments = dict(
+                    client=self.client,
+                    stakeholder_tag="TAG",
+                    credentials=self.credentials,
+                    resource_root=self.resource_root,
+                    output_directory=self.output_directory,
+                    python_executable="python3",
+                    existing_xml_report_id="xml-saved",
+                    report_id_clearer=clear,
+                    report_waiter=waiter,
+                )
+                with self.assertRaises(type(error)):
+                    report_retrieval.retrieve_report_source_data(**arguments)
+                source = report_retrieval.retrieve_report_source_data(**arguments)
+                self.assertEqual(source.xml_report_id, "xml-saved")
+                self.assertEqual(waiter.call_count, 2)
+                create.assert_not_called()
+                delete.assert_not_called()
+                clear.assert_not_called()
+
+    def test_cleanup_clears_only_confirmed_deletion(self) -> None:
+        """Retain saved IDs after rejected, missing, or uncertain delete responses."""
+        source = report_retrieval.ReportSourceData(
+            stakeholder_tag="TAG",
+            tag_id="tag-1",
+            web_application_count=35,
+            xml_report_id="xml-saved",
+            report_xml="<report />",
+            detail_pdf_path=None,
+        )
+        for outcome in (True, False, None, TimeoutError("delete uncertain")):
+            with self.subTest(outcome=type(outcome).__name__), ExitStack() as stack:
+                stack.enter_context(
+                    patch.object(
+                        report_retrieval,
+                        "retrieve_report_source_data",
+                        return_value=source,
+                    )
+                )
+                delete = stack.enter_context(
+                    patch.object(report_retrieval.report_data, "delete_report")
+                )
+                clear = Mock()
+                if isinstance(outcome, Exception):
+                    delete.side_effect = outcome
+                else:
+                    delete.return_value = outcome
+                try:
+                    with report_retrieval.managed_report_source_data(
+                        client=self.client,
+                        stakeholder_tag="TAG",
+                        credentials=self.credentials,
+                        resource_root=self.resource_root,
+                        output_directory=self.output_directory,
+                        python_executable="python3",
+                        report_id_clearer=clear,
+                    ):
+                        pass
+                finally:
+                    if outcome is True:
+                        clear.assert_called_once_with("xml", "xml-saved")
+                    else:
+                        clear.assert_not_called()
+                delete.assert_called_once_with(self.client, "xml-saved")
+
+    def test_cleanup_handles_both_reports_and_retains_uncertain_reference(self) -> None:
+        """Clean detail reports after success even if XML deletion is uncertain."""
+        source = report_retrieval.ReportSourceData(
+            stakeholder_tag="TAG",
+            tag_id="tag",
+            web_application_count=1,
+            xml_report_id="xml-id",
+            report_xml="<report />",
+            detail_pdf_path=Path("/detail.pdf"),
+            detail_report_id="detail-id",
+        )
+        for xml_result in (True, TimeoutError("private-payload")):
+            with self.subTest(
+                xml_result=type(xml_result).__name__
+            ), ExitStack() as stack:
+                stack.enter_context(
+                    patch.object(
+                        report_retrieval,
+                        "retrieve_report_source_data",
+                        return_value=source,
+                    )
+                )
+                delete = stack.enter_context(
+                    patch.object(
+                        report_retrieval.report_data,
+                        "delete_report",
+                        side_effect=[xml_result, True],
+                    )
+                )
+                clear = Mock()
+                if isinstance(xml_result, Exception):
+                    captured = stack.enter_context(
+                        self.assertLogs(report_retrieval.LOGGER, level="WARNING")
+                    )
+                with report_retrieval.managed_report_source_data(
+                    client=self.client,
+                    stakeholder_tag="TAG",
+                    credentials=self.credentials,
+                    resource_root=self.resource_root,
+                    output_directory=self.output_directory,
+                    python_executable="python3",
+                    report_id_clearer=clear,
+                ):
+                    delete.assert_not_called()
+                self.assertEqual(delete.call_count, 2)
+                clear.assert_any_call("detail", "detail-id")
+                if xml_result is True:
+                    clear.assert_any_call("xml", "xml-id")
+                else:
+                    clear.assert_called_once_with("detail", "detail-id")
+                    self.assertNotIn("private-payload", " ".join(captured.output))
+
+    def test_cleanup_database_error_does_not_fail_rendered_report(self) -> None:
+        """Keep successful rendering when confirmed deletion cannot be recorded."""
+        source = report_retrieval.ReportSourceData(
+            "TAG", "tag", 35, "xml-id", "<report />", None
+        )
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    report_retrieval, "retrieve_report_source_data", return_value=source
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    report_retrieval.report_data, "delete_report", return_value=True
+                )
+            )
+            clear = Mock(side_effect=OSError("private-sql-payload"))
+            captured = stack.enter_context(
+                self.assertLogs(report_retrieval.LOGGER, level="WARNING")
+            )
+            with report_retrieval.managed_report_source_data(
+                client=self.client,
+                stakeholder_tag="TAG",
+                credentials=self.credentials,
+                resource_root=self.resource_root,
+                output_directory=self.output_directory,
+                python_executable="python3",
+                report_id_clearer=clear,
+            ):
+                pass
+            self.assertNotIn("private-sql-payload", " ".join(captured.output))
+
+    def test_lost_ownership_retains_xml_during_cleanup(self) -> None:
+        """Never delete a Qualys artifact after another worker owns the run."""
+        source = report_retrieval.ReportSourceData(
+            stakeholder_tag="TAG",
+            tag_id="tag-1",
+            web_application_count=35,
+            xml_report_id="xml-1",
+            report_xml="<report />",
+            detail_pdf_path=None,
+        )
+        heartbeat = Mock(side_effect=[True, False])
+        with patch.object(
+            report_retrieval,
+            "retrieve_report_source_data",
+            return_value=source,
+        ):
+            with patch.object(report_retrieval.report_data, "delete_report") as delete:
+                with self.assertRaises(OperationLeaseLostError):
+                    with operation_heartbeat(heartbeat, "test"):
+                        with report_retrieval.managed_report_source_data(
+                            client=self.client,
+                            stakeholder_tag="TAG",
+                            credentials=self.credentials,
+                            resource_root=self.resource_root,
+                            output_directory=self.output_directory,
+                            python_executable="python3",
+                        ):
+                            pass
+                delete.assert_not_called()
+
+    def test_lost_ownership_prevents_report_creation(self) -> None:
+        """Recheck ownership immediately before Qualys report creation."""
+        with patch.object(
+            report_retrieval.report_data, "count_webapps", return_value=35
+        ):
+            with patch.object(
+                report_retrieval.report_data,
+                "get_tag_id",
+                return_value="tag-1",
+            ):
+                with patch.object(
+                    report_retrieval.report_data, "create_webapp_xml_report"
+                ) as create:
+                    with self.assertRaises(OperationLeaseLostError):
+                        with operation_heartbeat(
+                            Mock(side_effect=[True, False]), "test"
+                        ):
+                            report_retrieval.retrieve_report_source_data(
+                                client=self.client,
+                                stakeholder_tag="TAG",
+                                credentials=self.credentials,
+                                resource_root=self.resource_root,
+                                output_directory=self.output_directory,
+                                python_executable="python3",
+                            )
+                    create.assert_not_called()
 
     def setUp(self) -> None:
         """Create shared report retrieval test values."""
@@ -51,6 +310,7 @@ class ReportRetrievalTests(unittest.TestCase):
         detail_downloader = Mock(return_value=Path("/legacy/assets/TAGDetails.pdf"))
         report_waiter = Mock()
 
+        claim = Mock(return_value=True)
         source_data = report_retrieval.retrieve_report_source_data(
             client=self.client,
             stakeholder_tag="TAG",
@@ -59,11 +319,20 @@ class ReportRetrievalTests(unittest.TestCase):
             output_directory=self.output_directory,
             python_executable="python3",
             report_request_key="RUN-17",
+            report_creation_intent_claim=claim,
             detail_downloader=detail_downloader,
             report_waiter=report_waiter,
         )
 
         self.assertEqual(source_data.web_application_count, 34)
+        self.assertEqual(source_data.detail_report_id, "detail-456")
+        for creation, label in (
+            (mock_create_detail_report, "detail"),
+            (mock_create_xml_report, "xml"),
+        ):
+            self.assertEqual(creation.call_args.kwargs["report_request_key"], "RUN-17")
+            self.assertIs(creation.call_args.kwargs["creation_intent_claim"](), True)
+            claim.assert_called_with(label)
         self.assertEqual(source_data.tag_id, "tag-123")
         self.assertEqual(source_data.xml_report_id, "xml-789")
         self.assertEqual(source_data.report_xml, "<WAS_WEBAPP_REPORT />")
@@ -122,6 +391,7 @@ class ReportRetrievalTests(unittest.TestCase):
         )
 
         self.assertIsNone(source_data.detail_pdf_path)
+        self.assertIsNone(source_data.detail_report_id)
         mock_create_detail_report.assert_not_called()
         detail_downloader.assert_not_called()
         report_waiter.assert_called_once_with(
@@ -241,7 +511,7 @@ class ReportRetrievalTests(unittest.TestCase):
     )
     @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
     @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
-    def test_retrieve_source_data_cleans_up_failed_xml_download(
+    def test_retrieve_source_data_retains_failed_xml_download(
         self,
         mock_count_webapps,
         mock_get_tag_id,
@@ -249,7 +519,7 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_get_report_xml,
         mock_delete_report,
     ) -> None:
-        """Delete the temporary Qualys report when XML download fails."""
+        """Retain the Qualys report and saved reference when download fails."""
         mock_count_webapps.return_value = 35
         mock_get_tag_id.return_value = "tag-123"
         mock_create_xml_report.return_value = "xml-789"
@@ -269,8 +539,8 @@ class ReportRetrievalTests(unittest.TestCase):
                 report_waiter=report_waiter,
             )
 
-        mock_delete_report.assert_called_once_with(self.client, "xml-789")
-        report_id_clearer.assert_called_once_with("xml", "xml-789")
+        mock_delete_report.assert_not_called()
+        report_id_clearer.assert_not_called()
         report_waiter.assert_called_once_with(
             client=self.client,
             report_id="xml-789",
@@ -278,12 +548,12 @@ class ReportRetrievalTests(unittest.TestCase):
 
     @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
     @patch("was_reports.reporting.report_retrieval.retrieve_report_source_data")
-    def test_managed_source_data_cleans_up_after_processing_error(
+    def test_managed_source_data_retains_reference_after_processing_error(
         self,
         mock_retrieve_source_data,
         mock_delete_report,
     ) -> None:
-        """Delete the temporary XML report after downstream processing fails."""
+        """Keep a reusable XML reference when downstream processing fails."""
         source_data = report_retrieval.ReportSourceData(
             stakeholder_tag="TAG",
             tag_id="tag-123",
@@ -307,8 +577,8 @@ class ReportRetrievalTests(unittest.TestCase):
             ):
                 raise RuntimeError("transformation failed")
 
-        mock_delete_report.assert_called_once_with(self.client, "xml-789")
-        report_id_clearer.assert_called_once_with("xml", "xml-789")
+        mock_delete_report.assert_not_called()
+        report_id_clearer.assert_not_called()
 
 
 if __name__ == "__main__":

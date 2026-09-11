@@ -2,21 +2,19 @@
 
 # Standard Python Libraries
 import argparse
-from email.headerregistry import Address
-import logging
 from functools import partial
+import logging
 import sys
 
 # Third-Party Libraries
 from was_mailer.email_reports import send_report_run_email
-from was_mailer.message import parse_email_addresses, unique_addresses
+from was_mailer.message import approved_analyst_recipients
 from was_reports.commands.batch_runner import (
     DEFAULT_STAGING_DIRECTORY,
     generate_report_output,
     summarize_report_failure,
 )
 from was_reports.commands.report_generator import validate_stakeholder_tag
-from was_reports.data.assignees import list_active_assignee_emails_from_db
 from was_reports.data.report_runs import (
     ActiveReportOperationError,
     complete_report_run_by_id,
@@ -24,9 +22,8 @@ from was_reports.data.report_runs import (
     fail_report_run_by_id,
     touch_report_run_by_id,
 )
-from was_reports.storage.s3_reports import delete_report
 from was_reports.utils.env import getenv, require_env
-from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.logging_config import configure_logging, exception_details
 from was_reports.utils.operation_lease import operation_heartbeat
 
 LOGGER = logging.getLogger(__name__)
@@ -34,28 +31,7 @@ LOGGER = logging.getLogger(__name__)
 
 def validated_recipients(value: str) -> str:
     """Require explicit recipients configured as active WAS assignees."""
-    recipients = unique_addresses(parse_email_addresses(value))
-    if not recipients:
-        raise ValueError("At least one email recipient is required.")
-    for recipient in recipients:
-        address = Address(addr_spec=recipient)
-        if not address.username or not address.domain:
-            raise ValueError("Recipients must be complete email addresses.")
-    approved_addresses = set()
-    for configured_value in list_active_assignee_emails_from_db():
-        approved_addresses.update(
-            address.lower() for address in parse_email_addresses(configured_value)
-        )
-    unapproved_addresses = [
-        recipient
-        for recipient in recipients
-        if recipient.lower() not in approved_addresses
-    ]
-    if unapproved_addresses:
-        raise ValueError(
-            "On-demand reports may be emailed only to active WAS assignees."
-        )
-    return ",".join(recipients)
+    return ",".join(approved_analyst_recipients(value))
 
 
 def run_on_demand(args: argparse.Namespace) -> int:
@@ -74,11 +50,16 @@ def run_on_demand(args: argparse.Namespace) -> int:
             "Generating report and uploading to S3; Qualys may take several minutes."
         )
         with operation_heartbeat(
-            heartbeat=partial(touch_report_run_by_id, report_run.id),
+            heartbeat=partial(
+                touch_report_run_by_id,
+                report_run.id,
+                generation_token=report_run.generation_token,
+            ),
             operation_name="report run {} generation".format(report_run.id),
         ):
             output_reference = generate_report_output(
                 report_run_id=report_run.id,
+                generation_token=report_run.generation_token,
                 stakeholder_tag=stakeholder_tag,
                 resource_root=args.resource_root,
                 python_executable=sys.executable,
@@ -88,21 +69,19 @@ def run_on_demand(args: argparse.Namespace) -> int:
                 staging_directory=args.staging_directory,
             )
     except Exception as error:
-        fail_report_run_by_id(report_run.id, summarize_report_failure(error))
+        fail_report_run_by_id(
+            report_run.id,
+            summarize_report_failure(error),
+            generation_token=report_run.generation_token,
+        )
         raise
     try:
         complete_report_run_by_id(
-            report_run.id, output_path=output_reference, artifact_type="pdf"
+            report_run.id,
+            output_path=output_reference,
+            artifact_type="pdf",
+            generation_token=report_run.generation_token,
         )
-    except ActiveReportOperationError:
-        try:
-            delete_report(output_reference)
-        except Exception:
-            LOGGER.exception(
-                "Unable to remove expired-lease S3 report for run %s.",
-                report_run.id,
-            )
-        raise
     except Exception:
         LOGGER.error(
             "S3 upload succeeded for run %s but completion could not be recorded. "
@@ -121,6 +100,7 @@ def run_on_demand(args: argparse.Namespace) -> int:
             override_recipients=recipients,
             storage_mode="s3",
             allow_held=True,
+            delivery_purpose="analyst",
         )
         LOGGER.info("SES accepted run %s; message ID: %s.", report_run.id, message_id)
     if args.tracker_id is None:
@@ -166,12 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         run_on_demand(args)
     except ActiveReportOperationError as error:
-        LOGGER.error("On-demand report not started: %s", error)
+        LOGGER.error("On-demand report not started: %s", exception_details(error))
         return 1
     except Exception as error:
         LOGGER.error(
             "On-demand report failed (%s). Inspect its run before retrying.",
-            type(error).__name__,
+            exception_details(error),
         )
         return 1
     return 0

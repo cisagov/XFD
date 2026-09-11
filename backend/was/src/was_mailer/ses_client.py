@@ -1,7 +1,9 @@
 """Create an isolated SES client with refreshable cross-account credentials."""
 
+# Third-Party Libraries
 import boto3
 from botocore.client import BaseClient
+from botocore.config import Config
 from botocore.credentials import (
     AssumeRoleCredentialFetcher,
     CredentialProvider,
@@ -10,7 +12,6 @@ from botocore.credentials import (
 )
 from botocore.exceptions import NoCredentialsError
 from botocore.session import Session
-
 from was_reports.utils.env import getenv
 
 
@@ -45,8 +46,9 @@ def create_ses_client() -> BaseClient:
     """Use an optional SES role, never fall back after an assumption failure."""
     role_arn = (getenv("WAS_SES_ROLE_ARN") or "").strip()
     source_session = boto3.Session()
+    ses_config = Config(retries={"total_max_attempts": 1, "mode": "standard"})
     if not role_arn:
-        return source_session.client("ses")
+        return source_session.client("ses", config=ses_config)
     arn_parts = role_arn.split(":", 5)
     if (
         len(arn_parts) != 6
@@ -65,5 +67,5 @@ def create_ses_client() -> BaseClient:
         CredentialResolver([SesRoleProvider(source_session, role_arn)]),
     )
     return boto3.Session(botocore_session=role_session).client(
-        "ses", region_name=source_session.region_name
+        "ses", region_name=source_session.region_name, config=ses_config
     )

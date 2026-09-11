@@ -45,7 +45,10 @@ class OfflineQualysClient:
 
     def request(self, qualys_request) -> str:
         """Return a valid response containing no Qualys findings."""
-        return "<ServiceResponse><data /></ServiceResponse>"
+        return (
+            "<ServiceResponse><responseCode>SUCCESS</responseCode>"
+            "<hasMoreRecords>false</hasMoreRecords><data /></ServiceResponse>"
+        )
 
 
 def _add_text_element(parent, name: str, value: str):

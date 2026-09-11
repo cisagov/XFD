@@ -3,9 +3,9 @@
 # Standard Python Libraries
 import base64
 import csv
-import logging
 from dataclasses import dataclass
 from itertools import zip_longest
+import logging
 from pathlib import Path
 from typing import List, Sequence, Tuple, Union
 
@@ -16,7 +16,11 @@ from requests.exceptions import HTTPError
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
-from was_reports.reporting.report_transformer import parse_report
+from was_reports.reporting.report_transformer import (
+    csv_row,
+    parse_report,
+    spreadsheet_safe_field,
+)
 
 LINKS_CRAWLED_QID = "150009"
 EMAILS_FOUND_QID = "150054"
@@ -24,6 +28,7 @@ REJECTED_LINKS_QID = "150041"
 SSN_QIDS = ("150034", "150603")
 CREDIT_CARD_QIDS = ("150033", "150080")
 SENSITIVE_FINDING_ENDPOINT = "/search/was/finding"
+MAX_SENSITIVE_FINDING_PAGES = 10000
 UNSUPPORTED_MODULE_MESSAGE = (
     "An error occurred during activation request processing. "
     "Module is not supported for this agent."
@@ -60,18 +65,19 @@ def write_vulnerabilities_by_webapp(
     lines = ["WEBAPP,LEVEL 1,LEVEL 2,LEVEL 3,LEVEL 4,LEVEL 5,TOTAL"]
     for summary in report.xpath("./SUMMARY/SUMMARY_STATS/SUMMARY_STAT"):
         severity_counts = [
-            int(str(summary["LEVEL{}".format(level)]))
-            for level in range(1, 6)
+            int(str(summary["LEVEL{}".format(level)])) for level in range(1, 6)
         ]
         lines.append(
-            "{},{},{},{},{},{},{}".format(
-                str(summary.WEB_APPLICATION),
-                severity_counts[0],
-                severity_counts[1],
-                severity_counts[2],
-                severity_counts[3],
-                severity_counts[4],
-                sum(severity_counts),
+            csv_row(
+                [
+                    str(summary.WEB_APPLICATION),
+                    severity_counts[0],
+                    severity_counts[1],
+                    severity_counts[2],
+                    severity_counts[3],
+                    severity_counts[4],
+                    sum(severity_counts),
+                ]
             )
         )
     _write_lines(asset_directory / filename, lines)
@@ -89,15 +95,15 @@ def write_application_overview(
     lines = ["WEBAPP,URL,SCOPE,DETECTED OS"]
     for web_application in report.xpath("./APPENDIX/WEB_APPLICATION"):
         operating_systems = web_application.xpath("./OPERATING_SYSTEM")
-        operating_system = (
-            str(operating_systems[0]) if operating_systems else "N/A"
-        )
+        operating_system = str(operating_systems[0]) if operating_systems else "N/A"
         lines.append(
-            "{},{},{},{}".format(
-                str(web_application.NAME),
-                str(web_application.URL),
-                str(web_application.SCOPE),
-                operating_system,
+            csv_row(
+                [
+                    str(web_application.NAME),
+                    str(web_application.URL),
+                    str(web_application.SCOPE),
+                    operating_system,
+                ]
             )
         )
     _write_lines(asset_directory / filename, lines)
@@ -116,9 +122,7 @@ def _decoded_information_values(web_application, qid: str) -> List[str]:
         if not encoded_values:
             continue
         decoded_data = base64.b64decode(str(encoded_values[0]))
-        values.extend(
-            line.decode("utf-8") for line in decoded_data.splitlines()
-        )
+        values.extend(line.decode("utf-8") for line in decoded_data.splitlines())
     return values
 
 
@@ -138,10 +142,13 @@ def write_information_attachment(
         lines.extend(
             [
                 "",
-                "{} {}:".format(heading, str(web_application.NAME)),
+                csv_row(["{} {}:".format(heading, str(web_application.NAME))]),
             ]
         )
-        lines.extend(_decoded_information_values(web_application, qid))
+        lines.extend(
+            csv_row([value])
+            for value in _decoded_information_values(web_application, qid)
+        )
     _write_lines(asset_directory / filename, lines)
     return filename
 
@@ -149,6 +156,7 @@ def write_information_attachment(
 def build_sensitive_finding_payload(
     stakeholder_tag: str,
     qids: Sequence[str],
+    last_id: int | None = None,
 ) -> str:
     """Build a Qualys request for active non-false-positive sensitive findings."""
     root = E.ServiceRequest(
@@ -168,27 +176,29 @@ def build_sensitive_finding_payload(
             E.Criteria("FIXED", field="status", operator="NOT EQUALS"),
         ),
     )
+    if last_id is not None:
+        root.find("filters").append(
+            E.Criteria(str(last_id), field="id", operator="GREATER")
+        )
     objectify.deannotate(root, xsi_nil=True, pytype=True, xsi=True)
     return etree.tostring(root).decode()
 
 
 def parse_sensitive_findings(response_xml: str) -> Tuple[List[str], List[str]]:
     """Return links and response payloads from a Qualys finding response."""
-    root = objectify.fromstring(response_xml.encode())
+    root = parse_report(response_xml)
     links: List[str] = []
     responses: List[str] = []
     for finding in root.xpath("./data/Finding"):
         payload_instances = finding.xpath(
             "./resultList/list/Result/payloads/list/PayloadInstance"
         )
-        if not payload_instances:
-            continue
-        payload_instance = payload_instances[0]
-        response_values = payload_instance.xpath("./response")
-        link_values = payload_instance.xpath("./request/link")
-        if response_values and link_values:
-            links.append(str(link_values[0]))
-            responses.append(str(response_values[0]))
+        for payload_instance in payload_instances:
+            response_values = payload_instance.xpath("./response")
+            link_values = payload_instance.xpath("./request/link")
+            if response_values and link_values:
+                links.append(str(link_values[0]))
+                responses.append(str(response_values[0]))
     return links, responses
 
 
@@ -198,14 +208,37 @@ def retrieve_sensitive_findings(
     qids: Sequence[str],
 ) -> Tuple[List[str], List[str]]:
     """Retrieve sensitive findings for one stakeholder and QID collection."""
-    response_xml = client.request(
-        QualysRequest(
-            endpoint=SENSITIVE_FINDING_ENDPOINT,
-            payload=build_sensitive_finding_payload(stakeholder_tag, qids),
-            http_method="POST",
+    links: List[str] = []
+    responses: List[str] = []
+    last_id = None
+    for unused_page in range(MAX_SENSITIVE_FINDING_PAGES):
+        response_xml = client.request(
+            QualysRequest(
+                endpoint=SENSITIVE_FINDING_ENDPOINT,
+                payload=build_sensitive_finding_payload(stakeholder_tag, qids, last_id),
+                http_method="POST",
+            )
         )
-    )
-    return parse_sensitive_findings(response_xml)
+        root = parse_report(response_xml)
+        response_code = root.findtext("responseCode")
+        if response_code is not None and response_code != "SUCCESS":
+            raise RuntimeError("Qualys sensitive finding search was rejected.")
+        page_links, page_responses = parse_sensitive_findings(response_xml)
+        links.extend(page_links)
+        responses.extend(page_responses)
+        has_more = (root.findtext("hasMoreRecords") or "").strip().lower()
+        if has_more == "false":
+            return links, responses
+        if has_more != "true":
+            raise ValueError("Qualys finding pagination flag is invalid.")
+        next_id = root.findtext("lastId")
+        if next_id is None or not next_id.isdecimal():
+            raise ValueError("Qualys finding pagination cursor is missing or invalid.")
+        next_id = int(next_id)
+        if last_id is not None and next_id <= last_id:
+            raise ValueError("Qualys finding pagination cursor did not advance.")
+        last_id = next_id
+    raise RuntimeError("Qualys finding pagination exceeded the safety page limit.")
 
 
 def is_unsupported_module_error(error: HTTPError) -> bool:
@@ -218,14 +251,14 @@ def is_unsupported_module_error(error: HTTPError) -> bool:
     ):
         return False
     try:
-        root = etree.fromstring(response.content)
+        root = etree.fromstring(
+            response.content,
+            parser=etree.XMLParser(resolve_entities=False, no_network=True),
+        )
     except etree.XMLSyntaxError:
         return False
     messages = root.xpath("./responseErrorDetails/errorMessage/text()")
-    return (
-        bool(messages)
-        and str(messages[0]).strip() == UNSUPPORTED_MODULE_MESSAGE
-    )
+    return bool(messages) and str(messages[0]).strip() == UNSUPPORTED_MODULE_MESSAGE
 
 
 def retrieve_sensitive_findings_or_unavailable(
@@ -276,10 +309,8 @@ def write_sensitive_data_attachment(
     output_path = asset_directory / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8", newline="") as output_file:
-        writer = csv.writer(output_file, lineterminator="\n")
-        writer.writerow(
-            ["SSN URL", "SSN FOUND", "", "CC URL", "CREDIT CARD FOUND"]
-        )
+        writer = csv.writer(output_file, lineterminator="\r\n")
+        writer.writerow(["SSN URL", "SSN FOUND", "", "CC URL", "CREDIT CARD FOUND"])
         for ssn_link, ssn_value, card_link, card_value in zip_longest(
             ssn_links,
             ssn_values,
@@ -287,7 +318,12 @@ def write_sensitive_data_attachment(
             card_values,
             fillvalue="",
         ):
-            writer.writerow([ssn_link, ssn_value, "", card_link, card_value])
+            writer.writerow(
+                [
+                    spreadsheet_safe_field(value)
+                    for value in (ssn_link, ssn_value, "", card_link, card_value)
+                ]
+            )
     return filename
 
 

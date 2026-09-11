@@ -3,7 +3,7 @@
 # Standard Python Libraries
 import argparse
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from functools import partial
 import logging
 from pathlib import Path
@@ -22,11 +22,10 @@ from was_mailer.email_reports import (
 # First-Party Libraries
 from was_reports.commands import report_generator
 from was_reports.commands.update_tracker_cli import run_update_tracker
-from was_reports.data.daily_report_tracker import (
-    list_ready_report_candidates_from_db,
-    mark_tracker_report_manual_by_id,
-)
+from was_reports.data.daily_report_tracker import list_ready_report_candidates_from_db
 from was_reports.data.report_runs import (
+    ActiveReportOperationError,
+    ReportRun,
     complete_report_run_by_id,
     create_report_run_for_tag,
     create_report_run_for_tracker,
@@ -40,13 +39,16 @@ from was_reports.qualys.report_data import QualysReportCreationUncertainError
 from was_reports.storage.s3_reports import (
     S3_STORAGE,
     VALID_STORAGE_MODES,
-    delete_report,
     resolve_storage_mode,
     upload_report,
 )
 from was_reports.utils.env import getenv, require_env
-from was_reports.utils.logging_config import configure_logging
-from was_reports.utils.operation_lease import operation_heartbeat
+from was_reports.utils.logging_config import configure_logging, exception_details
+from was_reports.utils.operation_lease import (
+    OperationLeaseLostError,
+    check_operation_ownership,
+    operation_heartbeat,
+)
 from was_reports.utils.outputs import expected_pdf_output_path
 
 LOGGER = logging.getLogger(__name__)
@@ -72,7 +74,10 @@ def current_epoch_seconds() -> int:
 def summarize_report_failure(exception: Exception) -> str:
     """Return a safe report failure summary for database storage."""
     if isinstance(exception, QualysReportCreationUncertainError):
-        return str(exception)
+        return (
+            "Qualys report creation outcome is uncertain; reconcile before retrying. "
+            "{}".format(exception_details(exception))
+        )
 
     if isinstance(exception, subprocess.CalledProcessError):
         return "Report generation failed with exit code {}.".format(
@@ -82,7 +87,26 @@ def summarize_report_failure(exception: Exception) -> str:
     if isinstance(exception, FileNotFoundError):
         return "Required report file was not found."
 
-    return "{} occurred during report generation.".format(type(exception).__name__)
+    return "{} occurred during report generation.".format(exception_details(exception))
+
+
+def record_generation_failure(
+    report_run: ReportRun, failure_summary: str, error: Exception
+) -> None:
+    """Record failure only while the original generation claim remains owned."""
+    if isinstance(error, (ActiveReportOperationError, OperationLeaseLostError)):
+        return
+    try:
+        fail_report_run_by_id(
+            report_run_id=report_run.id,
+            error_message=failure_summary,
+            generation_token=report_run.generation_token,
+        )
+    except Exception:
+        LOGGER.error(
+            "Unable to persist generation failure for run %s; retaining artifacts.",
+            report_run.id,
+        )
 
 
 def build_report_arguments(
@@ -92,6 +116,7 @@ def build_report_arguments(
     output_directory: str,
     python_executable: str,
     create_missing_password: bool,
+    generation_token: str,
 ) -> List[str]:
     """Build arguments for one WAS report generation call."""
     arguments = [
@@ -99,6 +124,8 @@ def build_report_arguments(
         stakeholder_tag,
         "--report-run-id",
         str(report_run_id),
+        "--generation-token",
+        generation_token,
         "--resource-root",
         resource_root,
         "--output-directory",
@@ -122,9 +149,14 @@ def generate_report_output(
     output_directory: str,
     storage_mode: str,
     staging_directory: str,
+    generation_token: str,
 ) -> str:
     """Generate one report and return its durable output reference."""
-    report_date = date.today()
+    check_operation_ownership()
+    if not touch_report_run_by_id(report_run_id, generation_token=generation_token):
+        raise OperationLeaseLostError("WAS generation ownership was lost.")
+    current_time = datetime.now(timezone.utc)
+    report_date = current_time.date()
     if storage_mode == S3_STORAGE:
         staging_root = Path(staging_directory)
         staging_root.mkdir(parents=True, exist_ok=True)
@@ -134,34 +166,50 @@ def generate_report_output(
         ) as run_directory:
             report_arguments = build_report_arguments(
                 report_run_id=report_run_id,
+                generation_token=generation_token,
                 stakeholder_tag=stakeholder_tag,
                 resource_root=resource_root,
                 output_directory=run_directory,
                 python_executable=python_executable,
                 create_missing_password=create_missing_password,
             )
-            report_generator.main(report_arguments)
+            check_operation_ownership()
+            report_generator.main(report_arguments, current_time=current_time)
             local_output_path = expected_pdf_output_path(
                 stakeholder_tag=stakeholder_tag,
                 output_directory=run_directory,
                 report_date=report_date,
             )
+            check_operation_ownership()
+            if not touch_report_run_by_id(
+                report_run_id, generation_token=generation_token
+            ):
+                raise OperationLeaseLostError("WAS generation ownership was lost.")
+            unique_path = local_output_path.with_name(
+                "{}-{}.pdf".format(local_output_path.stem, generation_token)
+            )
+            local_output_path.rename(unique_path)
             return upload_report(
-                report_path=local_output_path,
+                report_path=unique_path,
                 stakeholder_tag=stakeholder_tag,
                 report_date=report_date,
                 report_run_id=report_run_id,
             )
 
+    output_directory = str(
+        Path(output_directory) / "{}-{}".format(report_run_id, generation_token)
+    )
     report_arguments = build_report_arguments(
         report_run_id=report_run_id,
+        generation_token=generation_token,
         stakeholder_tag=stakeholder_tag,
         resource_root=resource_root,
         output_directory=output_directory,
         python_executable=python_executable,
         create_missing_password=create_missing_password,
     )
-    report_generator.main(report_arguments)
+    check_operation_ownership()
+    report_generator.main(report_arguments, current_time=current_time)
     return str(
         expected_pdf_output_path(
             stakeholder_tag=stakeholder_tag,
@@ -206,14 +254,19 @@ def run_due_reports(
                 stakeholder.next_scheduled,
             )
             continue
-        uploaded_reference = None
+        completion_attempted = False
         try:
             with operation_heartbeat(
-                heartbeat=partial(touch_report_run_by_id, report_run.id),
+                heartbeat=partial(
+                    touch_report_run_by_id,
+                    report_run.id,
+                    generation_token=report_run.generation_token,
+                ),
                 operation_name="report run {} generation".format(report_run.id),
             ):
                 output_reference = generate_report_output(
                     report_run_id=report_run.id,
+                    generation_token=report_run.generation_token,
                     stakeholder_tag=stakeholder.tag,
                     resource_root=resource_root,
                     python_executable=python_executable,
@@ -222,29 +275,24 @@ def run_due_reports(
                     storage_mode=resolved_storage_mode,
                     staging_directory=staging_directory,
                 )
-            if resolved_storage_mode == S3_STORAGE:
-                uploaded_reference = output_reference
+            completion_attempted = True
             complete_report_run_by_id(
                 report_run.id,
+                generation_token=report_run.generation_token,
                 output_path=output_reference,
                 artifact_type="pdf",
             )
         except Exception as exception:
             failed_count += 1
             failure_summary = summarize_report_failure(exception)
-            if uploaded_reference:
-                try:
-                    delete_report(uploaded_reference)
-                except Exception:
-                    LOGGER.exception(
-                        "Unable to remove orphaned WAS S3 report for run id %s",
-                        report_run.id,
-                    )
-            fail_report_run_by_id(
-                report_run_id=report_run.id,
-                error_message=failure_summary,
-            )
-            LOGGER.exception(
+            if not completion_attempted:
+                record_generation_failure(report_run, failure_summary, exception)
+            else:
+                LOGGER.error(
+                    "Report completion is uncertain for run %s; retaining artifacts.",
+                    report_run.id,
+                )
+            LOGGER.error(
                 "WAS report generation failed for stakeholder tag %s",
                 stakeholder.tag,
             )
@@ -306,7 +354,7 @@ def run_recent_scan_reports(
                     sent_count += 1
             except Exception:
                 failed_count += 1
-                LOGGER.exception(
+                LOGGER.error(
                     "Manual WAS report email retry failed for tracker row %s",
                     candidate.id,
                 )
@@ -331,6 +379,7 @@ def run_recent_scan_reports(
                 complete_report_run_by_id(
                     report_run.id,
                     artifact_type="notification",
+                    generation_token=report_run.generation_token,
                 )
                 LOGGER.info(
                     "Tracker row %s requires a %s notification without a PDF.",
@@ -340,21 +389,19 @@ def run_recent_scan_reports(
                 if send_email:
                     message_id = send_report_run_email(
                         report_run_id=report_run.id,
-                        source_email=(
-                            source_email or require_env("WAS_EMAIL_SOURCE")
-                        ),
+                        source_email=(source_email or require_env("WAS_EMAIL_SOURCE")),
                         override_recipients=test_recipients,
                         dry_run=dry_run_email,
                     )
                     if message_id or dry_run_email:
                         sent_count += 1
-            except Exception as exception:
+            except Exception:
                 failed_count += 1
-                fail_report_run_by_id(
-                    report_run_id=report_run.id,
-                    error_message=summarize_report_failure(exception),
+                LOGGER.error(
+                    "Notification completion or delivery is uncertain for run %s.",
+                    report_run.id,
                 )
-                LOGGER.exception(
+                LOGGER.error(
                     "WAS no-report notification failed for tracker row %s",
                     candidate.id,
                 )
@@ -362,14 +409,19 @@ def run_recent_scan_reports(
                     raise
             continue
 
-        uploaded_reference = None
+        completion_attempted = False
         try:
             with operation_heartbeat(
-                heartbeat=partial(touch_report_run_by_id, report_run.id),
+                heartbeat=partial(
+                    touch_report_run_by_id,
+                    report_run.id,
+                    generation_token=report_run.generation_token,
+                ),
                 operation_name="report run {} generation".format(report_run.id),
             ):
                 output_reference = generate_report_output(
                     report_run_id=report_run.id,
+                    generation_token=report_run.generation_token,
                     stakeholder_tag=candidate.tag,
                     resource_root=resource_root,
                     python_executable=python_executable,
@@ -378,10 +430,10 @@ def run_recent_scan_reports(
                     storage_mode=resolved_storage_mode,
                     staging_directory=staging_directory,
                 )
-            if resolved_storage_mode == S3_STORAGE:
-                uploaded_reference = output_reference
+            completion_attempted = True
             complete_report_run_by_id(
                 report_run.id,
+                generation_token=report_run.generation_token,
                 output_path=output_reference,
                 artifact_type="pdf",
             )
@@ -389,23 +441,14 @@ def run_recent_scan_reports(
         except Exception as exception:
             failed_count += 1
             failure_summary = summarize_report_failure(exception)
-            if uploaded_reference:
-                try:
-                    delete_report(uploaded_reference)
-                except Exception:
-                    LOGGER.exception(
-                        "Unable to remove orphaned WAS S3 report for run id %s",
-                        report_run.id,
-                    )
-            fail_report_run_by_id(
-                report_run_id=report_run.id,
-                error_message=failure_summary,
-            )
-            mark_tracker_report_manual_by_id(
-                candidate.id,
-                error_message=failure_summary,
-            )
-            LOGGER.exception(
+            if not completion_attempted:
+                record_generation_failure(report_run, failure_summary, exception)
+            else:
+                LOGGER.error(
+                    "Report completion is uncertain for run %s; retaining artifacts.",
+                    report_run.id,
+                )
+            LOGGER.error(
                 "WAS report generation failed for tracker row %s and tag %s",
                 candidate.id,
                 candidate.tag,
@@ -426,7 +469,7 @@ def run_recent_scan_reports(
                     sent_count += 1
             except Exception:
                 failed_count += 1
-                LOGGER.exception(
+                LOGGER.error(
                     "WAS report email failed for tracker row %s and run id %s",
                     candidate.id,
                     report_run.id,

@@ -7,7 +7,9 @@ from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import sys
+from uuid import uuid4
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.utils.env import getenv
 
@@ -18,6 +20,55 @@ DEFAULT_RETENTION_DAYS = 14
 HANDLER_MARKER = "was_reporting_handler"
 LOG_FILENAME_PREFIX = "was-reporting-"
 _CONFIGURED_LOG_PATH: Path | None = None
+
+
+def exception_details(error: Exception) -> str:
+    """Describe failures without logging SQL values, URLs, or response bodies."""
+    details = [type(error).__name__]
+    sqlstate = getattr(error, "pgcode", None)
+    if isinstance(sqlstate, str) and sqlstate.isalnum():
+        details.append("SQLSTATE={}".format(sqlstate))
+    diagnostics = getattr(error, "diag", None)
+    if sqlstate == "42703" and not getattr(diagnostics, "column_name", None):
+        primary = getattr(diagnostics, "message_primary", "") or ""
+        if primary.startswith('column "'):
+            column_name = primary.split('"', 2)[1]
+            if column_name and all(
+                character.isalnum() or character in "_." for character in column_name
+            ):
+                details.append("column_name={}".format(column_name[:128]))
+    for field_name in ("table_name", "column_name", "constraint_name"):
+        value = getattr(diagnostics, field_name, None)
+        if (
+            isinstance(value, str)
+            and value
+            and all(character.isalnum() or character == "_" for character in value)
+        ):
+            details.append("{}={}".format(field_name, value[:128]))
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if isinstance(status_code, int):
+        details.append("HTTP={}".format(status_code))
+    return "; ".join(details)
+
+
+class PrivateRotatingFileHandler(RotatingFileHandler):
+    """Keep newly created log files private, including after rotation."""
+
+    def _open(self):
+        """Open a log with owner-only permissions without changing the umask."""
+
+        def private_opener(path: str, flags: int) -> int:
+            """Create a private file descriptor for the logging stream."""
+            return os.open(path, flags, 0o600)
+
+        return open(
+            self.baseFilename,
+            self.mode,
+            encoding=self.encoding,
+            errors=self.errors,
+            opener=private_opener,
+        )
 
 
 def positive_integer(name: str, default: int) -> int:
@@ -56,9 +107,7 @@ def configure_logging() -> Path | None:
     global _CONFIGURED_LOG_PATH
 
     root_logger = logging.getLogger()
-    if any(
-        getattr(handler, HANDLER_MARKER, False) for handler in root_logger.handlers
-    ):
+    if any(getattr(handler, HANDLER_MARKER, False) for handler in root_logger.handlers):
         return _CONFIGURED_LOG_PATH
 
     formatter = logging.Formatter(
@@ -85,12 +134,14 @@ def configure_logging() -> Path | None:
         )
         remove_expired_logs(log_directory, retention_days)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        log_path = log_directory / "{}{}-{}.log".format(
+        log_path = log_directory / "{}{}-{}-{}.log".format(
             LOG_FILENAME_PREFIX,
             timestamp,
             os.getpid(),
+            uuid4().hex[:12],
         )
-        file_handler = RotatingFileHandler(
+        log_path.touch(mode=0o600, exist_ok=False)
+        file_handler = PrivateRotatingFileHandler(
             filename=log_path,
             maxBytes=positive_integer(
                 "WAS_LOG_MAX_BYTES",

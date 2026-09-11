@@ -1,6 +1,8 @@
 """Tests for the WAS Qualys client boundary."""
 
 # Standard Python Libraries
+from contextlib import redirect_stdout
+from io import StringIO
 import unittest
 from unittest.mock import patch
 
@@ -56,6 +58,20 @@ def http_error(status_code: int, retry_after: str = "") -> requests.HTTPError:
 
 class QualysClientTests(unittest.TestCase):
     """Validate legacy-compatible Qualys request behavior."""
+
+    @patch("requests.Session.post")
+    def test_http_error_does_not_reach_connector_payload_logging(
+        self, mock_post
+    ) -> None:
+        """Raise at the session boundary before Qualys prints bodies or headers."""
+        response = requests.Response()
+        response.status_code = 403
+        response._content = b"sensitive scanner response"
+        mock_post.return_value = response
+        output = StringIO()
+        with redirect_stdout(output), self.assertRaises(requests.HTTPError):
+            TimeoutSession(10).post("https://qualys.example/test")
+        self.assertEqual(output.getvalue(), "")
 
     def test_request_without_payload_uses_endpoint_only(self) -> None:
         """Call the legacy connection with only an endpoint."""
@@ -193,6 +209,18 @@ class QualysClientTests(unittest.TestCase):
         with self.assertRaises(requests.HTTPError):
             client.request(QualysRequest(endpoint="/search/was/webapp"))
 
+        self.assertEqual(len(connection.calls), 1)
+
+    def test_tls_error_is_not_retried(self) -> None:
+        """Reject TLS configuration failures instead of repeatedly contacting Qualys."""
+        connection = FakeQualysConnection(
+            [requests.exceptions.SSLError("invalid trust")]
+        )
+        client = QualysClient(
+            connection, sleep_function=lambda seconds: self.fail("retry")
+        )
+        with self.assertRaises(requests.exceptions.SSLError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
         self.assertEqual(len(connection.calls), 1)
 
     def test_retry_safe_classification_allows_explicit_override(self) -> None:

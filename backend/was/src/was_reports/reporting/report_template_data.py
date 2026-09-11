@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Mapping, Optional, Set, Union
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import latex_renderer, report_metrics
 from was_reports.reporting.report_artifacts import ReportArtifactResult
@@ -94,7 +95,9 @@ def _detail_pdf_block(
 \\newline
 \\attachfile[appearance=false,mimetype=application/pdf,icon=Paperclip,ucfilespec=assets/{escaped}]{{assets/{filename}}}
 {escaped}: Detailed PDF Report of all findings.
-""".format(escaped=escaped_filename, filename=safe_filename)
+""".format(
+        escaped=escaped_filename, filename=safe_filename
+    )
 
 
 def _artifact_fields(artifacts: TemplateArtifactInputs) -> Dict[str, str]:
@@ -120,9 +123,7 @@ def validate_template_data(template_data: Mapping[str, object]) -> None:
     missing_fields = REQUIRED_TEMPLATE_FIELDS.difference(template_data)
     if missing_fields:
         raise ValueError(
-            "Missing WAS template fields: {}.".format(
-                ", ".join(sorted(missing_fields))
-            )
+            "Missing WAS template fields: {}.".format(", ".join(sorted(missing_fields)))
         )
 
 
@@ -137,7 +138,7 @@ def find_template_fields(template_text: str) -> Set[str]:
         field_end = template_text.find(">>", field_start + 2)
         if field_end < 0:
             return fields
-        field_name = template_text[field_start + 2:field_end].strip()
+        field_name = template_text[field_start + 2 : field_end].strip()
         if field_name:
             fields.add(field_name)
         search_position = field_end + 2
@@ -151,27 +152,28 @@ def build_template_data(
     finding_ages: FindingAgeInputs,
     web_application_count: int,
     current_time: datetime,
+    finding_metrics: report_metrics.FindingMetrics | None = None,
 ) -> Dict[str, str]:
     """Build every field required by the legacy NEW_BIG Mustache template."""
     summary = report_metrics.calculate_summary_metrics(report_xml)
-    findings = report_metrics.calculate_finding_metrics(report_xml, current_time)
+    findings = finding_metrics
+    if findings is None:
+        findings = report_metrics.calculate_finding_metrics(report_xml, current_time)
     severity_totals = report_metrics.calculate_severity_totals(report_xml)
     escaped_organization_name = latex_renderer.escape_latex(organization_name)
-    critical_age = str(finding_ages.critical_days)
-    urgent_age = str(finding_ages.urgent_days)
+    critical_age = latex_renderer.escape_latex(finding_ages.critical_days)
+    urgent_age = latex_renderer.escape_latex(finding_ages.urgent_days)
 
     template_data = {
-        "StartDate": summary.start_date,
-        "SecurityRisk": summary.security_risk,
-        "TotInfo": summary.total_information_findings,
-        "NumApps": summary.web_application_count,
+        "StartDate": latex_renderer.escape_latex(summary.start_date),
+        "SecurityRisk": latex_renderer.escape_latex(summary.security_risk),
+        "TotInfo": latex_renderer.escape_latex(summary.total_information_findings),
+        "NumApps": latex_renderer.escape_latex(summary.web_application_count),
         "RiskColor": summary.risk_color,
-        "Sensitive": summary.sensitive_content_count,
+        "Sensitive": latex_renderer.escape_latex(summary.sensitive_content_count),
         "SensitiveColor": summary.sensitive_color,
         "OrgName": escaped_organization_name,
-        "NameLen": latex_renderer.organization_name_width(
-            escaped_organization_name
-        ),
+        "NameLen": latex_renderer.organization_name_width(escaped_organization_name),
         "OrgTag": latex_renderer.escape_latex(stakeholder_tag),
         "PathDisc": str(findings.group_counts["Path Disclosure"]),
         "InfoDisc": str(findings.group_counts["Information Disclosure"]),

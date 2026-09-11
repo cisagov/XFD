@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 # Third-Party Libraries
 from psycopg2 import sql
+from was_reports.data.daily_report_tracker import record_tracker_digest_failure
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -42,6 +44,7 @@ class ReportRun:
     status: str
     output_path: str | None = None
     artifact_type: str | None = None
+    generation_token: str | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,8 @@ class ReportRunEmail:
     qualys_error: str | None = None
     last_scanned: int | None = None
     next_scheduled: int | None = None
+    email_claim_token: str | None = None
+    delivery_purpose: str = "customer"
 
 
 @dataclass(frozen=True)
@@ -148,33 +153,104 @@ def get_qualys_report_polling_state_by_id(
         close(conn)
 
 
+def claim_qualys_report_creation(
+    report_run_id: int,
+    artifact_label: str,
+    conn: connection,
+    *,
+    generation_token: str,
+) -> bool:
+    """Commit first creation intent, preserving uncertainty across retries.
+
+    Legacy NULL status cannot prove whether a pre-upgrade create was attempted.
+    Such runs require operator reconciliation before enabling retries.
+    """
+    id_column, status_column, _ = qualys_report_columns(artifact_label)
+    query = sql.SQL(
+        """
+        UPDATE was_report_runs
+        SET {status_column} = 'CREATE_REQUESTED', updated_at = NOW()
+        WHERE id = %s AND status = %s AND generation_token = %s
+          AND {status_column} IS NULL AND {id_column} IS NULL
+        RETURNING id
+        """
+    ).format(
+        status_column=sql.Identifier(status_column),
+        id_column=sql.Identifier(id_column),
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (report_run_id, RUNNING, generation_token))
+            claimed = cursor.fetchone() is not None
+            if not claimed:
+                cursor.execute(
+                    """
+                    SELECT id FROM was_report_runs
+                    WHERE id = %s AND status = %s AND generation_token = %s
+                    """,
+                    (report_run_id, RUNNING, generation_token),
+                )
+                if cursor.fetchone() is None:
+                    raise ActiveReportOperationError(
+                        "WAS generation ownership was lost."
+                    )
+            conn.commit()
+            return claimed
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def claim_qualys_report_creation_by_run_id(
+    report_run_id: int,
+    artifact_label: str,
+    *,
+    generation_token: str,
+) -> bool:
+    """Claim creation intent using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return claim_qualys_report_creation(
+            report_run_id,
+            artifact_label,
+            conn,
+            generation_token=generation_token,
+        )
+    finally:
+        close(conn)
+
+
 def record_qualys_report_id(
     report_run_id: int,
     artifact_label: str,
     report_id: str,
     conn: connection,
+    *,
+    generation_token: str,
 ) -> None:
     """Persist one Qualys report ID before status polling begins."""
-    id_column, status_column, polled_column = qualys_report_columns(artifact_label)
+    id_column, _, polled_column = qualys_report_columns(artifact_label)
     query = sql.SQL(
         """
         UPDATE was_report_runs
         SET {id_column} = %s,
-            {status_column} = NULL,
             {polled_column} = NULL,
             updated_at = NOW()
         WHERE id = %s
           AND status = %s
+          AND generation_token = %s
         RETURNING id
         """
     ).format(
         id_column=sql.Identifier(id_column),
-        status_column=sql.Identifier(status_column),
         polled_column=sql.Identifier(polled_column),
     )
     try:
         with conn.cursor() as cursor:
-            cursor.execute(query, (report_id, report_run_id, RUNNING))
+            cursor.execute(query, (report_id, report_run_id, RUNNING, generation_token))
             if cursor.fetchone() is None:
                 raise ActiveReportOperationError(
                     "Report run {} no longer owns the generation lease.".format(
@@ -191,6 +267,8 @@ def record_qualys_report_id_by_run_id(
     report_run_id: int,
     artifact_label: str,
     report_id: str,
+    *,
+    generation_token: str,
 ) -> None:
     """Persist a Qualys report ID using a managed database connection."""
     # Third-Party Libraries
@@ -198,7 +276,13 @@ def record_qualys_report_id_by_run_id(
 
     conn = connect()
     try:
-        record_qualys_report_id(report_run_id, artifact_label, report_id, conn)
+        record_qualys_report_id(
+            report_run_id,
+            artifact_label,
+            report_id,
+            conn,
+            generation_token=generation_token,
+        )
     finally:
         close(conn)
 
@@ -208,6 +292,8 @@ def clear_qualys_report_id(
     artifact_label: str,
     report_id: str,
     conn: connection,
+    *,
+    generation_token: str,
 ) -> None:
     """Clear a Qualys report ID after its temporary report is deleted."""
     id_column, status_column, polled_column = qualys_report_columns(artifact_label)
@@ -220,6 +306,7 @@ def clear_qualys_report_id(
             updated_at = NOW()
         WHERE id = %s
           AND status = %s
+          AND generation_token = %s
           AND {id_column} = %s
         RETURNING id
         """
@@ -230,7 +317,7 @@ def clear_qualys_report_id(
     )
     try:
         with conn.cursor() as cursor:
-            cursor.execute(query, (report_run_id, RUNNING, report_id))
+            cursor.execute(query, (report_run_id, RUNNING, generation_token, report_id))
             if cursor.fetchone() is None:
                 raise ActiveReportOperationError(
                     "Report run {} no longer owns Qualys report {}.".format(
@@ -248,6 +335,8 @@ def clear_qualys_report_id_by_run_id(
     report_run_id: int,
     artifact_label: str,
     report_id: str,
+    *,
+    generation_token: str,
 ) -> None:
     """Clear a Qualys report ID using a managed database connection."""
     # Third-Party Libraries
@@ -260,6 +349,7 @@ def clear_qualys_report_id_by_run_id(
             artifact_label,
             report_id,
             conn,
+            generation_token=generation_token,
         )
     finally:
         close(conn)
@@ -270,6 +360,8 @@ def record_qualys_report_status(
     artifact_label: str,
     status: str,
     conn: connection,
+    *,
+    generation_token: str,
 ) -> None:
     """Persist the latest status observed while polling a Qualys report."""
     _, status_column, polled_column = qualys_report_columns(artifact_label)
@@ -281,6 +373,7 @@ def record_qualys_report_status(
             updated_at = NOW()
         WHERE id = %s
           AND status = %s
+          AND generation_token = %s
         RETURNING id
         """
     ).format(
@@ -289,7 +382,7 @@ def record_qualys_report_status(
     )
     try:
         with conn.cursor() as cursor:
-            cursor.execute(query, (status, report_run_id, RUNNING))
+            cursor.execute(query, (status, report_run_id, RUNNING, generation_token))
             if cursor.fetchone() is None:
                 raise ActiveReportOperationError(
                     "Report run {} no longer owns the generation lease.".format(
@@ -306,6 +399,8 @@ def record_qualys_report_status_by_run_id(
     report_run_id: int,
     artifact_label: str,
     status: str,
+    *,
+    generation_token: str,
 ) -> None:
     """Persist a Qualys polling status using a managed connection."""
     # Third-Party Libraries
@@ -313,7 +408,13 @@ def record_qualys_report_status_by_run_id(
 
     conn = connect()
     try:
-        record_qualys_report_status(report_run_id, artifact_label, status, conn)
+        record_qualys_report_status(
+            report_run_id,
+            artifact_label,
+            status,
+            conn,
+            generation_token=generation_token,
+        )
     finally:
         close(conn)
 
@@ -355,47 +456,38 @@ def recover_stale_report_operations(conn: connection) -> tuple[int, int]:
                 WITH stale_runs AS (
                     UPDATE was_report_runs
                     SET status = %s,
+                        generation_token = NULL,
                         completed_at = NOW(),
                         error_message = %s,
                         updated_at = NOW()
                     WHERE status = %s
                       AND updated_at < NOW() - %s
-                    RETURNING id, source_tracker_id
-                ),
-                updated_trackers AS (
-                    UPDATE was_daily_report_tracker AS tracker
-                    SET report_scan_notes = CASE
-                            WHEN NULLIF(BTRIM(tracker.report_scan_notes), '') IS NULL
-                            THEN %s
-                            ELSE tracker.report_scan_notes
-                        END,
-                        updated_at = NOW()
-                    FROM stale_runs
-                    WHERE tracker.id = stale_runs.source_tracker_id
-                    RETURNING tracker.id
+                    RETURNING id, source_tracker_id, delivery_purpose
                 )
-                SELECT COUNT(*) FROM stale_runs
+                SELECT COUNT(*), ARRAY_AGG(source_tracker_id) FILTER (
+                    WHERE delivery_purpose = 'customer' AND source_tracker_id IS NOT NULL
+                ) FROM stale_runs
                 """,
                 (
                     FAILED,
                     "Report generation claim expired before completion.",
                     RUNNING,
                     generation_timeout,
-                    "MANUAL: report generation claim expired before completion.",
                 ),
             )
-            generation_count = cursor.fetchone()[0]
+            generation_count, generation_tracker_ids = cursor.fetchone()
             cursor.execute(
                 """
                 UPDATE was_report_runs
                 SET email_status = %s,
                     email_error = %s,
+                    email_claim_token = NULL,
                     email_claimed_at = NULL,
                     updated_at = NOW()
                 WHERE email_status = %s
                   AND email_claimed_at IS NOT NULL
                   AND email_claimed_at < NOW() - %s
-                RETURNING id
+                RETURNING id, source_tracker_id, delivery_purpose
                 """,
                 (
                     EMAIL_HELD,
@@ -404,7 +496,25 @@ def recover_stale_report_operations(conn: connection) -> tuple[int, int]:
                     email_timeout,
                 ),
             )
-            email_count = len(cursor.fetchall())
+            email_rows = cursor.fetchall()
+            email_count = len(email_rows)
+            for tracker_id in sorted(set(generation_tracker_ids or [])):
+                record_tracker_digest_failure(
+                    tracker_id,
+                    conn,
+                    "Report generation lease expired before completion.",
+                )
+            email_tracker_ids = {
+                row[1]
+                for row in email_rows
+                if row[1] is not None and row[2] == "customer"
+            }
+            for tracker_id in sorted(email_tracker_ids):
+                record_tracker_digest_failure(
+                    tracker_id,
+                    conn,
+                    "Email delivery lease expired; verify SES delivery before retrying.",
+                )
             conn.commit()
     except Exception:
         conn.rollback()
@@ -432,7 +542,12 @@ def recover_stale_report_operations_in_db() -> tuple[int, int]:
         close(conn)
 
 
-def touch_report_run(report_run_id: int, conn: connection) -> bool:
+def touch_report_run(
+    report_run_id: int,
+    conn: connection,
+    *,
+    generation_token: str,
+) -> bool:
     """Refresh an active report-generation lease."""
     try:
         with conn.cursor() as cursor:
@@ -442,9 +557,10 @@ def touch_report_run(report_run_id: int, conn: connection) -> bool:
                 SET updated_at = NOW()
                 WHERE id = %s
                   AND status = %s
+          AND generation_token = %s
                 RETURNING id
                 """,
-                (report_run_id, RUNNING),
+                (report_run_id, RUNNING, generation_token),
             )
             refreshed = cursor.fetchone() is not None
             conn.commit()
@@ -454,7 +570,11 @@ def touch_report_run(report_run_id: int, conn: connection) -> bool:
     return refreshed
 
 
-def touch_report_run_by_id(report_run_id: int) -> bool:
+def touch_report_run_by_id(
+    report_run_id: int,
+    *,
+    generation_token: str,
+) -> bool:
     """Refresh a report-generation lease using a managed connection."""
     # First-Party Libraries
     # Third-Party Libraries
@@ -462,12 +582,21 @@ def touch_report_run_by_id(report_run_id: int) -> bool:
 
     conn = connect()
     try:
-        return touch_report_run(report_run_id=report_run_id, conn=conn)
+        return touch_report_run(
+            report_run_id=report_run_id,
+            conn=conn,
+            generation_token=generation_token,
+        )
     finally:
         close(conn)
 
 
-def touch_report_email_claim(report_run_id: int, conn: connection) -> bool:
+def touch_report_email_claim(
+    report_run_id: int,
+    conn: connection,
+    *,
+    email_claim_token: str,
+) -> bool:
     """Refresh an active report-email delivery lease."""
     try:
         with conn.cursor() as cursor:
@@ -478,9 +607,10 @@ def touch_report_email_claim(report_run_id: int, conn: connection) -> bool:
                     updated_at = NOW()
                 WHERE id = %s
                   AND email_status = %s
+                  AND email_claim_token = %s
                 RETURNING id
                 """,
-                (report_run_id, EMAIL_SENDING),
+                (report_run_id, EMAIL_SENDING, email_claim_token),
             )
             refreshed = cursor.fetchone() is not None
             conn.commit()
@@ -490,7 +620,11 @@ def touch_report_email_claim(report_run_id: int, conn: connection) -> bool:
     return refreshed
 
 
-def touch_report_email_claim_by_id(report_run_id: int) -> bool:
+def touch_report_email_claim_by_id(
+    report_run_id: int,
+    *,
+    email_claim_token: str,
+) -> bool:
     """Refresh a report-email lease using a managed connection."""
     # First-Party Libraries
     # Third-Party Libraries
@@ -498,7 +632,11 @@ def touch_report_email_claim_by_id(report_run_id: int) -> bool:
 
     conn = connect()
     try:
-        return touch_report_email_claim(report_run_id=report_run_id, conn=conn)
+        return touch_report_email_claim(
+            report_run_id=report_run_id,
+            conn=conn,
+            email_claim_token=email_claim_token,
+        )
     finally:
         close(conn)
 
@@ -509,8 +647,12 @@ def create_report_run(
     conn: connection,
     source_tracker_id: int | None = None,
     email_status: str = EMAIL_PENDING,
+    delivery_purpose: str = "customer",
 ) -> ReportRun | None:
     """Claim a scheduled execution and return its running report record."""
+    if delivery_purpose not in {"customer", "analyst"}:
+        raise ValueError("Delivery purpose must be customer or analyst.")
+    generation_token = str(uuid4())
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -520,9 +662,11 @@ def create_report_run(
                     status,
                     scheduled_epoch,
                     source_tracker_id,
-                    email_status
+                    email_status,
+                    generation_token,
+                    delivery_purpose
                 )
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
                 RETURNING id, stakeholder_tag, status
                 """,
@@ -532,6 +676,8 @@ def create_report_run(
                     scheduled_epoch,
                     source_tracker_id,
                     email_status,
+                    generation_token,
+                    delivery_purpose,
                 ),
             )
             row = cursor.fetchone()
@@ -542,7 +688,12 @@ def create_report_run(
 
     if row is None:
         return None
-    return ReportRun(id=row[0], stakeholder_tag=row[1], status=row[2])
+    return ReportRun(
+        id=row[0],
+        stakeholder_tag=row[1],
+        status=row[2],
+        generation_token=generation_token,
+    )
 
 
 def complete_report_run(
@@ -550,6 +701,8 @@ def complete_report_run(
     conn: connection,
     output_path: str | None = None,
     artifact_type: str | None = None,
+    *,
+    generation_token: str,
 ) -> None:
     """Mark a report execution record as completed."""
     update_report_run_status(
@@ -559,6 +712,7 @@ def complete_report_run(
         output_path=output_path,
         artifact_type=artifact_type,
         conn=conn,
+        generation_token=generation_token,
     )
 
 
@@ -566,6 +720,8 @@ def fail_report_run(
     report_run_id: int,
     error_message: str,
     conn: connection,
+    *,
+    generation_token: str,
 ) -> None:
     """Mark a report execution record as failed."""
     update_report_run_status(
@@ -575,6 +731,7 @@ def fail_report_run(
         output_path=None,
         artifact_type=None,
         conn=conn,
+        generation_token=generation_token,
     )
 
 
@@ -585,22 +742,29 @@ def update_report_run_status(
     output_path: str | None,
     artifact_type: str | None,
     conn: connection,
+    *,
+    generation_token: str,
 ) -> None:
     """Update report execution status and completion metadata."""
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                UPDATE was_report_runs
-                SET status = %s,
-                    completed_at = NOW(),
-                    error_message = %s,
-                    output_path = COALESCE(%s, output_path),
-                    artifact_type = COALESCE(%s, artifact_type),
-                    updated_at = NOW()
-                WHERE id = %s
-                  AND status = %s
-                RETURNING id
+                WITH changed_run AS (
+                    UPDATE was_report_runs
+                    SET status = %s,
+                        completed_at = NOW(),
+                        error_message = %s,
+                        output_path = COALESCE(%s, output_path),
+                        artifact_type = COALESCE(%s, artifact_type),
+                        updated_at = NOW()
+                    WHERE id = %s
+                      AND status = %s
+                      AND generation_token = %s
+                    RETURNING id, source_tracker_id, status, error_message,
+                              delivery_purpose
+                )
+                SELECT id, source_tracker_id, delivery_purpose FROM changed_run
                 """,
                 (
                     status,
@@ -609,14 +773,25 @@ def update_report_run_status(
                     artifact_type,
                     report_run_id,
                     RUNNING,
+                    generation_token,
                 ),
             )
             updated_row = cursor.fetchone()
-            if updated_row is None and status == COMPLETED:
+            if updated_row is None:
                 raise ActiveReportOperationError(
                     "Report run {} no longer owns its generation lease.".format(
                         report_run_id
                     )
+                )
+            if (
+                status == FAILED
+                and updated_row[1] is not None
+                and updated_row[2] == "customer"
+            ):
+                record_tracker_digest_failure(
+                    updated_row[1],
+                    conn,
+                    "Report generation failed: {}".format(error_message),
                 )
             conn.commit()
     except Exception:
@@ -703,6 +878,7 @@ def create_on_demand_report_run(
             conn,
             source_tracker_id=source_tracker_id,
             email_status=EMAIL_HELD,
+            delivery_purpose="analyst",
         )
         if report_run is None:
             raise RuntimeError(
@@ -742,12 +918,15 @@ def retry_failed_report_run_for_tracker(
     conn: connection,
 ) -> ReportRun | None:
     """Atomically reclaim one failed tracker report run for generation."""
+    generation_token = str(uuid4())
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE was_report_runs
                 SET status = %s,
+                    generation_token = %s,
+                    email_claim_token = NULL,
                     output_path = NULL,
                     artifact_type = NULL,
                     completed_at = NULL,
@@ -758,9 +937,16 @@ def retry_failed_report_run_for_tracker(
                     updated_at = NOW()
                 WHERE source_tracker_id = %s
                   AND status = %s
+                  AND delivery_purpose = 'customer'
                 RETURNING id, stakeholder_tag, status
                 """,
-                (RUNNING, EMAIL_PENDING, source_tracker_id, FAILED),
+                (
+                    RUNNING,
+                    generation_token,
+                    EMAIL_PENDING,
+                    source_tracker_id,
+                    FAILED,
+                ),
             )
             row = cursor.fetchone()
             conn.commit()
@@ -770,7 +956,12 @@ def retry_failed_report_run_for_tracker(
 
     if row is None:
         return None
-    return ReportRun(id=row[0], stakeholder_tag=row[1], status=row[2])
+    return ReportRun(
+        id=row[0],
+        stakeholder_tag=row[1],
+        status=row[2],
+        generation_token=generation_token,
+    )
 
 
 def retry_failed_report_run_for_tracker_by_id(
@@ -794,6 +985,8 @@ def complete_report_run_by_id(
     report_run_id: int,
     output_path: str | None = None,
     artifact_type: str | None = None,
+    *,
+    generation_token: str,
 ) -> None:
     """Complete a report execution record using a managed database connection."""
     # Third-Party Libraries
@@ -806,12 +999,18 @@ def complete_report_run_by_id(
             output_path=output_path,
             artifact_type=artifact_type,
             conn=conn,
+            generation_token=generation_token,
         )
     finally:
         close(conn)
 
 
-def fail_report_run_by_id(report_run_id: int, error_message: str) -> None:
+def fail_report_run_by_id(
+    report_run_id: int,
+    error_message: str,
+    *,
+    generation_token: str,
+) -> None:
     """Fail a report execution record using a managed database connection."""
     # Third-Party Libraries
     from was_reports.utils.database import close, connect
@@ -822,6 +1021,7 @@ def fail_report_run_by_id(report_run_id: int, error_message: str) -> None:
             report_run_id=report_run_id,
             error_message=error_message,
             conn=conn,
+            generation_token=generation_token,
         )
     finally:
         close(conn)
@@ -929,7 +1129,9 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 tracker.remove_nws,
                 tracker.qualys_error,
                 stakeholders.last_scanned,
-                stakeholders.next_scheduled
+                stakeholders.next_scheduled,
+                runs.email_claim_token,
+                runs.delivery_purpose
             FROM was_report_runs AS runs
             JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = runs.stakeholder_tag
@@ -973,6 +1175,8 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
         qualys_error=row[13],
         last_scanned=row[14],
         next_scheduled=row[15],
+        email_claim_token=row[16],
+        delivery_purpose=row[17],
     )
 
 
@@ -1000,7 +1204,9 @@ def list_report_runs_ready_for_email(
             tracker.remove_nws,
             tracker.qualys_error,
             stakeholders.last_scanned,
-            stakeholders.next_scheduled
+            stakeholders.next_scheduled,
+                runs.email_claim_token,
+                runs.delivery_purpose
         FROM was_report_runs AS runs
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = runs.stakeholder_tag
@@ -1015,6 +1221,7 @@ def list_report_runs_ready_for_email(
           )
           AND runs.emailed_at IS NULL
           AND COALESCE(runs.email_status, %s) = ANY(%s)
+          AND runs.delivery_purpose = 'customer'
     """
     allowed_email_statuses = [EMAIL_PENDING]
     if include_previous_failures:
@@ -1059,6 +1266,8 @@ def list_report_runs_ready_for_email(
                 qualys_error=row[13],
                 last_scanned=row[14],
                 next_scheduled=row[15],
+                email_claim_token=row[16],
+                delivery_purpose=row[17],
             )
         )
 
@@ -1070,8 +1279,12 @@ def claim_report_run_email(
     conn: connection,
     include_previous_failure: bool = False,
     allow_held: bool = False,
+    delivery_purpose: str = "customer",
 ) -> ReportRunEmail | None:
     """Atomically claim one completed report run for email delivery."""
+    if delivery_purpose not in {"customer", "analyst"}:
+        raise ValueError("Delivery purpose must be customer or analyst.")
+    email_claim_token = str(uuid4())
     allowed_email_statuses = [EMAIL_PENDING]
     if allow_held:
         allowed_email_statuses.append(EMAIL_HELD)
@@ -1081,6 +1294,7 @@ def claim_report_run_email(
         WITH claimed AS (
             UPDATE was_report_runs
             SET email_status = %s,
+                email_claim_token = %s,
                 email_claimed_at = NOW(),
                 email_error = NULL,
                 updated_at = NOW()
@@ -1092,8 +1306,9 @@ def claim_report_run_email(
               )
               AND emailed_at IS NULL
               AND COALESCE(email_status, %s) = ANY(%s)
+              AND delivery_purpose = %s
             RETURNING id, stakeholder_tag, output_path, source_tracker_id,
-                      artifact_type
+                      artifact_type, email_claim_token, delivery_purpose
         )
         SELECT
             claimed.id,
@@ -1111,7 +1326,9 @@ def claim_report_run_email(
             tracker.remove_nws,
             tracker.qualys_error,
             stakeholders.last_scanned,
-            stakeholders.next_scheduled
+            stakeholders.next_scheduled,
+            claimed.email_claim_token,
+            claimed.delivery_purpose
         FROM claimed
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = claimed.stakeholder_tag
@@ -1122,10 +1339,12 @@ def claim_report_run_email(
     """
     parameters: list[object] = [
         EMAIL_SENDING,
+        email_claim_token,
         report_run_id,
         COMPLETED,
         EMAIL_PENDING,
         allowed_email_statuses,
+        delivery_purpose,
     ]
     try:
         with conn.cursor() as cursor:
@@ -1155,6 +1374,8 @@ def claim_report_run_email(
         qualys_error=row[13],
         last_scanned=row[14],
         next_scheduled=row[15],
+        email_claim_token=row[16],
+        delivery_purpose=row[17],
     )
 
 
@@ -1174,6 +1395,7 @@ def claim_report_run_email_by_id(
     report_run_id: int,
     include_previous_failure: bool = False,
     allow_held: bool = False,
+    delivery_purpose: str = "customer",
 ) -> ReportRunEmail | None:
     """Atomically claim one report email using a managed connection."""
     # Third-Party Libraries
@@ -1186,6 +1408,7 @@ def claim_report_run_email_by_id(
             conn=conn,
             include_previous_failure=include_previous_failure,
             allow_held=allow_held,
+            delivery_purpose=delivery_purpose,
         )
     finally:
         close(conn)
@@ -1216,6 +1439,8 @@ def mark_report_run_emailed(
     report_run_id: int,
     message_id: str,
     conn: connection,
+    *,
+    email_claim_token: str,
 ) -> None:
     """Mark a report run as successfully emailed."""
     try:
@@ -1232,7 +1457,8 @@ def mark_report_run_emailed(
                         updated_at = NOW()
                     WHERE id = %s
                       AND email_status = %s
-                    RETURNING id, source_tracker_id
+                      AND email_claim_token = %s
+                    RETURNING id, source_tracker_id, delivery_purpose
                 ),
                 updated_tracker AS (
                     UPDATE was_daily_report_tracker AS tracker
@@ -1240,15 +1466,24 @@ def mark_report_run_emailed(
                         updated_at = NOW()
                     FROM emailed_run
                     WHERE tracker.id = emailed_run.source_tracker_id
+                      AND emailed_run.delivery_purpose = 'customer'
                     RETURNING tracker.id
                 )
                 SELECT id FROM emailed_run
                 """,
-                (message_id, EMAIL_SENT, report_run_id, EMAIL_SENDING),
+                (
+                    message_id,
+                    EMAIL_SENT,
+                    report_run_id,
+                    EMAIL_SENDING,
+                    email_claim_token,
+                ),
             )
             row = cursor.fetchone()
             if row is None:
-                raise RuntimeError("WAS report email claim was not active.")
+                raise ActiveReportOperationError(
+                    "WAS report email claim was not active."
+                )
             conn.commit()
     except Exception:
         conn.rollback()
@@ -1260,6 +1495,8 @@ def mark_report_run_email_failed(
     error_message: str,
     conn: connection,
     hold_for_manual_retry: bool = False,
+    *,
+    email_claim_token: str,
 ) -> None:
     """Record a report email delivery failure."""
     try:
@@ -1273,25 +1510,40 @@ def mark_report_run_email_failed(
                     updated_at = NOW()
                 WHERE id = %s
                   AND email_status = %s
-                RETURNING id
+                  AND email_claim_token = %s
+                RETURNING id, source_tracker_id, delivery_purpose
                 """,
                 (
                     error_message,
                     EMAIL_HELD if hold_for_manual_retry else EMAIL_FAILED,
                     report_run_id,
                     EMAIL_SENDING,
+                    email_claim_token,
                 ),
             )
             row = cursor.fetchone()
             if row is None:
-                raise RuntimeError("WAS report email claim was not active.")
+                raise ActiveReportOperationError(
+                    "WAS report email claim was not active."
+                )
+            if row[1] is not None and row[2] == "customer":
+                record_tracker_digest_failure(
+                    row[1],
+                    conn,
+                    "Email delivery failed: {}".format(error_message),
+                )
             conn.commit()
     except Exception:
         conn.rollback()
         raise
 
 
-def mark_report_run_emailed_by_id(report_run_id: int, message_id: str) -> None:
+def mark_report_run_emailed_by_id(
+    report_run_id: int,
+    message_id: str,
+    *,
+    email_claim_token: str,
+) -> None:
     """Mark a report run emailed using a managed database connection."""
     # Third-Party Libraries
     from was_reports.utils.database import close, connect
@@ -1302,6 +1554,7 @@ def mark_report_run_emailed_by_id(report_run_id: int, message_id: str) -> None:
             report_run_id=report_run_id,
             message_id=message_id,
             conn=conn,
+            email_claim_token=email_claim_token,
         )
     finally:
         close(conn)
@@ -1311,6 +1564,8 @@ def mark_report_run_email_failed_by_id(
     report_run_id: int,
     error_message: str,
     hold_for_manual_retry: bool = False,
+    *,
+    email_claim_token: str,
 ) -> None:
     """Record report email failure using a managed database connection."""
     # Third-Party Libraries
@@ -1322,6 +1577,7 @@ def mark_report_run_email_failed_by_id(
             report_run_id=report_run_id,
             error_message=error_message,
             conn=conn,
+            email_claim_token=email_claim_token,
             hold_for_manual_retry=hold_for_manual_retry,
         )
     finally:

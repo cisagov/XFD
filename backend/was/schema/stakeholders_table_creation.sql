@@ -44,6 +44,9 @@ CREATE TABLE was_report_runs (
     id                     BIGSERIAL PRIMARY KEY,
     stakeholder_tag        VARCHAR(128) NOT NULL REFERENCES was_stakeholders(tag),
     status                 VARCHAR(32) NOT NULL,
+    generation_token       TEXT,
+    delivery_purpose       TEXT NOT NULL DEFAULT 'customer'
+                           CHECK (delivery_purpose IN ('customer', 'analyst')),
     scheduled_epoch        BIGINT,
     output_path            TEXT,
     artifact_type          VARCHAR(32),
@@ -52,6 +55,7 @@ CREATE TABLE was_report_runs (
     email_error            TEXT,
     email_status           VARCHAR(32) NOT NULL DEFAULT 'pending',
     email_claimed_at       TIMESTAMPTZ,
+    email_claim_token      TEXT,
     started_at             TIMESTAMPTZ DEFAULT NOW(),
     completed_at           TIMESTAMPTZ,
     error_message          TEXT,
@@ -115,10 +119,18 @@ CREATE TABLE was_daily_report_tracker (
     remove_nws               TEXT,
     legacy_password          TEXT,
     schedule_id              BIGINT,
+    scan_execution_key       TEXT,
     qualys_error             TEXT,
     assignee_emailed_at      TIMESTAMPTZ,
     assignee_email_message_id TEXT,
     assignee_email_error     TEXT,
+    assignee_email_status    TEXT NOT NULL DEFAULT 'pending'
+                             CHECK (assignee_email_status IN
+                                    ('pending', 'sending', 'sent', 'failed', 'held')),
+    assignee_email_claim_token TEXT,
+    assignee_email_claimed_at TIMESTAMPTZ,
+    digest_revision          BIGINT NOT NULL DEFAULT 0,
+    digest_claimed_revision  BIGINT,
 
     created_at               TIMESTAMPTZ DEFAULT NOW(),
     updated_at               TIMESTAMPTZ DEFAULT NOW()
@@ -138,6 +150,10 @@ CREATE INDEX was_daily_report_tracker_next_scan_date_idx
 
 CREATE INDEX was_daily_report_tracker_schedule_id_idx
     ON was_daily_report_tracker (schedule_id);
+
+CREATE UNIQUE INDEX was_daily_report_tracker_scan_execution_uidx
+    ON was_daily_report_tracker (scan_execution_key)
+    WHERE scan_execution_key IS NOT NULL;
 
 CREATE INDEX was_daily_report_tracker_assignee_email_idx
     ON was_daily_report_tracker (

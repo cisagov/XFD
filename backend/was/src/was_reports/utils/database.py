@@ -11,6 +11,7 @@ from psycopg2.extensions import connection
 
 # First-Party Libraries
 from was_reports.utils.env import getenv, require_env
+from was_reports.utils.logging_config import exception_details, positive_integer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ def database_config() -> Dict[str, str]:
         "password": _require_environment_variable("WAS_DB_PASSWORD"),
         "port": getenv("WAS_DB_PORT", "5432"),
         "sslmode": getenv("WAS_DB_SSLMODE", "require"),
+        "connect_timeout": str(positive_integer("WAS_DB_CONNECT_TIMEOUT_SECONDS", 10)),
     }
 
 
@@ -37,7 +39,7 @@ def connect() -> connection:
     try:
         return psycopg2.connect(**database_config())
     except OperationalError as error:
-        LOGGER.error("Unable to connect to WAS database: %s", error)
+        LOGGER.error("Unable to connect to WAS database: %s", exception_details(error))
         raise
 
 

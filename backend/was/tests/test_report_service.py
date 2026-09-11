@@ -133,6 +133,11 @@ class ReportServiceTests(unittest.TestCase):
             asset_directory=Path("/work/assets"),
         )
         template_arguments = mock_template_data.call_args.kwargs
+        self.assertIs(template_arguments["finding_metrics"], finding_metrics_result)
+        self.assertIs(
+            template_arguments["report_xml"],
+            mock_transform.call_args.kwargs["report_xml"],
+        )
         self.assertEqual(
             template_arguments["artifacts"].detail_pdf,
             "CUSTOMERDetails.pdf",

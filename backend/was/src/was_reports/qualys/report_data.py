@@ -54,9 +54,7 @@ def xml_to_string(root) -> str:
     """Serialize an XML object for submission to Qualys."""
     objectify.deannotate(root, xsi_nil=True, pytype=True, xsi=True)
     etree.cleanup_namespaces(root)
-    payload = etree.tostring(root).decode()
-    payload = payload.replace("&lt;", "<")
-    return payload.replace("&gt;", ">")
+    return etree.tostring(root, encoding="unicode")
 
 
 def build_tag_lookup_payload(tag_name: str) -> str:
@@ -71,7 +69,10 @@ def build_tag_lookup_payload(tag_name: str) -> str:
 
 def parse_tag_id(response_xml: str) -> str:
     """Parse a Qualys tag ID from a tag lookup response."""
-    root = objectify.fromstring(response_xml.encode())
+    root = objectify.fromstring(
+        response_xml.encode(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
     if int(root.count) == 0:
         raise LookupError("No Qualys tag found with the supplied name.")
     return str(root.data.Tag.id)
@@ -100,7 +101,10 @@ def build_webapp_count_payload(tag_name: str) -> str:
 
 def parse_count(response_xml: str) -> int:
     """Parse a Qualys count response."""
-    root = objectify.fromstring(response_xml.encode())
+    root = objectify.fromstring(
+        response_xml.encode(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
     return int(root.count)
 
 
@@ -135,7 +139,10 @@ def build_customer_tags_payload(
 
 def parse_customer_tags(response_xml: str) -> Dict[str, str]:
     """Return stakeholder tag names mapped to their descriptions."""
-    root = objectify.fromstring(response_xml.encode())
+    root = objectify.fromstring(
+        response_xml.encode(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
     parent_tags = root.xpath("./data/Tag")
     if not parent_tags:
         raise LookupError("Qualys did not return the WAS customer parent tag.")
@@ -144,9 +151,7 @@ def parse_customer_tags(response_xml: str) -> Dict[str, str]:
     for tag in parent_tags[0].xpath("./children/list/Tag"):
         tag_name = str(tag.name)
         description_elements = tag.xpath("./description")
-        description = (
-            str(description_elements[0]) if description_elements else tag_name
-        )
+        description = str(description_elements[0]) if description_elements else tag_name
         customer_tags[tag_name] = description
     return customer_tags
 
@@ -172,7 +177,10 @@ def load_report_template(template_path: Path):
         raise FileNotFoundError(
             "Qualys report template not found at {}.".format(str(template_path))
         )
-    return objectify.fromstring(template_path.read_bytes())
+    return objectify.fromstring(
+        template_path.read_bytes(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
 
 
 def build_webapp_report_payload(
@@ -185,7 +193,9 @@ def build_webapp_report_payload(
     root = load_report_template(template_path)
     root.data.Report.template.id = template_id
     root.data.Report.config.webAppReport.target.tags.included.tagList.Tag.id = tag_id
-    root.data.Report.name = "<![CDATA[{}]]>".format(report_name)
+    name_element = etree.Element("name")
+    name_element.text = etree.CDATA(report_name)
+    root.data.Report.replace(root.data.Report.name, name_element)
     root.data.Report.format = "XML"
     return xml_to_string(root)
 
@@ -206,14 +216,19 @@ def build_detail_report_payload(
         root.data.Report.config.webAppReport.target.tags.included.tagList.Tag.id = (
             target_id
         )
-    root.data.Report.name = "<![CDATA[{}]]>".format(report_name)
+    name_element = etree.Element("name")
+    name_element.text = etree.CDATA(report_name)
+    root.data.Report.replace(root.data.Report.name, name_element)
     root.data.Report.format = "PDF"
     return xml_to_string(root)
 
 
 def parse_created_report_id(response_xml: str) -> str:
     """Parse a created Qualys report ID from a create-report response."""
-    root = objectify.fromstring(response_xml.encode())
+    root = objectify.fromstring(
+        response_xml.encode(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
     if str(root.responseCode) != "SUCCESS":
         raise RuntimeError(
             "Qualys report creation failed with response code {}.".format(
@@ -236,7 +251,16 @@ def build_report_search_payload(report_name: str, report_format: str) -> str:
 
 def parse_report_search(response_xml: str) -> list[QualysReportReference]:
     """Parse report references returned by the Qualys report search API."""
-    root = objectify.fromstring(response_xml.encode())
+    root = objectify.fromstring(
+        response_xml.encode(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
+    if root.tag != "ServiceResponse" or str(root.findtext("responseCode")) != "SUCCESS":
+        raise QualysReportCreationUncertainError(
+            "Qualys report search was not successful."
+        )
+    if (root.findtext("hasMoreRecords") or "false").strip().lower() != "false":
+        raise QualysReportCreationUncertainError("Qualys report search was truncated.")
     references: list[QualysReportReference] = []
     reports = root.xpath("./data/Report | ./data/list/Report")
     for report in reports:
@@ -245,7 +269,13 @@ def parse_report_search(response_xml: str) -> list[QualysReportReference]:
         formats = report.xpath("./format")
         statuses = report.xpath("./status")
         if not report_ids or not names or not formats:
-            continue
+            raise QualysReportCreationUncertainError(
+                "Qualys report search returned an incomplete record."
+            )
+        if not str(report_ids[0]).strip():
+            raise QualysReportCreationUncertainError(
+                "Qualys report search returned an empty report ID."
+            )
         references.append(
             QualysReportReference(
                 report_id=str(report_ids[0]),
@@ -337,8 +367,45 @@ def create_report_with_recovery(
     report_name: str,
     report_format: str,
     operation_label: str,
+    report_request_key: str | None = None,
+    creation_intent_claim: Callable[[], bool] | None = None,
 ) -> str:
-    """Create one report and recover its ID after an uncertain network failure."""
+    """Reconcile stable requests before atomically claiming their first create.
+
+    The caller must persist intent per request key and artifact before returning
+    True from creation_intent_claim. Existing intent returns False and never
+    permits replacement, even when Qualys search is still eventually consistent.
+    The marker must survive failures and must not be cleared merely on timeout.
+    report_name must remain identical for the same request key and artifact.
+    """
+    if creation_intent_claim is not None and report_request_key is None:
+        raise ValueError("A creation intent claim requires a stable request key.")
+    if report_request_key is not None:
+        if not report_request_key.strip() or not report_name.strip():
+            raise ValueError("Stable request key and report name must not be empty.")
+        matches = search_reports(client, report_name, report_format)
+        if len(matches) > 1:
+            raise QualysReportCreationUncertainError(
+                "Multiple reports matched the stable request; manual reconciliation is required."
+            )
+        if matches:
+            return matches[0].report_id
+        if creation_intent_claim is None:
+            raise QualysReportCreationUncertainError(
+                "Stable request has no report and no persistent creation-intent claim; creation is held."
+            )
+        fresh_intent = creation_intent_claim()
+        if fresh_intent is False:
+            return reconcile_created_report(
+                client=client,
+                report_name=report_name,
+                report_format=report_format,
+                operation_label=operation_label,
+            )
+        if fresh_intent is not True:
+            raise QualysReportCreationUncertainError(
+                "Creation intent claim did not explicitly authorize creation."
+            )
     try:
         response_xml = client.request(
             QualysRequest(
@@ -372,6 +439,8 @@ def create_webapp_xml_report(
     tag_id: str,
     template_path: Path,
     template_id: str = WEBAPP_REPORT_TEMPLATE_ID,
+    report_request_key: str | None = None,
+    creation_intent_claim: Callable[[], bool] | None = None,
 ) -> str:
     """Create a Qualys XML web application report and return its report ID."""
     return create_report_with_recovery(
@@ -385,6 +454,8 @@ def create_webapp_xml_report(
         report_name=report_name,
         report_format="XML",
         operation_label="XML report",
+        report_request_key=report_request_key,
+        creation_intent_claim=creation_intent_claim,
     )
 
 
@@ -395,6 +466,8 @@ def create_detail_pdf_report(
     template_path: Path,
     from_webapp_id: bool = False,
     template_id: str = DETAIL_REPORT_TEMPLATE_ID,
+    report_request_key: str | None = None,
+    creation_intent_claim: Callable[[], bool] | None = None,
 ) -> str:
     """Create a Qualys PDF detail report and return its report ID."""
     return create_report_with_recovery(
@@ -409,6 +482,8 @@ def create_detail_pdf_report(
         report_name=report_name,
         report_format="PDF",
         operation_label="detail PDF report",
+        report_request_key=report_request_key,
+        creation_intent_claim=creation_intent_claim,
     )
 
 
@@ -424,10 +499,18 @@ def get_report_xml(client: QualysClient, report_id: str) -> str:
 
 def parse_report_status(response_xml: str) -> Optional[str]:
     """Parse a Qualys report status response."""
-    root = etree.fromstring(response_xml.encode())
+    root = etree.fromstring(
+        response_xml.encode(),
+        parser=etree.XMLParser(resolve_entities=False, no_network=True),
+    )
+    response_code = root.findtext("./responseCode")
+    if response_code is not None and response_code != "SUCCESS":
+        raise RuntimeError("Qualys report status request was rejected.")
     status = root.find("./data/Report/status")
     if status is None:
-        return None
+        raise ValueError("Qualys report status response is missing status.")
+    if not status.text or not status.text.strip():
+        raise ValueError("Qualys report status response has an empty status.")
     return status.text
 
 
@@ -447,5 +530,8 @@ def delete_report(client: QualysClient, report_id: str) -> bool:
     response_xml = client.request(
         QualysRequest(endpoint="/delete/was/report/{}".format(report_id))
     )
-    root = objectify.fromstring(response_xml.encode())
+    root = objectify.fromstring(
+        response_xml.encode(),
+        parser=objectify.makeparser(resolve_entities=False, no_network=True),
+    )
     return str(root.responseCode) == "SUCCESS"

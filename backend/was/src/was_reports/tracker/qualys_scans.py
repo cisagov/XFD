@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 # Standard Python Libraries
+from dataclasses import replace
 from datetime import datetime, timedelta
 import logging
 import unicodedata
@@ -19,7 +20,11 @@ from was_reports.data.daily_report_tracker import (
 )
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 from was_reports.qualys.report_data import get_tag_id
-from was_reports.tracker.models import QualysScan, TrackerStakeholder
+from was_reports.tracker.models import (
+    QualysScan,
+    TrackerStakeholder,
+    scheduled_execution_key,
+)
 from was_reports.utils.database import close, connect
 
 LOGGER = logging.getLogger(__name__)
@@ -36,7 +41,10 @@ def serialize_xml(root: etree._Element) -> str:
 def parse_xml(response_xml: str, operation: str) -> etree._Element:
     """Parse a Qualys XML response with a bounded error message."""
     try:
-        return etree.fromstring(response_xml.encode("utf-8"))
+        return etree.fromstring(
+            response_xml.encode("utf-8"),
+            parser=etree.XMLParser(resolve_entities=False, no_network=True),
+        )
     except etree.XMLSyntaxError as error:
         raise RuntimeError(
             "Qualys returned invalid XML during {}.".format(operation)
@@ -157,11 +165,6 @@ def build_schedule_search_payload(input_date: datetime, offset: int) -> str:
                     operator="GREATER",
                 ),
                 E.Criteria(
-                    "RUNNING",
-                    field="lastScan.status",
-                    operator="NOT EQUALS",
-                ),
-                E.Criteria(
                     "VULNERABILITY",
                     field="type",
                     operator="EQUALS",
@@ -177,7 +180,7 @@ def search_schedules(
     previous_schedule_ids: set[int],
     stakeholder_tag: str | None = None,
 ) -> dict[str, TrackerStakeholder]:
-    """Return recent Qualys schedules not already recorded in the tracker."""
+    """Return recent schedules without suppressing recurring executions."""
     input_date_text = input_date.strftime("%Y-%m-%dT%H:%M:%SZ")
     LOGGER.info("Tracker schedule search starts after %s", input_date_text)
     stakeholders: dict[str, TrackerStakeholder] = {}
@@ -196,17 +199,10 @@ def search_schedules(
             schedule_id_text = schedule.findtext("id")
             schedule_name = schedule.findtext("name")
             if not schedule_id_text or not schedule_name:
-                LOGGER.warning(
-                    "Skipping an incomplete Qualys schedule record."
-                )
+                LOGGER.warning("Skipping an incomplete Qualys schedule record.")
                 continue
             schedule_id = int(schedule_id_text)
-            if schedule_id in previous_schedule_ids:
-                LOGGER.info("Skipping duplicate schedule %s", schedule_name)
-                continue
-            tag, stakeholder_name = parse_stakeholder_schedule_name(
-                schedule_name
-            )
+            tag, stakeholder_name = parse_stakeholder_schedule_name(schedule_name)
             if stakeholder_tag is not None and tag != stakeholder_tag:
                 continue
             cadence = schedule.findtext("./scheduling/occurrenceType") or ""
@@ -217,14 +213,21 @@ def search_schedules(
                     tag=tag,
                     stakeholder_name=stakeholder_name,
                 )
-            if tag not in stakeholders:
-                stakeholders[tag] = TrackerStakeholder(
+            launched_date = schedule.findtext("./lastScan/launchedDate")
+            if not launched_date:
+                LOGGER.warning("Skipping schedule without an actual launch timestamp.")
+                continue
+            execution_key = scheduled_execution_key(schedule_id, launched_date)
+            if execution_key not in stakeholders:
+                stakeholders[execution_key] = TrackerStakeholder(
                     name=stakeholder_name,
                     tag_id=int(get_tag_id(client, tag)),
                     next_scan_date=next_scan_date,
-                    launched_date=input_date_text,
+                    launched_date=launched_date,
                     schedule_id=schedule_id,
                     cadence=cadence,
+                    tag=tag,
+                    schedule_name=normalize_schedule_name(schedule_name),
                 )
         count = response_count(root)
         if not response_has_more_records(root):
@@ -248,9 +251,7 @@ def build_scan_search_payload(
     offset: int,
 ) -> str:
     """Build the Qualys scan-slice search request."""
-    tag_ids = ",".join(
-        str(stakeholder.tag_id) for stakeholder in stakeholders.values()
-    )
+    tag_ids = ",".join(str(stakeholder.tag_id) for stakeholder in stakeholders.values())
     return serialize_xml(
         E.ServiceRequest(
             E.preferences(
@@ -264,6 +265,7 @@ def build_scan_search_payload(
                     operator="GREATER",
                 ),
                 E.Criteria(tag_ids, field="webApp.tags.id", operator="IN"),
+                E.Criteria("VULNERABILITY", field="type", operator="EQUALS"),
             ),
         )
     )
@@ -284,8 +286,7 @@ def scan_matches_stakeholder(
     ):
         return False
     return (
-        " {} ".format(tag) in scan_name
-        and " {} ".format(stakeholder.name) in scan_name
+        " {} ".format(tag) in scan_name and " {} ".format(stakeholder.name) in scan_name
     )
 
 
@@ -297,9 +298,8 @@ def search_scans(
     """Return recent Qualys scan slices grouped by stakeholder tag."""
     if not stakeholders:
         return {}
-    scan_groups: dict[str, list[QualysScan]] = {
-        tag: [] for tag in stakeholders
-    }
+    scan_groups: dict[str, list[QualysScan]] = {}
+    schedule_candidates = tuple(stakeholders.items())
     offset = 1
     while True:
         response_xml = client.request(
@@ -316,13 +316,30 @@ def search_scans(
         root = parse_xml(response_xml, "scan search")
         for scan in root.findall("./data/WasScan"):
             scan_name = scan.findtext("name") or ""
-            for tag, stakeholder_scans in scan_groups.items():
+            if scan.findtext("type") not in {None, "VULNERABILITY"}:
+                continue
+            for group_key, stakeholder in schedule_candidates:
+                tag = stakeholder.tag or group_key
+                launched_date = scan.findtext("launchedDate")
+                if not launched_date:
+                    continue
+                scan_base = normalize_schedule_name(
+                    scan_name.split(" Run #", 1)[0].split(" Slice", 1)[0]
+                )
+                if stakeholder.schedule_name and scan_base != stakeholder.schedule_name:
+                    continue
                 if scan_matches_stakeholder(
                     scan_name=scan_name,
                     tag=tag,
-                    stakeholder=stakeholders[tag],
+                    stakeholder=stakeholder,
                 ):
-                    stakeholder_scans.append(scan)
+                    execution_key = scheduled_execution_key(
+                        stakeholder.schedule_id, launched_date
+                    )
+                    stakeholders[execution_key] = replace(
+                        stakeholder, launched_date=launched_date, tag=tag
+                    )
+                    scan_groups.setdefault(execution_key, []).append(scan)
                     break
         count = response_count(root)
         if not response_has_more_records(root):
@@ -337,7 +354,15 @@ def search_scans(
         "Finished grouping Qualys scans for %d stakeholders",
         len(scan_groups),
     )
-    return dict(sorted(scan_groups.items(), reverse=True))
+    return {
+        execution_key: scans
+        for execution_key, scans in sorted(scan_groups.items())
+        if all(
+            scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
+            and scan.findtext("./summary/resultsStatus") != "PROCESSING"
+            for scan in scans
+        )
+    }
 
 
 def build_previous_nws_payload(
@@ -401,9 +426,15 @@ def get_previous_nws(
             "previous inaccessible application search",
         )
         for scan in root.findall("./data/WasScan"):
+            scan_name = (scan.findtext("name") or "").split(" Slice", 1)[0]
+            if scan_name != previous_run:
+                continue
             if scan.findtext("status") == "ERROR":
                 continue
-            if scan.findtext("./summary/resultsStatus") == "NO_WEB_SERVICE":
+            if scan.findtext("./summary/resultsStatus") in {
+                "NO_WEB_SERVICE",
+                "NO_HOST_ALIVE",
+            }:
                 webapp_url = scan.findtext("./target/webApp/url")
                 if webapp_url:
                     previous_urls.append(webapp_url)
