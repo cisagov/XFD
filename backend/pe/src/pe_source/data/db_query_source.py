@@ -10,7 +10,7 @@ import uuid
 
 # Third-Party Libraries
 import pandas as pd
-from pe_reports.data.config import config, staging_config
+from pe_reports.data.config import config, config_cyhy_dash_db, staging_config
 import psycopg2
 from psycopg2 import OperationalError
 from psycopg2.extras import execute_values
@@ -19,6 +19,7 @@ import requests
 LOGGER = logging.getLogger(__name__)
 
 CONN_PARAMS_DIC = config()
+CONN_PARAMS_DIC_CYHY_DASH_DB = config_cyhy_dash_db()
 API_DIC = staging_config(section="pe_api")
 pe_api_key = API_DIC.get("pe_api_key")
 pe_api_url = API_DIC.get("pe_api_url")
@@ -33,12 +34,24 @@ def show_psycopg2_exception(err):
 
 
 def connect():
-    """Connect to PostgreSQL database."""
+    """Connect to PostgreSQL PE database."""
     try:
         return psycopg2.connect(**CONN_PARAMS_DIC)
     except OperationalError as err:
         show_psycopg2_exception(err)
         return None
+
+
+def connect_cyhy_dash_db():
+    """Connect to PostgreSQL CyHy Dash database."""
+    conn = None
+    try:
+        conn = psycopg2.connect(**CONN_PARAMS_DIC_CYHY_DASH_DB)
+    except OperationalError as err:
+        LOGGER.error(err)
+        show_psycopg2_exception(err)
+        conn = None
+    return conn
 
 
 def get_orgs():
