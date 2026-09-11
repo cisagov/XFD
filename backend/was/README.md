@@ -647,6 +647,10 @@ such as `make menu` use the existing `was-reporting` image and do not rebuild it
 automatically. A rebuild is not required when only `.env` values change because
 Docker loads that file when each container starts.
 
+The image normalizes packaged source and resource permissions during the build
+so operators can run commands with the host user's UID instead of container
+root, even when the checkout was created with a restrictive host `umask`.
+
 Smoke test the container command routing without database or Qualys access:
 
 ```bash

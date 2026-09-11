@@ -26,7 +26,8 @@ COPY worker ./worker
 RUN pip install --no-cache-dir --no-deps . \
   && mkdir -p /output /WAS_REPORT_RESOURCES \
   && cp -R /app/src/was_reports/resources/. /WAS_REPORT_RESOURCES/ \
-  && chmod +x worker/*.sh
+  && chmod -R a+rX /app/src /app/schema /app/worker /WAS_REPORT_RESOURCES \
+  && chmod +x /app/worker/*.sh
 
 ENV PYTHONPATH=/app/src:/app
 ENV WAS_RESOURCE_ROOT=/WAS_REPORT_RESOURCES
