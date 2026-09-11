@@ -11,6 +11,9 @@ os.environ.setdefault("PE_DB_PASSWORD", "test")
 os.environ.setdefault("PE_API_KEY", "test-key")
 os.environ.setdefault("FLARE_TENANT_ID", "12345")
 os.environ.setdefault("FLARE_API_KEY", "test-flare-key")
+os.environ.setdefault("DATABASE_NAME", "test_cyhy")
+os.environ.setdefault("DATABASE_USER", "test_user")
+os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 
 # Third-Party Libraries
 from pe_source.flare_events.flare_config import parse_flare_api_keys
