@@ -175,20 +175,33 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS",
+        ("comments", "retired"),
+    )
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "display_stakeholder_record"
+    )
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "get_stakeholder_record_by_tag"
+    )
     def test_stakeholder_row_update_displays_then_updates_selected_fields(
         self,
+        mock_get_record,
+        mock_display_record,
         mock_stakeholders_main,
     ) -> None:
-        """Show current values before applying selected stakeholder changes."""
+        """Cycle through current values and apply only changed fields."""
+        record = {"comments": "Old comment", "retired": True}
+        mock_get_record.return_value = record
         menu = self.build_menu(
             [
                 "TAG1",
-                "comments",
                 "Updated comment",
-                "retired",
                 "false",
-                "done",
                 "y",
                 "",
             ]
@@ -196,13 +209,9 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         menu.update_stakeholder_row()
 
-        self.assertEqual(mock_stakeholders_main.call_count, 2)
-        self.assertEqual(
-            mock_stakeholders_main.call_args_list[0].args[0],
-            ["show", "--tag", "TAG1"],
-        )
-        self.assertEqual(
-            mock_stakeholders_main.call_args_list[1].args[0],
+        mock_get_record.assert_called_once_with("TAG1")
+        mock_display_record.assert_called_once_with(record, output=menu.output)
+        mock_stakeholders_main.assert_called_once_with(
             [
                 "update",
                 "--tag",
@@ -212,8 +221,35 @@ class WasOperatorMenuTests(unittest.TestCase):
                 "--set",
                 "retired=false",
                 "--confirm",
-            ],
+            ]
         )
+
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS",
+        ("comments", "retired"),
+    )
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "display_stakeholder_record"
+    )
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "get_stakeholder_record_by_tag"
+    )
+    def test_stakeholder_row_update_keeps_prefilled_values_on_enter(
+        self,
+        mock_get_record,
+        mock_display_record,
+    ) -> None:
+        """Treat Enter as acceptance of each current stakeholder value."""
+        record = {"comments": None, "retired": False}
+        mock_get_record.return_value = record
+        menu = self.build_menu(["TAG1", "", "", ""])
+
+        menu.update_stakeholder_row()
+
+        mock_display_record.assert_called_once_with(record, output=menu.output)
+        menu.output.assert_any_call("No stakeholder changes were entered.")
 
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
     def test_sensitive_export_requires_typed_confirmation(

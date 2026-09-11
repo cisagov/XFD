@@ -145,7 +145,12 @@ class WasOperatorMenu:
         """Wait for the operator before redisplaying a menu."""
         self.input("Press Enter to continue...")
 
-    def execute(self, operation_name: str, command: Callable[[], int]) -> int:
+    def execute(
+        self,
+        operation_name: str,
+        command: Callable[[], int],
+        show_success: bool = True,
+    ) -> int:
         """Execute one command while keeping unexpected failures in the menu."""
         try:
             exit_code = command()
@@ -156,11 +161,37 @@ class WasOperatorMenu:
             self.output("Operation failed. Review the WAS logs for details.")
             return 1
 
-        if exit_code == 0:
+        if exit_code == 0 and show_success:
             self.output("Operation completed successfully.")
         else:
             self.output("Operation exited with status {}.".format(exit_code))
         return exit_code
+
+    def prompt_prefilled_value(
+        self,
+        column_name: str,
+        current_value: object,
+    ) -> str:
+        """Prompt with an editable current value when using an interactive TTY."""
+        current_text = "" if current_value is None else str(current_value)
+        prompt = "{} [current: {}]: ".format(
+            column_name,
+            "NULL" if current_value is None else current_text,
+        )
+        if self.input is not input:
+            entered_value = self.input(prompt).strip()
+            return entered_value if entered_value else current_text
+        try:
+            # Standard Python Libraries
+            import readline
+        except ImportError:
+            entered_value = self.input(prompt).strip()
+            return entered_value if entered_value else current_text
+        readline.set_startup_hook(lambda: readline.insert_text(current_text))
+        try:
+            return self.input(prompt).strip()
+        finally:
+            readline.set_startup_hook()
 
     def print_menu(
         self,
@@ -528,53 +559,62 @@ class WasOperatorMenu:
                 self.output("Invalid selection.")
 
     def update_stakeholder_row(self) -> None:
-        """Display one stakeholder and collect selected field updates."""
+        """Display one stakeholder and guide updates through every field."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
-        show_arguments = ["show", "--tag", stakeholder_tag]
+        record_holder: dict[str, dict[str, object]] = {}
+
+        def load_stakeholder() -> int:
+            """Load and display the current stakeholder without exposing secrets."""
+            record = stakeholders_cli.get_stakeholder_record_by_tag(stakeholder_tag)
+            record_holder["record"] = record
+            stakeholders_cli.display_stakeholder_record(record, output=self.output)
+            return 0
+
         if self.execute(
             "stakeholder lookup",
-            lambda: stakeholders_cli.main(show_arguments),
+            load_stakeholder,
+            show_success=False,
         ):
             self.pause()
             return
 
-        editable_columns = sorted(stakeholders_cli.STAKEHOLDER_MUTABLE_COLUMNS)
-        self.output("Editable columns:")
-        self.output(", ".join(editable_columns))
         self.output(
-            "Enter one column at a time. Use CLEAR for SQL NULL or done to finish."
+            "Review each editable column in database order. Press Enter to keep "
+            "the current value, edit the prefilled value, use CLEAR for SQL NULL, "
+            "or enter CANCEL to stop."
         )
+        record = record_holder["record"]
         updates: dict[str, object] = {}
-        while True:
-            column_name = self.input("Column to update [done]: ").strip()
-            normalized_column = column_name.lower().replace("-", "_")
-            if normalized_column in {"", "done"}:
-                break
-            if normalized_column == "b":
-                self.output("Operation cancelled.")
-                return
-            if normalized_column not in stakeholders_cli.STAKEHOLDER_MUTABLE_COLUMNS:
-                self.output("That column is unsupported or protected.")
-                continue
-            raw_value = self.input(
-                "New value for {} [Enter keeps current, CLEAR sets NULL]: ".format(
-                    normalized_column
+        for column_name in stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS:
+            current_value = record[column_name]
+            current_text = "" if current_value is None else str(current_value)
+            while True:
+                raw_value = self.prompt_prefilled_value(
+                    column_name,
+                    current_value,
                 )
-            ).strip()
-            if not raw_value:
-                continue
-            if raw_value.upper() == "CLEAR":
-                updates[normalized_column] = None
-                continue
-            try:
-                updates[normalized_column] = (
-                    stakeholders_cli.normalize_stakeholder_update(
-                        normalized_column,
-                        raw_value,
+                if raw_value == current_text:
+                    break
+                if raw_value.upper() == "CANCEL":
+                    self.output("Operation cancelled.")
+                    return
+                if raw_value.upper() == "CLEAR":
+                    if current_value is not None:
+                        updates[column_name] = None
+                    break
+                try:
+                    normalized_value = (
+                        stakeholders_cli.normalize_stakeholder_update(
+                            column_name,
+                            raw_value,
+                        )
                     )
-                )
-            except ValueError as error:
-                self.output("Invalid value: {}".format(str(error)))
+                except ValueError as error:
+                    self.output("Invalid value: {}".format(str(error)))
+                    continue
+                if normalized_value != current_value:
+                    updates[column_name] = normalized_value
+                break
 
         if not updates:
             self.output("No stakeholder changes were entered.")

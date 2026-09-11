@@ -23,6 +23,7 @@ from was_mailer.message import (
 )
 from was_mailer.ses_client import create_ses_client
 from was_reports.data.stakeholders import (
+    STAKEHOLDER_CREATE_COLUMNS,
     STAKEHOLDER_MUTABLE_COLUMNS,
     create_stakeholder_in_db,
     get_stakeholder_record_by_tag,
@@ -104,6 +105,11 @@ STAKEHOLDER_EPOCH_COLUMNS = frozenset(
         "next_scheduled",
         "onboarding_date",
     }
+)
+STAKEHOLDER_EDIT_COLUMNS = tuple(
+    column_name
+    for column_name in STAKEHOLDER_CREATE_COLUMNS
+    if column_name in STAKEHOLDER_MUTABLE_COLUMNS
 )
 
 

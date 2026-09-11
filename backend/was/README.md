@@ -603,8 +603,12 @@ docker run --rm \
 ```
 
 The Stakeholder Management menu provides the same workflow interactively. It
-displays the matching row first, accepts multiple column changes, validates
-integer, Boolean, and email values, and displays the updated row afterward.
+displays the matching row first, then cycles through every editable column in
+database order. Each interactive prompt is prefilled with the current value.
+Press Enter to retain it, edit the value before pressing Enter to replace it,
+enter `CLEAR` to store SQL `NULL`, or enter `CANCEL` to stop without saving.
+The workflow validates integer, Boolean, and email values and displays the
+updated row afterward.
 The primary `tag`, `report_password`, `created_at`, and `updated_at` fields are
 protected. Use the dedicated password-rotation command for password changes.
 
