@@ -39,7 +39,7 @@ def get_assignee_by_name(name: str, conn: connection) -> Optional[Assignee]:
             """
             SELECT id, name, email, active, email_enabled
             FROM was_assignees
-            WHERE name = %s
+            WHERE LOWER(BTRIM(name)) = LOWER(BTRIM(%s))
             """,
             (normalized_name,),
         )
@@ -55,6 +55,17 @@ def get_assignee_by_name(name: str, conn: connection) -> Optional[Assignee]:
         active=bool(row[3]),
         email_enabled=bool(row[4]),
     )
+
+
+def get_assignee_by_name_from_db(name: str) -> Optional[Assignee]:
+    """Return an assignee by name using a managed database connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_assignee_by_name(name=name, conn=conn)
+    finally:
+        close(conn)
 
 
 def list_active_assignee_names(conn: connection) -> list[str]:

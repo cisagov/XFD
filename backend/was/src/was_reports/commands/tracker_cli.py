@@ -9,6 +9,7 @@ from typing import List, Optional
 
 # Third-Party Libraries
 # First-Party Libraries
+from was_reports.data.assignees import get_assignee_by_name_from_db
 from was_reports.data.daily_report_tracker import (
     TrackerTableRow,
     list_tracker_rows_for_export_from_db,
@@ -77,6 +78,23 @@ def report_status_value(value: str) -> str:
             "Report status must be manual, pending, or sent."
         )
     return normalized_value
+
+
+def validated_assignee_name(value: str | None) -> str | None:
+    """Return the canonical stored assignee name or reject an unknown name."""
+    if value is None:
+        return None
+    assignee = get_assignee_by_name_from_db(value)
+    if assignee is None:
+        raise ValueError(
+            "Assignee name '{}' is not present in was_assignees. Use the "
+            "stored assignee name or leave the filter blank.".format(value)
+        )
+    if not assignee.active:
+        raise ValueError(
+            "Assignee name '{}' exists but is inactive.".format(assignee.name)
+        )
+    return assignee.name
 
 
 def sent_date_value(value: str) -> date:
@@ -201,11 +219,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def export_csv(args: argparse.Namespace) -> int:
     """Export tracker rows from Postgres to a CSV file."""
+    assignee_name = validated_assignee_name(args.assignee)
     rows = list_tracker_rows_for_export_from_db(
         data_pull_date=args.data_pull_date,
         assignee_id=args.assignee_id,
         days_back=args.days_back,
-        assignee_name=args.assignee,
+        assignee_name=assignee_name,
         limit=args.limit,
     )
     write_tracker_csv(rows=rows, output_path=Path(args.output))
@@ -260,14 +279,20 @@ def format_tracker_table(rows: list[TrackerTableRow]) -> str:
 
 def show_table(args: argparse.Namespace) -> int:
     """Display current tracker rows directly from Postgres."""
+    assignee_name = validated_assignee_name(args.assignee)
     rows = list_tracker_table_rows_from_db(
         days_back=args.days_back,
-        assignee_name=args.assignee,
+        assignee_name=assignee_name,
         report_status=args.report_status,
         limit=args.limit,
     )
     sys.stdout.write("{}\n".format(format_tracker_table(rows)))
     sys.stdout.write("Displayed {} tracker rows.\n".format(len(rows)))
+    if assignee_name and not rows:
+        sys.stdout.write(
+            "Assignee '{}' exists, but no tracker rows matched the selected "
+            "date window and report status.\n".format(assignee_name)
+        )
     return 0
 
 

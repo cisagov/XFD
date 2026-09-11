@@ -1042,7 +1042,9 @@ make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 `DAYS_BACK=7` includes today and the previous seven calendar days. The
 assignee match is case-insensitive and must otherwise match the stored name.
 Enter the assignee's stored name, not an email address, stakeholder tag, or user
-ID. Leave the assignee prompt blank to include all assignees.
+ID. Leave the assignee prompt blank to include all assignees. The CLI reports
+whether a supplied name is absent from `was_assignees`, inactive, or valid but
+has no tracker rows matching the selected date and status filters.
 The terminal output excludes report passwords, POC email addresses, and
 customer notes. In the operator menu, `View tracker table` prompts for the
 number of rows to display. Press Enter to use the 200-row default, enter a

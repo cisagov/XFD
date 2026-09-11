@@ -77,6 +77,7 @@ class AssigneeTests(unittest.TestCase):
         self.assertEqual(assignee.name, "Mina Salehi")
         self.assertEqual(assignee.email, "mina@example.gov")
         self.assertEqual(conn.cursor_instance.parameters, ("Mina Salehi",))
+        self.assertIn("LOWER(BTRIM(name))", conn.cursor_instance.query)
 
     def test_get_assignee_by_name_returns_none_when_missing(self) -> None:
         """Return none when an assignee is not present."""

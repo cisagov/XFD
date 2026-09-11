@@ -13,6 +13,7 @@ from unittest.mock import patch
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import tracker_cli
+from was_reports.data.assignees import Assignee
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow, TrackerTableRow
 from was_reports.data.report_runs import ReportRunError
 from was_reports.tracker.tracker_csv import (
@@ -114,12 +115,19 @@ class TrackerCliTests(unittest.TestCase):
 
     @patch("was_reports.commands.tracker_cli.write_tracker_csv")
     @patch("was_reports.commands.tracker_cli.list_tracker_rows_for_export_from_db")
+    @patch("was_reports.commands.tracker_cli.get_assignee_by_name_from_db")
     def test_export_csv_filters_by_assignee_and_days(
         self,
+        mock_get_assignee,
         mock_list_rows,
         mock_write_csv,
     ) -> None:
         """Export a recent CSV for one exact assignee name."""
+        mock_get_assignee.return_value = Assignee(
+            id=3,
+            name="Mina Salehi",
+            active=True,
+        )
         mock_list_rows.return_value = [DailyReportTrackerRow(tag="TAG1")]
         args = tracker_cli.parse_args(
             [
@@ -146,8 +154,18 @@ class TrackerCliTests(unittest.TestCase):
         mock_write_csv.assert_called_once()
 
     @patch("was_reports.commands.tracker_cli.list_tracker_table_rows_from_db")
-    def test_show_table_displays_live_assignee_rows(self, mock_list_rows) -> None:
+    @patch("was_reports.commands.tracker_cli.get_assignee_by_name_from_db")
+    def test_show_table_displays_live_assignee_rows(
+        self,
+        mock_get_assignee,
+        mock_list_rows,
+    ) -> None:
         """Display recent Postgres tracker data without creating a CSV."""
+        mock_get_assignee.return_value = Assignee(
+            id=3,
+            name="Analyst",
+            active=True,
+        )
         mock_list_rows.return_value = [
             TrackerTableRow(
                 tracker_id=7,
@@ -188,6 +206,40 @@ class TrackerCliTests(unittest.TestCase):
             report_status=None,
             limit=50,
         )
+
+    @patch("was_reports.commands.tracker_cli.list_tracker_table_rows_from_db")
+    @patch("was_reports.commands.tracker_cli.get_assignee_by_name_from_db")
+    def test_show_table_explains_empty_result_for_known_assignee(
+        self,
+        mock_get_assignee,
+        mock_list_rows,
+    ) -> None:
+        """Explain that a known assignee has no rows in the chosen window."""
+        mock_get_assignee.return_value = Assignee(
+            id=4,
+            name="Zach Cogswell",
+            active=True,
+        )
+        mock_list_rows.return_value = []
+        args = tracker_cli.parse_args(
+            ["show", "--assignee", "zach cogswell", "--limit", "all"]
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.show_table(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Assignee 'Zach Cogswell' exists", output.getvalue())
+
+    @patch("was_reports.commands.tracker_cli.get_assignee_by_name_from_db")
+    def test_show_table_rejects_unknown_assignee(self, mock_get_assignee) -> None:
+        """Tell the operator when the assignee is absent from the database."""
+        mock_get_assignee.return_value = None
+        args = tracker_cli.parse_args(["show", "--assignee", "Missing Person"])
+
+        with self.assertRaisesRegex(ValueError, "not present in was_assignees"):
+            tracker_cli.show_table(args)
 
     @patch("was_reports.commands.tracker_cli.list_tracker_table_rows_from_db")
     def test_show_table_filters_manual_reports(self, mock_list_rows) -> None:
