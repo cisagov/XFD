@@ -85,6 +85,56 @@ class StakeholderDataTests(unittest.TestCase):
             ("distro@example.gov", "Analyst Name", "TAG1"),
         )
 
+    def test_get_stakeholder_record_masks_report_password(self) -> None:
+        """Display all stakeholder columns without exposing the PDF password."""
+        row = tuple(
+            "<configured>" if column == "report_password" else column
+            for column in stakeholders.STAKEHOLDER_VIEW_COLUMNS
+        )
+        conn = FakeConnection(row=row)
+
+        record = stakeholders.get_stakeholder_record(" TAG1 ", conn)
+
+        self.assertEqual(record["report_password"], "<configured>")
+        self.assertIn(
+            "THEN '<missing>' ELSE '<configured>' END AS report_password",
+            conn.cursor_instance.query,
+        )
+        self.assertEqual(conn.cursor_instance.parameters, ("TAG1",))
+
+    def test_update_stakeholder_fields_updates_only_allowlisted_columns(self) -> None:
+        """Parameterize selected business-field updates and refresh updated_at."""
+        conn = FakeConnection(row=("TAG1",))
+
+        stakeholders.update_stakeholder_fields(
+            tag=" TAG1 ",
+            updates={"comments": None, "retired": True, "state": "OK"},
+            conn=conn,
+        )
+
+        self.assertTrue(conn.committed)
+        self.assertIn("comments = %s", conn.cursor_instance.query)
+        self.assertIn("retired = %s", conn.cursor_instance.query)
+        self.assertIn("state = %s", conn.cursor_instance.query)
+        self.assertIn("updated_at = NOW()", conn.cursor_instance.query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (None, True, "OK", "TAG1"),
+        )
+
+    def test_update_stakeholder_fields_rejects_protected_columns(self) -> None:
+        """Prevent general updates to identifiers and report passwords."""
+        conn = FakeConnection(row=("TAG1",))
+
+        with self.assertRaisesRegex(ValueError, "protected"):
+            stakeholders.update_stakeholder_fields(
+                tag="TAG1",
+                updates={"report_password": "replacement"},
+                conn=conn,
+            )
+
+        self.assertFalse(conn.committed)
+
     def test_list_stakeholders_for_export_excludes_password_by_default(self) -> None:
         """Keep report passwords out of normal stakeholder exports."""
         conn = FakeConnection(rows=[("TAG1",)])

@@ -19,6 +19,9 @@ DEFAULT_LOG_BACKUP_COUNT = 5
 DEFAULT_RETENTION_DAYS = 14
 HANDLER_MARKER = "was_reporting_handler"
 LOG_FILENAME_PREFIX = "was-reporting-"
+LOG_FORMAT = (
+    "%(asctime)sZ %(levelname)s %(name)s %(filename)s:%(lineno)d %(message)s"
+)
 _CONFIGURED_LOG_PATH: Path | None = None
 
 
@@ -111,7 +114,7 @@ def configure_logging() -> Path | None:
         return _CONFIGURED_LOG_PATH
 
     formatter = logging.Formatter(
-        "%(asctime)sZ %(levelname)s %(name)s %(message)s",
+        LOG_FORMAT,
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
     formatter.converter = __import__("time").gmtime

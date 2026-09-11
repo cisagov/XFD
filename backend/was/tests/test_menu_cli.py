@@ -1,6 +1,7 @@
 """Tests for the interactive WAS operator menu."""
 
 # Standard Python Libraries
+from datetime import date
 import unittest
 from unittest.mock import Mock, patch
 
@@ -25,6 +26,25 @@ class WasOperatorMenuTests(unittest.TestCase):
         exit_code = menu.run()
 
         self.assertEqual(exit_code, 0)
+
+    def test_report_menu_uses_five_or_b_to_return(self) -> None:
+        """Return to the main menu using either documented report-menu choice."""
+        for selection in ("5", "b"):
+            with self.subTest(selection=selection):
+                menu = self.build_menu([selection])
+
+                menu.report_menu()
+
+                displayed_options = [
+                    call.args[0]
+                    for call in menu.output.call_args_list
+                    if call.args
+                ]
+                self.assertIn(
+                    "4) Generate a new on-demand report (S3, optional email)",
+                    displayed_options,
+                )
+                self.assertIn("5) Back to main menu", displayed_options)
 
     @patch("was_reports.commands.menu_cli.Figlet")
     def test_main_menu_displays_figlet_banner(self, mock_figlet) -> None:
@@ -156,12 +176,52 @@ class WasOperatorMenuTests(unittest.TestCase):
         )
 
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
+    def test_stakeholder_row_update_displays_then_updates_selected_fields(
+        self,
+        mock_stakeholders_main,
+    ) -> None:
+        """Show current values before applying selected stakeholder changes."""
+        menu = self.build_menu(
+            [
+                "TAG1",
+                "comments",
+                "Updated comment",
+                "retired",
+                "false",
+                "done",
+                "y",
+                "",
+            ]
+        )
+
+        menu.update_stakeholder_row()
+
+        self.assertEqual(mock_stakeholders_main.call_count, 2)
+        self.assertEqual(
+            mock_stakeholders_main.call_args_list[0].args[0],
+            ["show", "--tag", "TAG1"],
+        )
+        self.assertEqual(
+            mock_stakeholders_main.call_args_list[1].args[0],
+            [
+                "update",
+                "--tag",
+                "TAG1",
+                "--set",
+                "comments=Updated comment",
+                "--set",
+                "retired=false",
+                "--confirm",
+            ],
+        )
+
+    @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
     def test_sensitive_export_requires_typed_confirmation(
         self,
         mock_stakeholders_main,
     ) -> None:
         """Require a typed phrase before exporting report passwords."""
-        menu = self.build_menu(["", "y", "EXPORT PASSWORDS", ""])
+        menu = self.build_menu(["1", "", "y", "EXPORT PASSWORDS", ""])
 
         menu.export_stakeholders()
 
@@ -172,6 +232,33 @@ class WasOperatorMenuTests(unittest.TestCase):
                 "/output/was-stakeholders.csv",
                 "--include-report-passwords",
                 "--confirm-sensitive-export",
+            ]
+        )
+
+    @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
+    def test_stakeholder_export_can_use_s3(self, mock_stakeholders_main) -> None:
+        """Select direct S3 delivery from the stakeholder export menu."""
+        menu = self.build_menu(["2", "n", ""])
+
+        menu.export_stakeholders()
+
+        mock_stakeholders_main.assert_called_once_with(["export-csv", "--s3"])
+
+    @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
+    def test_stakeholder_export_can_email_assignee(
+        self,
+        mock_stakeholders_main,
+    ) -> None:
+        """Select an approved assignee email destination from the menu."""
+        menu = self.build_menu(["3", "analyst@example.gov", "n", ""])
+
+        menu.export_stakeholders()
+
+        mock_stakeholders_main.assert_called_once_with(
+            [
+                "export-csv",
+                "--email-assignee",
+                "analyst@example.gov",
             ]
         )
 
@@ -191,8 +278,9 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         mock_inventory_main.assert_called_once_with([])
         output.assert_any_call(
-            "Querying Qualys for stakeholder inventory. "
-            "This may take several minutes; please wait..."
+            "WARNING: The full Qualys stakeholder inventory can take "
+            "a long time to finish. Leave this operation running until "
+            "the inventory or an error is displayed."
         )
 
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
@@ -204,6 +292,45 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         mock_tracker_main.assert_called_once_with(
             ["show", "--days-back", "7", "--limit", "200"]
+        )
+
+    @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
+    def test_manual_sent_date_displays_manual_rows_before_id(
+        self,
+        mock_tracker_main,
+    ) -> None:
+        """Show eligible manual rows before asking the operator for an ID."""
+        menu = self.build_menu(
+            ["", "Mina Salehi", "", "7", "", "y", ""]
+        )
+
+        menu.record_manual_sent_date()
+
+        self.assertEqual(mock_tracker_main.call_count, 2)
+        self.assertEqual(
+            mock_tracker_main.call_args_list[0].args[0],
+            [
+                "show",
+                "--days-back",
+                "30",
+                "--report-status",
+                "manual",
+                "--limit",
+                "200",
+                "--assignee",
+                "Mina Salehi",
+            ],
+        )
+        self.assertEqual(
+            mock_tracker_main.call_args_list[1].args[0],
+            [
+                "mark-sent",
+                "--tracker-id",
+                "7",
+                "--sent-date",
+                date.today().isoformat(),
+                "--confirm",
+            ],
         )
 
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)

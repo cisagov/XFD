@@ -89,6 +89,41 @@ def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
     return recipients
 
 
+def build_stakeholder_export_email(
+    source_email: str,
+    recipients: List[str],
+    export_path: Path,
+    includes_passwords: bool = False,
+) -> EmailMessage:
+    """Build an analyst-only stakeholder database export email."""
+    if not recipients:
+        raise ValueError("At least one assignee recipient is required.")
+    if not export_path.is_file() or export_path.suffix.lower() != ".csv":
+        raise FileNotFoundError("The stakeholder CSV export was not found.")
+    message = EmailMessage()
+    message["From"] = source_email
+    message["To"] = ", ".join(recipients)
+    message["Subject"] = "WAS Stakeholder Database Export - Analyst Copy"
+    password_notice = (
+        "This export contains stakeholder report passwords."
+        if includes_passwords
+        else "This export does not contain stakeholder report passwords."
+    )
+    message.set_content(
+        "The requested WAS stakeholder database export is attached.\n\n"
+        "{}\n\nDo not forward this attachment outside the approved WAS team.".format(
+            password_notice
+        )
+    )
+    message.add_attachment(
+        export_path.read_bytes(),
+        maintype="text",
+        subtype="csv",
+        filename=export_path.name,
+    )
+    return message
+
+
 def build_report_email(
     source_email: str,
     recipients: List[str],

@@ -98,6 +98,13 @@ STAKEHOLDER_CREATE_COLUMNS = (
     "state",
     "report_password",
 )
+STAKEHOLDER_VIEW_COLUMNS = STAKEHOLDER_CREATE_COLUMNS + (
+    "created_at",
+    "updated_at",
+)
+STAKEHOLDER_MUTABLE_COLUMNS = frozenset(STAKEHOLDER_CREATE_COLUMNS).difference(
+    {"tag", "report_password"}
+)
 
 
 def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
@@ -165,6 +172,97 @@ def get_stakeholder_details_by_tag(tag: str) -> Optional[StakeholderDetails]:
     conn = connect()
     try:
         return get_stakeholder_details(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def get_stakeholder_record(
+    tag: str,
+    conn: connection,
+) -> dict[str, object]:
+    """Return one complete stakeholder row with its password masked."""
+    normalized_tag = tag.strip()
+    if not normalized_tag:
+        raise ValueError("Stakeholder tag must not be empty.")
+    select_expressions = [
+        (
+            "CASE WHEN report_password IS NULL OR report_password = '' "
+            "THEN '<missing>' ELSE '<configured>' END AS report_password"
+            if column_name == "report_password"
+            else column_name
+        )
+        for column_name in STAKEHOLDER_VIEW_COLUMNS
+    ]
+    query = "SELECT {} FROM was_stakeholders WHERE tag = %s".format(
+        ", ".join(select_expressions)
+    )
+    with conn.cursor() as cursor:
+        cursor.execute(query, (normalized_tag,))
+        row = cursor.fetchone()
+    if row is None:
+        raise KeyError("Stakeholder tag {} was not found.".format(normalized_tag))
+    return dict(zip(STAKEHOLDER_VIEW_COLUMNS, row))
+
+
+def get_stakeholder_record_by_tag(tag: str) -> dict[str, object]:
+    """Return one complete stakeholder row using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_stakeholder_record(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def update_stakeholder_fields(
+    tag: str,
+    updates: dict[str, object],
+    conn: connection,
+) -> None:
+    """Update selected allowlisted stakeholder business fields."""
+    normalized_tag = tag.strip()
+    if not normalized_tag:
+        raise ValueError("Stakeholder tag must not be empty.")
+    if not updates:
+        raise ValueError("At least one stakeholder field update is required.")
+    if set(updates).difference(STAKEHOLDER_MUTABLE_COLUMNS):
+        raise ValueError("Unsupported or protected stakeholder field.")
+
+    assignments = []
+    parameters: list[object] = []
+    for column_name in sorted(updates):
+        assignments.append("{} = %s".format(column_name))
+        parameters.append(updates[column_name])
+    assignments.append("updated_at = NOW()")
+    parameters.append(normalized_tag)
+    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(
+        ", ".join(assignments)
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, tuple(parameters))
+            row = cursor.fetchone()
+        if row is None:
+            raise KeyError(
+                "Stakeholder tag {} was not found.".format(normalized_tag)
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_stakeholder_fields_for_tag(
+    tag: str,
+    updates: dict[str, object],
+) -> None:
+    """Update selected stakeholder fields using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        update_stakeholder_fields(tag=tag, updates=updates, conn=conn)
     finally:
         close(conn)
 

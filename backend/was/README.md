@@ -217,7 +217,7 @@ mounted, the same messages are retained on the host under `local-output/logs/`.
 Each process writes a timestamped `was-reporting-*.log` file, rotates it at 10
 MiB, and retains five segments. Command startup removes WAS log files older than
 14 days. Change the log settings only when operational retention requirements
-differ.
+differ. Every log entry includes the source Python filename and line number.
 
 Log files are owner-readable only, including rotated files. Their random suffix
 prevents separate containers with the same PID and start second from sharing a
@@ -575,6 +575,39 @@ Omit unchanged options. Clear a value with `--clear-was-report-poc`,
 `--clear-tech-poc-email`, or `--clear-distro-email`. The command never prints
 the contact values and does not modify report passwords or scheduling fields.
 
+### View And Update Stakeholder Rows
+
+Display the current database values for one exact stakeholder tag. The report
+password is shown only as configured or missing:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-stakeholders show \
+  --tag "CUSTOMER_TAG"
+```
+
+Update only selected business fields and use `--clear` to store SQL `NULL`:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-stakeholders update \
+  --tag "CUSTOMER_TAG" \
+  --set "customer_name=Updated Customer Name" \
+  --set "retired=false" \
+  --clear comments \
+  --confirm
+```
+
+The Stakeholder Management menu provides the same workflow interactively. It
+displays the matching row first, accepts multiple column changes, validates
+integer, Boolean, and email values, and displays the updated row afterward.
+The primary `tag`, `report_password`, `created_at`, and `updated_at` fields are
+protected. Use the dedicated password-rotation command for password changes.
+
 ### Export Stakeholders
 
 Export all non-secret stakeholder columns to an owner-readable CSV:
@@ -585,7 +618,28 @@ make stakeholder-export
 
 This writes `local-output/was-stakeholders.csv` with file mode `0600` and
 neutralizes spreadsheet formulas in non-password text fields. Report passwords
-are excluded by default.
+are excluded by default. Non-secret exports can also be saved directly to the
+configured S3 bucket or emailed only to addresses registered as active,
+email-enabled WAS assignees. Choose the export destination from the Stakeholder
+Management menu, or use one of these commands:
+
+Epoch values in `web_apps_last_updated`, `last_scanned`, `next_scheduled`, and
+`onboarding_date` are exported as `YYYY-MM-DD HH:MM:SS UTC` timestamps.
+
+```bash
+docker run --rm --env-file .env was-reporting \
+  was-stakeholders export-csv --s3
+
+docker run --rm --env-file .env was-reporting \
+  was-stakeholders export-csv \
+  --email-assignee "analyst@example.gov"
+```
+
+S3 exports are encrypted with S3-managed encryption and stored below
+`<WAS_REPORTS_PREFIX>/stakeholder_exports/<YYYY-MM-DD>/`. Email export recipients
+must exist as active, email-enabled entries in `was_assignees`. The existing
+typed confirmation remains required before any destination can include report
+passwords. Password-containing exports cannot be emailed.
 
 A complete sensitive export requires two explicit flags and should be moved to
 approved encrypted storage immediately after use:
@@ -617,6 +671,9 @@ Stakeholder Management, and Qualys Operations. It supports guided prompts,
 confirmation before write or delivery operations, `CLEAR` for removing contact
 values, and typed confirmation before exporting report passwords. Files are
 written under the mounted `local-output` directory.
+
+Enter `b` at any submenu selection to return directly to the main menu. Each
+submenu also retains a numbered Back to main menu option.
 
 Report Generation option 1 asks the operator to choose a delivery mode. Test
 mode requires one or more active WAS assignee email addresses and delivers all
@@ -984,6 +1041,8 @@ make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
 
 `DAYS_BACK=7` includes today and the previous seven calendar days. The
 assignee match is case-insensitive and must otherwise match the stored name.
+Enter the assignee's stored name, not an email address, stakeholder tag, or user
+ID. Leave the assignee prompt blank to include all assignees.
 The terminal output excludes report passwords, POC email addresses, and
 customer notes. In the operator menu, `View tracker table` prompts for the
 number of rows to display. Press Enter to use the 200-row default, enter a
@@ -1024,7 +1083,9 @@ make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-02
 
 The command only updates an unsent row already classified for manual handling.
 It requires explicit confirmation internally and will not overwrite an existing
-sent date.
+sent date. In the interactive menu, this operation displays manual tracker rows
+first, with optional assignee, date-window, and row-limit filters, so the
+operator can select the correct tracker row ID without leaving the workflow.
 
 ### View Persisted Report Errors
 
@@ -1120,6 +1181,10 @@ docker run --rm \
 
 The command is read-only and prints stable tab-separated output with tag,
 description, and web application count columns.
+
+The full Qualys stakeholder inventory may take a long time to finish. The
+interactive menu displays a warning before starting it. Leave the operation
+running until the inventory or an error is displayed.
 
 ## Qualys Administration
 

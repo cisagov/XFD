@@ -10,6 +10,7 @@ import unittest
 # Third-Party Libraries
 import requests
 from was_reports.utils.logging_config import (
+    LOG_FORMAT,
     PrivateRotatingFileHandler,
     exception_details,
 )
@@ -17,6 +18,10 @@ from was_reports.utils.logging_config import (
 
 class LoggingConfigTests(unittest.TestCase):
     """Check error metadata without exposing external payloads."""
+
+    def test_log_format_includes_source_file_and_line(self) -> None:
+        """Identify the source location responsible for every log message."""
+        self.assertIn("%(filename)s:%(lineno)d", LOG_FORMAT)
 
     def test_sql_details_exclude_statement_and_values(self) -> None:
         """Keep a useful missing-column diagnostic without SQL parameter values."""

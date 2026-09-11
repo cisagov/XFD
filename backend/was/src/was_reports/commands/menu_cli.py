@@ -222,11 +222,13 @@ class WasOperatorMenu:
                     "Run the complete recent-scan batch",
                     "Process eligible automatic tracker reports",
                     "Process an eligible manual tracker report",
-                    "Back to main menu",
                     "Generate a new on-demand report (S3, optional email)",
+                    "Back to main menu",
                 ],
             )
-            selection = self.input("Please enter your selection: ").strip()
+            selection = self.input(
+                "Please enter your selection [b = main menu]: "
+            ).strip().lower()
             if selection == "1":
                 self.run_daily_batch()
             elif selection == "2":
@@ -234,9 +236,9 @@ class WasOperatorMenu:
             elif selection == "3":
                 self.run_single_report(manual=True)
             elif selection == "4":
-                return
-            elif selection == "5":
                 self.run_on_demand_report()
+            elif selection in {"5", "b"}:
+                return
             else:
                 self.output("Invalid selection.")
 
@@ -363,7 +365,9 @@ class WasOperatorMenu:
                     "Back to main menu",
                 ],
             )
-            selection = self.input("Please enter your selection: ").strip()
+            selection = self.input(
+                "Please enter your selection [b = main menu]: "
+            ).strip().lower()
             if selection == "1":
                 self.view_tracker()
             elif selection == "2":
@@ -372,7 +376,7 @@ class WasOperatorMenu:
                 self.record_manual_sent_date()
             elif selection == "4":
                 self.export_tracker()
-            elif selection == "5":
+            elif selection in {"5", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
@@ -383,7 +387,9 @@ class WasOperatorMenu:
             "Days back [7]: ",
             default=7,
         )
-        assignee = self.prompt_optional("Assignee name [all]: ")
+        assignee = self.prompt_optional(
+            "Assignee name (exact stored name, case-insensitive) [all]: "
+        )
         report_status = self.prompt_optional(
             "Report status [all/manual/pending/sent]: "
         ).lower()
@@ -417,6 +423,34 @@ class WasOperatorMenu:
 
     def record_manual_sent_date(self) -> None:
         """Prompt for and record one manual tracker report sent date."""
+        self.output(
+            "First, display manual tracker rows so you can select the tracker ID."
+        )
+        days_back = self.prompt_nonnegative_integer(
+            "Days back [30]: ",
+            default=30,
+        )
+        assignee = self.prompt_optional(
+            "Assignee name (exact stored name, case-insensitive) [all]: "
+        )
+        row_limit = self.prompt_row_limit("Rows to display [200, or all]: ")
+        show_arguments = [
+            "show",
+            "--days-back",
+            str(days_back),
+            "--report-status",
+            "manual",
+            "--limit",
+            row_limit,
+        ]
+        if assignee:
+            show_arguments.extend(["--assignee", assignee])
+        if self.execute(
+            "manual tracker table",
+            lambda: tracker_cli.main(show_arguments),
+        ):
+            self.pause()
+            return
         tracker_id = self.prompt_positive_integer("Tracker row ID: ")
         sent_date = self.prompt_optional(
             "Sent date [{}]: ".format(date.today().isoformat()),
@@ -465,6 +499,7 @@ class WasOperatorMenu:
                 "Stakeholder Management",
                 [
                     "Update POC names and email addresses",
+                    "View or update a stakeholder row",
                     "Export stakeholders",
                     "Import new stakeholders from CSV",
                     "Add one stakeholder",
@@ -472,21 +507,103 @@ class WasOperatorMenu:
                     "Back to main menu",
                 ],
             )
-            selection = self.input("Please enter your selection: ").strip()
+            selection = self.input(
+                "Please enter your selection [b = main menu]: "
+            ).strip().lower()
             if selection == "1":
                 self.update_stakeholder_contacts()
             elif selection == "2":
-                self.export_stakeholders()
+                self.update_stakeholder_row()
             elif selection == "3":
-                self.import_stakeholders()
+                self.export_stakeholders()
             elif selection == "4":
-                self.add_stakeholder()
+                self.import_stakeholders()
             elif selection == "5":
-                self.rotate_stakeholder_password()
+                self.add_stakeholder()
             elif selection == "6":
+                self.rotate_stakeholder_password()
+            elif selection in {"7", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
+
+    def update_stakeholder_row(self) -> None:
+        """Display one stakeholder and collect selected field updates."""
+        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        show_arguments = ["show", "--tag", stakeholder_tag]
+        if self.execute(
+            "stakeholder lookup",
+            lambda: stakeholders_cli.main(show_arguments),
+        ):
+            self.pause()
+            return
+
+        editable_columns = sorted(stakeholders_cli.STAKEHOLDER_MUTABLE_COLUMNS)
+        self.output("Editable columns:")
+        self.output(", ".join(editable_columns))
+        self.output(
+            "Enter one column at a time. Use CLEAR for SQL NULL or done to finish."
+        )
+        updates: dict[str, object] = {}
+        while True:
+            column_name = self.input("Column to update [done]: ").strip()
+            normalized_column = column_name.lower().replace("-", "_")
+            if normalized_column in {"", "done"}:
+                break
+            if normalized_column == "b":
+                self.output("Operation cancelled.")
+                return
+            if normalized_column not in stakeholders_cli.STAKEHOLDER_MUTABLE_COLUMNS:
+                self.output("That column is unsupported or protected.")
+                continue
+            raw_value = self.input(
+                "New value for {} [Enter keeps current, CLEAR sets NULL]: ".format(
+                    normalized_column
+                )
+            ).strip()
+            if not raw_value:
+                continue
+            if raw_value.upper() == "CLEAR":
+                updates[normalized_column] = None
+                continue
+            try:
+                updates[normalized_column] = (
+                    stakeholders_cli.normalize_stakeholder_update(
+                        normalized_column,
+                        raw_value,
+                    )
+                )
+            except ValueError as error:
+                self.output("Invalid value: {}".format(str(error)))
+
+        if not updates:
+            self.output("No stakeholder changes were entered.")
+            self.pause()
+            return
+        if not self.confirm(
+            "Update {} field(s) for {}?".format(len(updates), stakeholder_tag)
+        ):
+            self.output("Operation cancelled.")
+            return
+
+        arguments = ["update", "--tag", stakeholder_tag]
+        for column_name, value in updates.items():
+            if value is None:
+                arguments.extend(["--clear", column_name])
+                continue
+            if isinstance(value, bool):
+                displayed_value = str(value).lower()
+            else:
+                displayed_value = str(value)
+            arguments.extend(
+                ["--set", "{}={}".format(column_name, displayed_value)]
+            )
+        arguments.append("--confirm")
+        self.execute(
+            "stakeholder field update",
+            lambda: stakeholders_cli.main(arguments),
+        )
+        self.pause()
 
     def prompt_contact_update(self, label: str) -> tuple[str | None, bool]:
         """Prompt for a contact value, no change, or explicit clearing."""
@@ -532,11 +649,35 @@ class WasOperatorMenu:
 
     def export_stakeholders(self) -> None:
         """Export stakeholders with optional sensitive password confirmation."""
-        output_path = self.prompt_optional(
-            "Output path [/output/was-stakeholders.csv]: ",
-            default="/output/was-stakeholders.csv",
+        self.print_menu(
+            "Stakeholder Export Destination",
+            [
+                "Save to local output",
+                "Save directly to S3",
+                "Email to active assignee",
+                "Cancel",
+            ],
         )
-        arguments = ["export-csv", "--output", output_path]
+        destination = self.input("Please enter your selection: ").strip()
+        if destination == "4":
+            return
+        if destination not in {"1", "2", "3"}:
+            self.output("Invalid selection.")
+            return
+        arguments = ["export-csv"]
+        if destination == "1":
+            output_path = self.prompt_optional(
+                "Output path [/output/was-stakeholders.csv]: ",
+                default="/output/was-stakeholders.csv",
+            )
+            arguments.extend(["--output", output_path])
+        elif destination == "2":
+            arguments.append("--s3")
+        else:
+            assignee_email = self.prompt_required(
+                "Active WAS assignee email address(es): "
+            )
+            arguments.extend(["--email-assignee", assignee_email])
         if self.confirm("Include sensitive report passwords?"):
             confirmation = self.input(
                 "Type EXPORT PASSWORDS to confirm the sensitive export: "
@@ -671,17 +812,20 @@ class WasOperatorMenu:
                     "Back to main menu",
                 ],
             )
-            selection = self.input("Please enter your selection: ").strip()
+            selection = self.input(
+                "Please enter your selection [b = main menu]: "
+            ).strip().lower()
             if selection == "1":
                 self.output(
-                    "Querying Qualys for stakeholder inventory. "
-                    "This may take several minutes; please wait..."
+                    "WARNING: The full Qualys stakeholder inventory can take "
+                    "a long time to finish. Leave this operation running until "
+                    "the inventory or an error is displayed."
                 )
                 self.execute("Qualys inventory", lambda: inventory_cli.main([]))
                 self.pause()
             elif selection == "2":
                 self.refresh_tracker()
-            elif selection == "3":
+            elif selection in {"3", "b"}:
                 return
             else:
                 self.output("Invalid selection.")

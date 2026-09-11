@@ -3,27 +3,40 @@
 # Standard Python Libraries
 import argparse
 import csv
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import sys
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import List, Optional
 
 # Third-Party Libraries
+from botocore.exceptions import BotoCoreError, ClientError
 from psycopg2 import DatabaseError
 
 # First-Party Libraries
-from was_mailer.message import parse_email_addresses
+from was_mailer.email_reports import send_message
+from was_mailer.message import (
+    approved_analyst_recipients,
+    build_stakeholder_export_email,
+    parse_email_addresses,
+)
+from was_mailer.ses_client import create_ses_client
 from was_reports.data.stakeholders import (
+    STAKEHOLDER_MUTABLE_COLUMNS,
     create_stakeholder_in_db,
+    get_stakeholder_record_by_tag,
     list_stakeholders_for_export_from_db,
     update_stakeholder_contacts_for_tag,
+    update_stakeholder_fields_for_tag,
 )
 from was_reports.commands.stakeholder_import import (
     DEFAULT_NULL_TOKEN,
     import_prepared_rows,
     prepare_stakeholder_csv,
 )
+from was_reports.storage.stakeholder_exports import upload_stakeholder_export
+from was_reports.utils.env import require_env
 from was_reports.utils.logging_config import configure_logging
 
 
@@ -69,6 +82,99 @@ def nonnegative_integer(value: str) -> int:
             "Value must be a whole number of zero or greater."
         )
     return parsed_value
+
+
+STAKEHOLDER_INTEGER_COLUMNS = frozenset(
+    {
+        "num_web_apps",
+        "web_apps_last_updated",
+        "last_scanned",
+        "next_scheduled",
+        "onboarding_date",
+    }
+)
+STAKEHOLDER_BOOLEAN_COLUMNS = frozenset(
+    {"elections", "fceb", "manual_report", "retired"}
+)
+STAKEHOLDER_EMAIL_COLUMNS = frozenset({"distro_email", "tech_poc_email"})
+STAKEHOLDER_EPOCH_COLUMNS = frozenset(
+    {
+        "web_apps_last_updated",
+        "last_scanned",
+        "next_scheduled",
+        "onboarding_date",
+    }
+)
+
+
+def stakeholder_update_assignment(value: str) -> tuple[str, str]:
+    """Parse one column=value stakeholder update assignment."""
+    column_name, separator, raw_value = value.partition("=")
+    normalized_column = column_name.strip().replace("-", "_")
+    if not separator or not normalized_column or not raw_value.strip():
+        raise argparse.ArgumentTypeError(
+            "Updates must use the format column=value with a nonempty value."
+        )
+    if normalized_column not in STAKEHOLDER_MUTABLE_COLUMNS:
+        raise argparse.ArgumentTypeError(
+            "The stakeholder column is unsupported or protected."
+        )
+    return normalized_column, raw_value.strip()
+
+
+def normalize_stakeholder_update(column_name: str, value: str) -> object:
+    """Validate and convert one stakeholder field value."""
+    try:
+        if column_name in STAKEHOLDER_INTEGER_COLUMNS:
+            return nonnegative_integer(value)
+        if column_name in STAKEHOLDER_BOOLEAN_COLUMNS:
+            normalized_value = value.strip().lower()
+            if normalized_value not in {"true", "false"}:
+                raise ValueError("Boolean values must be true or false.")
+            return normalized_value == "true"
+        if column_name in STAKEHOLDER_EMAIL_COLUMNS:
+            return email_list_value(value)
+        return nonempty_value(value)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+
+
+def stakeholder_updates(args: argparse.Namespace) -> dict[str, object]:
+    """Return validated stakeholder updates without duplicate columns."""
+    updates: dict[str, object] = {}
+    for column_name, raw_value in args.set_values:
+        if column_name in updates:
+            raise ValueError("A stakeholder column may be updated only once.")
+        updates[column_name] = normalize_stakeholder_update(
+            column_name,
+            raw_value,
+        )
+    for column_name in args.clear_values:
+        if column_name in updates:
+            raise ValueError("A stakeholder column may be updated only once.")
+        updates[column_name] = None
+    return updates
+
+
+def display_stakeholder_record(record: dict[str, object], output=print) -> None:
+    """Display one stakeholder row as an operator-readable field table."""
+    field_width = max(len(column_name) for column_name in record)
+    separator = "+-{}-+-{}-+".format("-" * field_width, "-" * 54)
+    output(separator)
+    output("| {:<{}} | {:<54} |".format("Field", field_width, "Current value"))
+    output(separator)
+    for column_name, value in record.items():
+        displayed_value = "NULL" if value is None else str(value)
+        if len(displayed_value) > 54:
+            displayed_value = "{}...".format(displayed_value[:51])
+        output(
+            "| {:<{}} | {:<54} |".format(
+                column_name,
+                field_width,
+                displayed_value,
+            )
+        )
+    output(separator)
 
 
 def add_contact_field_options(
@@ -128,11 +234,60 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Confirm the stakeholder contact update.",
     )
 
+    show_command = subcommands.add_parser(
+        "show",
+        help="Display one stakeholder row by exact tag.",
+    )
+    show_command.add_argument("--tag", required=True, type=nonempty_value)
+
+    update_command = subcommands.add_parser(
+        "update",
+        help="Update selected fields for one stakeholder.",
+    )
+    update_command.add_argument("--tag", required=True, type=nonempty_value)
+    update_command.add_argument(
+        "--set",
+        dest="set_values",
+        action="append",
+        default=[],
+        type=stakeholder_update_assignment,
+        help="Set an editable field using column=value. Repeat as needed.",
+    )
+    update_command.add_argument(
+        "--clear",
+        dest="clear_values",
+        action="append",
+        default=[],
+        choices=sorted(STAKEHOLDER_MUTABLE_COLUMNS),
+        help="Set an editable field to SQL NULL. Repeat as needed.",
+    )
+    update_command.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm the stakeholder field update.",
+    )
+
     export_command = subcommands.add_parser(
         "export-csv",
         help="Export WAS stakeholder records to CSV.",
     )
-    export_command.add_argument("--output", required=True, type=Path)
+    export_command.add_argument(
+        "--output",
+        type=Path,
+        default=Path("/output/was-stakeholders.csv"),
+        help="Local output path or attachment filename.",
+    )
+    export_destination = export_command.add_mutually_exclusive_group()
+    export_destination.add_argument(
+        "--s3",
+        action="store_true",
+        help="Upload the export to the configured WAS S3 bucket.",
+    )
+    export_destination.add_argument(
+        "--email-assignee",
+        type=email_list_value,
+        help="Email the export to active WAS assignee addresses.",
+    )
     export_command.add_argument(
         "--include-report-passwords",
         action="store_true",
@@ -221,6 +376,19 @@ def spreadsheet_safe_value(column_name: str, value: object) -> object:
     return value
 
 
+def stakeholder_export_value(column_name: str, value: object) -> object:
+    """Return a safe, human-readable stakeholder export value."""
+    if column_name in STAKEHOLDER_EPOCH_COLUMNS and value is not None:
+        try:
+            timestamp = datetime.fromtimestamp(int(value), tz=timezone.utc)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise ValueError(
+                "{} contains an invalid epoch timestamp.".format(column_name)
+            ) from error
+        return timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+    return spreadsheet_safe_value(column_name, value)
+
+
 def write_stakeholder_csv(
     columns: list[str],
     rows: list[tuple[object, ...]],
@@ -246,7 +414,7 @@ def write_stakeholder_csv(
             for row in rows:
                 writer.writerow(
                     [
-                        spreadsheet_safe_value(column_name, value)
+                        stakeholder_export_value(column_name, value)
                         for column_name, value in zip(columns, row)
                     ]
                 )
@@ -270,19 +438,68 @@ def run_update_contacts(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_show(args: argparse.Namespace) -> int:
+    """Display the stakeholder row matching an exact tag."""
+    record = get_stakeholder_record_by_tag(args.tag)
+    display_stakeholder_record(record)
+    return 0
+
+
+def run_update(args: argparse.Namespace) -> int:
+    """Update selected stakeholder fields and display the resulting row."""
+    if not args.confirm:
+        raise ValueError("Stakeholder field updates require --confirm.")
+    updates = stakeholder_updates(args)
+    if not updates:
+        raise ValueError("At least one stakeholder field update is required.")
+    update_stakeholder_fields_for_tag(tag=args.tag, updates=updates)
+    print("Updated stakeholder fields for {}.".format(args.tag))
+    display_stakeholder_record(get_stakeholder_record_by_tag(args.tag))
+    return 0
+
+
 def run_export(args: argparse.Namespace) -> int:
-    """Export stakeholder records to a protected local CSV file."""
+    """Export stakeholder records locally, to S3, or to an assignee."""
     if args.confirm_sensitive_export and not args.include_report_passwords:
         raise ValueError(
             "--confirm-sensitive-export requires --include-report-passwords."
         )
     if args.include_report_passwords and not args.confirm_sensitive_export:
         raise ValueError("Password export requires --confirm-sensitive-export.")
+    if args.include_report_passwords and args.email_assignee:
+        raise ValueError("Stakeholder password exports cannot be emailed.")
     columns, rows = list_stakeholders_for_export_from_db(
         include_report_passwords=args.include_report_passwords
     )
-    write_stakeholder_csv(columns=columns, rows=rows, output_path=args.output)
-    print("Exported {} stakeholders to {}.".format(len(rows), args.output))
+    if not args.s3 and not args.email_assignee:
+        write_stakeholder_csv(columns=columns, rows=rows, output_path=args.output)
+        print("Exported {} stakeholders to {}.".format(len(rows), args.output))
+        return 0
+
+    with TemporaryDirectory(prefix="was-stakeholder-export-") as directory:
+        export_path = Path(directory) / args.output.name
+        write_stakeholder_csv(
+            columns=columns,
+            rows=rows,
+            output_path=export_path,
+        )
+        if args.s3:
+            export_uri = upload_stakeholder_export(export_path)
+            print("Exported {} stakeholders to {}.".format(len(rows), export_uri))
+            return 0
+
+        recipients = approved_analyst_recipients(args.email_assignee)
+        message = build_stakeholder_export_email(
+            source_email=require_env("WAS_EMAIL_SOURCE"),
+            recipients=recipients,
+            export_path=export_path,
+            includes_passwords=args.include_report_passwords,
+        )
+        message_id = send_message(create_ses_client(), message)
+        print(
+            "Emailed {} stakeholders to approved assignee recipients; "
+            "SES message ID: {}.".format(len(rows), message_id)
+        )
     return 0
 
 
@@ -353,6 +570,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         if args.command == "update-contacts":
             return run_update_contacts(args)
+        if args.command == "show":
+            return run_show(args)
+        if args.command == "update":
+            return run_update(args)
         if args.command == "export-csv":
             return run_export(args)
         if args.command == "import-csv":
@@ -364,6 +585,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             "Error: database operation failed and was rolled back.",
             file=sys.stderr,
         )
+        return 1
+    except (BotoCoreError, ClientError):
+        print("Error: AWS export delivery failed.", file=sys.stderr)
         return 1
     except (KeyError, OSError, ValueError) as error:
         print("Error: {}".format(str(error)), file=sys.stderr)
