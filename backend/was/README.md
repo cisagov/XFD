@@ -228,6 +228,20 @@ is bounded by `WAS_DB_CONNECT_TIMEOUT_SECONDS` (default `10`). Inventory queries
 also show which stakeholder count is being retrieved and progress through the
 list.
 
+Make targets that mount `local-output` run the container with the invoking
+operator's UID and GID. This keeps private host log and export files readable by
+that operator without requiring `sudo`. Files created by older root-running
+containers retain their existing ownership.
+
+After all WAS containers have finished, repair an existing root-owned output
+tree once from `backend/was`:
+
+```bash
+sudo chown -R "$(id -u):$(id -g)" local-output
+```
+
+Do not change ownership while a report or mailer container is writing there.
+
 Do not commit `.env`, database passwords, Qualys credentials, or generated
 reports.
 

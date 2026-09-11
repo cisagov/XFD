@@ -4,6 +4,7 @@ ROOT_PYTHON ?= ./cd_WAS_update/bin/python
 IMAGE ?= was-reporting
 ENV_FILE ?= .env
 OUTPUT_DIR ?= $(PWD)/local-output
+DOCKER_HOST_USER ?= --user "$$(id -u):$$(id -g)"
 TRACKER_CSV ?= $(OUTPUT_DIR)/was-daily-tracker.csv
 STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
 TEST_RECIPIENTS ?= operator@example.gov
@@ -37,7 +38,7 @@ build:
 
 menu:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm -it --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output -v $(IMPORT_DIR):/input:ro $(IMAGE) was-menu
+	docker run --rm -it $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output -v $(IMPORT_DIR):/input:ro $(IMAGE) was-menu
 
 help:
 	docker run --rm $(IMAGE) --help
@@ -50,7 +51,7 @@ xml-help:
 
 inventory:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-inventory
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-inventory
 
 admin-help:
 	docker run --rm $(IMAGE) was-admin --help
@@ -63,21 +64,21 @@ stakeholders-help:
 
 recent-scan-batch:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests
 
 recent-scan-batch-test:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests --test-recipients "$(TEST_RECIPIENTS)" --dry-run-email --limit 1
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests --test-recipients "$(TEST_RECIPIENTS)" --dry-run-email --limit 1
 
 single-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make single-report TAG="CUSTOMER_TAG"' >&2; exit 1)
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --tag "$(TAG)" --create-missing-password --send-email
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --tag "$(TAG)" --create-missing-password --send-email
 
 manual-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make manual-report TAG="CUSTOMER_TAG"' >&2; exit 1)
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --skip-tracker-refresh --tag "$(TAG)" --include-manual --create-missing-password --continue-on-error --send-email --limit 1
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --skip-tracker-refresh --tag "$(TAG)" --include-manual --create-missing-password --continue-on-error --send-email --limit 1
 
 .PHONY: on-demand-report
 
@@ -92,14 +93,14 @@ on-demand-report:
 	     set -- "$$@" --send-email --test-recipients "$(TEST_RECIPIENTS)" ;; \
 	  *) echo 'SEND_EMAIL must be 0 or 1.' >&2; exit 1 ;; \
 	esac; \
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint was-report-on-demand $(IMAGE) "$$@"
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint was-report-on-demand $(IMAGE) "$$@"
 
 special-cases:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-special-cases list
 
 stakeholder-export:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-stakeholders export-csv --output /output/was-stakeholders.csv
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-stakeholders export-csv --output /output/was-stakeholders.csv
 
 stakeholder-import:
 	@test -n "$(INPUT_CSV)" || (echo 'INPUT_CSV is required. Use: make stakeholder-import INPUT_CSV="/path/to/file.csv"' >&2; exit 1)
@@ -107,7 +108,7 @@ stakeholder-import:
 	mkdir -p $(OUTPUT_DIR)
 	@input_directory="$$(cd "$$(dirname "$(INPUT_CSV)")" && pwd)"; \
 	input_name="$$(basename "$(INPUT_CSV)")"; \
-	docker run --rm --user "$$(id -u):$$(id -g)" --env-file $(ENV_FILE) \
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
 		-v "$$input_directory:/input:ro" \
 		-v "$(OUTPUT_DIR):/output" \
 		$(IMAGE) was-stakeholders import-csv \
@@ -118,9 +119,9 @@ stakeholder-import:
 tracker-csv:
 	mkdir -p $(OUTPUT_DIR)
 	@if [ -n "$(ASSIGNEE)" ]; then \
-		docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --assignee "$(ASSIGNEE)" --days-back "$(DAYS_BACK)" --output /output/was-daily-tracker.csv; \
+		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --assignee "$(ASSIGNEE)" --days-back "$(DAYS_BACK)" --output /output/was-daily-tracker.csv; \
 	else \
-		docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --output /output/was-daily-tracker.csv; \
+		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --output /output/was-daily-tracker.csv; \
 	fi
 
 tracker-table:
@@ -128,13 +129,13 @@ tracker-table:
 	@set -- was-tracker show --days-back "$(DAYS_BACK)"; \
 	if [ -n "$(ASSIGNEE)" ]; then set -- "$$@" --assignee "$(ASSIGNEE)"; fi; \
 	if [ -n "$(REPORT_STATUS)" ]; then set -- "$$@" --report-status "$(REPORT_STATUS)"; fi; \
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) "$$@"
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) "$$@"
 
 report-errors:
 	mkdir -p $(OUTPUT_DIR)
 	@set -- was-tracker errors --days-back "$(DAYS_BACK)"; \
 	if [ -n "$(TAG)" ]; then set -- "$$@" --tag "$(TAG)"; fi; \
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) "$$@"
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) "$$@"
 
 tracker-mark-sent:
 	@test -n "$(TRACKER_ID)" || (echo 'TRACKER_ID is required.' >&2; exit 1)
@@ -143,12 +144,12 @@ tracker-mark-sent:
 
 update-tracker:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker
 
 update-tracker-delete-apps:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker --delete-apps
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker --delete-apps
 
 assignee-digests:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --assignee-digests --dry-run
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --assignee-digests --dry-run
