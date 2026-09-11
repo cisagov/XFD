@@ -58,6 +58,10 @@ confirm `SELECT current_database();` returns `was`, and apply the following
 additive SQL. Do not rerun the complete CREATE TABLE file. No historical rows
 are deleted by this update.
 
+The executable, rerunnable update is
+`schema/updates/010_harden_report_delivery_and_tracker.sql`. The SQL below is
+included for operator review and must remain aligned with that file.
+
 ```sql
 BEGIN;
 ALTER TABLE was_report_runs

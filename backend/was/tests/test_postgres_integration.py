@@ -215,8 +215,8 @@ class PostgresIntegrationTests(unittest.TestCase):
             )
             self.assertEqual(cursor.fetchone()[0], "pending")
 
-    def test_documented_upgrade_preserves_history_and_can_repeat(self) -> None:
-        """Apply the operator SQL twice to a pre-hardening schema with history."""
+    def test_schema_upgrade_preserves_history_and_can_repeat(self) -> None:
+        """Apply update 010 twice to a pre-hardening schema with history."""
         tracker_id = self.tracker_row()
         report_runs.create_report_run("TEST", None, self.connection)
         with self.connection.cursor() as cursor:
@@ -236,10 +236,11 @@ class PostgresIntegrationTests(unittest.TestCase):
                 "DROP COLUMN digest_claimed_revision"
             )
         self.connection.commit()
-        document = (
-            Path(__file__).parents[1] / "docs/daily_report_tracker_schema.md"
-        ).read_text()
-        upgrade = document.split("```sql\n", 1)[1].split("```", 1)[0]
+        update_path = (
+            Path(__file__).parents[1]
+            / "schema/updates/010_harden_report_delivery_and_tracker.sql"
+        )
+        upgrade = update_path.read_text()
         with self.connection.cursor() as cursor:
             cursor.execute(upgrade)
             cursor.execute(upgrade)
