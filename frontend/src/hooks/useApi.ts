@@ -1,6 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 // import { useMatomo } from '@datapunt/matomo-tracker-react';
 
+/**
+ * Helper function to extract a human-readable error message from an API response payload.
+ * Many files in the project may include API responses with a `detail`, `message`, or `error` field.
+ */
+
 function getPayloadMessage(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') {
     return undefined;
@@ -23,6 +28,10 @@ function getPayloadMessage(payload: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Type guard to check if an error is an instance of ApiError.
+ */
+
 export function isApiError(error: unknown): error is ApiError {
   return (
     !!error &&
@@ -35,6 +44,9 @@ export function isApiError(error: unknown): error is ApiError {
   );
 }
 
+/**
+ * Custom error class for API errors, encapsulating the response and payload.
+ */
 export class ApiError<TPayload = unknown> extends Error {
   readonly name = 'ApiError';
   readonly isApiError = true;
@@ -65,7 +77,9 @@ export class ApiError<TPayload = unknown> extends Error {
     this.status = response.status;
     this.statusText = response.statusText;
 
-    // Need to double check if normlizeHeaders is necessary anymore
+    /**
+     * Need to double check if normlizeHeaders is necessary anymore
+     */
     this.headers = normalizeHeaders(
       Object.fromEntries(response.headers.entries())
     );
@@ -97,6 +111,7 @@ const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
 /**
  * Normalize header-ish shapes to support both Fetch Headers and plain objects.
  */
+
 const normalizeHeaders = (header: any): Record<string, string> => {
   if (!header) return {};
 
@@ -216,8 +231,6 @@ export const useApi = (onError?: OnError) => {
             credentials: withCredentials ? 'include' : undefined
           });
 
-          // const statusCode = response.status;
-
           let result: any;
           try {
             result =
@@ -229,18 +242,6 @@ export const useApi = (onError?: OnError) => {
           }
 
           if (!response.ok) {
-            // const error = new Error(
-            //   result?.detail ||
-            //     result?.message ||
-            //     `Request failed with status code ${statusCode}`
-            // );
-            //   throw Object.assign(error, {
-            //     statusCode,
-            //     body: result,
-            //     response: { status: statusCode, headers: response.headers }
-            //   });
-            // }
-
             throw new ApiError(response, result);
           }
 
@@ -255,19 +256,11 @@ export const useApi = (onError?: OnError) => {
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          const status =
-            e?.response?.statusCode ??
-            e?.response?.status ??
-            e?.status ??
-            e?.statusCode ??
-            (e?.message?.includes('401') ? 401 : undefined);
+          const status = isApiError(e) ? e.status : undefined;
 
-          const errorDetail = (
-            e?.message ||
-            e?.body?.detail ||
-            e?.response?.data?.detail ||
-            ''
-          ).toLowerCase();
+          const errorDetail = isApiError(e)
+            ? (e.detail || e.message || '').toLowerCase()
+            : (e?.message || '').toLowerCase();
 
           // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
 
