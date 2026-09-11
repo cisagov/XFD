@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import { logger } from '@/utils/logger';
-import { parse } from 'query-string';
+import queryString from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
@@ -17,7 +17,7 @@ export const OktaCallback: React.FC = () => {
   const history = useHistory();
 
   const handleOktaCallback = useCallback(async () => {
-    const { code, state } = parse(window.location.search);
+    const { code, state } = queryString.parse(window.location.search);
 
     if (!code || !state) {
       logger.error('OktaCallback: Missing OAuth parameters', {
