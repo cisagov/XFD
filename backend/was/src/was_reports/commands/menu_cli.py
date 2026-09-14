@@ -228,6 +228,20 @@ class WasOperatorMenu:
         """Wait for the operator before redisplaying a menu."""
         self.input("Press Enter to continue...")
 
+    def run_submenu_action(
+        self,
+        menu_name: str,
+        action: Callable[[], None],
+    ) -> None:
+        """Return prompt interruptions to their owning submenu."""
+        try:
+            action()
+        except KeyboardInterrupt:
+            LOGGER.info("WAS submenu input cancelled by operator: %s", menu_name)
+            self.output(
+                "\nInput cancelled. Returning to {}.".format(menu_name)
+            )
+
     def execute(
         self,
         operation_name: str,
@@ -392,13 +406,22 @@ class WasOperatorMenu:
                 "Please enter your selection [b = main menu]: "
             ).strip().lower()
             if selection == "1":
-                self.run_daily_batch()
+                self.run_submenu_action("Report Generation", self.run_daily_batch)
             elif selection == "2":
-                self.run_single_report(manual=False)
+                self.run_submenu_action(
+                    "Report Generation",
+                    lambda: self.run_single_report(manual=False),
+                )
             elif selection == "3":
-                self.run_single_report(manual=True)
+                self.run_submenu_action(
+                    "Report Generation",
+                    lambda: self.run_single_report(manual=True),
+                )
             elif selection == "4":
-                self.run_on_demand_report()
+                self.run_submenu_action(
+                    "Report Generation",
+                    self.run_on_demand_report,
+                )
             elif selection in {"5", "b"}:
                 return
             else:
@@ -548,13 +571,16 @@ class WasOperatorMenu:
                 "Please enter your selection [b = main menu]: "
             ).strip().lower()
             if selection == "1":
-                self.view_tracker()
+                self.run_submenu_action("Daily Tracker", self.view_tracker)
             elif selection == "2":
-                self.view_errors()
+                self.run_submenu_action("Daily Tracker", self.view_errors)
             elif selection == "3":
-                self.record_manual_sent_date()
+                self.run_submenu_action(
+                    "Daily Tracker",
+                    self.record_manual_sent_date,
+                )
             elif selection == "4":
-                self.export_tracker()
+                self.run_submenu_action("Daily Tracker", self.export_tracker)
             elif selection in {"5", "b"}:
                 return
             else:
@@ -692,21 +718,45 @@ class WasOperatorMenu:
                 "Please enter your selection [b = main menu]: "
             ).strip().lower()
             if selection == "1":
-                self.update_stakeholder_contacts()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.update_stakeholder_contacts,
+                )
             elif selection == "2":
-                self.update_stakeholder_row()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.update_stakeholder_row,
+                )
             elif selection == "3":
-                self.export_stakeholders()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.export_stakeholders,
+                )
             elif selection == "4":
-                self.import_stakeholders()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.import_stakeholders,
+                )
             elif selection == "5":
-                self.add_stakeholder()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.add_stakeholder,
+                )
             elif selection == "6":
-                self.rotate_stakeholder_password()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.rotate_stakeholder_password,
+                )
             elif selection == "7":
-                self.retrieve_stakeholder_password()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.retrieve_stakeholder_password,
+                )
             elif selection == "8":
-                self.set_customer_provided_password()
+                self.run_submenu_action(
+                    "Stakeholder Management",
+                    self.set_customer_provided_password,
+                )
             elif selection in {"9", "b"}:
                 return
             else:
@@ -1141,23 +1191,33 @@ class WasOperatorMenu:
                 "Please enter your selection [b = main menu]: "
             ).strip().lower()
             if selection == "1":
-                self.output(
-                    "WARNING: The full Qualys stakeholder inventory can take "
-                    "a long time to finish. Leave this operation running until "
-                    "the inventory or an error is displayed."
+                self.run_submenu_action(
+                    "Qualys Operations",
+                    self.view_qualys_inventory,
                 )
-                self.execute(
-                    "Qualys inventory",
-                    lambda: inventory_cli.main([]),
-                    cancellable=True,
-                )
-                self.pause()
             elif selection == "2":
-                self.refresh_tracker()
+                self.run_submenu_action(
+                    "Qualys Operations",
+                    self.refresh_tracker,
+                )
             elif selection in {"3", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
+
+    def view_qualys_inventory(self) -> None:
+        """Display the long-running Qualys stakeholder inventory."""
+        self.output(
+            "WARNING: The full Qualys stakeholder inventory can take "
+            "a long time to finish. Leave this operation running until "
+            "the inventory or an error is displayed."
+        )
+        self.execute(
+            "Qualys inventory",
+            lambda: inventory_cli.main([]),
+            cancellable=True,
+        )
+        self.pause()
 
     def refresh_tracker(self) -> None:
         """Refresh recent Qualys tracker data without destructive app deletion."""

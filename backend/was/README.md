@@ -726,6 +726,11 @@ display of a stakeholder report password. Files are written under the mounted
 Enter `b` at any submenu selection to return directly to the main menu. Each
 submenu also retains a numbered Back to main menu option.
 
+Pressing `Ctrl+C` while answering an operation prompt, such as a stakeholder
+tag, recipient, password, date, or confirmation, cancels that input workflow
+and redraws the same submenu. Pressing `Ctrl+C` at a submenu selection or the
+main menu exits `was-menu`.
+
 While a long-running report, batch, tracker refresh, or Qualys inventory
 operation is active, enter `b` and press Enter or press `Ctrl+C` to request
 cancellation. The operation stops at its next safe API, polling, lease, upload,

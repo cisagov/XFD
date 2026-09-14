@@ -97,6 +97,16 @@ class WasOperatorMenuTests(unittest.TestCase):
             "Operation interrupted. Returning to the previous menu."
         )
 
+    def test_stakeholder_prompt_interrupt_returns_to_stakeholder_menu(self) -> None:
+        """Keep Ctrl+C at an action prompt from terminating the CLI menu."""
+        menu = self.build_menu(["8", KeyboardInterrupt(), "9"])
+
+        menu.stakeholder_menu()
+
+        menu.output.assert_any_call(
+            "\nInput cancelled. Returning to Stakeholder Management."
+        )
+
     def test_report_menu_uses_five_or_b_to_return(self) -> None:
         """Return to the main menu using either documented report-menu choice."""
         for selection in ("5", "b"):
