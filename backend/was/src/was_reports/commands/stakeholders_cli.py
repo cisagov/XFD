@@ -170,7 +170,7 @@ def display_stakeholder_record(record: dict[str, object], output=print) -> None:
     output("| {:<{}} | {:<54} |".format("Field", field_width, "Current value"))
     output(separator)
     for column_name, value in record.items():
-        displayed_value = "NULL" if value is None else str(value)
+        displayed_value = stakeholder_display_value(column_name, value)
         if len(displayed_value) > 54:
             displayed_value = "{}...".format(displayed_value[:51])
         output(
@@ -181,6 +181,22 @@ def display_stakeholder_record(record: dict[str, object], output=print) -> None:
             )
         )
     output(separator)
+
+
+def stakeholder_display_value(column_name: str, value: object) -> str:
+    """Return a readable terminal value while preserving epoch context."""
+    if value is None:
+        return "NULL"
+    if column_name not in STAKEHOLDER_EPOCH_COLUMNS:
+        return str(value)
+    try:
+        timestamp = datetime.fromtimestamp(int(value), tz=timezone.utc)
+    except (OverflowError, TypeError, ValueError):
+        return "{} (invalid epoch timestamp)".format(value)
+    return "{} (epoch {})".format(
+        timestamp.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        value,
+    )
 
 
 def add_contact_field_options(

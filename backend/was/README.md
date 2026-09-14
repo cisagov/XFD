@@ -555,6 +555,14 @@ The production pipeline uses the password in-process. The report comparator
 reads its password from `WAS_REPORT_COMPARISON_PASSWORD`, so the value does not
 need to appear in process arguments.
 
+In the interactive menu, Stakeholder Management option 6 rotates the password
+and displays `Operation completed successfully. The new password is
+<new_password>`. Option 7 retrieves the currently stored password by exact
+stakeholder tag after confirmation. These password values are written only to
+the interactive terminal output, not to the WAS application log. Treat the
+terminal output as sensitive and clear it after recording the password through
+the approved process.
+
 ### Manage Stakeholder Contacts
 
 Update one or more stakeholder POC fields with explicit confirmation:
@@ -604,13 +612,21 @@ docker run --rm \
 
 The Stakeholder Management menu provides the same workflow interactively. It
 displays the matching row first, then cycles through every editable column in
-database order. Each interactive prompt is prefilled with the current value.
+database order. Before editing, enter any displayed field name to print its
+complete untruncated value for copying; press Enter at that prompt to continue.
+Each interactive edit prompt is prefilled with the current stored value.
 Press Enter to retain it, edit the value before pressing Enter to replace it,
 enter `CLEAR` to store SQL `NULL`, or enter `CANCEL` to stop without saving.
 The workflow validates integer, Boolean, and email values and displays the
 updated row afterward.
 The primary `tag`, `report_password`, `created_at`, and `updated_at` fields are
 protected. Use the dedicated password-rotation command for password changes.
+
+The Qualys-integrated stakeholder date fields remain Unix epoch `BIGINT` values
+in PostgreSQL. Stakeholder table and full-field displays convert them to
+`YYYY-MM-DD HH:MM:SS UTC` and include the original epoch value in parentheses.
+This keeps the Qualys and scheduling interfaces stable while making dates
+readable to operators.
 
 ### Export Stakeholders
 
@@ -673,8 +689,9 @@ make menu
 The menu groups existing commands into Report Generation, Daily Tracker,
 Stakeholder Management, and Qualys Operations. It supports guided prompts,
 confirmation before write or delivery operations, `CLEAR` for removing contact
-values, and typed confirmation before exporting report passwords. Files are
-written under the mounted `local-output` directory.
+values, typed confirmation before exporting report passwords, and confirmed
+display of a stakeholder report password. Files are written under the mounted
+`local-output` directory.
 
 Enter `b` at any submenu selection to return directly to the main menu. Each
 submenu also retains a numbered Back to main menu option.

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # First-Party Libraries
 from was_reports.commands import stakeholders_cli
@@ -76,6 +76,51 @@ class StakeholdersCliTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         mock_get_record.assert_called_once_with("TAG1")
         mock_display_record.assert_called_once_with({"tag": "TAG1"})
+
+    def test_stakeholder_display_formats_epoch_dates_as_utc(self) -> None:
+        """Render stored epoch fields as readable UTC with the raw value."""
+        output = Mock()
+
+        stakeholders_cli.display_stakeholder_record(
+            {
+                "tag": "TAG1",
+                "last_scanned": 1789257600,
+                "comments": "Visible comment",
+            },
+            output=output,
+        )
+
+        displayed_lines = [call.args[0] for call in output.call_args_list]
+        self.assertTrue(
+            any(
+                "2026-09-13 00:00:00 UTC (epoch 1789257600)" in line
+                for line in displayed_lines
+            )
+        )
+
+    def test_stakeholder_display_marks_invalid_epoch(self) -> None:
+        """Show malformed legacy timestamps without breaking the row view."""
+        self.assertEqual(
+            stakeholders_cli.stakeholder_display_value(
+                "last_scanned",
+                "not-an-epoch",
+            ),
+            "not-an-epoch (invalid epoch timestamp)",
+        )
+
+    def test_stakeholder_display_truncates_long_table_values(self) -> None:
+        """Keep the summary table compact before optional full-field output."""
+        output = Mock()
+        full_comment = "Complete stakeholder comment " * 5
+
+        stakeholders_cli.display_stakeholder_record(
+            {"tag": "TAG1", "comments": full_comment},
+            output=output,
+        )
+
+        displayed_lines = [call.args[0] for call in output.call_args_list]
+        self.assertFalse(any(full_comment in line for line in displayed_lines))
+        self.assertTrue(any("..." in line for line in displayed_lines))
 
     @patch("was_reports.commands.stakeholders_cli.display_stakeholder_record")
     @patch("was_reports.commands.stakeholders_cli.get_stakeholder_record_by_tag")

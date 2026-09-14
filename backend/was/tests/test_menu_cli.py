@@ -200,6 +200,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         menu = self.build_menu(
             [
                 "TAG1",
+                "",
                 "Updated comment",
                 "false",
                 "y",
@@ -244,12 +245,47 @@ class WasOperatorMenuTests(unittest.TestCase):
         """Treat Enter as acceptance of each current stakeholder value."""
         record = {"comments": None, "retired": False}
         mock_get_record.return_value = record
-        menu = self.build_menu(["TAG1", "", "", ""])
+        menu = self.build_menu(["TAG1", "", "", "", ""])
 
         menu.update_stakeholder_row()
 
         mock_display_record.assert_called_once_with(record, output=menu.output)
         menu.output.assert_any_call("No stakeholder changes were entered.")
+
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS",
+        ("comments",),
+    )
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "display_stakeholder_record"
+    )
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "get_stakeholder_record_by_tag"
+    )
+    def test_stakeholder_row_update_can_print_complete_field(
+        self,
+        mock_get_record,
+        mock_display_record,
+    ) -> None:
+        """Print a selected field without the table width truncation."""
+        full_comment = "Complete stakeholder comment " * 5
+        mock_get_record.return_value = {"comments": full_comment}
+        menu = self.build_menu(
+            [
+                "TAG1",
+                "comments",
+                "",
+                "",
+                "",
+            ]
+        )
+
+        menu.update_stakeholder_row()
+
+        menu.output.assert_any_call("Full value for comments:")
+        menu.output.assert_any_call(full_comment)
 
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
     def test_sensitive_export_requires_typed_confirmation(
@@ -270,6 +306,85 @@ class WasOperatorMenuTests(unittest.TestCase):
                 "--confirm-sensitive-export",
             ]
         )
+
+    @patch(
+        "was_reports.commands.menu_cli.report_generator.rotate_report_password",
+        return_value="NewPassword123!",
+    )
+    def test_password_rotation_displays_new_password(
+        self,
+        mock_rotate_password,
+    ) -> None:
+        """Display the generated password only after a successful rotation."""
+        menu = self.build_menu(["TAG1", "y", ""])
+
+        menu.rotate_stakeholder_password()
+
+        mock_rotate_password.assert_called_once_with("TAG1")
+        menu.output.assert_any_call(
+            "Operation completed successfully. The new password is "
+            "NewPassword123!"
+        )
+
+    @patch(
+        "was_reports.commands.menu_cli.report_generator.lookup_report_password",
+        return_value="StoredPassword123!",
+    )
+    def test_password_retrieval_displays_password_after_confirmation(
+        self,
+        mock_lookup_password,
+    ) -> None:
+        """Retrieve a stored password by exact stakeholder tag."""
+        menu = self.build_menu(["TAG1", "y", ""])
+
+        menu.retrieve_stakeholder_password()
+
+        mock_lookup_password.assert_called_once_with("TAG1")
+        menu.output.assert_any_call(
+            "The report password for TAG1 is StoredPassword123!"
+        )
+
+    @patch(
+        "was_reports.commands.menu_cli.report_generator.lookup_report_password",
+        return_value=None,
+    )
+    def test_password_retrieval_reports_missing_password(
+        self,
+        mock_lookup_password,
+    ) -> None:
+        """Explain when the selected tag has no configured password."""
+        menu = self.build_menu(["TAG1", "y", ""])
+
+        menu.retrieve_stakeholder_password()
+
+        mock_lookup_password.assert_called_once_with("TAG1")
+        menu.output.assert_any_call(
+            "No report password is configured for stakeholder tag TAG1."
+        )
+
+    def test_stakeholder_menu_lists_password_retrieval_before_back(self) -> None:
+        """Expose password retrieval as stakeholder menu option seven."""
+        menu = self.build_menu(["8"])
+
+        menu.stakeholder_menu()
+
+        displayed_options = [
+            call.args[0] for call in menu.output.call_args_list if call.args
+        ]
+        self.assertIn(
+            "7) Retrieve a stakeholder report password",
+            displayed_options,
+        )
+        self.assertIn("8) Back to main menu", displayed_options)
+
+    def test_stakeholder_menu_routes_password_retrieval(self) -> None:
+        """Route stakeholder menu option seven to password retrieval."""
+        menu = self.build_menu(["7", "8"])
+        menu.retrieve_stakeholder_password = Mock()
+
+        menu.stakeholder_menu()
+
+        menu.retrieve_stakeholder_password.assert_called_once_with()
 
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
     def test_stakeholder_export_can_use_s3(self, mock_stakeholders_main) -> None:

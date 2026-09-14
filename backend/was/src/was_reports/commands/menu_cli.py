@@ -535,6 +535,7 @@ class WasOperatorMenu:
                     "Import new stakeholders from CSV",
                     "Add one stakeholder",
                     "Rotate a stakeholder report password",
+                    "Retrieve a stakeholder report password",
                     "Back to main menu",
                 ],
             )
@@ -553,7 +554,9 @@ class WasOperatorMenu:
                 self.add_stakeholder()
             elif selection == "6":
                 self.rotate_stakeholder_password()
-            elif selection in {"7", "b"}:
+            elif selection == "7":
+                self.retrieve_stakeholder_password()
+            elif selection in {"8", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
@@ -584,6 +587,7 @@ class WasOperatorMenu:
             "or enter CANCEL to stop."
         )
         record = record_holder["record"]
+        self.display_full_stakeholder_fields(record)
         updates: dict[str, object] = {}
         for column_name in stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS:
             current_value = record[column_name]
@@ -644,6 +648,37 @@ class WasOperatorMenu:
             lambda: stakeholders_cli.main(arguments),
         )
         self.pause()
+
+    def display_full_stakeholder_fields(
+        self,
+        record: dict[str, object],
+    ) -> None:
+        """Allow full untruncated field output before guided row editing."""
+        self.output(
+            "Enter a field name to print its complete value for copying. "
+            "Press Enter when ready to continue editing."
+        )
+        while True:
+            requested_field = self.input(
+                "Field to print in full [continue]: "
+            ).strip()
+            if not requested_field:
+                return
+            normalized_field = requested_field.lower().replace("-", "_")
+            if normalized_field not in record:
+                self.output(
+                    "Unknown field. Available fields: {}".format(
+                        ", ".join(record)
+                    )
+                )
+                continue
+            self.output("Full value for {}:".format(normalized_field))
+            self.output(
+                stakeholders_cli.stakeholder_display_value(
+                    normalized_field,
+                    record[normalized_field],
+                )
+            )
 
     def prompt_contact_update(self, label: str) -> tuple[str | None, bool]:
         """Prompt for a contact value, no change, or explicit clearing."""
@@ -742,11 +777,63 @@ class WasOperatorMenu:
         ):
             self.output("Operation cancelled.")
             return
-        arguments = ["--tag", stakeholder_tag, "--change-password"]
-        self.execute(
+        password_holder: dict[str, str] = {}
+
+        def rotate_password() -> int:
+            """Rotate the password and retain it only for terminal output."""
+            password_holder["password"] = report_generator.rotate_report_password(
+                stakeholder_tag
+            )
+            return 0
+
+        exit_code = self.execute(
             "stakeholder password rotation",
-            lambda: report_generator.main(arguments),
+            rotate_password,
+            show_success=False,
         )
+        if exit_code == 0:
+            self.output(
+                "Operation completed successfully. The new password is {}".format(
+                    password_holder["password"]
+                )
+            )
+        self.pause()
+
+    def retrieve_stakeholder_password(self) -> None:
+        """Display one stored stakeholder report password after confirmation."""
+        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        if not self.confirm(
+            "Display the report password for {}?".format(stakeholder_tag)
+        ):
+            self.output("Operation cancelled.")
+            return
+        password_holder: dict[str, str] = {}
+
+        def retrieve_password() -> int:
+            """Retrieve the password without writing it to application logs."""
+            report_password = report_generator.lookup_report_password(stakeholder_tag)
+            if not report_password:
+                self.output(
+                    "No report password is configured for stakeholder tag {}.".format(
+                        stakeholder_tag
+                    )
+                )
+                return 1
+            password_holder["password"] = report_password
+            return 0
+
+        exit_code = self.execute(
+            "stakeholder password retrieval",
+            retrieve_password,
+            show_success=False,
+        )
+        if exit_code == 0:
+            self.output(
+                "The report password for {} is {}".format(
+                    stakeholder_tag,
+                    password_holder["password"],
+                )
+            )
         self.pause()
 
     def add_stakeholder(self) -> None:
