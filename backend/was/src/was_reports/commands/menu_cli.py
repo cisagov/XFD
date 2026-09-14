@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from datetime import date
+from getpass import getpass
 import logging
 import select
 import sys
@@ -27,10 +28,15 @@ from was_reports.utils.operation_cancellation import (
     clear_operation_cancellation,
     request_operation_cancellation,
 )
+from was_reports.utils.passwords import (
+    CUSTOMER_PASSWORD_REQUIREMENTS,
+    validate_customer_provided_report_password,
+)
 
 LOGGER = logging.getLogger(__name__)
 InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
+SecretInputFunction = Callable[[str], str]
 
 
 class OperationCancellationMonitor:
@@ -106,10 +112,12 @@ class WasOperatorMenu:
         self,
         input_function: InputFunction = input,
         output_function: OutputFunction = write_output,
+        secret_input_function: SecretInputFunction = getpass,
     ) -> None:
         """Initialize menu input and output boundaries."""
         self.input = input_function
         self.output = output_function
+        self.secret_input = secret_input_function
 
     def prompt_required(self, prompt: str) -> str:
         """Prompt until the operator supplies a nonempty value."""
@@ -645,6 +653,7 @@ class WasOperatorMenu:
                     "Add one stakeholder",
                     "Rotate a stakeholder report password",
                     "Retrieve a stakeholder report password",
+                    "Add or replace a customer-provided report password",
                     "Back to main menu",
                 ],
             )
@@ -665,7 +674,9 @@ class WasOperatorMenu:
                 self.rotate_stakeholder_password()
             elif selection == "7":
                 self.retrieve_stakeholder_password()
-            elif selection in {"8", "b"}:
+            elif selection == "8":
+                self.set_customer_provided_password()
+            elif selection in {"9", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
@@ -942,6 +953,53 @@ class WasOperatorMenu:
                     stakeholder_tag,
                     password_holder["password"],
                 )
+            )
+        self.pause()
+
+    def set_customer_provided_password(self) -> None:
+        """Securely add or replace a customer-provided report password."""
+        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        self.output(
+            "The password will be hidden and will not be written to application logs."
+        )
+        self.output(
+            "Password requirements: {}.".format(CUSTOMER_PASSWORD_REQUIREMENTS)
+        )
+        report_password = self.secret_input("Customer-provided report password: ")
+        confirmed_password = self.secret_input("Re-enter report password: ")
+        if report_password != confirmed_password:
+            self.output("Passwords do not match. No change was made.")
+            self.pause()
+            return
+        try:
+            validate_customer_provided_report_password(report_password)
+        except ValueError as error:
+            self.output("Password not accepted: {}".format(error))
+            self.pause()
+            return
+        if not self.confirm(
+            "Add or replace the report password for {}?".format(stakeholder_tag)
+        ):
+            self.output("Operation cancelled. No change was made.")
+            return
+
+        def store_password() -> int:
+            """Store the password without returning or logging its value."""
+            report_generator.set_report_password(
+                stakeholder_tag,
+                report_password,
+            )
+            return 0
+
+        exit_code = self.execute(
+            "customer-provided stakeholder password update",
+            store_password,
+            show_success=False,
+        )
+        if exit_code == 0:
+            self.output(
+                "Operation completed successfully. The customer-provided report "
+                "password was stored for {}.".format(stakeholder_tag)
             )
         self.pause()
 

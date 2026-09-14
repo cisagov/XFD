@@ -21,6 +21,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         return WasOperatorMenu(
             input_function=Mock(side_effect=responses),
             output_function=Mock(),
+            secret_input_function=Mock(),
         )
 
     def test_main_menu_quits(self) -> None:
@@ -404,9 +405,9 @@ class WasOperatorMenuTests(unittest.TestCase):
             "No report password is configured for stakeholder tag TAG1."
         )
 
-    def test_stakeholder_menu_lists_password_retrieval_before_back(self) -> None:
-        """Expose password retrieval as stakeholder menu option seven."""
-        menu = self.build_menu(["8"])
+    def test_stakeholder_menu_lists_password_operations_before_back(self) -> None:
+        """Expose stored and customer-provided password menu operations."""
+        menu = self.build_menu(["9"])
 
         menu.stakeholder_menu()
 
@@ -417,16 +418,86 @@ class WasOperatorMenuTests(unittest.TestCase):
             "7) Retrieve a stakeholder report password",
             displayed_options,
         )
-        self.assertIn("8) Back to main menu", displayed_options)
+        self.assertIn(
+            "8) Add or replace a customer-provided report password",
+            displayed_options,
+        )
+        self.assertIn("9) Back to main menu", displayed_options)
 
     def test_stakeholder_menu_routes_password_retrieval(self) -> None:
         """Route stakeholder menu option seven to password retrieval."""
-        menu = self.build_menu(["7", "8"])
+        menu = self.build_menu(["7", "9"])
         menu.retrieve_stakeholder_password = Mock()
 
         menu.stakeholder_menu()
 
         menu.retrieve_stakeholder_password.assert_called_once_with()
+
+    def test_stakeholder_menu_routes_customer_password_update(self) -> None:
+        """Route stakeholder menu option eight to customer password storage."""
+        menu = self.build_menu(["8", "9"])
+        menu.set_customer_provided_password = Mock()
+
+        menu.stakeholder_menu()
+
+        menu.set_customer_provided_password.assert_called_once_with()
+
+    @patch(
+        "was_reports.commands.menu_cli.report_generator.set_report_password",
+        return_value="CustomerPassword123!",
+    )
+    def test_customer_provided_password_is_hidden_confirmed_and_stored(
+        self,
+        mock_set_password,
+    ) -> None:
+        """Store a matching customer password without displaying its value."""
+        menu = self.build_menu(["TAG1", "y", ""])
+        menu.secret_input.side_effect = [
+            "CustomerPassword123!",
+            "CustomerPassword123!",
+        ]
+
+        menu.set_customer_provided_password()
+
+        mock_set_password.assert_called_once_with("TAG1", "CustomerPassword123!")
+        menu.output.assert_any_call(
+            "Operation completed successfully. The customer-provided report "
+            "password was stored for TAG1."
+        )
+        displayed_output = "\n".join(
+            call.args[0] for call in menu.output.call_args_list if call.args
+        )
+        self.assertNotIn("CustomerPassword123!", displayed_output)
+
+    @patch("was_reports.commands.menu_cli.report_generator.set_report_password")
+    def test_customer_provided_password_mismatch_makes_no_change(
+        self,
+        mock_set_password,
+    ) -> None:
+        """Reject mismatched hidden password entries before database access."""
+        menu = self.build_menu(["TAG1", ""])
+        menu.secret_input.side_effect = ["FirstPassword123!", "SecondPassword123!"]
+
+        menu.set_customer_provided_password()
+
+        mock_set_password.assert_not_called()
+        menu.output.assert_any_call("Passwords do not match. No change was made.")
+
+    @patch("was_reports.commands.menu_cli.report_generator.set_report_password")
+    def test_customer_provided_password_explains_policy_failure(
+        self,
+        mock_set_password,
+    ) -> None:
+        """Give the operator a specific policy error without storing the password."""
+        menu = self.build_menu(["TAG1", ""])
+        menu.secret_input.side_effect = ["weak", "weak"]
+
+        menu.set_customer_provided_password()
+
+        mock_set_password.assert_not_called()
+        menu.output.assert_any_call(
+            "Password not accepted: The password must contain at least 16 characters."
+        )
 
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
     def test_stakeholder_export_can_use_s3(self, mock_stakeholders_main) -> None:

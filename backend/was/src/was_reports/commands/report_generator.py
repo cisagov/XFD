@@ -70,6 +70,16 @@ def rotate_report_password(stakeholder_tag: str) -> str:
     return rotate_report_password_for_tag(stakeholder_tag)
 
 
+def set_report_password(stakeholder_tag: str, report_password: str) -> str:
+    """Validate and store a customer-provided stakeholder report password."""
+    # Third-Party Libraries
+    from was_reports.data.stakeholders import update_report_password_for_tag
+    from was_reports.utils.passwords import validate_customer_provided_report_password
+
+    validate_customer_provided_report_password(report_password)
+    return update_report_password_for_tag(stakeholder_tag, report_password)
+
+
 def generate_production_report(
     stakeholder_tag: str,
     resource_root: Path,

@@ -11,6 +11,10 @@ from was_reports.utils.env import getenv
 BANNED_PASSWORD_CHARACTERS = frozenset([",", "-"])
 DEFAULT_PASSWORD_LENGTH = 24
 MINIMUM_PASSWORD_LENGTH = 16
+CUSTOMER_PASSWORD_REQUIREMENTS = (
+    "at least 16 characters with an uppercase letter, lowercase letter, "
+    "number, and special character; spaces, commas, and hyphens are not allowed"
+)
 PASSWORD_CHARACTER_SET = "".join(
     character
     for character in string.ascii_letters + string.digits + string.punctuation
@@ -55,6 +59,26 @@ def _contains_any(value: str, characters: Iterable[str]) -> bool:
         if character in value:
             return True
     return False
+
+
+def validate_customer_provided_report_password(value: str) -> None:
+    """Validate a customer password against the complete WAS password policy."""
+    validate_report_password(value)
+    if len(value) < MINIMUM_PASSWORD_LENGTH:
+        raise ValueError(
+            "The password must contain at least {} characters.".format(
+                MINIMUM_PASSWORD_LENGTH
+            )
+        )
+    required_character_classes = (
+        (string.ascii_lowercase, "a lowercase letter"),
+        (string.ascii_uppercase, "an uppercase letter"),
+        (string.digits, "a number"),
+        (string.punctuation, "a special character"),
+    )
+    for characters, description in required_character_classes:
+        if not _contains_any(value, characters):
+            raise ValueError("The password must contain {}.".format(description))
 
 
 def generate_report_password(length: int | None = None) -> str:

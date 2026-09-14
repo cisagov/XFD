@@ -39,6 +39,28 @@ class PasswordTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             passwords.validate_report_password("")
 
+    def test_customer_password_requires_length_and_character_classes(self) -> None:
+        """Reject customer passwords that do not meet the complete policy."""
+        invalid_passwords = (
+            "Short1!",
+            "UPPERCASEPASSWORD1!",
+            "lowercasepassword1!",
+            "PasswordWithoutNumber!",
+            "PasswordWithoutSpecial1",
+        )
+        for report_password in invalid_passwords:
+            with self.subTest(report_password=report_password):
+                with self.assertRaises(ValueError):
+                    passwords.validate_customer_provided_report_password(
+                        report_password
+                    )
+
+    def test_customer_password_accepts_complete_policy(self) -> None:
+        """Accept a customer password that meets every WAS requirement."""
+        passwords.validate_customer_provided_report_password(
+            "CustomerPassword123!"
+        )
+
     def test_password_character_set_contains_required_classes(self) -> None:
         """Keep enough character classes for strong generated passwords."""
         self.assertTrue(

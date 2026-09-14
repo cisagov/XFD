@@ -578,10 +578,16 @@ need to appear in process arguments.
 In the interactive menu, Stakeholder Management option 6 rotates the password
 and displays `Operation completed successfully. The new password is
 <new_password>`. Option 7 retrieves the currently stored password by exact
-stakeholder tag after confirmation. These password values are written only to
-the interactive terminal output, not to the WAS application log. Treat the
-terminal output as sensitive and clear it after recording the password through
-the approved process.
+stakeholder tag after confirmation. Option 8 securely adds or replaces a
+customer-provided report password using hidden double-entry and explicit
+confirmation. Customer-provided passwords must contain at least 16 characters,
+including an uppercase letter, lowercase letter, number, and special character.
+Spaces, commas, and hyphens are not allowed. The menu displays these rules and
+explains a validation failure without printing or logging the submitted value.
+Generated or retrieved password
+values are written only to the interactive terminal output, not to the WAS
+application log. Treat the terminal output as sensitive and clear it after
+recording the password through the approved process.
 
 ### Manage Stakeholder Contacts
 
