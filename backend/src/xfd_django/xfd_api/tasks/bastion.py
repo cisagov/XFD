@@ -8,6 +8,7 @@ import os
 # Third-Party Libraries
 import boto3
 import django
+from django.conf import settings
 from django.db import connection, connections
 from xfd_api.tasks.utils.query_databricks import query_databricks
 
@@ -15,10 +16,6 @@ from xfd_api.tasks.utils.query_databricks import query_databricks
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
-
-# Third-Party Libraries
-# Override database credentials for Lambda usage (read-only)
-from django.conf import settings
 
 # For the default database
 readonly_user = os.environ.get("READ_ONLY_DB_USER")
