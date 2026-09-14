@@ -144,7 +144,17 @@ services:
 
   opencti:
     image: opencti/platform:latest
+    # Zscaler TLS-inspects outbound HTTPS on this network -- opencti/platform is Node.js
+    # (confirmed via its own Dockerfile, node:22-alpine), which trusts extra CAs via
+    # NODE_EXTRA_CA_CERTS. Genuinely additive (unlike Python's REQUESTS_CA_BUNDLE/
+    # SSL_CERT_FILE below on the connector services), so the bare zscaler.pem is enough
+    # here -- no combined bundle needed. See
+    # connectors/vs-org-bootstrap/README.md "TLS interception" ->
+    # "Non-custom connectors".
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/zscaler.pem:/etc/ssl/certs/zscaler.pem:ro"
     environment:
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/zscaler.pem
       - NODE_OPTIONS=--max-old-space-size=8096
       - APP__PORT=8080
       - APP__BASE_URL=${OPENCTI_EXTERNAL_SCHEME}://${OPENCTI_HOST}:${OPENCTI_PORT}
@@ -312,17 +322,31 @@ services:
         condition: service_healthy
   connector-import-external-reference:
     image: opencti/connector-import-external-reference:latest
+    # Zscaler TLS-inspects outbound HTTPS on this network -- this connector's whole job
+    # is fetching arbitrary external URLs, so it needs the same trust every custom VS
+    # connector already has. Python + REQUESTS_CA_BUNDLE/SSL_CERT_FILE, not additive
+    # like Node's NODE_EXTRA_CA_CERTS -- see
+    # connectors/vs-org-bootstrap/README.md "TLS interception" -> "Non-custom
+    # connectors" for the combined-ca-bundle.pem generation step and why it's needed.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
       - CONNECTOR_ID=${CONNECTOR_IMPORT_EXTERNAL_REFERENCE_ID}
       - CONNECTOR_NAME=ImportExternalReference
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
     depends_on:
       opencti:
         condition: service_healthy
   connector-shodan:
     image: opencti/connector-shodan:latest
+    # See connector-import-external-reference above -- same Zscaler trust setup, for
+    # the outbound Shodan API calls.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${CONNECTOR_SHODAN_API_KEY}
@@ -330,6 +354,8 @@ services:
       - CONNECTOR_SCOPE=IPv4-Addr,Indicator
       - CONNECTOR_AUTO=false
       - CONNECTOR_LOG_LEVEL=error
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
     depends_on:
       opencti:
@@ -337,6 +363,10 @@ services:
 
   connector-cve:
     image: opencti/connector-cve:latest
+    # See connector-import-external-reference above -- same Zscaler trust setup, for
+    # the outbound NVD (services.nvd.nist.gov) calls.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${CONNECTOR_CVE_API_KEY}
@@ -350,6 +380,8 @@ services:
       - CVE_INTERVAL=2  # In hours, minimum 2 recommended by NIST
       - CVE_BASE_URL=https://services.nvd.nist.gov/rest/json/cves
       - MAINTAIN_DATA=true
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
       # - CVE_MAX_DATE_RANGE=120
       # - CVE_MAINTAIN_DATA=true
       # - CVE_PULL_HISTORY=false
@@ -361,6 +393,10 @@ services:
 
   connector-censys-enrichment:
     image: opencti/connector-censys-enrichment:latest
+    # See connector-import-external-reference above -- same Zscaler trust setup, for
+    # the outbound Censys API calls.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${CONNECTOR_CENSYS_API_KEY}
@@ -373,10 +409,16 @@ services:
       - CENSYS_ENRICHMENT_ORGANISATION_ID=${CENSYS_ORG_ID}
       - CENSYS_ENRICHMENT_TOKEN=${CENSYS_API_KEY}
       - CENSYS_ENRICHMENT_MAX_TLP=TLP:AMBER
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
 
   connector-vulncheck:
     image: opencti/connector-vulncheck:latest
+    # See connector-import-external-reference above -- same Zscaler trust setup, for
+    # the outbound VulnCheck API calls.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${CONNECTOR_VULNCHECK_API_KEY}
@@ -387,10 +429,16 @@ services:
       - CONNECTOR_LOG_LEVEL=error
       - CONNECTOR_AUTO=false
       - VULNCHECK_API_KEY=${VULNCHECK_API_KEY}
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
 
   connector-cisa-known-exploited-vulnerabilities:
     image: opencti/connector-cisa-known-exploited-vulnerabilities:latest
+    # See connector-import-external-reference above -- same Zscaler trust setup, for
+    # the outbound cisa.gov feed fetch.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${CONNECTOR_CISA_KEV_API_KEY}
@@ -403,10 +451,21 @@ services:
       - CISA_CREATE_INFRASTRUCTURES=false
       - CISA_KEV_FLAG_ONLY=false
       - CISA_TLP=TLP:CLEAR
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
 
   connector-qualys-cve-enrichment:
     image: opencti/connector-qualys-cve-enrichment:latest
+    # See connector-import-external-reference above -- same Zscaler trust setup, for
+    # the outbound Qualys API calls. QUALYS_SSL_VERIFY=false (below) was this
+    # connector's previous workaround for the exact same underlying problem --
+    # disabling verification entirely instead of trusting the intercepting CA. Now
+    # that there's a real trust path, that flag should come back OUT once this is
+    # confirmed working -- left in place for this change alone so nothing breaks
+    # before that's verified against a real run.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${CONNECTOR_QUALYS_CVE_ENRICHMENT_API_KEY}
@@ -420,8 +479,204 @@ services:
       - CONNECTOR_AUTO=false
       - QUALYS_CVE_ENRICHMENT_USERNAME=${QUALYS_API_USERNAME}
       - QUALYS_CVE_ENRICHMENT_PASSWORD=${QUALYS_API_PASSWORD}
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
 
+  ###########################
+  # VS CUSTOM CONNECTORS    #
+  # See connectors/*/README.md and ../OpenCTI-connector.md for design/build order
+  # (§8: this one first -- Connectors A/C both depend on it for org Identity
+  # resolution).
+  ###########################
+
+  connector-vs-org-bootstrap:
+    build:
+      context: ./connectors/vs-org-bootstrap
+      # Zscaler root CA, referenced directly from runtime state (/opt/open-cti,
+      # never the replaceable git checkout) via a named build context -- never
+      # copied into the repo. See connectors/vs-org-bootstrap/README.md "TLS
+      # interception". Requires BuildKit; there's a known regression for this in
+      # Compose 2.24.0 (docker/compose#11351) -- confirm this actually resolves
+      # on `docker compose build` before trusting it blindly.
+      additional_contexts:
+        - "zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}"
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      # NOT YET WIRED: needs a real OpenCTI service-account token delivered the same
+      # way every other connector's *_API_KEY is (bootstrap.sh + an SSM SecureString +
+      # var.open_cti_secret_keys in infrastructure/vars.tf). See OpenCTI-connector.md
+      # next steps.
+      - OPENCTI_TOKEN=${CONNECTOR_VS_ORG_BOOTSTRAP_API_KEY}
+      - CONNECTOR_ID=d9479ad9-6787-471f-a31c-9e4d0288f289
+      - CONNECTOR_NAME=VS Organization & CIDR Bootstrap
+      - CONNECTOR_TYPE=EXTERNAL_IMPORT
+      - CONNECTOR_SCOPE=identity,location
+      - CONNECTOR_LOG_LEVEL=info
+      - CONNECTOR_DURATION_PERIOD=PT6H
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- IAM auth proven
+      # end-to-end 2026-08-26 (role, rds_iam grant, table grants, real token
+      # generation all confirmed). DB_HOST/AWS_REGION flow from Terraform
+      # (aws_db_instance.db.address/var.aws_region) via env.deploy -- see
+      # infrastructure/open_cti_user_data_env.sh.tpl and open-cti/bootstrap.sh --
+      # deliberately not env.static, since a DB endpoint is per-environment, not
+      # something that belongs in a file meant to be identical everywhere.
+      - VS_ORG_BOOTSTRAP_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      # Confirmed (2026-08-27) via current_database() through
+      # crossfeed-staging-bastion -- the real deployed name, not the Django
+      # settings/connector default ("mini_data_lake", kept as the architectural
+      # name for this data store throughout comments/docs; this is just the
+      # literal staging Postgres identifier).
+      - VS_ORG_BOOTSTRAP_DB_NAME=cyhy_mini_data_lake_staging
+      - VS_ORG_BOOTSTRAP_DB_USER=open_cti
+      - VS_ORG_BOOTSTRAP_DB_USE_IAM_AUTH=true
+      - VS_ORG_BOOTSTRAP_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
+      # §9c -- empty on purpose; a real value (or ALLOW_UNSCOPED_RUN=true) must be set
+      # explicitly, dev or production, per config.py's fail-closed validation.
+      - VS_ORG_BOOTSTRAP_ORG_ACRONYM_ALLOWLIST=${VS_ORG_BOOTSTRAP_ORG_ACRONYM_ALLOWLIST:-}
+      - VS_ORG_BOOTSTRAP_ALLOW_UNSCOPED_RUN=${VS_ORG_BOOTSTRAP_ALLOW_UNSCOPED_RUN:-false}
+      # §10c -- deliberately empty; real data-handling policy decision still pending.
+      - VS_ORG_BOOTSTRAP_TLP_MARKING=${VS_ORG_BOOTSTRAP_TLP_MARKING:-}
+    restart: always
+
+  connector-vs-ticket-ingestion:
+    build:
+      context: ./connectors/vs-ticket-ingestion
+      # Same Zscaler root CA setup as connector-vs-org-bootstrap -- see that service's
+      # comment above and connectors/vs-ticket-ingestion/README.md "TLS interception".
+      # Property of the network, not of either connector individually.
+      additional_contexts:
+        - "zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}"
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      # NOT YET WIRED: same as connector-vs-org-bootstrap -- needs a real OpenCTI
+      # service-account token delivered via bootstrap.sh + an SSM SecureString +
+      # var.open_cti_secret_keys.
+      - OPENCTI_TOKEN=${CONNECTOR_VS_TICKET_INGESTION_API_KEY}
+      - CONNECTOR_ID=d110abb6-cb79-4ef7-b34d-76d769276356
+      - CONNECTOR_NAME=VS Ticket Ingestion
+      - CONNECTOR_TYPE=EXTERNAL_IMPORT
+      - CONNECTOR_SCOPE=ipv4-addr,ipv6-addr,vulnerability
+      - CONNECTOR_LOG_LEVEL=info
+      # §7a -- should not poll tighter than VulnScanningSync's own cadence (§5,
+      # still unresolved).
+      - CONNECTOR_DURATION_PERIOD=P1D
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- same DB_HOST/AWS_REGION
+      # already flowing from Terraform for connector-vs-org-bootstrap (env.deploy, not
+      # env.static -- see infrastructure/open_cti_user_data_env.sh.tpl and
+      # open-cti/bootstrap.sh).
+      - VS_TICKET_INGESTION_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      - VS_TICKET_INGESTION_DB_NAME=cyhy_mini_data_lake_staging
+      - VS_TICKET_INGESTION_DB_USER=open_cti
+      - VS_TICKET_INGESTION_DB_USE_IAM_AUTH=true
+      - VS_TICKET_INGESTION_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
+      # §9c -- empty on purpose; a real value (or ALLOW_UNSCOPED_RUN=true) must be set
+      # explicitly, dev or production, per config.py's fail-closed validation.
+      - VS_TICKET_INGESTION_ORG_ACRONYM_ALLOWLIST=${VS_TICKET_INGESTION_ORG_ACRONYM_ALLOWLIST:-}
+      - VS_TICKET_INGESTION_ALLOW_UNSCOPED_RUN=${VS_TICKET_INGESTION_ALLOW_UNSCOPED_RUN:-false}
+      # §9c dev-iteration levers, both empty/default by default (no behavior change
+      # from an unbounded first pull -- see src/config.py). MAX_ROWS_PER_RUN paginates
+      # slower but never skips data; LOOKBACK_DAYS bounds a fresh/reset connector's
+      # *first* poll to the last N days, which is what actually keeps a first run
+      # against a history-heavy org fast -- set both here (not just in config.yml)
+      # when iterating against this compose stack.
+      - VS_TICKET_INGESTION_MAX_ROWS_PER_RUN=${VS_TICKET_INGESTION_MAX_ROWS_PER_RUN:-5000}
+      - VS_TICKET_INGESTION_LOOKBACK_DAYS=${VS_TICKET_INGESTION_LOOKBACK_DAYS:-}
+      # §10c -- should match the other VS connectors' TLP marking once the policy call
+      # is made; deliberately empty by default, same as connector-vs-org-bootstrap.
+      # Bug fixed 2026-09-02: this used to read ${VS_ORG_BOOTSTRAP_TLP_MARKING:-}, this
+      # connector's own env var was never actually substituted.
+      - VS_TICKET_INGESTION_TLP_MARKING=${VS_TICKET_INGESTION_TLP_MARKING:-}
+    restart: always
+
+  connector-vs-vulnscan-enrichment:
+    build:
+      context: ./connectors/vs-vulnscan-enrichment
+      # Same Zscaler root CA setup as the other VS connectors -- see their service
+      # comments above and connectors/vs-vulnscan-enrichment/README.md "TLS
+      # interception". Property of the network, not of any one connector.
+      additional_contexts:
+        - "zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}"
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      # NOT YET WIRED: same as the other VS connectors -- needs a real OpenCTI
+      # service-account token delivered via bootstrap.sh + an SSM SecureString +
+      # var.open_cti_secret_keys.
+      - OPENCTI_TOKEN=${CONNECTOR_VS_VULNSCAN_ENRICHMENT_API_KEY}
+      - CONNECTOR_ID=0e7d7782-0835-40a9-a2e4-29b0b9914efa
+      - CONNECTOR_NAME=VS VulnScan Enrichment
+      - CONNECTOR_TYPE=INTERNAL_ENRICHMENT
+      - CONNECTOR_SCOPE=IPv4-Addr,IPv6-Addr,Vulnerability
+      - CONNECTOR_LOG_LEVEL=info
+      # §7b -- manual "Enrich" trigger, matching every other enrichment connector
+      # already running here (connector-censys-enrichment, etc.). Auto-triggering
+      # would mean one VulnScan lookup per Ticket per connector-vs-ticket-ingestion
+      # poll, hitting the same primary DB that connector just queried.
+      - CONNECTOR_AUTO=false
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- same DB_HOST/AWS_REGION
+      # already flowing from Terraform for connector-vs-org-bootstrap (env.deploy, not
+      # env.static -- see infrastructure/open_cti_user_data_env.sh.tpl and
+      # open-cti/bootstrap.sh).
+      - VS_VULNSCAN_ENRICHMENT_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      - VS_VULNSCAN_ENRICHMENT_DB_NAME=cyhy_mini_data_lake_staging
+      - VS_VULNSCAN_ENRICHMENT_DB_USER=open_cti
+      - VS_VULNSCAN_ENRICHMENT_DB_USE_IAM_AUTH=true
+      - VS_VULNSCAN_ENRICHMENT_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
+      # §9c -- bounds how many VulnScan rows go into one Note per triggered entity;
+      # tunable here the same way VS_TICKET_INGESTION_MAX_ROWS_PER_RUN is.
+      - VS_VULNSCAN_ENRICHMENT_MAX_ROWS_PER_ENTITY=${VS_VULNSCAN_ENRICHMENT_MAX_ROWS_PER_ENTITY:-50}
+      # §10c -- should match the other VS connectors' TLP marking once the policy call
+      # is made; deliberately empty by default, same as the other VS connectors. Bug
+      # fixed 2026-09-02: this used to read ${VS_ORG_BOOTSTRAP_TLP_MARKING:-}, this
+      # connector's own env var was never actually substituted.
+      - VS_VULNSCAN_ENRICHMENT_TLP_MARKING=${VS_VULNSCAN_ENRICHMENT_TLP_MARKING:-}
+    restart: always
+
+  connector-vs-port-inventory:
+    build:
+      context: ./connectors/vs-port-inventory
+      # Same Zscaler root CA setup as the other VS connectors -- see their service
+      # comments above and connectors/vs-port-inventory/README.md "TLS interception".
+      # Property of the network, not of any one connector.
+      additional_contexts:
+        - "zscaler_cert=${ZSCALER_CERT_DIR:-/opt/open-cti/tls}"
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      # NOT YET WIRED: same as the other VS connectors -- needs a real OpenCTI
+      # service-account token delivered via bootstrap.sh + an SSM SecureString +
+      # var.open_cti_secret_keys.
+      - OPENCTI_TOKEN=${CONNECTOR_VS_PORT_INVENTORY_API_KEY}
+      - CONNECTOR_ID=8ca61ddd-f947-40f7-b4e0-505d61dc612b
+      - CONNECTOR_NAME=VS Port/Service Inventory
+      - CONNECTOR_TYPE=EXTERNAL_IMPORT
+      - CONNECTOR_SCOPE=ipv4-addr,ipv6-addr,network-traffic,software
+      - CONNECTOR_LOG_LEVEL=info
+      - CONNECTOR_DURATION_PERIOD=P1D
+      # mini_data_lake connectivity (OpenCTI-connector.md §2) -- same DB_HOST/AWS_REGION
+      # already flowing from Terraform for connector-vs-org-bootstrap (env.deploy, not
+      # env.static -- see infrastructure/open_cti_user_data_env.sh.tpl and
+      # open-cti/bootstrap.sh).
+      - VS_PORT_INVENTORY_DB_HOST=${VS_ORG_BOOTSTRAP_DB_HOST}
+      - VS_PORT_INVENTORY_DB_NAME=cyhy_mini_data_lake_staging
+      - VS_PORT_INVENTORY_DB_USER=open_cti
+      - VS_PORT_INVENTORY_DB_USE_IAM_AUTH=true
+      - VS_PORT_INVENTORY_AWS_REGION=${VS_ORG_BOOTSTRAP_AWS_REGION}
+      # §9c -- empty on purpose; a real value (or ALLOW_UNSCOPED_RUN=true) must be set
+      # explicitly, dev or production, per config.py's fail-closed validation.
+      - VS_PORT_INVENTORY_ORG_ACRONYM_ALLOWLIST=${VS_PORT_INVENTORY_ORG_ACRONYM_ALLOWLIST:-}
+      - VS_PORT_INVENTORY_ALLOW_UNSCOPED_RUN=${VS_PORT_INVENTORY_ALLOW_UNSCOPED_RUN:-false}
+      # Bounds the bootstrap poll (still possibly large -- every row the source
+      # considers current, regardless of age) and every steady-state poll after it.
+      - VS_PORT_INVENTORY_MAX_ROWS_PER_RUN=${VS_PORT_INVENTORY_MAX_ROWS_PER_RUN:-5000}
+      # This connector's own copy of LATEST_PORT_SCAN_CUTOFF (vs_port_scans.py,
+      # default 14) -- staleness is computed locally instead of re-polling. See db.py.
+      - VS_PORT_INVENTORY_CUTOFF_DAYS=${VS_PORT_INVENTORY_CUTOFF_DAYS:-14}
+      # §10c -- should match the other VS connectors' TLP marking once the policy call
+      # is made; deliberately empty by default, same as the other VS connectors. Bug
+      # fixed 2026-09-02: this used to read ${VS_ORG_BOOTSTRAP_TLP_MARKING:-}, this
+      # connector's own env var was never actually substituted.
+      - VS_PORT_INVENTORY_TLP_MARKING=${VS_PORT_INVENTORY_TLP_MARKING:-}
+    restart: always
 
   ###########################
   # OPENCTI DEFAULT DATA    #
@@ -429,6 +684,10 @@ services:
 
   connector-opencti:
     image: opencti/connector-opencti:latest
+    # See connector-import-external-reference (VS CUSTOM CONNECTORS section above) --
+    # same Zscaler trust setup, for the outbound fetch of Filigran's reference datasets.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -437,18 +696,26 @@ services:
       - CONNECTOR_SCOPE=marking-definition,identity,location
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=100
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
     depends_on:
       opencti:
         condition: service_healthy
   connector-mitre:
     image: opencti/connector-mitre:latest
+    # Same Zscaler trust setup, for the outbound MITRE ATT&CK STIX bundle fetch
+    # (raw.githubusercontent.com).
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
       - CONNECTOR_ID=${CONNECTOR_MITRE_ID}
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=75
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
     restart: always
     depends_on:
       opencti:
@@ -460,7 +727,17 @@ services:
 
   xtm-one:
     image: xtmone/platform:latest
+    # Zscaler TLS-inspects outbound HTTPS on this network. Runtime here is inferred,
+    # not directly confirmed (no public Dockerfile for xtmone/platform) --
+    # DATABASE_URL's postgresql+asyncpg scheme is a strong Python signal, so treated
+    # the same as the other Python services (combined bundle, not additive). See
+    # connectors/vs-org-bootstrap/README.md "TLS interception" -> "Non-custom
+    # connectors" -- worth confirming against real container logs.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
       - PLATFORM_MODE=xtm_one
       - PLATFORM_REGISTRATION_TOKEN=${PLATFORM_REGISTRATION_TOKEN}
       - BASE_URL=${XTM_ONE_EXTERNAL_SCHEME}://${XTM_ONE_HOST}:${XTM_ONE_PORT}
@@ -499,7 +776,12 @@ services:
 
   xtm-one-worker:
     image: xtmone/worker:latest
+    # Same inferred Python/Zscaler treatment as xtm-one above -- see its comment.
+    volumes:
+      - "${ZSCALER_CERT_DIR:-/opt/open-cti/tls}/combined-ca-bundle.pem:/etc/ssl/certs/zscaler-combined-ca-bundle.pem:ro"
     environment:
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
+      - SSL_CERT_FILE=/etc/ssl/certs/zscaler-combined-ca-bundle.pem
       - PLATFORM_MODE=xtm_one
       - PLATFORM_REGISTRATION_TOKEN=${PLATFORM_REGISTRATION_TOKEN}
       - ADMIN_EMAIL=${XTM_ONE_ADMIN_EMAIL}

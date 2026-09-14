@@ -1,0 +1,51 @@
+# Connector B — VS VulnScan Enrichment
+#
+# See ../../OpenCTI-connector.md §7b for the design this implements, and §10 for the discipline
+# this config exists to enforce.
+#
+# Copy to config.yml for local runs (docker-compose.yml drives the containerized version purely
+# from env vars instead — see README.md).
+
+opencti:
+  url: 'http://localhost:8080'
+  token: 'ChangeMe'
+
+connector:
+  id: 'ChangeMe-generate-a-uuid4'
+  name: 'VS VulnScan Enrichment'
+  type: 'INTERNAL_ENRICHMENT'
+  scope: 'IPv4-Addr,IPv6-Addr,Vulnerability'
+  confidence_level: 75
+  log_level: 'info'
+  # Manual "Enrich" trigger, not automatic on every write (§7b) -- matches every other
+  # enrichment connector already running in this deployment (connector-censys-enrichment, etc.).
+  # Auto-triggering would mean one VulnScan lookup per Ticket per Connector A poll, hitting the
+  # same primary DB Connector A just queried -- revisit only once real data volume is known.
+  auto: false
+
+vs_vulnscan_enrichment:
+  # --- mini_data_lake connectivity (OpenCTI-connector.md §2) ---
+  db_host: 'ChangeMe'
+  db_port: 5432
+  db_name: 'cyhy_mini_data_lake_staging'
+  db_user: 'open_cti'
+  # IAM database authentication, not a static password -- see §2.
+  db_use_iam_auth: true
+  db_password: ''
+  aws_region: 'us-gov-west-1'
+
+  # --- dev/test discipline (§9) ---
+  is_local: false
+  local_fixture_dir: './tests/fixtures'
+
+  # Bounds how many VulnScan rows go into one Note per triggered entity (§9c) -- a second,
+  # independent safety net against an unexpectedly large match set (many ports on one host, or
+  # many hosts sharing one CVE), the same way max_rows_per_run bounds connectors A/D's polls.
+  max_vulnscan_rows_per_entity: 50
+
+  # --- attribution / marking (§10c) ---
+  # Same author name as connectors A/D on purpose -- one consistent system Identity.
+  author_name: 'CISA VulnScanning'
+  # Deliberately left unset -- same undecided policy question as A/D. Must match their value
+  # once the policy call is made.
+  tlp_marking: ''
