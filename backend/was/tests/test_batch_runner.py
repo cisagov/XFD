@@ -1,8 +1,9 @@
 """Tests for the scheduled WAS batch runner."""
 
 # Standard Python Libraries
-from contextlib import ExitStack
+from contextlib import ExitStack, redirect_stderr
 from datetime import date, datetime, timezone
+from io import StringIO
 from pathlib import Path
 import subprocess
 import tempfile
@@ -12,6 +13,7 @@ from unittest.mock import patch
 
 # Third-Party Libraries
 # First-Party Libraries
+from was_mailer.message import AnalystRecipientError
 from was_reports.commands import batch_runner
 from was_reports.data.daily_report_tracker import TrackerReportCandidate
 from was_reports.data.report_runs import ReportRun
@@ -1024,6 +1026,40 @@ class BatchRunnerTests(unittest.TestCase):
             stakeholder_tag=None,
         )
         mock_recover_stale.assert_called_once_with()
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    @patch("was_reports.commands.batch_runner.approved_analyst_recipients")
+    def test_main_reports_inactive_batch_test_recipient_before_processing(
+        self,
+        mock_approved_recipients,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Tell the operator when a batch override is not an active assignee."""
+        mock_approved_recipients.side_effect = AnalystRecipientError(
+            "The submitted email address is not assigned to an active, "
+            "email-enabled WAS assignee: inactive@example.gov."
+        )
+        error_output = StringIO()
+
+        with redirect_stderr(error_output):
+            exit_code = batch_runner.main(
+                [
+                    "--recent-scans",
+                    "--send-email",
+                    "--test-recipients",
+                    "inactive@example.gov",
+                ]
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("not assigned to an active", error_output.getvalue())
+        mock_update_tracker.assert_not_called()
+        mock_run_recent.assert_not_called()
+        mock_recover_stale.assert_not_called()
 
 
 if __name__ == "__main__":

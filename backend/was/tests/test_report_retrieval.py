@@ -28,6 +28,38 @@ class ReportRetrievalTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertTrue(first.startswith("WAS-TAG-REQUEST-"))
 
+    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
+    def test_supplied_tag_id_skips_redundant_lookup(
+        self,
+        mock_count_webapps,
+        mock_get_tag_id,
+        mock_create_xml_report,
+        mock_get_report_xml,
+    ) -> None:
+        """Reuse an already resolved tag ID during one report generation."""
+        mock_count_webapps.return_value = 35
+        mock_create_xml_report.return_value = "xml-789"
+        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+
+        source_data = report_retrieval.retrieve_report_source_data(
+            client=self.client,
+            stakeholder_tag="TAG",
+            credentials=self.credentials,
+            resource_root=self.resource_root,
+            output_directory=self.output_directory,
+            python_executable="python3",
+            tag_id="tag-123",
+            report_waiter=Mock(),
+        )
+
+        self.assertEqual(source_data.tag_id, "tag-123")
+        mock_get_tag_id.assert_not_called()
+
     def test_polling_uncertainty_preserves_reference_for_retry(self) -> None:
         """Retry with the same ID after timeout or status-persistence failure."""
         for error in (

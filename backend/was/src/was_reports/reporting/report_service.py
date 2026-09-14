@@ -37,15 +37,6 @@ class ReportServicePaths:
     output_directory: Path
 
 
-def resolve_organization_name(
-    client: QualysClient,
-    stakeholder_tag: str,
-) -> str:
-    """Resolve a stakeholder description using the legacy tag hierarchy."""
-    customer_tags = report_data.list_customer_tags(client)
-    return customer_tags.get(stakeholder_tag, stakeholder_tag)
-
-
 def generate_unencrypted_report(
     client: QualysClient,
     credentials: QualysCredentials,
@@ -62,7 +53,8 @@ def generate_unencrypted_report(
     report_creation_intent_claim: Callable[[str], bool] | None = None,
 ) -> Path:
     """Generate one unencrypted PDF through the production WAS modules."""
-    organization_name = resolve_organization_name(client, stakeholder_tag)
+    tag_details = report_data.get_tag_details(client, stakeholder_tag)
+    organization_name = tag_details.description
     with report_retrieval.managed_report_source_data(
         client=client,
         stakeholder_tag=stakeholder_tag,
@@ -77,6 +69,7 @@ def generate_unencrypted_report(
         report_id_clearer=report_id_clearer,
         report_status_recorder=report_status_recorder,
         report_creation_intent_claim=report_creation_intent_claim,
+        tag_id=tag_details.tag_id,
     ) as source_data:
         parsed_report = report_transformer.parse_report(source_data.report_xml)
         transformation = report_transformer.transform_report_to_csv(

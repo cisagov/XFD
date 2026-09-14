@@ -22,6 +22,11 @@ from was_reports.qualys.qualys_client import (
     sanitized_qualys_payload,
 )
 from was_reports.utils.qualys_config import QualysCredentials
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    clear_operation_cancellation,
+    request_operation_cancellation,
+)
 
 
 class FakeQualysConnection:
@@ -61,6 +66,31 @@ def http_error(status_code: int, retry_after: str = "") -> requests.HTTPError:
 
 class QualysClientTests(unittest.TestCase):
     """Validate legacy-compatible Qualys request behavior."""
+
+    def tearDown(self) -> None:
+        """Prevent cancellation state from leaking into another client test."""
+        clear_operation_cancellation()
+
+    @patch.dict(
+        "os.environ",
+        {"WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS": "7.5"},
+    )
+    def test_retry_policy_loads_authentication_delay_from_environment(self) -> None:
+        """Load the one-time authentication retry delay from configuration."""
+        policy = QualysRetryPolicy.from_environment()
+
+        self.assertEqual(policy.authentication_retry_delay_seconds, 7.5)
+
+    def test_operator_cancellation_does_not_call_or_log_api_failure(self) -> None:
+        """Treat a requested stop as cancellation rather than an API defect."""
+        connection = FakeQualysConnection()
+        client = QualysClient(connection)
+        request_operation_cancellation()
+
+        with self.assertRaises(OperationCancelledError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(connection.calls, [])
 
     @patch("requests.Session.post")
     def test_http_error_does_not_reach_connector_payload_logging(
@@ -200,9 +230,66 @@ class QualysClientTests(unittest.TestCase):
 
         self.assertEqual(len(connection.calls), 1)
 
+    def test_read_safe_request_retries_authentication_failure_once(self) -> None:
+        """Retry one intermittent authentication rejection on read-safe calls."""
+        connection = FakeQualysConnection([http_error(401), "<response />"])
+        sleep_calls: list[float] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(
+                max_attempts=4,
+                authentication_retry_delay_seconds=5.0,
+            ),
+            sleep_function=sleep_calls.append,
+        )
+
+        response = client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(response, "<response />")
+        self.assertEqual(len(connection.calls), 2)
+        self.assertEqual(sleep_calls, [5.0])
+
+    def test_read_safe_request_retries_authentication_failure_only_once(self) -> None:
+        """Fail after a second authentication rejection without more retries."""
+        connection = FakeQualysConnection(
+            [http_error(401), http_error(401), "<response />"]
+        )
+        sleep_calls: list[float] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=sleep_calls.append,
+        )
+
+        with self.assertRaises(requests.HTTPError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(len(connection.calls), 2)
+        self.assertEqual(sleep_calls, [5.0])
+
+    def test_create_request_does_not_retry_authentication_failure(self) -> None:
+        """Keep mutating calls single-attempt after authentication rejection."""
+        connection = FakeQualysConnection([http_error(401), "<response />"])
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=lambda seconds: self.fail("Unexpected retry sleep."),
+        )
+
+        with self.assertRaises(requests.HTTPError):
+            client.request(
+                QualysRequest(
+                    endpoint="/create/was/report",
+                    payload="<ServiceRequest />",
+                    http_method="POST",
+                )
+            )
+
+        self.assertEqual(len(connection.calls), 1)
+
     def test_nontransient_client_error_does_not_retry(self) -> None:
-        """Do not retry authentication, authorization, or validation failures."""
-        connection = FakeQualysConnection([http_error(401)])
+        """Do not retry authorization or validation failures."""
+        connection = FakeQualysConnection([http_error(403)])
         client = QualysClient(
             connection,
             retry_policy=QualysRetryPolicy(max_attempts=4),

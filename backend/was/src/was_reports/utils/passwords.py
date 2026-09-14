@@ -8,7 +8,7 @@ from typing import Iterable
 # First-Party Libraries
 from was_reports.utils.env import getenv
 
-BANNED_PASSWORD_CHARACTERS = frozenset(["'", ",", "-"])
+BANNED_PASSWORD_CHARACTERS = frozenset([",", "-"])
 DEFAULT_PASSWORD_LENGTH = 24
 MINIMUM_PASSWORD_LENGTH = 16
 PASSWORD_CHARACTER_SET = "".join(

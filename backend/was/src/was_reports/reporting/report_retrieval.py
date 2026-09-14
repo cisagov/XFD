@@ -70,6 +70,7 @@ def retrieve_report_source_data(
     report_creation_intent_claim: Callable[[str], bool] | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
     report_waiter: Callable = detail_reports.wait_for_report_completion,
+    tag_id: str | None = None,
 ) -> ReportSourceData:
     """Retrieve the Qualys XML report and optional detail PDF artifact."""
     web_application_count = report_data.count_webapps(client, stakeholder_tag)
@@ -80,7 +81,7 @@ def retrieve_report_source_data(
             )
         )
 
-    tag_id = report_data.get_tag_id(client, stakeholder_tag)
+    tag_id = tag_id or report_data.get_tag_id(client, stakeholder_tag)
     detail_pdf_path = None
     detail_report_id = existing_detail_report_id
     if web_application_count < DETAIL_REPORT_WEBAPP_LIMIT:
@@ -184,6 +185,7 @@ def managed_report_source_data(
     report_creation_intent_claim: Callable[[str], bool] | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
     report_waiter: Callable = detail_reports.wait_for_report_completion,
+    tag_id: str | None = None,
 ) -> Iterator[ReportSourceData]:
     """Retain retry references on failure; clean up only after successful use."""
     source_data = retrieve_report_source_data(
@@ -202,6 +204,7 @@ def managed_report_source_data(
         report_creation_intent_claim=report_creation_intent_claim,
         detail_downloader=detail_downloader,
         report_waiter=report_waiter,
+        tag_id=tag_id,
     )
     yield source_data
     for label, report_id in (

@@ -14,6 +14,10 @@ import requests
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
+from was_reports.utils.operation_cancellation import (
+    cancellable_sleep,
+    raise_if_operation_cancelled,
+)
 from was_reports.utils.env import getenv
 
 WEBAPP_REPORT_TEMPLATE_ID = "1994875"
@@ -32,6 +36,15 @@ class QualysReportReference:
     name: str
     report_format: str
     status: str | None
+
+
+@dataclass(frozen=True)
+class QualysTagDetails:
+    """Identifying fields returned by an exact Qualys tag lookup."""
+
+    tag_id: str
+    name: str
+    description: str
 
 
 class QualysReportCreationUncertainError(RuntimeError):
@@ -67,26 +80,43 @@ def build_tag_lookup_payload(tag_name: str) -> str:
     return xml_to_string(root)
 
 
-def parse_tag_id(response_xml: str) -> str:
-    """Parse a Qualys tag ID from a tag lookup response."""
+def parse_tag_details(response_xml: str, requested_name: str) -> QualysTagDetails:
+    """Parse identifying fields from an exact Qualys tag lookup response."""
     root = objectify.fromstring(
         response_xml.encode(),
         parser=objectify.makeparser(resolve_entities=False, no_network=True),
     )
     if int(root.count) == 0:
         raise LookupError("No Qualys tag found with the supplied name.")
-    return str(root.data.Tag.id)
+    tag = root.data.Tag
+    tag_name = str(tag.name) if tag.xpath("./name") else requested_name
+    description = str(tag.description) if tag.xpath("./description") else tag_name
+    return QualysTagDetails(
+        tag_id=str(tag.id),
+        name=tag_name,
+        description=description,
+    )
 
 
-def get_tag_id(client: QualysClient, tag_name: str) -> str:
-    """Return the Qualys tag ID for a stakeholder tag name."""
+def parse_tag_id(response_xml: str) -> str:
+    """Parse a Qualys tag ID while preserving the established helper API."""
+    return parse_tag_details(response_xml, "").tag_id
+
+
+def get_tag_details(client: QualysClient, tag_name: str) -> QualysTagDetails:
+    """Return the ID and display fields for one exact Qualys tag lookup."""
     response_xml = client.request(
         QualysRequest(
             endpoint="search/am/tag",
             payload=build_tag_lookup_payload(tag_name),
         )
     )
-    return parse_tag_id(response_xml)
+    return parse_tag_details(response_xml, tag_name)
+
+
+def get_tag_id(client: QualysClient, tag_name: str) -> str:
+    """Return the Qualys tag ID for a stakeholder tag name."""
+    return get_tag_details(client, tag_name).tag_id
 
 
 def build_webapp_count_payload(tag_name: str) -> str:
@@ -328,6 +358,7 @@ def reconcile_created_report(
     )
     deadline = monotonic_function() + resolved_timeout
     while True:
+        raise_if_operation_cancelled()
         matching_reports = search_reports(client, report_name, report_format)
         if len(matching_reports) == 1:
             report_id = matching_reports[0].report_id
@@ -358,7 +389,7 @@ def reconcile_created_report(
             operation_label,
             report_name,
         )
-        sleep_function(resolved_poll)
+        cancellable_sleep(resolved_poll, sleep_function=sleep_function)
 
 
 def create_report_with_recovery(

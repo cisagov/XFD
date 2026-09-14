@@ -466,7 +466,13 @@ class ReportDataTests(unittest.TestCase):
                 """
                 <ServiceResponse>
                     <count>1</count>
-                    <data><Tag><id>12345</id></Tag></data>
+                    <data>
+                        <Tag>
+                            <id>12345</id>
+                            <name>CUSTOMER_TAG</name>
+                            <description>Customer Organization</description>
+                        </Tag>
+                    </data>
                 </ServiceResponse>
                 """
             ]
@@ -479,11 +485,38 @@ class ReportDataTests(unittest.TestCase):
         self.assertEqual(connection.calls[0]["endpoint"], "search/am/tag")
         self.assertIn("CUSTOMER_TAG", connection.calls[0]["payload"])
 
+    def test_get_tag_details_returns_id_name_and_description(self) -> None:
+        """Use one exact tag response for report identity and display data."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <count>1</count>
+                    <data>
+                        <Tag>
+                            <id>12345</id>
+                            <name>CUSTOMER_TAG</name>
+                            <description>Customer Organization</description>
+                        </Tag>
+                    </data>
+                </ServiceResponse>
+                """
+            ]
+        )
+
+        details = report_data.get_tag_details(QualysClient(connection), "CUSTOMER_TAG")
+
+        self.assertEqual(details.tag_id, "12345")
+        self.assertEqual(details.name, "CUSTOMER_TAG")
+        self.assertEqual(details.description, "Customer Organization")
+        self.assertEqual(len(connection.calls), 1)
+
     def test_parse_tag_id_rejects_missing_tag(self) -> None:
         """Raise a lookup error when Qualys returns no matching tag."""
         with self.assertRaises(LookupError):
-            report_data.parse_tag_id(
-                "<ServiceResponse><count>0</count></ServiceResponse>"
+            report_data.parse_tag_details(
+                "<ServiceResponse><count>0</count></ServiceResponse>",
+                "MISSING",
             )
 
     def test_count_webapps_uses_count_endpoint(self) -> None:

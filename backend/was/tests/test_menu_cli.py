@@ -7,6 +7,10 @@ from unittest.mock import Mock, patch
 
 # First-Party Libraries
 from was_reports.commands.menu_cli import WasOperatorMenu
+from was_reports.utils.operation_cancellation import (
+    raise_if_operation_cancelled,
+    request_operation_cancellation,
+)
 
 
 class WasOperatorMenuTests(unittest.TestCase):
@@ -26,6 +30,27 @@ class WasOperatorMenuTests(unittest.TestCase):
         exit_code = menu.run()
 
         self.assertEqual(exit_code, 0)
+
+    def test_execute_returns_to_menu_after_safe_cancellation(self) -> None:
+        """Handle cooperative cancellation without exiting the menu process."""
+        menu = self.build_menu([])
+
+        def cancel_at_checkpoint() -> int:
+            """Request cancellation and enter a safe checkpoint."""
+            request_operation_cancellation()
+            raise_if_operation_cancelled()
+            return 0
+
+        exit_code = menu.execute(
+            "test operation",
+            cancel_at_checkpoint,
+            cancellable=True,
+        )
+
+        self.assertEqual(exit_code, 130)
+        menu.output.assert_any_call(
+            "Operation cancelled safely. Returning to the menu."
+        )
 
     def test_report_menu_uses_five_or_b_to_return(self) -> None:
         """Return to the main menu using either documented report-menu choice."""
@@ -66,7 +91,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         mock_batch_main,
     ) -> None:
         """Route every complete-batch email to the explicit test recipient."""
-        menu = self.build_menu(["1", "analyst@example.gov", "y", ""])
+        menu = self.build_menu(["1", "25", "analyst@example.gov", "y", ""])
 
         menu.run_daily_batch()
 
@@ -77,6 +102,8 @@ class WasOperatorMenuTests(unittest.TestCase):
                 "--continue-on-error",
                 "--send-email",
                 "--send-assignee-digests",
+                "--limit",
+                "25",
                 "--test-recipients",
                 "analyst@example.gov",
             ]
@@ -85,6 +112,7 @@ class WasOperatorMenuTests(unittest.TestCase):
             "Customer addresses will not be used. Successful tracker rows will be "
             "recorded as sent."
         )
+        menu.output.assert_any_call("This batch is limited to 25 reports.")
 
     @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
     def test_complete_batch_requires_typed_customer_confirmation(
@@ -92,7 +120,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         mock_batch_main,
     ) -> None:
         """Require an explicit phrase before delivering reports to customers."""
-        menu = self.build_menu(["2", "SEND CUSTOMER REPORTS", ""])
+        menu = self.build_menu(["2", "", "SEND CUSTOMER REPORTS", ""])
 
         menu.run_daily_batch()
 
@@ -105,6 +133,7 @@ class WasOperatorMenuTests(unittest.TestCase):
                 "--send-assignee-digests",
             ]
         )
+        menu.output.assert_any_call("This batch will process all eligible reports.")
 
     @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
     def test_complete_batch_cancels_customer_delivery_without_phrase(
@@ -112,12 +141,25 @@ class WasOperatorMenuTests(unittest.TestCase):
         mock_batch_main,
     ) -> None:
         """Do not start customer delivery without the exact safety phrase."""
-        menu = self.build_menu(["2", "no"])
+        menu = self.build_menu(["2", "", "no"])
 
         menu.run_daily_batch()
 
         mock_batch_main.assert_not_called()
         menu.output.assert_any_call("Operation cancelled.")
+
+    @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
+    def test_complete_batch_cancel_does_not_prompt_for_limit(
+        self,
+        mock_batch_main,
+    ) -> None:
+        """Cancel immediately before collecting batch execution settings."""
+        menu = self.build_menu(["3"])
+
+        menu.run_daily_batch()
+
+        mock_batch_main.assert_not_called()
+        self.assertEqual(menu.input.call_count, 1)
 
     @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
     def test_manual_report_delegates_to_tracked_batch_command(

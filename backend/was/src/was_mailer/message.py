@@ -24,6 +24,10 @@ CYBER_HYGIENE_URL = "https://www.cisa.gov/cyber-hygiene-services"
 WAS_ALLOWLIST_URL = "https://rules.vm.cyber.dhs.gov/was.txt"
 
 
+class AnalystRecipientError(ValueError):
+    """Indicate that an analyst delivery address failed assignee validation."""
+
+
 def parse_email_addresses(raw_addresses: str | None) -> List[str]:
     """Parse semicolon or comma separated email addresses."""
     if not raw_addresses:
@@ -74,18 +78,35 @@ def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
     """Require explicit, valid recipients that are currently active assignees."""
     recipients = unique_addresses(parse_email_addresses(raw_addresses))
     if not recipients:
-        raise ValueError("At least one explicit analyst recipient is required.")
+        raise AnalystRecipientError(
+            "At least one active WAS assignee email address is required."
+        )
     for recipient in recipients:
-        address = Address(addr_spec=recipient)
+        try:
+            address = Address(addr_spec=recipient)
+        except ValueError as error:
+            raise AnalystRecipientError(
+                "The submitted email address is invalid. Enter a complete "
+                "address using the local@domain format."
+            ) from error
         if not address.username or not address.domain:
-            raise ValueError("Recipients must be complete email addresses.")
+            raise AnalystRecipientError(
+                "The submitted email address is invalid. Enter a complete "
+                "address using the local@domain format."
+            )
     approved = {
         address.lower()
         for configured in list_active_assignee_emails_from_db()
         for address in parse_email_addresses(configured)
     }
-    if any(recipient.lower() not in approved for recipient in recipients):
-        raise ValueError("Analyst delivery requires active WAS assignees.")
+    rejected_recipients = [
+        recipient for recipient in recipients if recipient.lower() not in approved
+    ]
+    if rejected_recipients:
+        raise AnalystRecipientError(
+            "The submitted email address is not assigned to an active, "
+            "email-enabled WAS assignee: {}.".format(", ".join(rejected_recipients))
+        )
     return recipients
 
 

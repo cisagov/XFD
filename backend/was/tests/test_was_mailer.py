@@ -14,6 +14,7 @@ from unittest.mock import Mock, patch
 # First-Party Libraries
 from was_mailer import email_reports
 from was_mailer.message import (
+    AnalystRecipientError,
     approved_analyst_recipients,
     build_assignee_digest_email,
     build_report_email,
@@ -662,6 +663,12 @@ class DeliveryPolicyTests(unittest.TestCase):
             approved_analyst_recipients("ANALYST@example.gov;analyst@example.gov"),
             ["ANALYST@example.gov"],
         )
+
+        with self.assertRaisesRegex(
+            AnalystRecipientError,
+            "not assigned to an active, email-enabled WAS assignee",
+        ):
+            approved_analyst_recipients("inactive@example.gov")
 
     def test_unknown_purpose_fails_closed(self):
         """Reject unrecognized persisted policy rather than defaulting to customers."""

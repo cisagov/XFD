@@ -3,7 +3,9 @@
 # Standard Python Libraries
 from datetime import date
 import logging
+import select
 import sys
+from threading import Event, Thread
 from typing import Callable
 
 # Third-Party Libraries
@@ -20,10 +22,67 @@ from was_reports.commands import (
     update_tracker_cli,
 )
 from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    clear_operation_cancellation,
+    request_operation_cancellation,
+)
 
 LOGGER = logging.getLogger(__name__)
 InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
+
+
+class OperationCancellationMonitor:
+    """Watch interactive input for a cooperative cancellation request."""
+
+    def __init__(self, output_function: OutputFunction) -> None:
+        """Initialize cancellation monitoring for the active terminal."""
+        self.output = output_function
+        self.stop_event = Event()
+        self.thread = Thread(
+            target=self._run,
+            daemon=True,
+            name="was-menu-cancellation-monitor",
+        )
+
+    def start(self) -> bool:
+        """Start monitoring only when standard input is an interactive terminal."""
+        if not sys.stdin.isatty():
+            return False
+        self.thread.start()
+        return True
+
+    def stop(self) -> None:
+        """Stop monitoring before the menu accepts its next selection."""
+        self.stop_event.set()
+        if self.thread.is_alive():
+            self.thread.join(timeout=1)
+
+    def _run(self) -> None:
+        """Request cancellation when the operator enters b on its own line."""
+        while not self.stop_event.is_set():
+            try:
+                readable, unused_writable, unused_errors = select.select(
+                    [sys.stdin],
+                    [],
+                    [],
+                    0.2,
+                )
+            except (OSError, ValueError):
+                return
+            if not readable or self.stop_event.is_set():
+                continue
+            value = sys.stdin.readline()
+            if not value:
+                return
+            if value.strip().lower() == "b":
+                request_operation_cancellation()
+                self.output(
+                    "Cancellation requested. Waiting for the next safe checkpoint..."
+                )
+                return
+            self.output("Operation is running. Enter b and press Enter to cancel.")
 
 
 def write_output(message: str) -> None:
@@ -136,6 +195,21 @@ class WasOperatorMenu:
                 return str(parsed_value)
             self.output("Enter a whole number of zero or greater, or leave blank.")
 
+    def prompt_optional_positive_integer(self, prompt: str) -> str:
+        """Prompt for an optional positive whole number."""
+        while True:
+            raw_value = self.input(prompt).strip()
+            if not raw_value or raw_value.lower() == "all":
+                return ""
+            try:
+                parsed_value = int(raw_value)
+            except ValueError:
+                self.output("Enter a whole number greater than zero, or all.")
+                continue
+            if parsed_value > 0:
+                return str(parsed_value)
+            self.output("Enter a whole number greater than zero, or all.")
+
     def confirm(self, prompt: str) -> bool:
         """Return whether the operator explicitly answered yes."""
         answer = self.input("{} [y/N]: ".format(prompt)).strip().lower()
@@ -150,16 +224,34 @@ class WasOperatorMenu:
         operation_name: str,
         command: Callable[[], int],
         show_success: bool = True,
+        cancellable: bool = False,
     ) -> int:
         """Execute one command while keeping unexpected failures in the menu."""
+        cancellation_monitor = OperationCancellationMonitor(self.output)
+        clear_operation_cancellation()
+        monitor_started = False
+        if cancellable:
+            monitor_started = cancellation_monitor.start()
+            if monitor_started:
+                self.output(
+                    "Operation started. Enter b and press Enter to cancel safely."
+                )
         try:
             exit_code = command()
         except SystemExit as error:
             exit_code = int(error.code or 0)
+        except OperationCancelledError:
+            LOGGER.info("WAS menu operation cancelled by operator: %s", operation_name)
+            self.output("Operation cancelled safely. Returning to the menu.")
+            return 130
         except Exception:
             LOGGER.exception("WAS menu operation failed: %s", operation_name)
             self.output("Operation failed. Review the WAS logs for details.")
             return 1
+        finally:
+            if monitor_started:
+                cancellation_monitor.stop()
+            clear_operation_cancellation()
 
         if exit_code == 0 and show_success:
             self.output("Operation completed successfully.")
@@ -299,7 +391,11 @@ class WasOperatorMenu:
         ):
             self.output("Operation cancelled.")
             return
-        self.execute("on-demand report", lambda: on_demand_cli.main(arguments))
+        self.execute(
+            "on-demand report",
+            lambda: on_demand_cli.main(arguments),
+            cancellable=True,
+        )
         self.pause()
 
     def run_daily_batch(self) -> None:
@@ -315,6 +411,17 @@ class WasOperatorMenu:
         self.output("2) Production batch using customer email addresses")
         self.output("3) Cancel")
         delivery_selection = self.input("Please select the delivery mode: ").strip()
+        if delivery_selection not in {"1", "2"}:
+            self.output("Operation cancelled.")
+            return
+        report_limit = self.prompt_optional_positive_integer(
+            "Maximum eligible reports [all]: "
+        )
+        if report_limit:
+            arguments.extend(["--limit", report_limit])
+            self.output("This batch is limited to {} reports.".format(report_limit))
+        else:
+            self.output("This batch will process all eligible reports.")
         if delivery_selection == "1":
             recipients = self.prompt_required(
                 "Active WAS assignee email address(es) for all batch email: "
@@ -342,10 +449,11 @@ class WasOperatorMenu:
             if confirmation != "SEND CUSTOMER REPORTS":
                 self.output("Operation cancelled.")
                 return
-        else:
-            self.output("Operation cancelled.")
-            return
-        self.execute("recent-scan batch", lambda: batch_runner.main(arguments))
+        self.execute(
+            "recent-scan batch",
+            lambda: batch_runner.main(arguments),
+            cancellable=True,
+        )
         self.pause()
 
     def run_single_report(self, manual: bool) -> None:
@@ -380,6 +488,7 @@ class WasOperatorMenu:
         self.execute(
             "{} stakeholder report".format(report_type),
             lambda: batch_runner.main(arguments),
+            cancellable=True,
         )
         self.pause()
 
@@ -948,7 +1057,11 @@ class WasOperatorMenu:
                     "a long time to finish. Leave this operation running until "
                     "the inventory or an error is displayed."
                 )
-                self.execute("Qualys inventory", lambda: inventory_cli.main([]))
+                self.execute(
+                    "Qualys inventory",
+                    lambda: inventory_cli.main([]),
+                    cancellable=True,
+                )
                 self.pause()
             elif selection == "2":
                 self.refresh_tracker()
@@ -969,6 +1082,7 @@ class WasOperatorMenu:
         self.execute(
             "daily tracker refresh",
             lambda: update_tracker_cli.main(arguments),
+            cancellable=True,
         )
         self.pause()
 

@@ -95,7 +95,7 @@ source files.
 
 | Endpoint | Method | Legacy Function | Purpose | Migration Recommendation |
 | --- | --- | --- | --- | --- |
-| `/search/am/tag` | `POST` | `tag_dict_v2`, `app_find` | Looks up Qualys asset-management tags and descriptions. | Implemented through `was-inventory`, report generation, and guarded `was-admin` commands. |
+| `/search/am/tag` | `POST` | `tag_dict_v2`, `app_find` | Looks up Qualys asset-management tags and descriptions. | Implemented through `was-inventory`, report generation, and guarded `was-admin` commands. Report generation uses one exact lookup to obtain both the tag ID and organization description. |
 | `/count/was/webapp` | `POST` | `app_count`, `app_numbering` | Counts web applications by tag. | Implemented through `was-inventory`, report generation, and tracker refresh. |
 | `/update/was/webapp/<id>` | `POST` | `add_tag`, `remove_tag` | Mutates Qualys web application tags. | Implemented through `was-admin add-tag` and `was-admin remove-tag`, both requiring explicit confirmation. |
 | `/ignore/was/finding` | `POST` | `falsepos` | Marks a finding as a false positive. | Implemented through `was-admin false-positive` with explicit confirmation. |
@@ -125,6 +125,9 @@ source files.
 - Read-safe `search`, `count`, `status`, and `download` operations retry
   transient connection errors, request timeouts, HTTP `429`, and HTTP `500`,
   `502`, `503`, and `504` responses.
+- A read-safe operation retries one HTTP `401` response once after
+  `WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS`. A second HTTP `401` fails immediately
+  so persistent credential or account failures remain visible.
 - Retries use capped exponential backoff with jitter. A Qualys `Retry-After`
   response is honored up to `WAS_QUALYS_RETRY_MAX_DELAY_SECONDS`.
 - Qualys create, update, ignore, and delete operations remain single-attempt to

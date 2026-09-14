@@ -30,6 +30,10 @@ class PasswordTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             passwords.validate_report_password("Bad,Password123!")
 
+    def test_validate_report_password_accepts_apostrophe(self) -> None:
+        """Accept an apostrophe in an existing stakeholder report password."""
+        passwords.validate_report_password("Valid'Password123!")
+
     def test_validate_report_password_rejects_empty_password(self) -> None:
         """Reject empty passwords."""
         with self.assertRaises(ValueError):

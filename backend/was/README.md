@@ -167,6 +167,7 @@ WAS_QUALYS_PASSWORD=replace-me
 WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
 WAS_QUALYS_MAX_ATTEMPTS=4
 WAS_QUALYS_REQUEST_TIMEOUT_SECONDS=120
+WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS=5
 WAS_QUALYS_RETRY_BASE_DELAY_SECONDS=1
 WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
@@ -285,6 +286,9 @@ special-case XLSX paths are no longer required by the active tracker workflow.
 Qualys read operations retry transient connection failures, timeouts, HTTP
 `429`, and selected HTTP `5xx` responses. Retries use capped exponential
 backoff with jitter and honor `Retry-After` up to the configured maximum delay.
+Read-safe operations also retry one HTTP `401` response once after
+`WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS`; a repeated HTTP `401` fails so invalid
+credentials remain visible. Mutating operations never receive this retry.
 Create, update, ignore, and delete operations are never blindly retried because
 repeating them could duplicate or alter Qualys state. Every generated report
 uses a unique name containing its database run ID. If a create response times
@@ -326,6 +330,9 @@ Plan concurrent report generation, tracker refreshes, and inventory queries
 within that limit, accounting for other clients sharing the same quota. The
 retry behavior described above handles throttling responses; it is not a
 guarantee that combined workloads stay below 2,000 requests per hour.
+Each report generation resolves the stakeholder tag ID and organization
+description from one exact Qualys tag lookup. It does not repeat the tag search
+for those two values.
 
 ### S3 Report Storage
 
@@ -632,6 +639,10 @@ Press Enter to retain it, edit the value before pressing Enter to replace it,
 enter `CLEAR` to store SQL `NULL`, or enter `CANCEL` to stop without saving.
 The workflow validates integer, Boolean, and email values and displays the
 updated row afterward.
+Stakeholder state values must use an exact uppercase two-letter USPS state or
+territory code, such as `WY`. Values such as `wy` or `Wz` are rejected during
+single-stakeholder creation, stakeholder updates, and CSV imports. Leave the
+state blank when it does not apply so PostgreSQL stores `NULL`.
 The primary `tag`, `report_password`, `created_at`, and `updated_at` fields are
 protected. Use the dedicated password-rotation command for password changes.
 
@@ -709,13 +720,29 @@ display of a stakeholder report password. Files are written under the mounted
 Enter `b` at any submenu selection to return directly to the main menu. Each
 submenu also retains a numbered Back to main menu option.
 
+While a long-running report, batch, tracker refresh, or Qualys inventory
+operation is active, enter `b` and press Enter to request cancellation. The
+operation stops at its next safe API, polling, lease, upload, or delivery
+boundary and then returns to the current menu. An active external request is
+allowed to finish or reach its configured timeout rather than being terminated
+during an uncertain side effect. Any created report run is recorded as failed
+when cancellation occurs before completion; a report already archived before
+the cancellation boundary remains completed. Review the displayed status and
+the timestamped application log before retrying.
+
 Report Generation option 1 asks the operator to choose a delivery mode. Test
 mode requires one or more active WAS assignee email addresses and delivers all
 customer report messages and assignee digests only to those override addresses.
+One-off email recipients and batch test overrides must exactly match an email
+on an active, email-enabled `was_assignees` row. Invalid, unknown, inactive, or
+email-disabled addresses are rejected before report processing, and the
+operator receives a specific correction message.
 A successful test delivery still marks its report run and linked tracker row as
 sent, so operators must use it only for approved test data. Production mode uses
 the customer technical and distribution addresses and requires the operator to
-type `SEND CUSTOMER REPORTS` before the batch starts.
+type `SEND CUSTOMER REPORTS` before the batch starts. The operator can also
+enter a positive maximum report count, such as `25`, or accept `all` to process
+every eligible report. The limit applies after eligibility and duplicate checks.
 
 The menu is a thin interface over the same Python command and data-service
 functions used by direct CLI commands. Operators can therefore use either the
@@ -1341,7 +1368,7 @@ proof of inbox delivery. Every supplied recipient must match an active,
 email-enabled address in `was_assignees`; customer contacts are rejected for
 on-demand delivery.
 
-In `make menu`, select **Report generation**, then **5, Generate a new
+In `make menu`, select **Report generation**, then **4, Generate a new
 on-demand report**. Enter the tag, choose whether to email, enter the explicit
 active-assignee addresses if sending, and confirm the displayed operation. Leave
 the tracker ID blank for a standalone run. Options 2 and 3 remain eligibility

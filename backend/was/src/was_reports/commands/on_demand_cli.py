@@ -8,7 +8,7 @@ import sys
 
 # Third-Party Libraries
 from was_mailer.email_reports import send_report_run_email
-from was_mailer.message import approved_analyst_recipients
+from was_mailer.message import AnalystRecipientError, approved_analyst_recipients
 from was_reports.commands.batch_runner import (
     DEFAULT_STAGING_DIRECTORY,
     generate_report_output,
@@ -25,6 +25,10 @@ from was_reports.data.report_runs import (
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import configure_logging, exception_details
 from was_reports.utils.operation_lease import operation_heartbeat
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    raise_if_operation_cancelled,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -68,6 +72,13 @@ def run_on_demand(args: argparse.Namespace) -> int:
                 storage_mode="s3",
                 staging_directory=args.staging_directory,
             )
+    except OperationCancelledError as error:
+        fail_report_run_by_id(
+            report_run.id,
+            summarize_report_failure(error),
+            generation_token=report_run.generation_token,
+        )
+        raise
     except Exception as error:
         fail_report_run_by_id(
             report_run.id,
@@ -89,8 +100,10 @@ def run_on_demand(args: argparse.Namespace) -> int:
             report_run.id,
         )
         raise
+    raise_if_operation_cancelled()
     LOGGER.info("Report run %s archived at %s.", report_run.id, output_reference)
     if args.send_email:
+        raise_if_operation_cancelled()
         LOGGER.info(
             "Downloading archived report and sending run %s through SES.", report_run.id
         )
@@ -145,6 +158,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         run_on_demand(args)
+    except OperationCancelledError:
+        raise
+    except AnalystRecipientError as error:
+        LOGGER.warning("On-demand analyst recipient validation failed.")
+        print("Error: {}".format(error), file=sys.stderr)
+        return 2
     except ActiveReportOperationError as error:
         LOGGER.error("On-demand report not started: %s", exception_details(error))
         return 1

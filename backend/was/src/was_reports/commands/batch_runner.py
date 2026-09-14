@@ -18,7 +18,7 @@ from was_mailer.email_reports import (
     send_ready_report_emails,
     send_report_run_email,
 )
-from was_mailer.message import approved_analyst_recipients
+from was_mailer.message import AnalystRecipientError, approved_analyst_recipients
 
 # First-Party Libraries
 from was_reports.commands import report_generator
@@ -49,6 +49,10 @@ from was_reports.utils.operation_lease import (
     OperationLeaseLostError,
     check_operation_ownership,
     operation_heartbeat,
+)
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    raise_if_operation_cancelled,
 )
 from was_reports.utils.outputs import expected_pdf_output_path
 
@@ -248,6 +252,7 @@ def run_due_reports(
     resolved_storage_mode = resolve_storage_mode(storage_mode)
 
     for stakeholder in stakeholders:
+        raise_if_operation_cancelled()
         report_run = create_report_run_for_tag(
             stakeholder_tag=stakeholder.tag,
             scheduled_epoch=stakeholder.next_scheduled,
@@ -287,6 +292,13 @@ def run_due_reports(
                 output_path=output_reference,
                 artifact_type="pdf",
             )
+        except OperationCancelledError as exception:
+            record_generation_failure(
+                report_run,
+                summarize_report_failure(exception),
+                exception,
+            )
+            raise
         except Exception as exception:
             failed_count += 1
             failure_summary = summarize_report_failure(exception)
@@ -339,6 +351,7 @@ def run_recent_scan_reports(
     failed_count = 0
 
     if send_email and not include_manual:
+        raise_if_operation_cancelled()
         sent_count += send_ready_report_emails(
             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
             override_recipients=test_recipients,
@@ -347,6 +360,7 @@ def run_recent_scan_reports(
         )
 
     for candidate in candidates:
+        raise_if_operation_cancelled()
         if candidate.report_run_status == "completed":
             if candidate.report_run_id is None:
                 raise RuntimeError("Completed manual report run has no run id.")
@@ -360,6 +374,8 @@ def run_recent_scan_reports(
                 )
                 if message_id or dry_run_email:
                     sent_count += 1
+            except OperationCancelledError:
+                raise
             except Exception as error:
                 failed_count += 1
                 LOGGER.error(
@@ -396,6 +412,7 @@ def run_recent_scan_reports(
                     candidate.template,
                 )
                 if send_email:
+                    raise_if_operation_cancelled()
                     message_id = send_report_run_email(
                         report_run_id=report_run.id,
                         source_email=(source_email or require_env("WAS_EMAIL_SOURCE")),
@@ -404,6 +421,8 @@ def run_recent_scan_reports(
                     )
                     if message_id or dry_run_email:
                         sent_count += 1
+            except OperationCancelledError:
+                raise
             except Exception as error:
                 failed_count += 1
                 LOGGER.error(
@@ -449,6 +468,13 @@ def run_recent_scan_reports(
                 artifact_type="pdf",
             )
             generated_count += 1
+        except OperationCancelledError as exception:
+            record_generation_failure(
+                report_run,
+                summarize_report_failure(exception),
+                exception,
+            )
+            raise
         except Exception as exception:
             failed_count += 1
             failure_summary = summarize_report_failure(exception)
@@ -472,6 +498,7 @@ def run_recent_scan_reports(
             continue
 
         if send_email:
+            raise_if_operation_cancelled()
             try:
                 message_id = send_report_run_email(
                     report_run_id=report_run.id,
@@ -481,6 +508,8 @@ def run_recent_scan_reports(
                 )
                 if message_id or dry_run_email:
                     sent_count += 1
+            except OperationCancelledError:
+                raise
             except Exception as error:
                 failed_count += 1
                 LOGGER.error(
@@ -493,6 +522,7 @@ def run_recent_scan_reports(
                     raise
 
     if send_assignee_digests:
+        raise_if_operation_cancelled()
         send_ready_assignee_digests(
             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
             override_recipients=test_recipients,
@@ -632,9 +662,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.recent_scans:
         test_recipients = args.test_recipients
         if test_recipients is not None:
-            test_recipients = ",".join(
-                approved_analyst_recipients(test_recipients)
-            )
+            try:
+                test_recipients = ",".join(
+                    approved_analyst_recipients(test_recipients)
+                )
+            except AnalystRecipientError as error:
+                LOGGER.warning("Batch analyst recipient validation failed.")
+                print("Error: {}".format(error), file=sys.stderr)
+                return 2
         stakeholder_tag = args.tag.strip() if args.tag else None
         if args.tag and not stakeholder_tag:
             raise ValueError("Stakeholder tag must not be empty.")

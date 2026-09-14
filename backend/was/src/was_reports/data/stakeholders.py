@@ -11,6 +11,7 @@ from was_reports.utils.passwords import (
     generate_report_password,
     validate_report_password,
 )
+from was_reports.utils.states import validate_state_code
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -229,11 +230,17 @@ def update_stakeholder_fields(
     if set(updates).difference(STAKEHOLDER_MUTABLE_COLUMNS):
         raise ValueError("Unsupported or protected stakeholder field.")
 
+    validated_updates = dict(updates)
+    if validated_updates.get("state") is not None:
+        validated_updates["state"] = validate_state_code(
+            str(validated_updates["state"])
+        )
+
     assignments = []
     parameters: list[object] = []
-    for column_name in sorted(updates):
+    for column_name in sorted(validated_updates):
         assignments.append("{} = %s".format(column_name))
-        parameters.append(updates[column_name])
+        parameters.append(validated_updates[column_name])
     assignments.append("updated_at = NOW()")
     parameters.append(normalized_tag)
     query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(
@@ -327,6 +334,8 @@ def create_stakeholder(values: dict[str, object], conn: connection) -> str:
         raise ValueError("Stakeholder creation fields are incomplete or unsupported.")
 
     insert_values = dict(values)
+    if insert_values.get("state") is not None:
+        insert_values["state"] = validate_state_code(str(insert_values["state"]))
     insert_values["report_password"] = generate_report_password()
     columns = list(STAKEHOLDER_CREATE_COLUMNS)
     placeholders = ", ".join(["%s"] * len(columns))

@@ -1,7 +1,8 @@
 """Regression coverage for explicit report generation and delivery."""
 
 # Standard Python Libraries
-from contextlib import ExitStack
+from contextlib import ExitStack, redirect_stderr
+from io import StringIO
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
@@ -11,6 +12,7 @@ from was_reports.commands import on_demand_cli
 from was_reports.commands.menu_cli import WasOperatorMenu
 from was_reports.data import report_runs
 from was_reports.data.daily_report_tracker import list_ready_report_candidates
+from was_reports.utils.operation_cancellation import OperationCancelledError
 
 
 class OnDemandTests(unittest.TestCase):
@@ -115,6 +117,23 @@ class OnDemandTests(unittest.TestCase):
             generation_token="generation-token",
         )
 
+    def test_operator_cancellation_records_generation_failure(self) -> None:
+        """Close the report run before returning control to the menu."""
+        self.services["generate_report_output"].side_effect = (
+            OperationCancelledError("operator cancelled")
+        )
+
+        with self.assertRaises(OperationCancelledError):
+            on_demand_cli.main(self.arguments())
+
+        self.services["complete_report_run_by_id"].assert_not_called()
+        self.services["send_report_run_email"].assert_not_called()
+        self.services["fail_report_run_by_id"].assert_called_once_with(
+            8,
+            "OperationCancelledError occurred during report generation.",
+            generation_token="generation-token",
+        )
+
     def test_completion_failure_retains_artifact_without_email(self) -> None:
         """Do not send or misclassify an uncertain completion write."""
         self.services["complete_report_run_by_id"].side_effect = RuntimeError()
@@ -160,7 +179,11 @@ class OnDemandTests(unittest.TestCase):
                     "--test-recipients",
                     recipient,
                 ]
-                self.assertEqual(on_demand_cli.main(arguments), 1)
+                error_output = StringIO()
+                with redirect_stderr(error_output):
+                    exit_code = on_demand_cli.main(arguments)
+                self.assertEqual(exit_code, 2)
+                self.assertNotIn("Bcc:", error_output.getvalue())
         self.services["create_on_demand_report_run"].assert_not_called()
 
     def test_rejects_customer_recipient_for_on_demand_report(self) -> None:
@@ -173,8 +196,12 @@ class OnDemandTests(unittest.TestCase):
             "customer@example.gov",
         ]
 
-        self.assertEqual(on_demand_cli.main(arguments), 1)
+        error_output = StringIO()
+        with redirect_stderr(error_output):
+            exit_code = on_demand_cli.main(arguments)
 
+        self.assertEqual(exit_code, 2)
+        self.assertIn("not assigned to an active", error_output.getvalue())
         self.services["create_on_demand_report_run"].assert_not_called()
 
     def test_tracker_selection_is_explicit(self) -> None:

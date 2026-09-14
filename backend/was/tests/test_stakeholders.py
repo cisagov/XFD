@@ -135,6 +135,20 @@ class StakeholderDataTests(unittest.TestCase):
 
         self.assertFalse(conn.committed)
 
+    def test_update_stakeholder_fields_rejects_invalid_state(self) -> None:
+        """Reject invalid state codes before executing an update query."""
+        conn = FakeConnection(row=("TAG1",))
+
+        with self.assertRaisesRegex(ValueError, "uppercase"):
+            stakeholders.update_stakeholder_fields(
+                tag="TAG1",
+                updates={"state": "wy"},
+                conn=conn,
+            )
+
+        self.assertIsNone(conn.cursor_instance.query)
+        self.assertFalse(conn.committed)
+
     def test_list_stakeholders_for_export_excludes_password_by_default(self) -> None:
         """Keep report passwords out of normal stakeholder exports."""
         conn = FakeConnection(rows=[("TAG1",)])

@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
-from was_reports.qualys import finding_ages
+from was_reports.qualys import finding_ages, report_data
 from was_reports.reporting import (
     chart_renderer,
     latex_renderer,
@@ -59,10 +59,10 @@ class ReportServiceTests(unittest.TestCase):
     @patch(
         "was_reports.reporting.report_service.report_retrieval.managed_report_source_data"
     )
-    @patch("was_reports.reporting.report_service.resolve_organization_name")
+    @patch("was_reports.reporting.report_service.report_data.get_tag_details")
     def test_generate_unencrypted_report_connects_extracted_modules(
         self,
-        mock_resolve_name,
+        mock_get_tag_details,
         mock_managed_source_data,
         mock_transform,
         mock_metrics,
@@ -87,7 +87,11 @@ class ReportServiceTests(unittest.TestCase):
             """Yield representative managed Qualys source data."""
             yield source_data
 
-        mock_resolve_name.return_value = "Customer Organization"
+        mock_get_tag_details.return_value = report_data.QualysTagDetails(
+            tag_id="tag-1",
+            name="CUSTOMER",
+            description="Customer Organization",
+        )
         mock_managed_source_data.side_effect = source_context
         mock_transform.return_value = report_transformer.TransformationResult(
             vulnerability_filename="vulnerability-list-CUSTOMER.csv",
@@ -143,22 +147,11 @@ class ReportServiceTests(unittest.TestCase):
             "CUSTOMERDetails.pdf",
         )
         self.assertEqual(template_arguments["finding_ages"].critical_days, 10)
-        mock_render.assert_called_once()
-
-    @patch("was_reports.reporting.report_service.report_data.list_customer_tags")
-    def test_resolve_organization_name_falls_back_to_tag(
-        self,
-        mock_list_customer_tags,
-    ) -> None:
-        """Use the stakeholder tag when Qualys has no child-tag description."""
-        mock_list_customer_tags.return_value = {"OTHER": "Other Organization"}
-
-        result = report_service.resolve_organization_name(
-            self.client,
-            "CUSTOMER",
+        self.assertEqual(
+            mock_managed_source_data.call_args.kwargs["tag_id"],
+            "tag-1",
         )
-
-        self.assertEqual(result, "CUSTOMER")
+        mock_render.assert_called_once()
 
     @patch("was_reports.reporting.report_service.publish_encrypted_pdf")
     @patch("was_reports.reporting.report_service.encrypt_pdf_in_place")

@@ -40,6 +40,7 @@ from was_reports.commands.stakeholder_import import (
 from was_reports.storage.stakeholder_exports import upload_stakeholder_export
 from was_reports.utils.env import require_env
 from was_reports.utils.logging_config import configure_logging, exception_details
+from was_reports.utils.states import validate_state_code
 
 LOGGER = logging.getLogger(__name__)
 
@@ -86,6 +87,14 @@ def nonnegative_integer(value: str) -> int:
             "Value must be a whole number of zero or greater."
         )
     return parsed_value
+
+
+def state_code_value(value: str) -> str:
+    """Return a validated uppercase stakeholder state or territory code."""
+    try:
+        return validate_state_code(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 STAKEHOLDER_INTEGER_COLUMNS = frozenset(
@@ -143,6 +152,8 @@ def normalize_stakeholder_update(column_name: str, value: str) -> object:
             return normalized_value == "true"
         if column_name in STAKEHOLDER_EMAIL_COLUMNS:
             return email_list_value(value)
+        if column_name == "state":
+            return state_code_value(value)
         return nonempty_value(value)
     except argparse.ArgumentTypeError as error:
         raise ValueError(str(error)) from error
@@ -353,9 +364,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "frequency",
         "parent-tag",
         "ticket",
-        "state",
     ):
         add_command.add_argument("--{}".format(option_name), type=nonempty_value)
+    add_command.add_argument(
+        "--state",
+        type=state_code_value,
+        help="Uppercase two-letter state or territory code.",
+    )
     add_command.add_argument("--distro-email", type=email_list_value)
     add_command.add_argument("--tech-poc-email", type=email_list_value)
     for option_name in (

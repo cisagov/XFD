@@ -15,6 +15,23 @@ from was_reports.commands import stakeholders_cli
 class StakeholdersCliTests(unittest.TestCase):
     """Validate stakeholder command safety and output behavior."""
 
+    def test_state_update_requires_exact_uppercase_valid_code(self) -> None:
+        """Reject lowercase and unknown stakeholder state codes."""
+        for invalid_state in ("wy", "Wz"):
+            with self.subTest(state=invalid_state), self.assertRaisesRegex(
+                ValueError,
+                "uppercase|valid",
+            ):
+                stakeholders_cli.normalize_stakeholder_update(
+                    "state",
+                    invalid_state,
+                )
+
+        self.assertEqual(
+            stakeholders_cli.normalize_stakeholder_update("state", "WY"),
+            "WY",
+        )
+
     @patch(
         "was_reports.commands.stakeholders_cli."
         "update_stakeholder_contacts_for_tag"

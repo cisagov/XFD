@@ -21,6 +21,10 @@ from was_reports.qualys.qualys_client import (
 )
 from was_reports.reporting.pdf_helpers import post_process_detail_pdf
 from was_reports.utils.env import getenv
+from was_reports.utils.operation_cancellation import (
+    cancellable_sleep,
+    raise_if_operation_cancelled,
+)
 from was_reports.utils.qualys_config import QualysCredentials
 
 DETAIL_POLL_SECONDS = 60
@@ -129,6 +133,7 @@ def wait_for_report_completion(
         resolved_sleep_seconds,
     )
     while True:
+        raise_if_operation_cancelled()
         if (
             last_status is not None
             and resolved_timeout_seconds is not None
@@ -209,7 +214,10 @@ def wait_for_report_completion(
             if resolved_timeout_seconds is not None
             else resolved_sleep_seconds
         )
-        sleep_function(min(resolved_sleep_seconds, remaining_seconds))
+        cancellable_sleep(
+            min(resolved_sleep_seconds, remaining_seconds),
+            sleep_function=sleep_function,
+        )
 
 
 def _download_response(session: Any, url: str) -> Any:

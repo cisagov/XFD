@@ -14,6 +14,7 @@ from psycopg2.extras import execute_values
 # First-Party Libraries
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.states import validate_state_code
 
 
 SOURCE_TO_DATABASE = (
@@ -150,6 +151,8 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
         if normalized not in {"true", "false"}:
             raise ValueError("{} contains an unsupported Boolean value.".format(header))
         return normalized.upper()
+    if header == "State":
+        return validate_state_code(value)
     if value == null_token:
         raise ValueError("A source value conflicts with the configured NULL token.")
     return value

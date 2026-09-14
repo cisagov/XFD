@@ -20,6 +20,11 @@ from xml.etree import ElementTree
 import requests
 from was_reports.utils.env import getenv
 from was_reports.utils.logging_config import exception_details
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    cancellable_sleep,
+    raise_if_operation_cancelled,
+)
 
 # First-Party Libraries
 from was_reports.utils.qualys_config import (
@@ -88,6 +93,7 @@ class QualysRetryPolicy:
 
     max_attempts: int = 4
     request_timeout_seconds: float = 60.0
+    authentication_retry_delay_seconds: float = 5.0
     base_delay_seconds: float = 1.0
     max_delay_seconds: float = 30.0
     jitter_ratio: float = 0.25
@@ -100,6 +106,11 @@ class QualysRetryPolicy:
             request_timeout_seconds=_environment_float(
                 "WAS_QUALYS_REQUEST_TIMEOUT_SECONDS",
                 120.0,
+                minimum=0.1,
+            ),
+            authentication_retry_delay_seconds=_environment_float(
+                "WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS",
+                5.0,
                 minimum=0.1,
             ),
             base_delay_seconds=_environment_float(
@@ -365,6 +376,15 @@ def _is_retryable_error(error: Exception) -> bool:
     return error.response.status_code in RETRYABLE_STATUS_CODES
 
 
+def _is_authentication_error(error: Exception) -> bool:
+    """Return whether Qualys rejected one request with HTTP 401."""
+    return (
+        isinstance(error, requests.HTTPError)
+        and error.response is not None
+        and error.response.status_code == 401
+    )
+
+
 def _retry_delay_seconds(
     error: Exception,
     failed_attempt: int,
@@ -389,10 +409,31 @@ def execute_retryable_operation(
     random_function: Callable[[], float] = random.random,
 ) -> OperationResult:
     """Execute a read-safe Qualys operation with bounded transient retries."""
+    authentication_retry_used = False
     for attempt in range(1, policy.max_attempts + 1):
+        raise_if_operation_cancelled()
         try:
-            return operation()
+            result = operation()
+            raise_if_operation_cancelled()
+            return result
+        except OperationCancelledError:
+            raise
         except Exception as error:
+            authentication_failure = _is_authentication_error(error)
+            if authentication_failure:
+                if authentication_retry_used or attempt >= policy.max_attempts:
+                    raise
+                authentication_retry_used = True
+                delay_seconds = policy.authentication_retry_delay_seconds
+                LOGGER.warning(
+                    "Qualys authentication was rejected during %s on attempt %d. "
+                    "Retrying once in %.2f seconds.",
+                    operation_name,
+                    attempt,
+                    delay_seconds,
+                )
+                cancellable_sleep(delay_seconds, sleep_function=sleep_function)
+                continue
             if not _is_retryable_error(error) or attempt >= policy.max_attempts:
                 raise
             delay_seconds = _retry_delay_seconds(
@@ -409,7 +450,7 @@ def execute_retryable_operation(
                 policy.max_attempts,
                 delay_seconds,
             )
-            sleep_function(delay_seconds)
+            cancellable_sleep(delay_seconds, sleep_function=sleep_function)
     raise RuntimeError("Qualys retry loop exited unexpectedly.")
 
 
@@ -431,6 +472,7 @@ class QualysClient:
 
     def request(self, qualys_request: QualysRequest) -> str:
         """Execute a Qualys request, retrying only read-safe transient failures."""
+        raise_if_operation_cancelled()
         started = time.monotonic()
         LOGGER.info("Requesting Qualys %s.", qualys_request.endpoint)
         try:
@@ -444,6 +486,13 @@ class QualysClient:
                     sleep_function=self._sleep_function,
                     random_function=self._random_function,
                 )
+        except OperationCancelledError:
+            LOGGER.info(
+                "Qualys %s cancelled by operator after %.1f seconds.",
+                qualys_request.endpoint,
+                time.monotonic() - started,
+            )
+            raise
         except Exception as error:
             LOGGER.warning(
                 "Qualys %s failed after %.1f seconds: %s.",
@@ -465,6 +514,7 @@ class QualysClient:
             qualys_request.endpoint,
             time.monotonic() - started,
         )
+        raise_if_operation_cancelled()
         return result
 
     def _request_once(self, qualys_request: QualysRequest) -> str:

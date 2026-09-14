@@ -10,6 +10,7 @@ from typing import Callable, Iterator
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.utils.env import getenv
+from was_reports.utils.operation_cancellation import raise_if_operation_cancelled
 
 DEFAULT_HEARTBEAT_SECONDS = 30
 LOGGER = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class OperationLeaseLostError(RuntimeError):
 
 def check_operation_ownership() -> None:
     """Check the active lease before beginning an external side effect."""
+    raise_if_operation_cancelled()
     ownership_check = CURRENT_OWNERSHIP_CHECK.get()
     if ownership_check is not None:
         ownership_check()
