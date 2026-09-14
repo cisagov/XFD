@@ -702,9 +702,19 @@ class WasOperatorMenu:
 
     def import_tracker(self) -> None:
         """Prompt for and import only new rows from a tracker workbook."""
+        self.output(
+            "Place the XLSX file in "
+            "~/code/cd_WAS_update/backend/was on the EC2 before importing."
+        )
+        self.output(
+            "From the workstation, use: scp -P 7777 -i ~/.ssh/accessor_rsa "
+            '"/local/path/FILE.xlsx" '
+            "ubuntu@127.0.0.1:~/code/cd_WAS_update/backend/was/"
+        )
         input_path = self.prompt_optional(
-            "Input XLSX path [/input/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx]: ",
-            default="/input/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx",
+            "Input XLSX path "
+            "[/backend/was/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx]: ",
+            default="/backend/was/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx",
         )
         self.output(
             "Dates and legacy report-status markers will be converted during "
@@ -1175,8 +1185,8 @@ class WasOperatorMenu:
     def import_stakeholders(self) -> None:
         """Prompt for and run an insert-only stakeholder CSV import."""
         input_path = self.prompt_optional(
-            "Input CSV path [/input/WAS_Stakeholders_export.csv]: ",
-            default="/input/WAS_Stakeholders_export.csv",
+            "Input CSV path [/backend/was/WAS_Stakeholders_export.csv]: ",
+            default="/backend/was/WAS_Stakeholders_export.csv",
         )
         prepared_output = self.prompt_optional(
             "Prepared CSV path [/output/WAS_Stakeholders_import_ready.csv]: ",

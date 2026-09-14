@@ -1171,8 +1171,23 @@ eligibility. The complete import is committed atomically, and any conversion or
 database failure rolls it back.
 
 The same operation is available under `Daily Tracker`, then `Import new daily
-tracker rows from XLSX`. When using `make menu`, place the workbook in
-`backend/was` and enter its container path as `/input/FILE_NAME.xlsx`.
+tracker rows from XLSX`. Before starting `make menu`, copy the workbook into
+the EC2 checkout's `backend/was` directory. From a workstation using the WAS
+SSH tunnel, run:
+
+```bash
+scp -P 7777 -i ~/.ssh/accessor_rsa \
+  "/local/path/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx" \
+  ubuntu@127.0.0.1:~/code/cd_WAS_update/backend/was/
+```
+
+The menu mounts that EC2 directory read-only at `/backend/was` inside the
+container. Press Enter to use the default
+`/backend/was/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx`, or enter
+`/backend/was/FILE_NAME.xlsx` when the uploaded filename differs. Spaces in a
+filename do not require escaping when entered at the menu prompt. Do not enter
+`~` or the EC2 host's `/home/ubuntu/...` path because those paths do not exist
+inside the container.
 
 During import, the operator sees status messages for workbook validation,
 database connection, duplicate-check loading, assignee loading, conversion,

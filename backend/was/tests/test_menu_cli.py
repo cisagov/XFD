@@ -678,7 +678,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         mock_tracker_main,
     ) -> None:
         """Convert and import a confirmed tracker workbook from the menu."""
-        menu = self.build_menu(["/input/new-tracker.xlsx", "y", ""])
+        menu = self.build_menu(["/backend/was/new-tracker.xlsx", "y", ""])
 
         menu.import_tracker()
 
@@ -686,9 +686,17 @@ class WasOperatorMenuTests(unittest.TestCase):
             [
                 "import-xlsx",
                 "--input",
-                "/input/new-tracker.xlsx",
+                "/backend/was/new-tracker.xlsx",
                 "--confirm",
             ]
+        )
+        menu.output.assert_any_call(
+            "Place the XLSX file in "
+            "~/code/cd_WAS_update/backend/was on the EC2 before importing."
+        )
+        self.assertIn(
+            "scp -P 7777",
+            " ".join(call.args[0] for call in menu.output.call_args_list),
         )
 
 

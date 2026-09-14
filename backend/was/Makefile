@@ -39,7 +39,7 @@ build:
 
 menu:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm -it $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output -v $(IMPORT_DIR):/input:ro $(IMAGE) was-menu
+	docker run --rm -it $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output -v $(IMPORT_DIR):/backend/was:ro $(IMAGE) was-menu
 
 help:
 	docker run --rm $(IMAGE) --help
