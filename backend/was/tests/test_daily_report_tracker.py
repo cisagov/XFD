@@ -243,6 +243,7 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn(
             "stakeholders.manual_report IS NOT TRUE", conn.cursor_instance.query
         )
+        self.assertIn("NOT LIKE 'legacy-import:%'", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, ("TAG1", 5))
 
     def test_mark_tracker_report_manual_updates_unsent_row(self) -> None:

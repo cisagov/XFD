@@ -672,6 +672,25 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
+    @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
+    def test_tracker_import_uses_combined_conversion_command(
+        self,
+        mock_tracker_main,
+    ) -> None:
+        """Convert and import a confirmed tracker workbook from the menu."""
+        menu = self.build_menu(["/input/new-tracker.xlsx", "y", ""])
+
+        menu.import_tracker()
+
+        mock_tracker_main.assert_called_once_with(
+            [
+                "import-xlsx",
+                "--input",
+                "/input/new-tracker.xlsx",
+                "--confirm",
+            ]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,6 +22,7 @@ from was_reports.data.report_runs import (
     list_report_run_errors_from_db,
 )
 from was_reports.tracker.tracker_csv import write_tracker_csv
+from was_reports.tracker.tracker_import import import_tracker_workbook
 from was_reports.utils.logging_config import configure_logging, exception_details
 
 LOGGER = logging.getLogger(__name__)
@@ -217,6 +218,22 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Confirm the manual tracker sent-date update.",
     )
+
+    import_command = subcommands.add_parser(
+        "import-xlsx",
+        help="Convert and import only new rows from a legacy tracker workbook.",
+    )
+    import_command.add_argument(
+        "--input",
+        required=True,
+        type=Path,
+        help="Path to the legacy WAS daily tracker XLSX file.",
+    )
+    import_command.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm the tracker database import.",
+    )
     return parser.parse_args(argv)
 
 
@@ -375,6 +392,53 @@ def mark_sent(args: argparse.Namespace) -> int:
     return 0
 
 
+def import_xlsx(args: argparse.Namespace) -> int:
+    """Convert and import new rows from one tracker workbook."""
+    if not args.confirm:
+        raise ValueError("Daily tracker imports require --confirm.")
+    try:
+        result = import_tracker_workbook(
+            args.input,
+            status_callback=lambda message: print(message, flush=True),
+        )
+    except ValueError:
+        raise
+    except Exception as error:
+        LOGGER.exception(
+            "Daily tracker import failed; the transaction was rolled back."
+        )
+        raise ValueError(
+            "Daily tracker import failed with {}. No rows were committed. "
+            "Review the WAS application log for file, line, and database "
+            "details.".format(type(error).__name__)
+        ) from error
+    sys.stdout.write(
+        "Tracker import completed successfully. Imported {} new rows; skipped "
+        "{} existing rows, {} duplicate workbook rows, {} database conflict "
+        "rows, and {} blank rows.\n".format(
+            result.inserted_rows,
+            result.existing_rows,
+            result.workbook_duplicates,
+            result.database_duplicates,
+            result.blank_rows,
+        )
+    )
+    if result.inserted_rows == 0:
+        sys.stdout.write(
+            "No new tracker data was added. The workbook was valid, but every "
+            "nonblank row was already present or duplicated.\n"
+        )
+    if result.unknown_assignees:
+        sys.stdout.write(
+            "Warning: {} assignee name(s) were not found in was_assignees. "
+            "Their text names were preserved without an assignee ID: {}.\n".format(
+                len(result.unknown_assignees),
+                ", ".join(result.unknown_assignees),
+            )
+        )
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS tracker CLI."""
     configure_logging()
@@ -388,6 +452,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return show_errors(args)
         if args.command == "mark-sent":
             return mark_sent(args)
+        if args.command == "import-xlsx":
+            return import_xlsx(args)
     except (KeyError, ValueError) as error:
         LOGGER.error("Tracker operation failed: %s", exception_details(error))
         print("Error: {}".format(str(error)), file=sys.stderr)

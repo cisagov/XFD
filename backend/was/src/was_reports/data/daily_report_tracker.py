@@ -246,6 +246,7 @@ def list_ready_report_candidates(
         WHERE tracker.report_sent_date IS NULL
           AND tracker.tag IS NOT NULL
           AND BTRIM(tracker.tag) <> ''
+          AND COALESCE(tracker.scan_execution_key, '') NOT LIKE 'legacy-import:%'
           AND COALESCE(tracker.template, '') <> 'Deactivated'
           AND stakeholders.retired IS NOT TRUE
     """

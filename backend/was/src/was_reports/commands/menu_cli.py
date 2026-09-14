@@ -564,6 +564,7 @@ class WasOperatorMenu:
                     "View persisted report errors",
                     "Record a manual report sent date",
                     "Export tracker CSV",
+                    "Import new daily tracker rows from XLSX",
                     "Back to main menu",
                 ],
             )
@@ -581,7 +582,9 @@ class WasOperatorMenu:
                 )
             elif selection == "4":
                 self.run_submenu_action("Daily Tracker", self.export_tracker)
-            elif selection in {"5", "b"}:
+            elif selection == "5":
+                self.run_submenu_action("Daily Tracker", self.import_tracker)
+            elif selection in {"6", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
@@ -695,6 +698,27 @@ class WasOperatorMenu:
         if assignee:
             arguments.extend(["--assignee", assignee])
         self.execute("tracker CSV export", lambda: tracker_cli.main(arguments))
+        self.pause()
+
+    def import_tracker(self) -> None:
+        """Prompt for and import only new rows from a tracker workbook."""
+        input_path = self.prompt_optional(
+            "Input XLSX path [/input/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx]: ",
+            default="/input/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx",
+        )
+        self.output(
+            "Dates and legacy report-status markers will be converted during "
+            "the import. Existing and duplicate rows will be skipped. Imported "
+            "history will not trigger reports or assignee emails."
+        )
+        if not self.confirm("Convert and import this daily tracker workbook?"):
+            self.output("Operation cancelled.")
+            return
+        arguments = ["import-xlsx", "--input", input_path, "--confirm"]
+        self.execute(
+            "daily tracker workbook import",
+            lambda: tracker_cli.main(arguments),
+        )
         self.pause()
 
     def stakeholder_menu(self) -> None:

@@ -21,6 +21,7 @@ from was_reports.tracker.tracker_csv import (
     tracker_row_to_csv,
     write_tracker_csv,
 )
+from was_reports.tracker.tracker_import import TrackerImportResult
 
 
 class TrackerCliTests(unittest.TestCase):
@@ -332,6 +333,66 @@ class TrackerCliTests(unittest.TestCase):
             tracker_id=7,
             sent_date=date(2026, 9, 2),
         )
+
+    @patch("was_reports.commands.tracker_cli.import_tracker_workbook")
+    def test_import_xlsx_reports_conversion_results(self, mock_import) -> None:
+        """Run one confirmed combined workbook conversion and import."""
+        mock_import.return_value = TrackerImportResult(
+            source_rows=12,
+            inserted_rows=7,
+            existing_rows=2,
+            workbook_duplicates=3,
+            database_duplicates=0,
+            blank_rows=1,
+            unknown_assignees=("Former Analyst",),
+        )
+        args = tracker_cli.parse_args(
+            ["import-xlsx", "--input", "/input/tracker.xlsx", "--confirm"]
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.import_xlsx(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(mock_import.call_args.args, (Path("/input/tracker.xlsx"),))
+        self.assertTrue(callable(mock_import.call_args.kwargs["status_callback"]))
+        self.assertIn("Imported 7 new rows", output.getvalue())
+        self.assertIn("Former Analyst", output.getvalue())
+
+    @patch("was_reports.commands.tracker_cli.import_tracker_workbook")
+    def test_import_xlsx_explains_zero_new_rows(self, mock_import) -> None:
+        """Tell the operator when a valid workbook contains no new data."""
+        mock_import.return_value = TrackerImportResult(
+            source_rows=10,
+            inserted_rows=0,
+            existing_rows=9,
+            workbook_duplicates=1,
+            database_duplicates=0,
+            blank_rows=2,
+            unknown_assignees=(),
+        )
+        args = tracker_cli.parse_args(
+            ["import-xlsx", "--input", "/input/tracker.xlsx", "--confirm"]
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.import_xlsx(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("No new tracker data was added", output.getvalue())
+
+    @patch("was_reports.commands.tracker_cli.import_tracker_workbook")
+    def test_import_xlsx_explains_database_failure(self, mock_import) -> None:
+        """Tell the operator that a failed import committed no rows."""
+        mock_import.side_effect = RuntimeError("database unavailable")
+        args = tracker_cli.parse_args(
+            ["import-xlsx", "--input", "/input/tracker.xlsx", "--confirm"]
+        )
+
+        with self.assertRaisesRegex(ValueError, "No rows were committed"):
+            tracker_cli.import_xlsx(args)
 
     def test_show_rejects_negative_days_back(self) -> None:
         """Reject an invalid negative tracker history window."""

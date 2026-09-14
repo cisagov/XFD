@@ -4,6 +4,7 @@ defusedxml
 lxml
 matplotlib
 numpy
+openpyxl==3.1.5
 pandas
 pdfrw>=0.4
 pikepdf

@@ -17,9 +17,10 @@ SENT_DATE ?=
 SEND_EMAIL ?= 0
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
+INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report manual-report
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report manual-report
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -123,6 +124,15 @@ tracker-csv:
 	else \
 		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-tracker export-csv --output /output/was-daily-tracker.csv; \
 	fi
+
+tracker-import:
+	@test -n "$(INPUT_XLSX)" || (echo 'INPUT_XLSX is required. Use: make tracker-import INPUT_XLSX="/path/to/file.xlsx"' >&2; exit 1)
+	@test -f "$(INPUT_XLSX)" || (echo 'INPUT_XLSX does not exist or is not a file.' >&2; exit 1)
+	@input_directory="$$(cd "$$(dirname "$(INPUT_XLSX)")" && pwd)"; \
+	input_name="$$(basename "$(INPUT_XLSX)")"; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-v "$$input_directory:/input:ro" \
+		$(IMAGE) was-tracker import-xlsx --input "/input/$$input_name" --confirm
 
 tracker-table:
 	mkdir -p $(OUTPUT_DIR)

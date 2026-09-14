@@ -1149,6 +1149,44 @@ docker run --rm \
 Use `--limit all` to remove the row limit. Large result sets may take longer to
 display and can produce substantial terminal output.
 
+### Import A Legacy Daily Tracker Workbook
+
+Convert and import only new rows from an existing WAS daily tracker workbook:
+
+```bash
+make tracker-import INPUT_XLSX="/path/to/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx"
+```
+
+The importer validates the expected 20 workbook columns, converts Excel and
+`MM/DD/YYYY` dates to PostgreSQL dates, and preserves non-date values from the
+legacy `Report Sent Date` column in `report_scan_notes`. It resolves known
+assignee names to `was_assignees`, preserves unknown assignee names as text,
+and reports them to the operator.
+
+Each converted row receives a deterministic `legacy-import` execution key.
+Rows already present in Postgres and duplicates within the workbook are skipped,
+so rerunning the same file does not insert duplicates. Imported historical rows
+are held from assignee digest delivery and excluded from report-generation
+eligibility. The complete import is committed atomically, and any conversion or
+database failure rolls it back.
+
+The same operation is available under `Daily Tracker`, then `Import new daily
+tracker rows from XLSX`. When using `make menu`, place the workbook in
+`backend/was` and enter its container path as `/input/FILE_NAME.xlsx`.
+
+During import, the operator sees status messages for workbook validation,
+database connection, duplicate-check loading, assignee loading, conversion,
+5,000-row progress intervals, database staging, and the final commit. The final
+summary distinguishes inserted rows, existing rows, duplicate workbook rows,
+database conflict rows, blank rows, and unknown assignee names. A successful
+zero-row import explicitly states that no new data was added.
+
+Invalid headers, unsupported dates, and invalid schedule IDs identify the
+workbook row that failed. A conversion or database failure rolls back the full
+transaction and tells the operator that no rows were committed. Detailed
+exception origin and database diagnostics remain in the timestamped WAS
+application log under `local-output/logs`.
+
 Record the sent date when a manual report was delivered outside the automated
 SES workflow:
 

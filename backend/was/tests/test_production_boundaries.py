@@ -68,7 +68,6 @@ class ProductionBoundaryTests(unittest.TestCase):
             "docker",
             "docopt",
             "fpdf",
-            "openpyxl",
             "pyarrow",
             "pymongo",
             "python-docx",
