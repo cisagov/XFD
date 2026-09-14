@@ -727,14 +727,15 @@ Enter `b` at any submenu selection to return directly to the main menu. Each
 submenu also retains a numbered Back to main menu option.
 
 While a long-running report, batch, tracker refresh, or Qualys inventory
-operation is active, enter `b` and press Enter to request cancellation. The
-operation stops at its next safe API, polling, lease, upload, or delivery
-boundary and then returns to the current menu. An active external request is
-allowed to finish or reach its configured timeout rather than being terminated
-during an uncertain side effect. Any created report run is recorded as failed
-when cancellation occurs before completion; a report already archived before
-the cancellation boundary remains completed. Review the displayed status and
-the timestamped application log before retrying.
+operation is active, enter `b` and press Enter or press `Ctrl+C` to request
+cancellation. The operation stops at its next safe API, polling, lease, upload,
+or delivery boundary and then returns to the immediately previous menu. An
+active external request is allowed to finish or reach its configured timeout
+rather than being terminated during an uncertain side effect. Any created
+report run is recorded as failed when cancellation occurs before completion; a
+report already archived before the cancellation boundary remains completed.
+Review the displayed status and the timestamped application log before
+retrying.
 
 Report Generation option 1 asks the operator to choose a delivery mode. Test
 mode requires one or more active WAS assignee email addresses and delivers all

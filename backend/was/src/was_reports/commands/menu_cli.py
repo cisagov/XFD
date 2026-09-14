@@ -5,6 +5,7 @@ from datetime import date
 from getpass import getpass
 import logging
 import select
+import signal
 import sys
 from threading import Event, Thread
 from typing import Callable
@@ -238,11 +239,35 @@ class WasOperatorMenu:
         cancellation_monitor = OperationCancellationMonitor(self.output)
         clear_operation_cancellation()
         monitor_started = False
+        previous_interrupt_handler = None
+        interrupt_handler_installed = False
+        interrupt_requested = Event()
+
+        def handle_operation_interrupt(
+            unused_signal_number,
+            unused_frame,
+        ) -> None:
+            """Convert Ctrl+C into a cooperative operation cancellation request."""
+            if interrupt_requested.is_set():
+                return
+            interrupt_requested.set()
+            request_operation_cancellation()
+            self.output(
+                "\nCancellation requested. Waiting for the next safe checkpoint..."
+            )
+
         if cancellable:
             monitor_started = cancellation_monitor.start()
+            try:
+                previous_interrupt_handler = signal.getsignal(signal.SIGINT)
+                signal.signal(signal.SIGINT, handle_operation_interrupt)
+                interrupt_handler_installed = True
+            except ValueError:
+                LOGGER.debug("SIGINT handler unavailable outside the main thread.")
             if monitor_started:
                 self.output(
-                    "Operation started. Enter b and press Enter to cancel safely."
+                    "Operation started. Enter b and press Enter, or press Ctrl+C, "
+                    "to cancel safely."
                 )
         try:
             exit_code = command()
@@ -250,13 +275,19 @@ class WasOperatorMenu:
             exit_code = int(error.code or 0)
         except OperationCancelledError:
             LOGGER.info("WAS menu operation cancelled by operator: %s", operation_name)
-            self.output("Operation cancelled safely. Returning to the menu.")
+            self.output("Operation cancelled safely. Returning to the previous menu.")
+            return 130
+        except KeyboardInterrupt:
+            LOGGER.info("WAS menu operation interrupted by operator: %s", operation_name)
+            self.output("Operation interrupted. Returning to the previous menu.")
             return 130
         except Exception:
             LOGGER.exception("WAS menu operation failed: %s", operation_name)
             self.output("Operation failed. Review the WAS logs for details.")
             return 1
         finally:
+            if interrupt_handler_installed:
+                signal.signal(signal.SIGINT, previous_interrupt_handler)
             if monitor_started:
                 cancellation_monitor.stop()
             clear_operation_cancellation()

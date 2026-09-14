@@ -50,7 +50,51 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 130)
         menu.output.assert_any_call(
-            "Operation cancelled safely. Returning to the menu."
+            "Operation cancelled safely. Returning to the previous menu."
+        )
+
+    @patch("was_reports.commands.menu_cli.signal.signal")
+    @patch("was_reports.commands.menu_cli.signal.getsignal", return_value=object())
+    def test_control_c_requests_safe_cancellation_and_restores_handler(
+        self,
+        mock_get_signal,
+        mock_set_signal,
+    ) -> None:
+        """Keep Ctrl+C inside the menu during a cancellable operation."""
+        menu = self.build_menu([])
+
+        def cancel_from_registered_handler() -> int:
+            """Invoke the temporary SIGINT handler and reach a safe checkpoint."""
+            interrupt_handler = mock_set_signal.call_args_list[0].args[1]
+            interrupt_handler(None, None)
+            raise_if_operation_cancelled()
+            return 0
+
+        exit_code = menu.execute(
+            "test operation",
+            cancel_from_registered_handler,
+            cancellable=True,
+        )
+
+        self.assertEqual(exit_code, 130)
+        mock_get_signal.assert_called_once()
+        self.assertEqual(mock_set_signal.call_count, 2)
+        menu.output.assert_any_call(
+            "Operation cancelled safely. Returning to the previous menu."
+        )
+
+    def test_keyboard_interrupt_returns_to_previous_menu(self) -> None:
+        """Keep an unexpected operation interrupt from terminating the menu."""
+        menu = self.build_menu([])
+
+        exit_code = menu.execute(
+            "test operation",
+            Mock(side_effect=KeyboardInterrupt),
+        )
+
+        self.assertEqual(exit_code, 130)
+        menu.output.assert_any_call(
+            "Operation interrupted. Returning to the previous menu."
         )
 
     def test_report_menu_uses_five_or_b_to_return(self) -> None:
