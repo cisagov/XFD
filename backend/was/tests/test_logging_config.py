@@ -51,6 +51,18 @@ class LoggingConfigTests(unittest.TestCase):
         )
         self.assertEqual(exception_details(error), "HTTPError; HTTP=403")
 
+    def test_exception_details_include_original_failure_location(self) -> None:
+        """Identify the traceback frame where a handled exception originated."""
+        try:
+            raise RuntimeError("sensitive failure text")
+        except RuntimeError as error:
+            details = exception_details(error)
+
+        self.assertIn("RuntimeError", details)
+        self.assertIn("origin=", details)
+        self.assertIn("test_logging_config.py:", details)
+        self.assertNotIn("sensitive failure text", details)
+
     def test_rotated_logs_remain_private(self) -> None:
         """Both the active file and rotated backup require owner access."""
         with tempfile.TemporaryDirectory() as directory:

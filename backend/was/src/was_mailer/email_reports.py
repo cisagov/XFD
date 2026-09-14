@@ -36,7 +36,7 @@ from was_reports.data.report_runs import (
 )
 from was_reports.storage.s3_reports import materialize_report
 from was_reports.utils.env import getenv, require_env
-from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.logging_config import configure_logging, exception_details
 from was_reports.utils.operation_lease import (
     check_operation_ownership,
     operation_heartbeat,
@@ -163,7 +163,7 @@ def send_report_run_email(
             email_claim_token=report_run_email.email_claim_token,
         )
         return message_id
-    except Exception:
+    except Exception as error:
         if delivery_claimed:
             try:
                 mark_report_run_email_failed_by_id(
@@ -176,10 +176,11 @@ def send_report_run_email(
                         or allow_held
                     ),
                 )
-            except Exception:
+            except Exception as persistence_error:
                 LOGGER.error(
-                    "Unable to persist WAS report email failure for run id %s",
+                    "Unable to persist WAS report email failure for run id %s: %s",
                     report_run_id,
+                    exception_details(persistence_error),
                 )
         if delivery_accepted:
             LOGGER.critical(
@@ -188,8 +189,9 @@ def send_report_run_email(
                 report_run_id,
             )
         LOGGER.error(
-            "WAS report email delivery failed for report run id %s",
+            "WAS report email delivery failed for report run id %s: %s",
             report_run_id,
+            exception_details(error),
         )
         raise
 
@@ -240,7 +242,7 @@ def send_assignee_digest_email(
         message_id = send_message(client, message)
         finish_assignee_digest_rows(row_ids, token, message_id=message_id)
         return message_id
-    except Exception:
+    except Exception as error:
         if claimed:
             try:
                 finish_assignee_digest_rows(
@@ -249,15 +251,17 @@ def send_assignee_digest_email(
                     error_message="WAS assignee digest email delivery failed.",
                     uncertain=attempted,
                 )
-            except Exception:
+            except Exception as persistence_error:
                 LOGGER.error(
                     "Unable to persist digest failure for assignee id %s; "
-                    "manual reconciliation is required.",
+                    "manual reconciliation is required: %s",
                     assignee_digest.assignee_id,
+                    exception_details(persistence_error),
                 )
         LOGGER.error(
-            "WAS assignee digest email delivery failed for assignee id %s.",
+            "WAS assignee digest email delivery failed for assignee id %s: %s",
             assignee_digest.assignee_id,
+            exception_details(error),
         )
         raise
 
@@ -287,9 +291,11 @@ def send_ready_report_emails(
                 dry_run=dry_run,
                 include_previous_failure=include_previous_failures,
             )
-        except Exception:
+        except Exception as error:
             LOGGER.error(
-                "Report email failed for run id %s; continuing.", report_run.id
+                "Report email failed for run id %s; continuing: %s",
+                report_run.id,
+                exception_details(error),
             )
             continue
         if message_id or dry_run:
@@ -322,9 +328,11 @@ def send_ready_assignee_digests(
                 override_recipients=override_recipients,
                 dry_run=dry_run,
             )
-        except Exception:
+        except Exception as error:
             LOGGER.error(
-                "Assignee digest failed for id %s; continuing.", digest.assignee_id
+                "Assignee digest failed for id %s; continuing: %s",
+                digest.assignee_id,
+                exception_details(error),
             )
             continue
         if message_id or dry_run:

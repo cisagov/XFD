@@ -4,6 +4,7 @@
 import argparse
 import csv
 from datetime import datetime, timezone
+import logging
 import os
 from pathlib import Path
 import sys
@@ -38,7 +39,9 @@ from was_reports.commands.stakeholder_import import (
 )
 from was_reports.storage.stakeholder_exports import upload_stakeholder_export
 from was_reports.utils.env import require_env
-from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.logging_config import configure_logging, exception_details
+
+LOGGER = logging.getLogger(__name__)
 
 
 def nonempty_value(value: str) -> str:
@@ -602,16 +605,28 @@ def main(argv: Optional[List[str]] = None) -> int:
             return run_import(args)
         if args.command == "add":
             return run_add(args)
-    except DatabaseError:
+    except DatabaseError as error:
+        LOGGER.error(
+            "Stakeholder database operation failed: %s",
+            exception_details(error),
+        )
         print(
             "Error: database operation failed and was rolled back.",
             file=sys.stderr,
         )
         return 1
-    except (BotoCoreError, ClientError):
+    except (BotoCoreError, ClientError) as error:
+        LOGGER.error(
+            "Stakeholder AWS export delivery failed: %s",
+            exception_details(error),
+        )
         print("Error: AWS export delivery failed.", file=sys.stderr)
         return 1
     except (KeyError, OSError, ValueError) as error:
+        LOGGER.error(
+            "Stakeholder operation failed: %s",
+            exception_details(error),
+        )
         print("Error: {}".format(str(error)), file=sys.stderr)
         return 1
     return 1

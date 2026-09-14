@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import argparse
 from datetime import date
+import logging
 from pathlib import Path
 import sys
 from typing import List, Optional
@@ -21,7 +22,9 @@ from was_reports.data.report_runs import (
     list_report_run_errors_from_db,
 )
 from was_reports.tracker.tracker_csv import write_tracker_csv
-from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.logging_config import configure_logging, exception_details
+
+LOGGER = logging.getLogger(__name__)
 
 TABLE_COLUMNS = [
     ("ID", 8),
@@ -386,6 +389,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.command == "mark-sent":
             return mark_sent(args)
     except (KeyError, ValueError) as error:
+        LOGGER.error("Tracker operation failed: %s", exception_details(error))
         print("Error: {}".format(str(error)), file=sys.stderr)
         return 1
     return 1

@@ -139,8 +139,14 @@ source files.
 - Create-timeout reconciliation searches `/search/was/report` using only the
   unique report name and format filters accepted by the documented Qualys
   filtered-search request.
-- Retry logs include the endpoint, attempt number, and delay. Request payloads,
-  response bodies, and credentials are not logged by the WAS-owned client.
+- Retry logs include the endpoint, attempt number, and delay. A final failure
+  logs a credential-free `curl` replay command derived from the exact prepared
+  request, including its HTTP method, API version, URL, and sanitized XML body.
+  Failure evidence also includes the HTTP status, approved correlation and
+  transport headers, and sanitized response XML limited to 16,384 characters.
+  Credential-like XML fields are replaced with `REDACTED`; malformed XML is
+  represented only by its SHA-256 digest. Authorization, cookies, tokens,
+  credential values, and unapproved response headers are not logged.
 
 ## Update Checklist
 

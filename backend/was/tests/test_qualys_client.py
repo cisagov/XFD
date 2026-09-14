@@ -17,6 +17,9 @@ from was_reports.qualys.qualys_client import (
     TimeoutSession,
     create_qualys_client,
     is_retry_safe,
+    qualys_failure_response_summary,
+    qualys_replay_command,
+    sanitized_qualys_payload,
 )
 from was_reports.utils.qualys_config import QualysCredentials
 
@@ -210,6 +213,98 @@ class QualysClientTests(unittest.TestCase):
             client.request(QualysRequest(endpoint="/search/was/webapp"))
 
         self.assertEqual(len(connection.calls), 1)
+
+    def test_failed_request_logs_credential_free_replay_command(self) -> None:
+        """Log a copyable failed Qualys request without authentication values."""
+        connection = FakeQualysConnection([http_error(403)])
+        client = QualysClient(connection)
+        request = QualysRequest(
+            endpoint="/search/was/finding",
+            payload=(
+                "<ServiceRequest><password>private-secret</password>"
+                "<filters><Criteria field=\"tag\">TAG1</Criteria></filters>"
+                "</ServiceRequest>"
+            ),
+            http_method="POST",
+        )
+
+        with self.assertLogs(
+            "was_reports.qualys.qualys_client",
+            level="WARNING",
+        ) as captured_logs, self.assertRaises(requests.HTTPError):
+            client.request(request)
+
+        log_output = "\n".join(captured_logs.output)
+        self.assertIn("curl --fail-with-body", log_output)
+        self.assertIn("/search/was/finding", log_output)
+        self.assertIn("TAG1", log_output)
+        self.assertIn("REDACTED", log_output)
+        self.assertNotIn("private-secret", log_output)
+
+    def test_replay_command_uses_environment_credentials(self) -> None:
+        """Reference environment credentials without placing values in logs."""
+        command = qualys_replay_command(
+            QualysRequest(endpoint="/download/was/report/123")
+        )
+
+        self.assertIn("${WAS_QUALYS_USERNAME}", command)
+        self.assertIn("${WAS_QUALYS_PASSWORD}", command)
+        self.assertIn("${WAS_QUALYS_HOSTNAME%/}", command)
+        self.assertIn("--request GET", command)
+
+    def test_replay_command_uses_exact_prepared_request_url(self) -> None:
+        """Replay the actual API version and URL retained by requests."""
+        prepared_request = requests.Request(
+            method="POST",
+            url="https://qualys.example/qps/rest/1.0/search/am/tag",
+            data="<ServiceRequest />",
+        ).prepare()
+        error = requests.ConnectionError(request=prepared_request)
+
+        command = qualys_replay_command(
+            QualysRequest(endpoint="/search/am/tag"),
+            error=error,
+        )
+
+        self.assertIn("/qps/rest/1.0/search/am/tag", command)
+        self.assertNotIn("/qps/rest/3.0/search/am/tag", command)
+
+    def test_failure_response_summary_sanitizes_and_limits_evidence(self) -> None:
+        """Expose safe response evidence without credentials or unsafe headers."""
+        response = requests.Response()
+        response.status_code = 400
+        response.headers["Content-Type"] = "application/xml"
+        response.headers["X-Request-ID"] = "request-123"
+        response.headers["Set-Cookie"] = "private-cookie"
+        response._content = (
+            b"<ServiceResponse><password>private-secret</password>"
+            b"<errorMessage>Invalid request</errorMessage></ServiceResponse>"
+        )
+        error = requests.HTTPError(response=response)
+
+        summary = qualys_failure_response_summary(error)
+
+        self.assertIn("HTTP status=400", summary)
+        self.assertIn("X-Request-ID=request-123", summary)
+        self.assertIn("Invalid request", summary)
+        self.assertIn("REDACTED", summary)
+        self.assertNotIn("private-secret", summary)
+        self.assertNotIn("private-cookie", summary)
+
+    def test_failure_response_summary_identifies_absent_response(self) -> None:
+        """Tell operators when a network failure produced no HTTP response."""
+        summary = qualys_failure_response_summary(requests.ConnectionError())
+
+        self.assertEqual(summary, "No HTTP response was received.")
+
+    def test_invalid_replay_xml_is_hashed_instead_of_logged(self) -> None:
+        """Do not emit malformed request content that cannot be redacted."""
+        payload = "<password>private-secret"
+
+        sanitized_payload = sanitized_qualys_payload(payload)
+
+        self.assertIn("invalid-xml sha256=", sanitized_payload)
+        self.assertNotIn("private-secret", sanitized_payload)
 
     def test_tls_error_is_not_retried(self) -> None:
         """Reject TLS configuration failures instead of repeatedly contacting Qualys."""

@@ -88,7 +88,9 @@ def summarize_report_failure(exception: Exception) -> str:
     if isinstance(exception, FileNotFoundError):
         return "Required report file was not found."
 
-    return "{} occurred during report generation.".format(exception_details(exception))
+    return "{} occurred during report generation.".format(
+        exception_details(exception, include_origin=False)
+    )
 
 
 def record_generation_failure(
@@ -103,10 +105,12 @@ def record_generation_failure(
             error_message=failure_summary,
             generation_token=report_run.generation_token,
         )
-    except Exception:
+    except Exception as error:
         LOGGER.error(
-            "Unable to persist generation failure for run %s; retaining artifacts.",
+            "Unable to persist generation failure for run %s; retaining artifacts: "
+            "%s",
             report_run.id,
+            exception_details(error),
         )
 
 
@@ -290,12 +294,15 @@ def run_due_reports(
                 record_generation_failure(report_run, failure_summary, exception)
             else:
                 LOGGER.error(
-                    "Report completion is uncertain for run %s; retaining artifacts.",
+                    "Report completion is uncertain for run %s; retaining artifacts: "
+                    "%s",
                     report_run.id,
+                    exception_details(exception),
                 )
             LOGGER.error(
-                "WAS report generation failed for stakeholder tag %s",
+                "WAS report generation failed for stakeholder tag %s: %s",
                 stakeholder.tag,
+                exception_details(exception),
             )
             if not continue_on_error:
                 raise
@@ -353,11 +360,12 @@ def run_recent_scan_reports(
                 )
                 if message_id or dry_run_email:
                     sent_count += 1
-            except Exception:
+            except Exception as error:
                 failed_count += 1
                 LOGGER.error(
-                    "Manual WAS report email retry failed for tracker row %s",
+                    "Manual WAS report email retry failed for tracker row %s: %s",
                     candidate.id,
+                    exception_details(error),
                 )
                 if not continue_on_error:
                     raise
@@ -396,15 +404,17 @@ def run_recent_scan_reports(
                     )
                     if message_id or dry_run_email:
                         sent_count += 1
-            except Exception:
+            except Exception as error:
                 failed_count += 1
                 LOGGER.error(
-                    "Notification completion or delivery is uncertain for run %s.",
+                    "Notification completion or delivery is uncertain for run %s: %s",
                     report_run.id,
+                    exception_details(error),
                 )
                 LOGGER.error(
-                    "WAS no-report notification failed for tracker row %s",
+                    "WAS no-report notification failed for tracker row %s: %s",
                     candidate.id,
+                    exception_details(error),
                 )
                 if not continue_on_error:
                     raise
@@ -446,13 +456,16 @@ def run_recent_scan_reports(
                 record_generation_failure(report_run, failure_summary, exception)
             else:
                 LOGGER.error(
-                    "Report completion is uncertain for run %s; retaining artifacts.",
+                    "Report completion is uncertain for run %s; retaining artifacts: "
+                    "%s",
                     report_run.id,
+                    exception_details(exception),
                 )
             LOGGER.error(
-                "WAS report generation failed for tracker row %s and tag %s",
+                "WAS report generation failed for tracker row %s and tag %s: %s",
                 candidate.id,
                 candidate.tag,
+                exception_details(exception),
             )
             if not continue_on_error:
                 raise
@@ -468,12 +481,13 @@ def run_recent_scan_reports(
                 )
                 if message_id or dry_run_email:
                     sent_count += 1
-            except Exception:
+            except Exception as error:
                 failed_count += 1
                 LOGGER.error(
-                    "WAS report email failed for tracker row %s and run id %s",
+                    "WAS report email failed for tracker row %s and run id %s: %s",
                     candidate.id,
                     report_run.id,
+                    exception_details(error),
                 )
                 if not continue_on_error:
                     raise

@@ -357,7 +357,7 @@ class BatchRunnerTests(unittest.TestCase):
             return_value="RuntimeError sqlstate=42703",
         ) as details:
             message = batch_runner.summarize_report_failure(error)
-        details.assert_called_once_with(error)
+        details.assert_called_once_with(error, include_origin=False)
         self.assertIn("sqlstate=42703", message)
         self.assertNotIn("private-password", message)
 

@@ -25,9 +25,19 @@ LOG_FORMAT = (
 _CONFIGURED_LOG_PATH: Path | None = None
 
 
-def exception_details(error: Exception) -> str:
+def exception_details(error: Exception, include_origin: bool = True) -> str:
     """Describe failures without logging SQL values, URLs, or response bodies."""
     details = [type(error).__name__]
+    traceback = error.__traceback__
+    if include_origin and traceback is not None:
+        while traceback.tb_next is not None:
+            traceback = traceback.tb_next
+        details.append(
+            "origin={}:{}".format(
+                traceback.tb_frame.f_code.co_filename,
+                traceback.tb_lineno,
+            )
+        )
     sqlstate = getattr(error, "pgcode", None)
     if isinstance(sqlstate, str) and sqlstate.isalnum():
         details.append("SQLSTATE={}".format(sqlstate))

@@ -217,16 +217,29 @@ mounted, the same messages are retained on the host under `local-output/logs/`.
 Each process writes a timestamped `was-reporting-*.log` file, rotates it at 10
 MiB, and retains five segments. Command startup removes WAS log files older than
 14 days. Change the log settings only when operational retention requirements
-differ. Every log entry includes the source Python filename and line number.
+differ. Every log entry includes the logging statement's Python filename and
+line number. Handled exception summaries also include `origin=<path>:<line>`
+for the deepest traceback frame where the failure originated.
 
 Log files are owner-readable only, including rotated files. Their random suffix
 prevents separate containers with the same PID and start second from sharing a
-file. Qualys requests log endpoint, elapsed time, and safe HTTP error metadata,
-not raw scanner response bodies or headers. Database failures include SQLSTATE
-and available table/column names without SQL values. Connection establishment
-is bounded by `WAS_DB_CONNECT_TIMEOUT_SECONDS` (default `10`). Inventory queries
-also show which stakeholder count is being retrieved and progress through the
-list.
+file. Qualys requests log endpoint, elapsed time, and safe HTTP error metadata.
+A final Qualys request failure logs the exact prepared request URL and API
+version in a credential-free `curl` replay command containing the HTTP method
+and sanitized XML request. It also logs the HTTP status, approved response
+headers, and sanitized response XML limited to 16,384 characters. A network
+failure that produced no response is identified explicitly. The command
+references the existing
+`WAS_QUALYS_USERNAME`, `WAS_QUALYS_PASSWORD`, and `WAS_QUALYS_HOSTNAME`
+environment variables instead of printing their values. Review the command and
+run it only from an approved environment because its sanitized payload may
+still identify the stakeholder tag or report ID. Authorization, cookies,
+tokens, credential values, unapproved response headers, and unsanitizable
+response bodies are not logged. Database failures include
+SQLSTATE and available table/column names without SQL values. Connection
+establishment is bounded by `WAS_DB_CONNECT_TIMEOUT_SECONDS` (default `10`).
+Inventory queries also show which stakeholder count is being retrieved and
+progress through the list.
 
 Make targets that mount `local-output` run the container with the invoking
 operator's UID and GID. This keeps private host log and export files readable by
