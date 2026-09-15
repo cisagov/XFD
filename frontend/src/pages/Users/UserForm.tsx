@@ -293,10 +293,9 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogContent('This user has been successfully updated.');
       setInfoDialogOpen(true);
     } catch (error: any) {
-      const detail = error?.detail || error?.payload?.detail;
       setApiErrorStates({
         ...apiErrorStates,
-        getUpdateUserError: error.message + (detail ? `. ${detail}` : '')
+        getUpdateUserError: error.message
       });
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
