@@ -184,6 +184,7 @@ def search_schedules(
     input_date_text = input_date.strftime("%Y-%m-%dT%H:%M:%SZ")
     LOGGER.info("Tracker schedule search starts after %s", input_date_text)
     stakeholders: dict[str, TrackerStakeholder] = {}
+    tag_ids_by_tag: dict[str, int] = {}
     offset = 1
     while True:
         LOGGER.info("Fetching Qualys schedules from offset %d", offset)
@@ -235,9 +236,11 @@ def search_schedules(
                     continue
             execution_key = scheduled_execution_key(schedule_id, launched_date)
             if execution_key not in stakeholders:
+                if tag not in tag_ids_by_tag:
+                    tag_ids_by_tag[tag] = int(get_tag_id(client, tag))
                 stakeholders[execution_key] = TrackerStakeholder(
                     name=stakeholder_name,
-                    tag_id=int(get_tag_id(client, tag)),
+                    tag_id=tag_ids_by_tag[tag],
                     next_scan_date=next_scan_date,
                     launched_date=launched_date,
                     schedule_id=schedule_id,
@@ -262,12 +265,15 @@ def search_schedules(
 
 
 def build_scan_search_payload(
-    stakeholders: dict[str, TrackerStakeholder],
+    tag_ids: tuple[int, ...],
     input_date: datetime,
     offset: int,
 ) -> str:
     """Build the Qualys scan-slice search request."""
-    tag_ids = ",".join(str(stakeholder.tag_id) for stakeholder in stakeholders.values())
+    normalized_tag_ids = tuple(sorted(set(tag_ids)))
+    if not normalized_tag_ids:
+        raise ValueError("At least one Qualys tag ID is required for scan search.")
+    tag_id_filter = ",".join(str(tag_id) for tag_id in normalized_tag_ids)
     return serialize_xml(
         E.ServiceRequest(
             E.preferences(
@@ -280,7 +286,11 @@ def build_scan_search_payload(
                     field="launchedDate",
                     operator="GREATER",
                 ),
-                E.Criteria(tag_ids, field="webApp.tags.id", operator="IN"),
+                E.Criteria(
+                    tag_id_filter,
+                    field="webApp.tags.id",
+                    operator="IN",
+                ),
                 E.Criteria("VULNERABILITY", field="type", operator="EQUALS"),
             ),
         )
@@ -316,13 +326,21 @@ def search_scans(
         return {}
     scan_groups: dict[str, list[QualysScan]] = {}
     schedule_candidates = tuple(stakeholders.items())
+    tag_ids = tuple(
+        sorted({stakeholder.tag_id for _, stakeholder in schedule_candidates})
+    )
+    LOGGER.info(
+        "Searching Qualys scans for %d schedule candidates using %d unique tags",
+        len(schedule_candidates),
+        len(tag_ids),
+    )
     offset = 1
     while True:
         response_xml = client.request(
             QualysRequest(
                 endpoint="/search/was/wasscan",
                 payload=build_scan_search_payload(
-                    stakeholders=stakeholders,
+                    tag_ids=tag_ids,
                     input_date=input_date,
                     offset=offset,
                 ),

@@ -333,6 +333,9 @@ guarantee that combined workloads stay below 2,000 requests per hour.
 Each report generation resolves the stakeholder tag ID and organization
 description from one exact Qualys tag lookup. It does not repeat the tag search
 for those two values.
+Daily tracker refreshes likewise resolve each unique stakeholder tag once and
+reuse one immutable, deduplicated tag-ID filter for every scan-search page.
+Matched scan executions cannot expand later Qualys pagination requests.
 
 ### S3 Report Storage
 

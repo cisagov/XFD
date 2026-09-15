@@ -66,6 +66,13 @@ report service.
 | `/delete/was/report/<id>` | Not explicitly set by legacy call | `delete_report` | Deletes temporary Qualys reports after use. | Report ID. | Used as cleanup. | Medium, cleanup failure could leave reports in Qualys. |
 | `/status/was/report/<id>` | `GET` | `get_report_status` | Checks generated report status. | Report ID. | Determines when report download can proceed. | Medium, polling states and timeout behavior need explicit handling. |
 
+## Required For Daily Tracker Refresh
+
+| Endpoint | Method | Purpose | Request Handling | Failure Handling |
+| --- | --- | --- | --- | --- |
+| `/search/was/wasscanschedule` | `POST` | Finds recently launched vulnerability schedules. | Pages from a bounded reporting window and resolves each unique stakeholder tag ID once. | Missing launch or next-scan timestamps are logged and skipped with schedule context. |
+| `/search/was/wasscan` | `POST` | Retrieves scan slices for eligible schedules. | Reuses one immutable, sorted, deduplicated tag-ID filter across every result page. Matched executions are maintained separately from the request filter. | Required pages are never silently skipped. A permanent Qualys error stops tracker refresh before partial tracker rows are persisted. |
+
 ## Migrated API Boundary Coverage
 
 The following original call patterns have WAS-owned wrappers in

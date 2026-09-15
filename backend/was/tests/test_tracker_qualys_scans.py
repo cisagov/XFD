@@ -13,6 +13,7 @@ from was_reports.tracker.item_builder import create_multiscan, previous_run_name
 from was_reports.tracker.models import TrackerStakeholder, scheduled_execution_key
 from was_reports.tracker.qualys_scans import (
     base_stakeholder_tag,
+    build_scan_search_payload,
     get_previous_nws,
     normalize_schedule_name,
     parse_stakeholder_schedule_name,
@@ -79,6 +80,30 @@ class TrackerQualysScansTests(unittest.TestCase):
             next(iter(candidates.values())).launched_date, "2026-09-03T00:00:00Z"
         )
 
+    @patch("was_reports.tracker.qualys_scans.get_tag_id", return_value="9")
+    def test_schedule_search_resolves_each_unique_tag_once(self, mock_tag) -> None:
+        """Reuse one Qualys tag lookup across multiple schedules for a tag."""
+        client = Mock()
+        client.request.return_value = (
+            "<ServiceResponse><data>"
+            "<WasScanSchedule><id>2</id>"
+            "<name>WAVS - TAG - Customer - Monthly</name>"
+            "<lastScan><launchedDate>2026-09-03T00:00:00Z</launchedDate>"
+            "</lastScan><nextLaunchDate>2026-10-03T00:00:00Z</nextLaunchDate>"
+            "</WasScanSchedule>"
+            "<WasScanSchedule><id>3</id>"
+            "<name>WAVS - TAG - Customer - Daily</name>"
+            "<lastScan><launchedDate>2026-09-04T00:00:00Z</launchedDate>"
+            "</lastScan><nextLaunchDate>2026-09-05T00:00:00Z</nextLaunchDate>"
+            "</WasScanSchedule>"
+            "</data></ServiceResponse>"
+        )
+
+        candidates = search_schedules(client, datetime(2026, 9, 1), set())
+
+        self.assertEqual(len(candidates), 2)
+        mock_tag.assert_called_once_with(client, "TAG")
+
     @patch("was_reports.tracker.qualys_scans.get_tag_id")
     def test_schedule_without_any_next_launch_date_is_skipped(
         self,
@@ -142,6 +167,63 @@ class TrackerQualysScansTests(unittest.TestCase):
         )
         groups = search_scans(client, stakeholders, datetime(2026, 9, 1))
         self.assertEqual(len(groups), 1)
+
+    def test_scan_pagination_reuses_immutable_unique_tag_filter(self) -> None:
+        """Do not expand the scan filter when an earlier page adds executions."""
+        client = Mock()
+        client.request.side_effect = [
+            (
+                "<ServiceResponse><count>1</count><hasMoreRecords>true"
+                "</hasMoreRecords><data><WasScan>"
+                "<name>WAVS - TAG - Customer - Monthly Run #2 Slice 1</name>"
+                "<status>FINISHED</status>"
+                "<launchedDate>2026-09-03T00:00:00Z</launchedDate>"
+                "</WasScan></data></ServiceResponse>"
+            ),
+            (
+                "<ServiceResponse><count>0</count><hasMoreRecords>false"
+                "</hasMoreRecords><data></data></ServiceResponse>"
+            ),
+        ]
+        stakeholders = {
+            scheduled_execution_key(2, "2026-09-02T00:00:00Z"): (
+                TrackerStakeholder(
+                    name="Customer",
+                    tag_id=1,
+                    next_scan_date="2026-10-01T00:00:00Z",
+                    launched_date="2026-09-02T00:00:00Z",
+                    schedule_id=2,
+                    cadence="MONTHLY",
+                    tag="TAG",
+                    schedule_name="WAVS - TAG - Customer - Monthly",
+                )
+            )
+        }
+
+        search_scans(client, stakeholders, datetime(2026, 9, 1))
+
+        self.assertEqual(client.request.call_count, 2)
+        for request_call in client.request.call_args_list:
+            payload = request_call.args[0].payload
+            root = etree.fromstring(payload.encode("utf-8"))
+            tag_filter = root.xpath(
+                './filters/Criteria[@field="webApp.tags.id"]/text()'
+            )
+            self.assertEqual(tag_filter, ["1"])
+
+    def test_scan_payload_deduplicates_and_orders_tag_ids(self) -> None:
+        """Build a stable Qualys tag filter from unique sorted IDs."""
+        payload = build_scan_search_payload(
+            tag_ids=(3, 1, 3, 2),
+            input_date=datetime(2026, 9, 1),
+            offset=1,
+        )
+        root = etree.fromstring(payload.encode("utf-8"))
+
+        self.assertEqual(
+            root.xpath('./filters/Criteria[@field="webApp.tags.id"]/text()'),
+            ["1,2,3"],
+        )
 
     def test_previous_run_matches_full_name(self) -> None:
         """Run one must not match run ten or another schedule."""
