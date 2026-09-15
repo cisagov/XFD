@@ -80,7 +80,7 @@ export class ApiError<TPayload = unknown> extends Error {
     this.statusText = response.statusText;
 
     /**
-     * Need to double check if normlizeHeaders is necessary anymore
+     * Need to double check if normalizeHeaders is necessary anymore
      */
     this.headers = normalizeHeaders(
       Object.fromEntries(response.headers.entries())
