@@ -119,7 +119,7 @@ describe('useApi', () => {
     );
   });
 
-  it('throws an ApiError for non-ok responses(200-299)', async () => {
+  it('throws an ApiError for non-ok responses', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(
       jsonResponse(
         { detail: 'Not allowed' },
