@@ -259,29 +259,7 @@ export const useApi = (onError?: OnError) => {
 
           const status = isApiError(e) ? e.status : undefined;
 
-          // const errorDetail = isApiError(e)
-          //   ? (e.detail || e.message || '').toLowerCase()
-          //   : (e?.message || '').toLowerCase();
-
           // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
-
-          // 2. Detect if this is an expired token:
-          //    - Explicit 401 status
-          //    - Error message referencing explicit token expiration or invalidity
-          // const isAuthError =
-          //   status === 401 ||
-          //   errorDetail.includes('token has expired') ||
-          //   errorDetail.includes('jwt expired') ||
-          //   errorDetail.includes('invalid token') ||
-          //   errorDetail.includes('not authenticated');
-
-          // if (isAuthError) {
-          //   // Standardize error shape so AuthContextProvider.handleError receives status 401
-          //   e.statusCode = 401;
-          //   if (!e.response) {
-          //     e.response = { status: 401 };
-          //   }
-          // }
 
           if (!isLocal) {
             try {
