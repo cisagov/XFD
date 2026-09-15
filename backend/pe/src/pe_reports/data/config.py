@@ -42,7 +42,9 @@ def staging_config(filename=None, section="pe_api"):
 def config_cyhy_dash_db():
     """Return PostgreSQL connection parameters for direct psycopg2 access to CyHy dash DB."""
     return {
-        "host": (os.environ.get("DATABASE_HOST") or _require("DB_HOST")),
+        "host": (
+            os.environ.get("DATABASE_HOST") or os.environ.get("DB_HOST") or "localhost"
+        ),
         "database": (os.environ.get("DATABASE_NAME") or _require("DB_NAME")),
         "user": (os.environ.get("DATABASE_USER") or _require("DB_USERNAME")),
         "password": (os.environ.get("DATABASE_PASSWORD") or _require("DB_PASSWORD")),
