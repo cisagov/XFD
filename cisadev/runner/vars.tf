@@ -99,10 +99,9 @@ variable "crowdstrike_s3_uri" {
   type        = string
 }
 
-variable "crowdstrike_cid" {
-  description = "CrowdStrike customer ID (CID) used to register the sensor"
+variable "ssm_crowdstrike_cid" {
+  description = "SSM parameter path for the CrowdStrike CID"
   type        = string
-  sensitive   = true
 }
 
 variable "crowdstrike_tags" {
