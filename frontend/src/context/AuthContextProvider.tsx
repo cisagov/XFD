@@ -5,7 +5,7 @@ import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { AuthContext, AuthUser } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
-import { useApi } from 'hooks/useApi';
+import { isApiError, useApi } from 'hooks/useApi';
 import { usePersistentState } from 'hooks';
 import {
   getExtendedOrg,
@@ -99,20 +99,16 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   );
 
   const handleError = useCallback(
-    async (
-      in_error: Error & { statusCode?: number; response?: { status?: number } }
-    ) => {
-      logger.error(in_error);
+    async (error: Error) => {
+      logger.error(error);
 
-      const statusCode = in_error.statusCode ?? in_error.response?.status;
-      const isUnauthorized =
-        statusCode === 401 || in_error.message?.includes('401');
-
-      if (isUnauthorized) {
-        await logout();
-        const next = encodeURIComponent(window.location.pathname || '/');
-        window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
+      if (!isApiError(error) || error.status !== 401) {
+        return;
       }
+
+      await logout();
+      const next = encodeURIComponent(window.location.pathname || '/');
+      window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
     },
     [logout]
   );
