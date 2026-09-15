@@ -16,17 +16,18 @@ import logging
 import sys
 
 # Third-Party Libraries
-from pe_reports.data.config import config
+from pe_reports.data.config import config, config_cyhy_dash_db
 import psycopg2
 from psycopg2 import OperationalError
 
 LOGGER = logging.getLogger(__name__)
 
 CONN_PARAMS_DIC = config()
+CONN_PARAMS_DIC_CYHY_DASH_DB = config_cyhy_dash_db()
 
 
 def connect():
-    """Connect to the PE PostgreSQL database."""
+    """Connect to the PostgreSQL PE database."""
     try:
         return psycopg2.connect(**CONN_PARAMS_DIC)
     except OperationalError as err:
@@ -37,6 +38,22 @@ def connect():
             traceback.tb_lineno,
         )
         return None
+
+
+def connect_cyhy_dash_db():
+    """Connect to PostgreSQL CyHy Dash database."""
+    conn = None
+    try:
+        conn = psycopg2.connect(**CONN_PARAMS_DIC_CYHY_DASH_DB)
+    except OperationalError as err:
+        err_type, err_obj, traceback = sys.exc_info()
+        LOGGER.error(
+            "Database connection error: %s on line number: %s",
+            err,
+            traceback.tb_lineno,
+        )
+        conn = None
+    return conn
 
 
 def get_org_contacts(conn, cyhy_db_name):

@@ -14,12 +14,13 @@ from psycopg2 import OperationalError, sql
 from psycopg2.extensions import AsIs
 import requests
 
-from .config import PE_API_REQUEST_TIMEOUT, config, staging_config
+from .config import PE_API_REQUEST_TIMEOUT, config, config_cyhy_dash_db, staging_config
 
 # Setup logging to central file
 LOGGER = logging.getLogger(__name__)
 
 CONN_PARAMS_DIC = config()
+CONN_PARAMS_DIC_CYHY_DASH_DB = config_cyhy_dash_db()
 
 # These need to filled with API key/url path in database.ini
 API_DIC = staging_config(section="pe_api")
@@ -74,10 +75,22 @@ def _rollback_query_error(conn, error):
 
 
 def connect():
-    """Connect to PostgreSQL database."""
+    """Connect to PostgreSQL PE database."""
     conn = None
     try:
         conn = psycopg2.connect(**CONN_PARAMS_DIC)
+    except OperationalError as err:
+        LOGGER.error(err)
+        show_psycopg2_exception(err)
+        conn = None
+    return conn
+
+
+def connect_cyhy_dash_db():
+    """Connect to PostgreSQL CyHy Dash database."""
+    conn = None
+    try:
+        conn = psycopg2.connect(**CONN_PARAMS_DIC_CYHY_DASH_DB)
     except OperationalError as err:
         LOGGER.error(err)
         show_psycopg2_exception(err)
