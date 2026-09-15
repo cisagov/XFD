@@ -10,7 +10,7 @@ import { ApiError, isApiError } from '../../hooks/useApi';
 //     ...init
 //   });
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+export function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
     statusText: init.statusText,
