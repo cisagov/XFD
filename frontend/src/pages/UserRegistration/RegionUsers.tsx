@@ -286,13 +286,8 @@ export const RegionUsers: React.FC = () => {
         };
       } catch (e: any) {
         return {
-          status_code: e.statusCode || e.status_code || 500,
-          body:
-            e.body?.detail ||
-            e.response?.data?.detail ||
-            e.detail ||
-            e.message ||
-            'Unknown error',
+          status_code: e.status || 500,
+          body: e.payload?.detail || e.detail || e.message || 'Unknown error',
           already_approved: undefined,
           email_sent: undefined
         };
