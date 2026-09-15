@@ -18,10 +18,10 @@ is a headless CI worker, the dev host is a GUI workstation developers RDP into.
 
 ## Prerequisites
 
-- Terraform state S3 bucket exists and is set in `devhost.config` (separate ticket).
+- Terraform state S3 bucket exists and is set in `devhost.config`.
 - SSM parameters exist for the AMI, subnet, and security group at the paths in
-  `devhost.tfvars` (separate ticket).
-- Placeholder values in `devhost.tfvars` (`<...>`) are filled in.
+  `devhost.tfvars`.
+- `key_name` and `iam_instance_profile` in `devhost.tfvars` are filled in.
 
 ## Provision
 

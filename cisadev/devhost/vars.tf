@@ -1,6 +1,4 @@
-# vars.tf
-# Variables for the CISADEV developer dev host EC2.
-# devhost_password is passed via -var at apply time and never written to a file.
+# Dev host EC2 variables. devhost_password is passed via -var at apply, never committed.
 
 variable "aws_region" {
   description = "AWS region for the dev host"

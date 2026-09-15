@@ -78,35 +78,37 @@ terraform -version
 
 The config follows the `infrastructure/` pattern: variables in `vars.tf`,
 values in `runner.tfvars`, S3 backend in `runner.config`, and the bootstrap
-script templated from `user_data.sh.tpl`. Sensitive infrastructure IDs (AMI,
-subnet, security group) are read from SSM Parameter Store, not committed.
+script templated from `user_data.sh.tpl`. Environment-specific values (AMI,
+subnet, security group, CrowdStrike CID/S3 URI/tags, runner URL/group) are read
+from SSM Parameter Store, not committed.
 
 ### Prerequisites
 
-- **Terraform state S3 bucket** exists and its name is set in `runner.config`
-  (tracked in a separate ticket).
-- **SSM parameters** exist for the AMI, subnet, and security group at the paths
-  referenced in `runner.tfvars` (tracked in a separate ticket).
-- Placeholder values in `runner.tfvars` (`<...>`) are filled in.
+- **Terraform state S3 bucket** exists and its name is set in `runner.config`.
+- **SSM parameters** exist at the paths referenced in `runner.tfvars`
+  (`/cisadev/runner/AMI_ID`, `SUBNET_ID`, `SECURITY_GROUP_ID`, `CROWDSTRIKE_CID`,
+  `CROWDSTRIKE_S3_URI`, `CROWDSTRIKE_TAGS`, `RUNNER_URL`, `RUNNER_GROUP`).
+- `key_name` and `iam_instance_profile` in `runner.tfvars` are filled in.
 - A fresh **runner registration token** from the GitHub Enterprise team
-  (ephemeral, expires ~1 hour) and the **CrowdStrike CID**.
+  (ephemeral, expires ~1 hour).
 
 ### One-command provision
 
 From the `cisadev/runner/` directory:
 
 ```bash
-./bootstrap.sh <RUNNER_TOKEN> <CROWDSTRIKE_CID>
+./bootstrap.sh <RUNNER_TOKEN>
 ```
 
-This runs `terraform init` with the S3 backend, then `terraform apply` with the
-tfvars plus the token and CID passed via `-var` (never written to a file).
+This runs `terraform init` with the S3 backend, then `terraform apply`. The
+runner token is passed via `-var` (never written to a file); all other values
+come from `runner.tfvars` and SSM.
 
 ### Or run the steps manually
 
 ```bash
 make init
-make plan RUNNER_TOKEN=<token>   # add -var crowdstrike_cid=<cid> if planning apply
+make plan RUNNER_TOKEN=<token>
 make apply
 ```
 

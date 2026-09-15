@@ -1,6 +1,4 @@
-# vars.tf
-# Variable declarations for the CISADEV GitHub Actions runner EC2.
-# Values are supplied via runner.tfvars, except runner_token which is passed via -var at plan/apply time and is never written to a file.
+# Runner EC2 variables. runner_token is passed via -var at apply, never committed.
 
 # --- AWS / general ---
 variable "aws_region" {
@@ -48,8 +46,7 @@ variable "tags" {
   }
 }
 
-# --- SSM Parameter Store paths (values resolved at plan/apply time) ---
-# The actual AMI/subnet/SG IDs live in SSM Parameter Store in CISADEV, not in version control.
+# --- SSM Parameter Store paths ---
 variable "ssm_ami_id" {
   description = "SSM parameter path for the Ubuntu AMI ID"
   type        = string
