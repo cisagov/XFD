@@ -31,6 +31,8 @@ custom:
       - pytest-django
       - pytest-env
       - pylint
+      - astroid
+      - mccabe
       - mypy
       - mypy-extensions
       - python-dotenv
@@ -40,6 +42,13 @@ custom:
       - pipdeptree
       - MarkupSafe
       - uvloop
+      - Faker
+      - Pygments
+      - rich
+      - rich-toolkit
+      - typer
+      - fastapi-cli
+      - shellingham
 
   # Resource policies for GovCloud (Private) vs Non-GovCloud (Regional)
   privateResourcePolicy:
