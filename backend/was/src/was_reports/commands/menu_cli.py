@@ -738,7 +738,8 @@ class WasOperatorMenu:
                 "Stakeholder Management",
                 [
                     "Update POC names and email addresses",
-                    "View or update a stakeholder row",
+                    "View a stakeholder row",
+                    "Update a stakeholder row",
                     "Export stakeholders",
                     "Import new stakeholders from CSV",
                     "Add one stakeholder",
@@ -759,53 +760,65 @@ class WasOperatorMenu:
             elif selection == "2":
                 self.run_submenu_action(
                     "Stakeholder Management",
-                    self.update_stakeholder_row,
+                    self.view_stakeholder_row,
                 )
             elif selection == "3":
                 self.run_submenu_action(
                     "Stakeholder Management",
-                    self.export_stakeholders,
+                    self.update_stakeholder_row,
                 )
             elif selection == "4":
                 self.run_submenu_action(
                     "Stakeholder Management",
-                    self.import_stakeholders,
+                    self.export_stakeholders,
                 )
             elif selection == "5":
                 self.run_submenu_action(
                     "Stakeholder Management",
-                    self.add_stakeholder,
+                    self.import_stakeholders,
                 )
             elif selection == "6":
                 self.run_submenu_action(
                     "Stakeholder Management",
-                    self.rotate_stakeholder_password,
+                    self.add_stakeholder,
                 )
             elif selection == "7":
                 self.run_submenu_action(
                     "Stakeholder Management",
-                    self.retrieve_stakeholder_password,
+                    self.rotate_stakeholder_password,
                 )
             elif selection == "8":
                 self.run_submenu_action(
                     "Stakeholder Management",
+                    self.retrieve_stakeholder_password,
+                )
+            elif selection == "9":
+                self.run_submenu_action(
+                    "Stakeholder Management",
                     self.set_customer_provided_password,
                 )
-            elif selection in {"9", "b"}:
+            elif selection in {"10", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
 
-    def update_stakeholder_row(self) -> None:
-        """Display one stakeholder and guide updates through every field."""
-        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+    def load_and_display_stakeholder(
+        self,
+        stakeholder_tag: str,
+    ) -> dict[str, object] | None:
+        """Load and display one stakeholder without exposing its password."""
         record_holder: dict[str, dict[str, object]] = {}
 
         def load_stakeholder() -> int:
-            """Load and display the current stakeholder without exposing secrets."""
-            record = stakeholders_cli.get_stakeholder_record_by_tag(stakeholder_tag)
+            """Load and display the current stakeholder row."""
+            record = stakeholders_cli.get_stakeholder_record_by_tag(
+                stakeholder_tag
+            )
             record_holder["record"] = record
-            stakeholders_cli.display_stakeholder_record(record, output=self.output)
+            stakeholders_cli.display_stakeholder_record(
+                record,
+                output=self.output,
+            )
             return 0
 
         if self.execute(
@@ -813,16 +826,30 @@ class WasOperatorMenu:
             load_stakeholder,
             show_success=False,
         ):
+            return None
+        return record_holder["record"]
+
+    def view_stakeholder_row(self) -> None:
+        """Display a stakeholder and allow complete field-value inspection."""
+        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        record = self.load_and_display_stakeholder(stakeholder_tag)
+        if record is not None:
+            self.display_full_stakeholder_fields(record)
+        self.pause()
+
+    def update_stakeholder_row(self) -> None:
+        """Display one stakeholder and guide updates through every field."""
+        stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        record = self.load_and_display_stakeholder(stakeholder_tag)
+        if record is None:
             self.pause()
             return
 
         self.output(
-            "Review each editable column in database order. Press Enter to keep "
-            "the current value, edit the prefilled value, use CLEAR for SQL NULL, "
-            "or enter CANCEL to stop."
+            "Review each editable column in database order. Press Enter to "
+            "keep the current value, edit the prefilled value, use CLEAR for "
+            "SQL NULL, or enter CANCEL to stop."
         )
-        record = record_holder["record"]
-        self.display_full_stakeholder_fields(record)
         updates: dict[str, object] = {}
         for column_name in stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS:
             current_value = record[column_name]
@@ -865,22 +892,25 @@ class WasOperatorMenu:
             self.output("Operation cancelled.")
             return
 
-        arguments = ["update", "--tag", stakeholder_tag]
-        for column_name, value in updates.items():
-            if value is None:
-                arguments.extend(["--clear", column_name])
-                continue
-            if isinstance(value, bool):
-                displayed_value = str(value).lower()
-            else:
-                displayed_value = str(value)
-            arguments.extend(
-                ["--set", "{}={}".format(column_name, displayed_value)]
+        def update_stakeholder() -> int:
+            """Persist validated changes and display the resulting row."""
+            stakeholders_cli.update_stakeholder_fields_for_tag(
+                tag=stakeholder_tag,
+                updates=updates,
             )
-        arguments.append("--confirm")
+            updated_record = stakeholders_cli.get_stakeholder_record_by_tag(
+                stakeholder_tag
+            )
+            self.output("Updated stakeholder row:")
+            stakeholders_cli.display_stakeholder_record(
+                updated_record,
+                output=self.output,
+            )
+            return 0
+
         self.execute(
             "stakeholder field update",
-            lambda: stakeholders_cli.main(arguments),
+            update_stakeholder,
         )
         self.pause()
 
@@ -888,14 +918,14 @@ class WasOperatorMenu:
         self,
         record: dict[str, object],
     ) -> None:
-        """Allow full untruncated field output before guided row editing."""
+        """Allow full untruncated field output for operator inspection."""
         self.output(
             "Enter a field name to print its complete value for copying. "
-            "Press Enter when ready to continue editing."
+            "Press Enter to return."
         )
         while True:
             requested_field = self.input(
-                "Field to print in full [continue]: "
+                "Field to print in full [return]: "
             ).strip()
             if not requested_field:
                 return

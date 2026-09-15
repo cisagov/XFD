@@ -575,10 +575,10 @@ The production pipeline uses the password in-process. The report comparator
 reads its password from `WAS_REPORT_COMPARISON_PASSWORD`, so the value does not
 need to appear in process arguments.
 
-In the interactive menu, Stakeholder Management option 6 rotates the password
+In the interactive menu, Stakeholder Management option 7 rotates the password
 and displays `Operation completed successfully. The new password is
-<new_password>`. Option 7 retrieves the currently stored password by exact
-stakeholder tag after confirmation. Option 8 securely adds or replaces a
+<new_password>`. Option 8 retrieves the currently stored password by exact
+stakeholder tag after confirmation. Option 9 securely adds or replaces a
 customer-provided report password using hidden double-entry and explicit
 confirmation. Customer-provided passwords must contain at least 16 characters,
 including an uppercase letter, lowercase letter, number, and special character.
@@ -636,10 +636,11 @@ docker run --rm \
   --confirm
 ```
 
-The Stakeholder Management menu provides the same workflow interactively. It
-displays the matching row first, then cycles through every editable column in
-database order. Before editing, enter any displayed field name to print its
-complete untruncated value for copying; press Enter at that prompt to continue.
+The Stakeholder Management menu provides separate read-only View and
+write-enabled Update workflows. View displays the matching row and allows any
+displayed field name to be entered to print its complete untruncated value for
+copying. Update displays the matching row first, then cycles through every
+editable column in database order.
 Each interactive edit prompt is prefilled with the current stored value.
 Press Enter to retain it, edit the value before pressing Enter to replace it,
 enter `CLEAR` to store SQL `NULL`, or enter `CANCEL` to stop without saving.

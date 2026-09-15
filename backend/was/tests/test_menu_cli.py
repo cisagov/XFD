@@ -99,7 +99,7 @@ class WasOperatorMenuTests(unittest.TestCase):
 
     def test_stakeholder_prompt_interrupt_returns_to_stakeholder_menu(self) -> None:
         """Keep Ctrl+C at an action prompt from terminating the CLI menu."""
-        menu = self.build_menu(["8", KeyboardInterrupt(), "9"])
+        menu = self.build_menu(["9", KeyboardInterrupt(), "10"])
 
         menu.stakeholder_menu()
 
@@ -276,7 +276,10 @@ class WasOperatorMenuTests(unittest.TestCase):
         "was_reports.commands.menu_cli.stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS",
         ("comments", "retired"),
     )
-    @patch("was_reports.commands.menu_cli.stakeholders_cli.main", return_value=0)
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli."
+        "update_stakeholder_fields_for_tag"
+    )
     @patch(
         "was_reports.commands.menu_cli.stakeholders_cli."
         "display_stakeholder_record"
@@ -285,19 +288,19 @@ class WasOperatorMenuTests(unittest.TestCase):
         "was_reports.commands.menu_cli.stakeholders_cli."
         "get_stakeholder_record_by_tag"
     )
-    def test_stakeholder_row_update_displays_then_updates_selected_fields(
+    def test_stakeholder_update_displays_then_updates_selected_fields(
         self,
         mock_get_record,
         mock_display_record,
-        mock_stakeholders_main,
+        mock_update_stakeholder,
     ) -> None:
         """Cycle through current values and apply only changed fields."""
         record = {"comments": "Old comment", "retired": True}
-        mock_get_record.return_value = record
+        updated_record = {"comments": "Updated comment", "retired": False}
+        mock_get_record.side_effect = [record, updated_record]
         menu = self.build_menu(
             [
                 "TAG1",
-                "",
                 "Updated comment",
                 "false",
                 "y",
@@ -307,20 +310,17 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         menu.update_stakeholder_row()
 
-        mock_get_record.assert_called_once_with("TAG1")
-        mock_display_record.assert_called_once_with(record, output=menu.output)
-        mock_stakeholders_main.assert_called_once_with(
-            [
-                "update",
-                "--tag",
-                "TAG1",
-                "--set",
-                "comments=Updated comment",
-                "--set",
-                "retired=false",
-                "--confirm",
-            ]
+        self.assertEqual(mock_get_record.call_count, 2)
+        mock_update_stakeholder.assert_called_once_with(
+            tag="TAG1",
+            updates={"comments": "Updated comment", "retired": False},
         )
+        mock_display_record.assert_any_call(record, output=menu.output)
+        mock_display_record.assert_any_call(
+            updated_record,
+            output=menu.output,
+        )
+        menu.output.assert_any_call("Updated stakeholder row:")
 
     @patch(
         "was_reports.commands.menu_cli.stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS",
@@ -342,7 +342,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         """Treat Enter as acceptance of each current stakeholder value."""
         record = {"comments": None, "retired": False}
         mock_get_record.return_value = record
-        menu = self.build_menu(["TAG1", "", "", "", ""])
+        menu = self.build_menu(["TAG1", "", "", ""])
 
         menu.update_stakeholder_row()
 
@@ -361,7 +361,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         "was_reports.commands.menu_cli.stakeholders_cli."
         "get_stakeholder_record_by_tag"
     )
-    def test_stakeholder_row_update_can_print_complete_field(
+    def test_stakeholder_row_view_can_print_complete_field(
         self,
         mock_get_record,
         mock_display_record,
@@ -379,7 +379,7 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
-        menu.update_stakeholder_row()
+        menu.view_stakeholder_row()
 
         menu.output.assert_any_call("Full value for comments:")
         menu.output.assert_any_call(full_comment)
@@ -460,27 +460,40 @@ class WasOperatorMenuTests(unittest.TestCase):
         )
 
     def test_stakeholder_menu_lists_password_operations_before_back(self) -> None:
-        """Expose stored and customer-provided password menu operations."""
-        menu = self.build_menu(["9"])
+        """Expose separate row and password operations before Back."""
+        menu = self.build_menu(["10"])
 
         menu.stakeholder_menu()
 
         displayed_options = [
             call.args[0] for call in menu.output.call_args_list if call.args
         ]
+        self.assertIn("2) View a stakeholder row", displayed_options)
+        self.assertIn("3) Update a stakeholder row", displayed_options)
         self.assertIn(
-            "7) Retrieve a stakeholder report password",
+            "8) Retrieve a stakeholder report password",
             displayed_options,
         )
         self.assertIn(
-            "8) Add or replace a customer-provided report password",
+            "9) Add or replace a customer-provided report password",
             displayed_options,
         )
-        self.assertIn("9) Back to main menu", displayed_options)
+        self.assertIn("10) Back to main menu", displayed_options)
+
+    def test_stakeholder_menu_routes_view_and_update_actions(self) -> None:
+        """Route read-only viewing separately from stakeholder updates."""
+        menu = self.build_menu(["2", "3", "10"])
+        menu.view_stakeholder_row = Mock()
+        menu.update_stakeholder_row = Mock()
+
+        menu.stakeholder_menu()
+
+        menu.view_stakeholder_row.assert_called_once_with()
+        menu.update_stakeholder_row.assert_called_once_with()
 
     def test_stakeholder_menu_routes_password_retrieval(self) -> None:
-        """Route stakeholder menu option seven to password retrieval."""
-        menu = self.build_menu(["7", "9"])
+        """Route stakeholder menu option eight to password retrieval."""
+        menu = self.build_menu(["8", "10"])
         menu.retrieve_stakeholder_password = Mock()
 
         menu.stakeholder_menu()
@@ -488,8 +501,8 @@ class WasOperatorMenuTests(unittest.TestCase):
         menu.retrieve_stakeholder_password.assert_called_once_with()
 
     def test_stakeholder_menu_routes_customer_password_update(self) -> None:
-        """Route stakeholder menu option eight to customer password storage."""
-        menu = self.build_menu(["8", "9"])
+        """Route stakeholder menu option nine to customer password storage."""
+        menu = self.build_menu(["9", "10"])
         menu.set_customer_provided_password = Mock()
 
         menu.stakeholder_menu()
