@@ -14,6 +14,22 @@ data "aws_ssm_parameter" "crowdstrike_cid" {
   name = var.ssm_crowdstrike_cid
 }
 
+data "aws_ssm_parameter" "crowdstrike_s3_uri" {
+  name = var.ssm_crowdstrike_s3_uri
+}
+
+data "aws_ssm_parameter" "crowdstrike_tags" {
+  name = var.ssm_crowdstrike_tags
+}
+
+data "aws_ssm_parameter" "runner_url" {
+  name = var.ssm_runner_url
+}
+
+data "aws_ssm_parameter" "runner_group" {
+  name = var.ssm_runner_group
+}
+
 resource "aws_instance" "cisadev_xfd_gh_actions_runner_ec2" {
   ami                         = data.aws_ssm_parameter.ami_id.value
   instance_type               = var.instance_type
@@ -31,12 +47,12 @@ resource "aws_instance" "cisadev_xfd_gh_actions_runner_ec2" {
   }
 
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
-    crowdstrike_s3_uri = var.crowdstrike_s3_uri
+    crowdstrike_s3_uri = data.aws_ssm_parameter.crowdstrike_s3_uri.value
     crowdstrike_cid    = data.aws_ssm_parameter.crowdstrike_cid.value
-    crowdstrike_tags   = var.crowdstrike_tags
-    runner_url         = var.runner_url
+    crowdstrike_tags   = data.aws_ssm_parameter.crowdstrike_tags.value
+    runner_url         = data.aws_ssm_parameter.runner_url.value
     runner_token       = var.runner_token
-    runner_group       = var.runner_group
+    runner_group       = data.aws_ssm_parameter.runner_group.value
     runner_name        = var.runner_name
     runner_version     = var.runner_version
   })

@@ -66,13 +66,13 @@ variable "ssm_security_group_id" {
 }
 
 # --- GitHub Actions runner registration ---
-variable "runner_url" {
-  description = "GitHub enterprise URL the runner registers against"
+variable "ssm_runner_url" {
+  description = "SSM parameter path for the GitHub enterprise URL"
   type        = string
 }
 
-variable "runner_group" {
-  description = "GitHub Actions runner group name"
+variable "ssm_runner_group" {
+  description = "SSM parameter path for the runner group name"
   type        = string
 }
 
@@ -94,8 +94,8 @@ variable "runner_token" {
 }
 
 # --- CrowdStrike Falcon (mandatory for CISADEV compliance) ---
-variable "crowdstrike_s3_uri" {
-  description = "S3 URI of the CrowdStrike Falcon sensor .deb package"
+variable "ssm_crowdstrike_s3_uri" {
+  description = "SSM parameter path for the CrowdStrike sensor .deb S3 URI"
   type        = string
 }
 
@@ -104,8 +104,7 @@ variable "ssm_crowdstrike_cid" {
   type        = string
 }
 
-variable "crowdstrike_tags" {
-  description = "CrowdStrike grouping tags applied to the sensor"
+variable "ssm_crowdstrike_tags" {
+  description = "SSM parameter path for the CrowdStrike grouping tags"
   type        = string
-  default     = ""
 }
