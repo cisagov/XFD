@@ -546,6 +546,9 @@ export const RegionUsers: React.FC = () => {
                 csvOptions: { disableToolbarButton: true },
                 printOptions: { disableToolbarButton: true },
                 showQuickFilter: false
+              },
+              basePopper: {
+                placement: 'bottom-start'
               }
             }}
             autoPageSize
