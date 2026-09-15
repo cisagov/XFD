@@ -3,13 +3,6 @@ import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, isApiError } from '../../hooks/useApi';
 
-// const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
-//   new Response(JSON.stringify(body), {
-//     status: 200,
-//     headers: { 'Content-Type': 'application/json' },
-//     ...init
-//   });
-
 export function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
