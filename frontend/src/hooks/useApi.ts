@@ -66,6 +66,11 @@ export class ApiError<TPayload = unknown> extends Error {
   constructor(response: Response, payload?: TPayload, message?: string) {
     const detail = getPayloadMessage(payload);
 
+    /**
+     * Construct the error message using the provided message, the detail from the payload,
+     * the response status text, or a default message.
+     */
+
     super(
       message ||
         detail ||
