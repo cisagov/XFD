@@ -315,11 +315,11 @@ SCAN_SCHEMA = {
         global_scan=False,
         description="Active port scan of common ports",
     ),
-    "redshift_cve_scan": ScanSchema(
+    "databricks_cve_scan": ScanSchema(
         type="fargate",
         is_passive=True,
         global_scan=True,
-        description="Creates cve redshift scan.",
+        description="Creates cve databricks scan.",
         cpu="2048",
         memory="16384",
     ),

@@ -222,7 +222,7 @@ def main():
             except Exception as e:
                 LOGGER.exception("Error running vulnScanningSync batch: %s", e)
 
-            # Optional: short cool down between batches to reduce Redshift contention
+            # Optional: short cool down between batches to reduce Databricks contention
             time.sleep(2)
 
         LOGGER.info("Completed vulnScanningSync worker loop.")

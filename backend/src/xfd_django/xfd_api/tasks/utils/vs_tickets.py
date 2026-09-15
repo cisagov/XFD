@@ -6,12 +6,11 @@ from datetime import timezone as dt_timezone
 import json
 import logging
 import os
-from typing import Dict
+from typing import Any, Dict, List
 
 # Third-Party Libraries
 from django.db import connections, transaction
 from django.utils import timezone
-from psycopg2 import sql
 from psycopg2.extras import execute_values
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import (
@@ -19,7 +18,7 @@ from xfd_api.tasks.utils.datetime_utils import (
     safe_parse_date,
     to_utc_naive,
 )
-from xfd_api.tasks.utils.query_redshift import query_redshift
+from xfd_api.tasks.utils.query_databricks import query_databricks
 from xfd_api.utils.hash import hash_ip
 from xfd_mini_dl.models import (
     Cve,
@@ -51,14 +50,14 @@ DB_ALIAS = "mini_data_lake"
 
 
 @cloudwatch_metric()
-def fetch_tickets_from_redshift(
+def fetch_tickets_from_databricks(
     org_id_dict: dict,
     risky_service_groups: dict,
     nmi_service_groups: dict,
     ps_start_dt,
     ps_end_dt,
 ):
-    """Fetch and process tickets from Redshift for multiple orgs."""
+    """Fetch and process tickets from Databricks for multiple orgs."""
     if not org_id_dict:
         LOGGER.warning("No organizations provided for ticket processing.")
         return
@@ -95,7 +94,7 @@ def fetch_tickets_from_redshift(
 
     if total_processed == 0:
         LOGGER.info(
-            "No tickets found in Redshift for the requested orgs in the last %d days.",
+            "No tickets found in Databricks for the requested orgs in the last %d days.",
             int(VS_PULL_DATE_RANGE),
         )
     else:
@@ -126,40 +125,55 @@ def fetch_ticket_chunks_frozen_multi_org(
     start_param = to_utc_naive(ps_start_dt)
     end_param = to_utc_naive(ps_end_dt)
 
+    q_time = "`last_change`"
+    q_id = "`_id`"
+
     while True:
+        # MODIFIED: converted from `?` positional placeholders to Databricks
+        # named :pN markers, matching the query_databricks.py rewrite - the
+        # Statement Execution API (WorkspaceClient) does not support `?` at
+        # all. Same add_param() pattern used in
+        # fetch_in_chunks_keyset_frozen(_bulk) keeps the marker text and the
+        # params list from drifting out of sync as clauses are conditionally
+        # added.
+        params: List[Any] = []
+
+        def add_param(value):
+            """Append a value and return its :pN marker, keeping params/markers in sync."""
+            params.append(value)
+            return f":p{len(params) - 1}"
+
         where_parts = [
-            sql.SQL('"last_change" >= %s'),
-            sql.SQL('"last_change" < %s'),
+            f"{q_time} >= {add_param(start_param)}",
+            f"{q_time} < {add_param(end_param)}",
         ]
-        params = [start_param, end_param]
 
         # Keyset pagination
         if last_time is not None and last_id is not None:
+            gt_marker = add_param(last_time)
+            eq_marker = add_param(last_time)
+            id_marker = add_param(last_id)
             where_parts.append(
-                sql.SQL('("last_change" > %s OR ("last_change" = %s AND "_id" > %s))')
+                f"({q_time} > {gt_marker} OR ({q_time} = {eq_marker} AND {q_id} > {id_marker}))"
             )
-            params.extend([last_time, last_time, last_id])
 
         # Org filter using IN
-        owner_placeholders = sql.SQL(", ").join(sql.Placeholder() * len(org_acronyms))
-        where_parts.append(sql.SQL("owner IN ({})").format(owner_placeholders))
-        params.extend(org_acronyms)
+        owner_placeholders = ", ".join(add_param(acronym) for acronym in org_acronyms)
+        where_parts.append(f"owner IN ({owner_placeholders})")
 
-        where_clause = sql.SQL(" AND ").join(where_parts)
+        where_clause = " AND ".join(where_parts)
 
-        query = sql.SQL(
-            """
+        limit_marker = add_param(chunk_size)
+
+        query = f"""
             SELECT *
-            FROM vmtableau.tickets
+            FROM cyber_insights_prd.cyhy_silver.tickets
             WHERE {where_clause}
-            ORDER BY "last_change", "_id"
-            LIMIT %s
-            """
-        ).format(where_clause=where_clause)
+            ORDER BY {q_time}, {q_id}
+            LIMIT {limit_marker}
+        """  # nosec B608
 
-        params.append(chunk_size)
-
-        chunk = query_redshift(query, params=params)
+        chunk = query_databricks(query, params=params)
         if not chunk:
             break
 
@@ -284,6 +298,10 @@ def process_tickets_multi_org(
 
     for tid, tdata in ticket_data_map.items():
         raw = tdata["raw"]
+        # Added dictionary comprehension to force all incoming keys to lowercase.
+        # Unlike the old psycopg2 DictCursor, Databricks columns can preserve mixed-case or
+        # unexpected casing depending on Unity Catalog configurations, which would cause a KeyError.
+        raw = {k.lower(): v for k, v in raw.items()}
         details = tdata["details"]
         events = tdata["events"]
 

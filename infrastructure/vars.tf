@@ -1074,6 +1074,10 @@ variable "ssm_mdl_password" {
   default     = "/crossfeed/staging/MDL_PASSWORD"
 }
 
+# NOTE: kept intentionally - redshift_cve_scan.py has NOT been converted yet
+# (still waiting on the DBX data model, per earlier discussion). These four remain
+# load-bearing for that one task until it's rewritten and query_redshift.py becomes
+# fully dead code. Do not delete in a cleanup pass without checking that first.
 variable "ssm_redshift_host" {
   description = "ssm_redshift_host"
   type        = string

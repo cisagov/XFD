@@ -476,7 +476,7 @@ class Cve(AutoLengthCheckModel):
         blank=True,
         null=True,
         max_length=64,
-        help_text="Origin of this CVE record (e.g., 'AE/Redshift').",
+        help_text="Origin of this CVE record (e.g., 'AE/Databricks').",
     )
 
     assigner = models.CharField(
@@ -514,7 +514,7 @@ class Cve(AutoLengthCheckModel):
 
 
 class CveSsvc(models.Model):
-    """SSVC triplet + ADP provenance, flattened from AE/Redshift."""
+    """SSVC triplet + ADP provenance, flattened from AE/Databricks."""
 
     cve = models.OneToOneField("Cve", on_delete=models.CASCADE, related_name="ssvc")
 

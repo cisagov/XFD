@@ -12,7 +12,7 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift
+from xfd_api.tasks.utils.query_databricks import fetch_from_databricks
 from xfd_api.utils.scan_utils.alerting import IngestionError
 from xfd_mini_dl.models import Cidr, CidrOrgs, Location, Organization, Sector
 
@@ -26,10 +26,12 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-def fetch_orgs_from_redshift():
-    """Fetch orgs from redshift."""
-    request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
-    LOGGER.info("Fetched %d requests from Redshift", len(request_list))
+def fetch_orgs_from_databricks():
+    """Fetch orgs from databricks."""
+    request_list = fetch_from_databricks(
+        "SELECT * FROM cyber_insights_prd.cyhy_silver.requests"
+    )
+    LOGGER.info("Fetched %d requests from Databricks", len(request_list))
     org_id_dict = process_orgs(request_list)
     LOGGER.info("Completed saving organizations to the LZ MDL.")
     return org_id_dict
