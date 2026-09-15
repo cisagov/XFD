@@ -249,7 +249,7 @@ peScanController:
         input:
           scans: ["flare_events"]
           orgs: ["all-orgs"]
-          taskCount: 2
+          taskCount: 4
     - schedule:
         name: pe-flare-leaked-credentials-semi-monthly
         description: "Semi-monthly flare leaked credentials scan"
