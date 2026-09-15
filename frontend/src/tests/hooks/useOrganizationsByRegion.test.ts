@@ -73,13 +73,18 @@ describe('useOrganizationsByRegion', () => {
    * error message while returning an empty organizations list.
    */
   it('sets errorMessage when API call fails', async () => {
-    const response = jsonResponse({
-      status: 401,
-      statusText: 'Unauthorized',
-      headers: {
-        'x-amzn-requestid': 'request-id'
+    const response = jsonResponse(
+      {
+        detail: 'Token has expired'
+      },
+      {
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: {
+          'x-amzn-requestid': 'request-id'
+        }
       }
-    });
+    );
     const error = new ApiError(response, { detail: 'Token has expired' });
 
     const apiGet = vi.fn().mockRejectedValue(error);
