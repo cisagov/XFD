@@ -77,17 +77,17 @@ terraform -version
 ## Provisioning the Runner EC2
 
 The config follows the `infrastructure/` pattern: variables in `vars.tf`,
-values in `cisadev.tfvars`, S3 backend in `cisadev.config`, and the bootstrap
+values in `runner.tfvars`, S3 backend in `runner.config`, and the bootstrap
 script templated from `user_data.sh.tpl`. Sensitive infrastructure IDs (AMI,
 subnet, security group) are read from SSM Parameter Store, not committed.
 
 ### Prerequisites
 
-- **Terraform state S3 bucket** exists and its name is set in `cisadev.config`
+- **Terraform state S3 bucket** exists and its name is set in `runner.config`
   (tracked in a separate ticket).
 - **SSM parameters** exist for the AMI, subnet, and security group at the paths
-  referenced in `cisadev.tfvars` (tracked in a separate ticket).
-- Placeholder values in `cisadev.tfvars` (`<...>`) are filled in.
+  referenced in `runner.tfvars` (tracked in a separate ticket).
+- Placeholder values in `runner.tfvars` (`<...>`) are filled in.
 - A fresh **runner registration token** from the GitHub Enterprise team
   (ephemeral, expires ~1 hour) and the **CrowdStrike CID**.
 

@@ -1,6 +1,6 @@
 # vars.tf
 # Variable declarations for the CISADEV GitHub Actions runner EC2.
-# Values are supplied via cisadev.tfvars, except runner_token which is passed via -var at plan/apply time and is never written to a file.
+# Values are supplied via runner.tfvars, except runner_token which is passed via -var at plan/apply time and is never written to a file.
 
 # --- AWS / general ---
 variable "aws_region" {

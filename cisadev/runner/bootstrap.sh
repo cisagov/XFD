@@ -11,8 +11,8 @@ fi
 
 RUNNER_TOKEN="$1"
 
-terraform init -backend-config=cisadev.config -input=false
+terraform init -backend-config=runner.config -input=false
 
 terraform apply \
-  -var-file=cisadev.tfvars \
+  -var-file=runner.tfvars \
   -var="runner_token=$RUNNER_TOKEN"

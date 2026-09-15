@@ -5,9 +5,9 @@
 # make apply
 
 init:
-	terraform init -backend-config=cisadev.config -input=false
+	terraform init -backend-config=runner.config -input=false
 plan:
-	terraform plan -var-file=cisadev.tfvars -var="runner_token=$(RUNNER_TOKEN)" -out plan
+	terraform plan -var-file=runner.tfvars -var="runner_token=$(RUNNER_TOKEN)" -out plan
 apply:
 	terraform apply plan
 format:
