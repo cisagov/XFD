@@ -39,6 +39,29 @@ from schema import And, Schema, SchemaError, Use
 LOGGER = logging.getLogger(__name__)
 
 
+def _configure_console_logging(log_level: str) -> None:
+    """Mirror logs to stderr for cloudwatch."""
+    level = getattr(logging, log_level.upper())
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    for handler in root.handlers:
+        if isinstance(handler, logging.StreamHandler) and handler.stream is sys.stderr:
+            handler.setLevel(level)
+            handler.setFormatter(formatter)
+            return
+
+    console = logging.StreamHandler(sys.stderr)
+    console.setLevel(level)
+    console.setFormatter(formatter)
+    root.addHandler(console)
+
+
 def run_asm_sync(phase, orgs_list):
     """Run either the ASM Sync local or remote scripts."""
     if phase == "import_s3":
@@ -85,6 +108,8 @@ def main():
         datefmt="%m/%d/%Y %I:%M:%S",
         level=log_level.upper(),
     )
+    # Mirror logs to stderr for Cloudwatch
+    _configure_console_logging(log_level)
     # Run ASM Sync
     run_asm_sync(
         validated_args["PHASE"],
