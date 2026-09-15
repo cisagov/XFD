@@ -13,7 +13,9 @@ sys.path.insert(0, str(PE_SOURCE_PATH))
 os.environ.setdefault("PE_DB_NAME", "test_pe")
 os.environ.setdefault("PE_DB_USERNAME", "test_user")
 os.environ.setdefault("PE_DB_PASSWORD", "_".join(("test", "value")))
-
+os.environ.setdefault("DATABASE_NAME", "test_cyhy")
+os.environ.setdefault("DATABASE_USER", "test_user")
+os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 # Third-Party Libraries
 import pandas as pd
 

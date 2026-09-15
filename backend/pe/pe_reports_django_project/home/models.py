@@ -2767,3 +2767,51 @@ class WasReport(models.Model):
         managed = False
         db_table = "was_report"
         unique_together = (("last_scan_date", "org_was_acronym"),)
+
+
+# --- CyHy Dash DB Tables ---
+class Cve(models.Model):
+    """Define Cve model."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    name = models.TextField(unique=True, blank=True, null=True)
+    publishedAt = models.DateTimeField(blank=True, null=True)
+    modifiedAt = models.DateTimeField(blank=True, null=True)
+    status = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    cvssV2Source = models.TextField(blank=True, null=True)
+    cvssV2Type = models.TextField(blank=True, null=True)
+    cvssV2Version = models.TextField(blank=True, null=True)
+    cvssV2VectorString = models.TextField(blank=True, null=True)
+    cvssV2BaseScore = models.FloatField(blank=True, null=True)
+    cvssV2BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV2ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV2ImpactScore = models.FloatField(blank=True, null=True)
+    cvssV3Source = models.TextField(blank=True, null=True)
+    cvssV3Type = models.TextField(blank=True, null=True)
+    cvssV3Version = models.TextField(blank=True, null=True)
+    cvssV3VectorString = models.TextField(blank=True, null=True)
+    cvssV3BaseScore = models.FloatField(blank=True, null=True)
+    cvssV3BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV3ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV3ImpactScore = models.FloatField(blank=True, null=True)
+    cvssV4Source = models.TextField(blank=True, null=True)
+    cvssV4Type = models.TextField(blank=True, null=True)
+    cvssV4Version = models.TextField(blank=True, null=True)
+    cvssV4VectorString = models.TextField(blank=True, null=True)
+    cvssV4BaseScore = models.FloatField(blank=True, null=True)
+    cvssV4BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV4ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV4ImpactScore = models.FloatField(blank=True, null=True)
+    weaknesses = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
+    references = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
+
+    class Meta:
+        """Set Cve model metadata."""
+
+        managed = False
+        db_table = "cve"
