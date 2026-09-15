@@ -4,7 +4,6 @@ export const ENDPOINTS = {
   DOMAIN_EXPORT: '/domain/export',
   DOMAIN_SEARCH: '/domain/search',
   DOMAIN_IP_SEARCH_ES: '/search/domains',
-  GET_OAUTH_METADATA: '/auth/get-oauth-meta',
   LOGS_FILTERED_SEARCH: '/logs/filtered-search',
   LOGS_SEARCH: '/logs/search',
   METRICS_CUSTOMERS: '/metrics/customers',
@@ -14,7 +13,6 @@ export const ENDPOINTS = {
   NOTIFICATION_UPDATE: '/update_notification/{notification_id}',
   NOTIFICATIONS: '/notifications',
   OBJECT_STORE_PRESIGNED_URL: '/v1/object-store/presigned-url',
-  OKTA_CALLBACK: '/auth/okta-callback',
   ORGANIZATION: '/organizations/{organization_id}',
   ORGANIZATION_ADD_USER: '/v2/organizations/{organization_id}/users',
   ORGANIZATION_APPROVE_ROLE:
@@ -63,7 +61,6 @@ export const ENDPOINTS = {
   USERS_SEARCH_V2: '/v2/users/search',
   USERS_STATE: '/users/state/{state}',
   USERS_V2: '/v2/users',
-  V1_CALLBACK: '/auth/callback',
   VULNERABILITIES_EXPORT: '/vulnerabilities/export',
   VULNERABILITIES_SEARCH: '/vulnerabilities/search',
   VULNERABILITY: '/vulnerabilities/{vulnerability_id}',

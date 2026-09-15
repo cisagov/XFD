@@ -14,11 +14,10 @@ interface AuthRedirectRouteProps extends RouteProps {
 possible states:
 
 - user is authenticated
-- user has authenticated but needs to create account
 - user has authenticated but needs to sign terms
 - user is not authenticated
 - user is not authenticated, this is oauth callback (should not be protected)
-- user is authenticated, but does not have tha correct permissions for route
+- user is authenticated, but does not have the correct permissions for route
 */
 
 export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
@@ -32,12 +31,6 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
 
   if (token && !user) {
     // waiting on user profile
-    return null;
-  }
-
-  // user has authenticated and registered but needs to create an account
-  if (user && !user.isRegistered) {
-    history.push('/create-account');
     return null;
   }
 

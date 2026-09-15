@@ -26,7 +26,6 @@ import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 import { FILTER_ENABLED_PATHS } from '@/constants/filterPaths';
-import { ROUTES } from '@/constants/routes';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -58,8 +57,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const { logout, user } = useAuthContext();
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
-
-  const noAlertPaths = ['/create-account', ROUTES.LOGIN, ROUTES.OKTA_CALLBACK];
 
   useEffect(() => {
     localStorage.setItem('es-search-filters', JSON.stringify(filters));
@@ -169,7 +166,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         }}
       >
         <GovBanner />
-        {!siteWideAlert && user && !noAlertPaths.includes(pathname) && (
+        {!siteWideAlert && user && (
           <Box sx={{ backgroundColor: '#E5F6FD' }}>
             <Box
               display="flex"

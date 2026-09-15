@@ -1,13 +1,11 @@
 import React from 'react';
-import { Route, Switch } from 'react-router-dom';
+import { Switch } from 'react-router-dom';
 import { RouteGuard } from 'components/Routes/RouteGuard';
 import {
   AdminTools,
   AuthLogin,
   Domain,
   Domains,
-  LoginGovCallback,
-  OktaCallback,
   RegionUsers,
   Organization,
   Organizations,
@@ -29,8 +27,6 @@ export const Routes: React.FC = () => {
         unauth={AuthLogin}
         component={VulnerabilityScanWithSearch}
       />
-      <Route exact path={ROUTES.LOGIN} component={LoginGovCallback} />
-      <Route exact path={ROUTES.OKTA_CALLBACK} component={OktaCallback} />
       <RouteGuard
         exact
         path={ROUTES.INVENTORY}
