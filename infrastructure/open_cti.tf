@@ -317,7 +317,7 @@ resource "aws_instance" "open_cti" {
   tags = {
     Project = var.project
     Stage   = var.stage
-    Name    = "pe_ec2" # TO-DO: rename to "open-cti" instance and change this value.
+    Name    = "OpenCTI" # TO-DO: rename to "open-cti" instance and change this value.
     Owner   = "Crossfeed managed resource"
   }
 
