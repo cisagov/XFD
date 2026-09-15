@@ -73,6 +73,8 @@ export class ApiError<TPayload = unknown> extends Error {
         `Request failed with status ${response.status}`
     );
 
+    Object.setPrototypeOf(this, ApiError.prototype);
+
     this.ok = response.ok;
     this.status = response.status;
     this.statusText = response.statusText;
@@ -83,7 +85,6 @@ export class ApiError<TPayload = unknown> extends Error {
     this.headers = normalizeHeaders(
       Object.fromEntries(response.headers.entries())
     );
-
     this.url = response.url;
     this.redirected = response.redirected;
     this.type = response.type;
@@ -258,29 +259,29 @@ export const useApi = (onError?: OnError) => {
 
           const status = isApiError(e) ? e.status : undefined;
 
-          const errorDetail = isApiError(e)
-            ? (e.detail || e.message || '').toLowerCase()
-            : (e?.message || '').toLowerCase();
+          // const errorDetail = isApiError(e)
+          //   ? (e.detail || e.message || '').toLowerCase()
+          //   : (e?.message || '').toLowerCase();
 
           // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
 
           // 2. Detect if this is an expired token:
           //    - Explicit 401 status
           //    - Error message referencing explicit token expiration or invalidity
-          const isAuthError =
-            status === 401 ||
-            errorDetail.includes('token has expired') ||
-            errorDetail.includes('jwt expired') ||
-            errorDetail.includes('invalid token') ||
-            errorDetail.includes('not authenticated');
+          // const isAuthError =
+          //   status === 401 ||
+          //   errorDetail.includes('token has expired') ||
+          //   errorDetail.includes('jwt expired') ||
+          //   errorDetail.includes('invalid token') ||
+          //   errorDetail.includes('not authenticated');
 
-          if (isAuthError) {
-            // Standardize error shape so AuthContextProvider.handleError receives status 401
-            e.statusCode = 401;
-            if (!e.response) {
-              e.response = { status: 401 };
-            }
-          }
+          // if (isAuthError) {
+          //   // Standardize error shape so AuthContextProvider.handleError receives status 401
+          //   e.statusCode = 401;
+          //   if (!e.response) {
+          //     e.response = { status: 401 };
+          //   }
+          // }
 
           if (!isLocal) {
             try {
