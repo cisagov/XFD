@@ -260,39 +260,6 @@ describe('useApi', () => {
     }
   });
 
-  // it('normalizes message-only authentication errors and calls onError', async () => {
-  //   const onError = vi.fn().mockResolvedValue(undefined);
-  //   vi.mocked(global.fetch).mockRejectedValueOnce(
-  //     new Error('JWT expired while validating request')
-  //   );
-
-  //   const { useApi } = await import('../../hooks/useApi');
-  //   const { result } = renderHook(() => useApi(onError));
-
-  //   let error: any;
-  //   await act(async () => {
-  //     try {
-  //       await result.current.apiGet('/users/me');
-  //     } catch (e) {
-  //       error = e;
-  //     }
-  //   });
-
-  //   expect(error).toMatchObject({
-  //     message: 'JWT expired while validating request',
-  //     status: 401,
-  //     payload: { detail: 'JWT expired while validating request' },
-  //     detail: 'JWT expired while validating request',
-  //   });
-
-  //   expect(onError).toHaveBeenCalledWith(
-  //     expect.objectContaining({
-  //       status: 401,
-  //       response: { status: 401 }
-  //     })
-  //   );
-  // });
-
   it('tracks loading while a request is pending', async () => {
     let resolveRequest!: (response: Response) => void;
     vi.mocked(global.fetch).mockReturnValueOnce(
