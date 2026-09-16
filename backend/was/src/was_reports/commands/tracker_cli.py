@@ -13,6 +13,7 @@ from typing import List, Optional
 from was_reports.data.assignees import get_assignee_by_name_from_db
 from was_reports.data.daily_report_tracker import (
     TrackerTableRow,
+    get_tracker_record_by_id_from_db,
     list_tracker_rows_for_export_from_db,
     list_tracker_table_rows_from_db,
     mark_manual_tracker_report_sent_by_id,
@@ -176,6 +177,21 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Maximum tracker rows to display, or 'all' for no row limit.",
     )
 
+    row_command = subcommands.add_parser(
+        "show-row",
+        help="Display one tracker row by its database ID.",
+    )
+    row_command.add_argument(
+        "--tracker-id",
+        required=True,
+        type=positive_integer,
+        help="Tracker row ID displayed by the tracker table.",
+    )
+    row_command.add_argument(
+        "--field",
+        help="Print one field's complete value without table truncation.",
+    )
+
     errors_command = subcommands.add_parser(
         "errors",
         help="Display persisted report generation and email errors.",
@@ -316,6 +332,54 @@ def show_table(args: argparse.Namespace) -> int:
     return 0
 
 
+def tracker_record_display_value(value: object) -> str:
+    """Return one complete operator-readable tracker field value."""
+    if value is None:
+        return "NULL"
+    return str(value)
+
+
+def display_tracker_record(record: dict[str, object], output=print) -> None:
+    """Display one safe tracker row in a compact field-value table."""
+    field_width = max(len(column_name) for column_name in record)
+    separator = "+-{}-+-{}-+".format("-" * field_width, "-" * 54)
+    output(separator)
+    output("| {:<{}} | {:<54} |".format("Field", field_width, "Current value"))
+    output(separator)
+    for column_name, value in record.items():
+        displayed_value = " ".join(tracker_record_display_value(value).split())
+        if len(displayed_value) > 54:
+            displayed_value = "{}...".format(displayed_value[:51])
+        output(
+            "| {:<{}} | {:<54} |".format(
+                column_name,
+                field_width,
+                displayed_value,
+            )
+        )
+    output(separator)
+
+
+def show_row(args: argparse.Namespace) -> int:
+    """Display one tracker row or one complete field value."""
+    record = get_tracker_record_by_id_from_db(args.tracker_id)
+    if args.field:
+        normalized_field = args.field.strip().lower().replace("-", "_")
+        if normalized_field not in record:
+            raise ValueError(
+                "Unknown tracker field. Available fields: {}".format(
+                    ", ".join(record)
+                )
+            )
+        sys.stdout.write("Full value for {}:\n".format(normalized_field))
+        sys.stdout.write(
+            "{}\n".format(tracker_record_display_value(record[normalized_field]))
+        )
+        return 0
+    display_tracker_record(record)
+    return 0
+
+
 def report_error_stage(row: ReportRunError) -> str:
     """Return the failed stage represented by a persisted report error."""
     if row.error_message and row.email_error:
@@ -448,6 +512,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return export_csv(args)
         if args.command == "show":
             return show_table(args)
+        if args.command == "show-row":
+            return show_row(args)
         if args.command == "errors":
             return show_errors(args)
         if args.command == "mark-sent":

@@ -712,6 +712,16 @@ docker run --rm \
 
 Do not email, commit, or place the sensitive CSV in shared storage.
 
+### Import Stakeholders
+
+Stakeholder Management can prepare and atomically import new stakeholder rows
+from a DynamoDB CSV export. Existing tags are skipped. Blank values, Boolean
+values, state codes, hierarchy order, and database column order are normalized
+before insertion. For report-password values longer than 24 characters, the
+importer also removes a legacy outer quote wrapper and converts each doubled
+quote sequence (`""`) back to the intended single quote character (`"`). Other
+password characters remain unchanged.
+
 ### Interactive Operator Menu
 
 Launch the numbered WAS operator menu from `backend/was`:
@@ -1127,6 +1137,24 @@ customer notes. In the operator menu, `View tracker table` prompts for the
 number of rows to display. Press Enter to use the 200-row default, enter a
 positive whole number for a custom limit, or enter `all` to display every row
 matching the selected filters.
+
+Use `Daily Tracker`, then `View one tracker row`, to inspect every safe field
+for a tracker ID shown in the table. The compact field table truncates long
+values for readability and then repeatedly prompts for a field name whose
+complete value should be printed for copying. Report passwords and active
+email claim tokens are excluded from this view. The equivalent direct command
+is:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  was-tracker show-row \
+  --tracker-id 123
+```
+
+Add `--field customer_notes` to print one complete field value without table
+truncation.
 
 Display only manual tracker rows across all assignees:
 

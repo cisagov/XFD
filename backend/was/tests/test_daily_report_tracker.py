@@ -9,8 +9,10 @@ from unittest.mock import MagicMock, patch
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import (
     DailyReportTrackerRow,
+    TRACKER_RECORD_COLUMNS,
     claim_assignee_digest_rows,
     finish_assignee_digest_rows,
+    get_tracker_record_by_id,
     insert_daily_report_tracker_row,
     latest_tracker_pull_date,
     list_ready_assignee_digests,
@@ -128,6 +130,31 @@ class DailyReportTrackerTests(unittest.TestCase):
             datetime(2026, 8, 26, tzinfo=timezone.utc),
         )
         self.assertEqual(conn.cursor_instance.parameters[22], "message-id")
+
+    def test_get_tracker_record_returns_safe_fields_by_id(self) -> None:
+        """Return one row without exposing passwords or active claim tokens."""
+        values = tuple(
+            "value-{}".format(column_name)
+            for column_name in TRACKER_RECORD_COLUMNS
+        )
+        conn = FakeConnection(fetchone_row=values)
+
+        record = get_tracker_record_by_id(tracker_id=17, conn=conn)
+
+        self.assertEqual(record["id"], "value-id")
+        self.assertEqual(record["customer_notes"], "value-customer_notes")
+        self.assertNotIn("legacy_password", record)
+        self.assertNotIn("assignee_email_claim_token", record)
+        self.assertNotIn("legacy_password", conn.cursor_instance.query)
+        self.assertNotIn("assignee_email_claim_token", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters, (17,))
+
+    def test_get_tracker_record_rejects_missing_id(self) -> None:
+        """Explain when the requested tracker row does not exist."""
+        conn = FakeConnection(fetchone_row=None)
+
+        with self.assertRaisesRegex(KeyError, "Tracker row 17 was not found"):
+            get_tracker_record_by_id(tracker_id=17, conn=conn)
 
     def test_latest_tracker_pull_date_returns_database_value(self) -> None:
         """Return the latest tracker pull date as UTC midnight."""

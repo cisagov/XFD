@@ -278,6 +278,60 @@ class TrackerCliTests(unittest.TestCase):
             limit=None,
         )
 
+    @patch("was_reports.commands.tracker_cli.get_tracker_record_by_id_from_db")
+    def test_show_row_displays_compact_safe_record(self, mock_get_record) -> None:
+        """Display one tracker row while truncating long summary values."""
+        mock_get_record.return_value = {
+            "id": 7,
+            "tag": "TAG1",
+            "customer_notes": "Long customer note " * 10,
+        }
+        args = tracker_cli.parse_args(["show-row", "--tracker-id", "7"])
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.show_row(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("TAG1", output.getvalue())
+        self.assertIn("...", output.getvalue())
+        self.assertNotIn("Long customer note " * 10, output.getvalue())
+        mock_get_record.assert_called_once_with(7)
+
+    @patch("was_reports.commands.tracker_cli.get_tracker_record_by_id_from_db")
+    def test_show_row_prints_complete_selected_field(self, mock_get_record) -> None:
+        """Print a requested tracker field without truncating its value."""
+        full_note = "Complete tracker note " * 10
+        mock_get_record.return_value = {"id": 7, "customer_notes": full_note}
+        args = tracker_cli.parse_args(
+            [
+                "show-row",
+                "--tracker-id",
+                "7",
+                "--field",
+                "customer-notes",
+            ]
+        )
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = tracker_cli.show_row(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Full value for customer_notes:", output.getvalue())
+        self.assertIn(full_note, output.getvalue())
+
+    @patch("was_reports.commands.tracker_cli.get_tracker_record_by_id_from_db")
+    def test_show_row_rejects_unknown_field(self, mock_get_record) -> None:
+        """List safe available fields when a field name is invalid."""
+        mock_get_record.return_value = {"id": 7, "tag": "TAG1"}
+        args = tracker_cli.parse_args(
+            ["show-row", "--tracker-id", "7", "--field", "missing"]
+        )
+
+        with self.assertRaisesRegex(ValueError, "Available fields: id, tag"):
+            tracker_cli.show_row(args)
+
     @patch("was_reports.commands.tracker_cli.list_report_run_errors_from_db")
     def test_show_errors_displays_persisted_failure(self, mock_list_errors) -> None:
         """Display persisted report failures without requiring runtime logs."""

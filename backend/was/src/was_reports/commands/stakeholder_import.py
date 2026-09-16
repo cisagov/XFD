@@ -14,6 +14,7 @@ from psycopg2.extras import execute_values
 # First-Party Libraries
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import configure_logging
+from was_reports.utils.passwords import DEFAULT_PASSWORD_LENGTH
 from was_reports.utils.states import validate_state_code
 
 
@@ -81,6 +82,16 @@ INTEGER_DATABASE_COLUMNS = frozenset(
     }
 )
 DEFAULT_NULL_TOKEN = "\\N"
+
+
+def normalize_imported_report_password(value: str) -> str:
+    """Decode legacy DynamoDB CSV quoting from report passwords."""
+    if len(value) <= DEFAULT_PASSWORD_LENGTH:
+        return value
+    normalized_value = value
+    if normalized_value.startswith('"') and normalized_value.endswith('"'):
+        normalized_value = normalized_value[1:-1]
+    return normalized_value.replace('""', '"')
 
 
 def read_source_rows(input_path: Path) -> list[dict[str, str]]:
@@ -155,6 +166,8 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
         return validate_state_code(value)
     if value == null_token:
         raise ValueError("A source value conflicts with the configured NULL token.")
+    if header == "Report Password":
+        return normalize_imported_report_password(value)
     return value
 
 

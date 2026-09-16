@@ -90,6 +90,41 @@ class TrackerTableRow:
     next_scan_date: date | None
 
 
+TRACKER_RECORD_COLUMNS = (
+    "id",
+    "data_pull_date",
+    "tag",
+    "scan_name",
+    "assignee_id",
+    "assignee",
+    "status",
+    "result",
+    "report_sent_date",
+    "report_scan_notes",
+    "scan_start_date",
+    "next_scan_date",
+    "poc",
+    "poc_email",
+    "customer_notes",
+    "nws",
+    "template",
+    "recent_nws",
+    "remove_nws",
+    "schedule_id",
+    "scan_execution_key",
+    "qualys_error",
+    "assignee_emailed_at",
+    "assignee_email_message_id",
+    "assignee_email_error",
+    "assignee_email_status",
+    "assignee_email_claimed_at",
+    "digest_revision",
+    "digest_claimed_revision",
+    "created_at",
+    "updated_at",
+)
+
+
 def insert_daily_report_tracker_row(
     row: DailyReportTrackerRow,
     conn: connection,
@@ -849,6 +884,38 @@ def list_tracker_rows_for_export_from_db(
             assignee_name=assignee_name,
             limit=limit,
         )
+    finally:
+        close(conn)
+
+
+def get_tracker_record_by_id(
+    tracker_id: int,
+    conn: connection,
+) -> dict[str, object]:
+    """Return one tracker row without password or active claim-token data."""
+    if tracker_id < 1:
+        raise ValueError("Tracker row ID must be greater than zero.")
+    query = """
+        SELECT {columns}
+        FROM was_daily_report_tracker
+        WHERE id = %s
+    """.format(columns=", ".join(TRACKER_RECORD_COLUMNS))
+    with conn.cursor() as cursor:
+        cursor.execute(query, (tracker_id,))
+        row = cursor.fetchone()
+    if row is None:
+        raise KeyError("Tracker row {} was not found.".format(tracker_id))
+    return dict(zip(TRACKER_RECORD_COLUMNS, row))
+
+
+def get_tracker_record_by_id_from_db(tracker_id: int) -> dict[str, object]:
+    """Return one safe tracker row using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_tracker_record_by_id(tracker_id=tracker_id, conn=conn)
     finally:
         close(conn)
 

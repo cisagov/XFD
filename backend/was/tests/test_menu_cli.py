@@ -685,6 +685,31 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
+    @patch(
+        "was_reports.commands.menu_cli.tracker_cli.display_tracker_record"
+    )
+    @patch(
+        "was_reports.commands.menu_cli.tracker_cli."
+        "get_tracker_record_by_id_from_db"
+    )
+    def test_tracker_row_view_can_print_complete_field(
+        self,
+        mock_get_record,
+        mock_display_record,
+    ) -> None:
+        """Display one tracker row and expand a selected truncated field."""
+        full_note = "Complete tracker note " * 10
+        record = {"id": 17, "customer_notes": full_note}
+        mock_get_record.return_value = record
+        menu = self.build_menu(["17", "customer_notes", "", ""])
+
+        menu.view_tracker_row()
+
+        mock_get_record.assert_called_once_with(17)
+        mock_display_record.assert_called_once_with(record, output=menu.output)
+        menu.output.assert_any_call("Full value for customer_notes:")
+        menu.output.assert_any_call(full_note)
+
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
     def test_tracker_import_uses_combined_conversion_command(
         self,

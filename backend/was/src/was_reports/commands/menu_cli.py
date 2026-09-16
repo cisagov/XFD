@@ -561,6 +561,7 @@ class WasOperatorMenu:
                 "Daily Tracker",
                 [
                     "View tracker table",
+                    "View one tracker row",
                     "View persisted report errors",
                     "Record a manual report sent date",
                     "Export tracker CSV",
@@ -574,17 +575,19 @@ class WasOperatorMenu:
             if selection == "1":
                 self.run_submenu_action("Daily Tracker", self.view_tracker)
             elif selection == "2":
-                self.run_submenu_action("Daily Tracker", self.view_errors)
+                self.run_submenu_action("Daily Tracker", self.view_tracker_row)
             elif selection == "3":
+                self.run_submenu_action("Daily Tracker", self.view_errors)
+            elif selection == "4":
                 self.run_submenu_action(
                     "Daily Tracker",
                     self.record_manual_sent_date,
                 )
-            elif selection == "4":
-                self.run_submenu_action("Daily Tracker", self.export_tracker)
             elif selection == "5":
+                self.run_submenu_action("Daily Tracker", self.export_tracker)
+            elif selection == "6":
                 self.run_submenu_action("Daily Tracker", self.import_tracker)
-            elif selection in {"6", "b"}:
+            elif selection in {"7", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
@@ -615,6 +618,58 @@ class WasOperatorMenu:
             arguments.extend(["--report-status", report_status])
         self.execute("tracker table", lambda: tracker_cli.main(arguments))
         self.pause()
+
+    def view_tracker_row(self) -> None:
+        """Display one tracker row and allow complete field inspection."""
+        tracker_id = self.prompt_positive_integer("Tracker row ID: ")
+        record_holder: dict[str, dict[str, object]] = {}
+
+        def load_tracker_row() -> int:
+            """Load and display one safe tracker database row."""
+            record = tracker_cli.get_tracker_record_by_id_from_db(tracker_id)
+            record_holder["record"] = record
+            tracker_cli.display_tracker_record(record, output=self.output)
+            return 0
+
+        if self.execute(
+            "tracker row lookup",
+            load_tracker_row,
+            show_success=False,
+        ):
+            self.pause()
+            return
+        self.display_full_tracker_fields(record_holder["record"])
+        self.pause()
+
+    def display_full_tracker_fields(
+        self,
+        record: dict[str, object],
+    ) -> None:
+        """Allow full untruncated tracker field output for inspection."""
+        self.output(
+            "Enter a field name to print its complete value for copying. "
+            "Press Enter to return."
+        )
+        while True:
+            requested_field = self.input(
+                "Field to print in full [return]: "
+            ).strip()
+            if not requested_field:
+                return
+            normalized_field = requested_field.lower().replace("-", "_")
+            if normalized_field not in record:
+                self.output(
+                    "Unknown field. Available fields: {}".format(
+                        ", ".join(record)
+                    )
+                )
+                continue
+            self.output("Full value for {}:".format(normalized_field))
+            self.output(
+                tracker_cli.tracker_record_display_value(
+                    record[normalized_field]
+                )
+            )
 
     def view_errors(self) -> None:
         """Prompt for error filters and display persisted failures."""
