@@ -6,12 +6,14 @@
  */
 
 export function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    ...(init.headers as Record<string, string> | undefined)
+  });
+
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
     statusText: init.statusText,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers as Record<string, string> | undefined)
-    }
+    headers: headers
   });
 }
