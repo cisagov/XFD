@@ -287,7 +287,7 @@ export const RegionUsers: React.FC = () => {
       } catch (e: any) {
         return {
           status_code: e.status || 500,
-          body: e.payload?.detail || e.detail || e.message || 'Unknown error',
+          body: e.payload?.detail || e.message || 'Unknown error',
           already_approved: undefined,
           email_sent: undefined
         };
