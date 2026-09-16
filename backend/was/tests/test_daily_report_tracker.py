@@ -243,8 +243,11 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn(
             "stakeholders.manual_report IS NOT TRUE", conn.cursor_instance.query
         )
-        self.assertIn("NOT LIKE 'legacy-import:%'", conn.cursor_instance.query)
-        self.assertEqual(conn.cursor_instance.parameters, ("TAG1", 5))
+        self.assertIn("NOT LIKE %s", conn.cursor_instance.query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            ("legacy-import:%", "TAG1", 5),
+        )
 
     def test_mark_tracker_report_manual_updates_unsent_row(self) -> None:
         """Send generation failures to the assigned analyst for manual handling."""
@@ -290,7 +293,10 @@ class DailyReportTrackerTests(unittest.TestCase):
             "stakeholders.manual_report IS NOT TRUE",
             conn.cursor_instance.query,
         )
-        self.assertEqual(conn.cursor_instance.parameters, ("TAG1", 1))
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            ("legacy-import:%", "TAG1", 1),
+        )
 
     def test_list_tracker_rows_for_export_filters_rows(self) -> None:
         """Return tracker rows for CSV export."""
