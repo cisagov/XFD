@@ -852,6 +852,24 @@ docker run --rm \
   --send-assignee-digests
 ```
 
+The direct `docker run` command above uses one report-generation process. For
+the production EC2 batch, use the Make target to refresh the tracker once and
+run disjoint report partitions in multiple containers:
+
+```bash
+make recent-scan-batch
+```
+
+`BATCH_WORKERS` defaults to `30` and must be between `1` and `30`. Each worker
+container receives a non-overlapping stakeholder partition so two reports for
+the same stakeholder cannot run concurrently. Existing database claims prevent
+duplicate tracker-row report runs. A worker emails each report after successful
+S3 archival. After all workers exit, one mailer container retries any remaining
+completed deliveries and one mailer container sends the assignee digests.
+Reduce the worker count if Qualys throttling or account-level capacity becomes
+visible. The documented 2,000-request-per-hour Qualys limit still applies to the
+combined worker pool.
+
 For a controlled end-to-end batch test, redirect every report and digest to one
 or more active WAS assignees. Customer addresses are not used, but successful
 tracker rows are recorded as sent:
@@ -1433,6 +1451,7 @@ make update-tracker
 make update-tracker-delete-apps
 make assignee-digests
 make recent-scan-batch
+make recent-scan-batch BATCH_WORKERS=30
 make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
 make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"

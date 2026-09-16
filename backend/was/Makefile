@@ -8,6 +8,7 @@ DOCKER_HOST_USER ?= --user "$$(id -u):$$(id -g)"
 TRACKER_CSV ?= $(OUTPUT_DIR)/was-daily-tracker.csv
 STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
 TEST_RECIPIENTS ?= operator@example.gov
+BATCH_WORKERS ?= 30
 TAG ?=
 DAYS_BACK ?= 7
 ASSIGNEE ?=
@@ -65,7 +66,55 @@ stakeholders-help:
 
 recent-scan-batch:
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests
+	@case "$(BATCH_WORKERS)" in ''|*[!0-9]*) echo 'BATCH_WORKERS must be an integer from 1 through 30.' >&2; exit 2 ;; esac
+	@test "$(BATCH_WORKERS)" -ge 1 -a "$(BATCH_WORKERS)" -le 30 || (echo 'BATCH_WORKERS must be from 1 through 30.' >&2; exit 2)
+	@echo 'Refreshing the daily tracker once before parallel report generation.'
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker
+	@set -u; \
+	worker_pids=''; \
+	stop_workers() { \
+		if [ -n "$$worker_pids" ]; then kill $$worker_pids 2>/dev/null || true; fi; \
+	}; \
+	trap 'stop_workers; exit 130' INT TERM; \
+	worker_index=0; \
+	while [ "$$worker_index" -lt "$(BATCH_WORKERS)" ]; do \
+		echo "Starting WAS report container $$((worker_index + 1)) of $(BATCH_WORKERS)."; \
+		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+			-v $(OUTPUT_DIR):/output \
+			$(IMAGE) \
+			--recent-scans \
+			--skip-tracker-refresh \
+			--worker-count "$(BATCH_WORKERS)" \
+			--worker-index "$$worker_index" \
+			--create-missing-password \
+			--continue-on-error \
+			--send-email \
+			--skip-ready-email-retry & \
+		worker_pids="$$worker_pids $$!"; \
+		worker_index=$$((worker_index + 1)); \
+	done; \
+	worker_status=0; \
+	for worker_pid in $$worker_pids; do \
+		if ! wait "$$worker_pid"; then worker_status=1; fi; \
+	done; \
+	trap - INT TERM; \
+	echo 'Report workers finished. Delivering completed reports once.'; \
+	mailer_status=0; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-v $(OUTPUT_DIR):/output \
+		--entrypoint was-mailer \
+		$(IMAGE) --all-ready --include-previous-failures || mailer_status=$$?; \
+	echo 'Report delivery finished. Sending assignee digests once.'; \
+	digest_status=0; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-v $(OUTPUT_DIR):/output \
+		--entrypoint was-mailer \
+		$(IMAGE) --assignee-digests --include-previous-failures || digest_status=$$?; \
+	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ] || [ "$$digest_status" -ne 0 ]; then \
+		echo 'Parallel WAS batch completed with one or more failures. Review local-output/logs.' >&2; \
+		exit 1; \
+	fi; \
+	echo 'Parallel WAS batch completed successfully.'
 
 recent-scan-batch-test:
 	mkdir -p $(OUTPUT_DIR)

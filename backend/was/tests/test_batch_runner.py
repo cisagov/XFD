@@ -869,6 +869,8 @@ class BatchRunnerTests(unittest.TestCase):
             stakeholder_tag="TAG1",
             limit=None,
             include_manual=True,
+            worker_count=None,
+            worker_index=None,
         )
         mock_retry_run.assert_called_once_with(9)
         mock_send_ready.assert_not_called()
@@ -980,6 +982,54 @@ class BatchRunnerTests(unittest.TestCase):
             stakeholder_tag="TAG1",
         )
         self.assertEqual(mock_run_recent.call_args.kwargs["stakeholder_tag"], "TAG1")
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    def test_main_runs_one_parallel_worker_partition(
+        self,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Forward one disjoint tracker partition without refreshing Qualys."""
+        mock_run_recent.return_value = batch_runner.BatchExecutionSummary(
+            candidates=2,
+            generated=2,
+            sent=0,
+            failed=0,
+        )
+
+        exit_code = batch_runner.main(
+            [
+                "--recent-scans",
+                "--skip-tracker-refresh",
+                "--worker-count",
+                "5",
+                "--worker-index",
+                "2",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_update_tracker.assert_not_called()
+        mock_recover_stale.assert_called_once_with()
+        self.assertEqual(mock_run_recent.call_args.kwargs["worker_count"], 5)
+        self.assertEqual(mock_run_recent.call_args.kwargs["worker_index"], 2)
+
+    def test_main_rejects_more_than_thirty_parallel_workers(self) -> None:
+        """Enforce the report-container safety cap."""
+        with self.assertRaisesRegex(ValueError, "between 1 and 30"):
+            batch_runner.main(
+                [
+                    "--recent-scans",
+                    "--skip-tracker-refresh",
+                    "--worker-count",
+                    "31",
+                    "--worker-index",
+                    "0",
+                ]
+            )
 
     @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")

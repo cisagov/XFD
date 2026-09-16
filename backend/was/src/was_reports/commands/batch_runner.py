@@ -338,19 +338,24 @@ def run_recent_scan_reports(
     test_recipients: Optional[str] = None,
     dry_run_email: bool = False,
     include_manual: bool = False,
+    worker_count: int | None = None,
+    worker_index: int | None = None,
+    retry_ready_emails: bool = True,
 ) -> BatchExecutionSummary:
     """Generate and deliver reports for recent tracker rows with delivery gaps."""
     candidates = list_ready_report_candidates_from_db(
         stakeholder_tag=stakeholder_tag,
         limit=limit,
         include_manual=include_manual,
+        worker_count=worker_count,
+        worker_index=worker_index,
     )
     resolved_storage_mode = resolve_storage_mode(storage_mode)
     generated_count = 0
     sent_count = 0
     failed_count = 0
 
-    if send_email and not include_manual:
+    if send_email and not include_manual and retry_ready_emails:
         raise_if_operation_cancelled()
         sent_count += send_ready_report_emails(
             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
@@ -588,6 +593,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Use existing tracker rows without querying Qualys for recent scans.",
     )
     parser.add_argument(
+        "--worker-count",
+        type=int,
+        help="Total parallel report workers, from 1 through 30.",
+    )
+    parser.add_argument(
+        "--worker-index",
+        type=int,
+        help="Zero-based partition assigned to this report worker.",
+    )
+    parser.add_argument(
         "-t",
         "--tag",
         help="Limit recent-scan discovery and reporting to one stakeholder tag.",
@@ -616,6 +631,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--send-email",
         action="store_true",
         help="Send ready reports through SES after generation.",
+    )
+    parser.add_argument(
+        "--skip-ready-email-retry",
+        action="store_true",
+        help="Skip the pre-generation retry of previously completed report emails.",
     )
     parser.add_argument(
         "--send-assignee-digests",
@@ -677,6 +697,34 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise ValueError("Manual report generation requires --tag.")
         if args.include_manual and not args.send_email:
             raise ValueError("Manual report generation requires --send-email.")
+        if (args.worker_count is None) != (args.worker_index is None):
+            raise ValueError(
+                "Worker count and worker index must be provided together."
+            )
+        if args.worker_count is not None:
+            if args.worker_count < 1 or args.worker_count > 30:
+                raise ValueError("Worker count must be between 1 and 30.")
+            if args.worker_index < 0 or args.worker_index >= args.worker_count:
+                raise ValueError(
+                    "Worker index must be between 0 and worker count minus 1."
+                )
+            if args.limit is not None:
+                raise ValueError(
+                    "Report limit cannot be combined with parallel worker partitions."
+                )
+            if not args.skip_tracker_refresh:
+                raise ValueError(
+                    "Parallel workers require --skip-tracker-refresh."
+                )
+            if args.send_assignee_digests:
+                raise ValueError(
+                    "Parallel workers cannot send assignee digests individually."
+                )
+            LOGGER.info(
+                "Starting report worker %s of %s.",
+                args.worker_index + 1,
+                args.worker_count,
+            )
         recover_stale_report_operations_in_db()
         if not args.skip_tracker_refresh:
             run_update_tracker(
@@ -699,13 +747,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             test_recipients=test_recipients,
             dry_run_email=args.dry_run_email,
             include_manual=args.include_manual,
+            worker_count=args.worker_count,
+            worker_index=args.worker_index,
+            retry_ready_emails=not args.skip_ready_email_retry,
         )
         return 1 if summary.failed else 0
 
     recent_scan_only_options = [
         args.skip_tracker_refresh,
+        args.worker_count is not None,
+        args.worker_index is not None,
         args.tag is not None,
         args.send_email,
+        args.skip_ready_email_retry,
         args.send_assignee_digests,
         args.test_recipients is not None,
         args.dry_run_email,

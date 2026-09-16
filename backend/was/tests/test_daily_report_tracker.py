@@ -276,6 +276,36 @@ class DailyReportTrackerTests(unittest.TestCase):
             ("legacy-import:%", "TAG1", 5),
         )
 
+    def test_list_ready_report_candidates_partitions_tracker_rows(self) -> None:
+        """Assign each tracker row to exactly one bounded report worker."""
+        conn = FakeConnection()
+
+        list_ready_report_candidates(
+            conn=conn,
+            worker_count=5,
+            worker_index=2,
+        )
+
+        self.assertIn(
+            "MOD(ABS(HASHTEXT(tracker.tag)::BIGINT), %s) = %s",
+            conn.cursor_instance.query,
+        )
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            ("legacy-import:%", 5, 2),
+        )
+
+    def test_list_ready_report_candidates_rejects_invalid_partition(self) -> None:
+        """Reject worker settings that could overlap or omit tracker rows."""
+        conn = FakeConnection()
+
+        with self.assertRaisesRegex(ValueError, "between 1 and 30"):
+            list_ready_report_candidates(
+                conn=conn,
+                worker_count=31,
+                worker_index=0,
+            )
+
     def test_mark_tracker_report_manual_updates_unsent_row(self) -> None:
         """Send generation failures to the assigned analyst for manual handling."""
         conn = FakeConnection()

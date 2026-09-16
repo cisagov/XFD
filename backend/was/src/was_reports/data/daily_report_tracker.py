@@ -259,8 +259,17 @@ def list_ready_report_candidates(
     stakeholder_tag: str | None = None,
     limit: int | None = None,
     include_manual: bool = False,
+    worker_count: int | None = None,
+    worker_index: int | None = None,
 ) -> list[TrackerReportCandidate]:
     """Return tracker rows with a report-delivery gap."""
+    if (worker_count is None) != (worker_index is None):
+        raise ValueError("Worker count and worker index must be provided together.")
+    if worker_count is not None:
+        if worker_count < 1 or worker_count > 30:
+            raise ValueError("Worker count must be between 1 and 30.")
+        if worker_index is None or worker_index < 0 or worker_index >= worker_count:
+            raise ValueError("Worker index must be between 0 and worker count minus 1.")
     query = """
         SELECT
             tracker.id,
@@ -324,6 +333,11 @@ def list_ready_report_candidates(
     if stakeholder_tag is not None:
         query += " AND tracker.tag = %s"
         parameters.append(stakeholder_tag)
+    if worker_count is not None:
+        query += (
+            " AND MOD(ABS(HASHTEXT(tracker.tag)::BIGINT), %s) = %s"
+        )
+        parameters.extend((worker_count, worker_index))
     query += " ORDER BY tracker.data_pull_date ASC, tracker.id ASC"
     if limit is not None:
         query += " LIMIT %s"
@@ -354,6 +368,8 @@ def list_ready_report_candidates_from_db(
     stakeholder_tag: str | None = None,
     limit: int | None = None,
     include_manual: bool = False,
+    worker_count: int | None = None,
+    worker_index: int | None = None,
 ) -> list[TrackerReportCandidate]:
     """Return report-delivery gaps using a managed database connection."""
     # Third-Party Libraries
@@ -366,6 +382,8 @@ def list_ready_report_candidates_from_db(
             stakeholder_tag=stakeholder_tag,
             limit=limit,
             include_manual=include_manual,
+            worker_count=worker_count,
+            worker_index=worker_index,
         )
     finally:
         close(conn)
