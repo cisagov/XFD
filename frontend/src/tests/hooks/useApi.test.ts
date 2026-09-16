@@ -102,7 +102,59 @@ describe('useApi', () => {
     );
   });
 
-  it('throws an ApiError for non-ok responses', async () => {
+  it('throws an ApiError for 401 responses', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse(
+        { detail: 'Unauthorized' },
+        {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: { 'x-amzn-requestid': 'request-id' }
+        }
+      )
+    );
+
+    const onError = vi.fn();
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi(onError));
+
+    await act(async () => {
+      await expect(result.current.apiGet('/protected')).rejects.toMatchObject({
+        isApiError: true,
+        name: 'ApiError',
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        message: 'Unauthorized',
+        headers: { 'x-amzn-requestid': 'request-id' },
+        payload: { detail: 'Unauthorized' },
+        payloadMessage: 'Unauthorized',
+        bodyUsed: true
+      });
+    });
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 401,
+        statusText: 'Unauthorized'
+      })
+    );
+    const errorArg = onError.mock.calls[0][0];
+    expect(errorArg).toBeInstanceOf(ApiError);
+    expect(isApiError(errorArg)).toBe(true);
+
+    if (isApiError(errorArg)) {
+      expect(errorArg.status).toBe(401);
+      expect(errorArg.statusText).toBe('Unauthorized');
+      expect(errorArg.message).toBe('Unauthorized');
+      expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
+      expect(errorArg.payload).toEqual({ detail: 'Unauthorized' });
+      expect(errorArg.payloadMessage).toBe('Unauthorized');
+    }
+  });
+
+  it('throws an ApiError for 403 responses', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(
       jsonResponse(
         { detail: 'Not allowed' },
@@ -151,6 +203,60 @@ describe('useApi', () => {
       expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
       expect(errorArg.payload).toEqual({ detail: 'Not allowed' });
       expect(errorArg.payloadMessage).toBe('Not allowed');
+    }
+  });
+
+  it('throws an ApiError for 404 responses', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse(
+        { detail: 'Not found' },
+        {
+          status: 404,
+          statusText: 'Not Found',
+          headers: { 'x-amzn-requestid': 'request-id' }
+        }
+      )
+    );
+
+    const onError = vi.fn();
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi(onError));
+
+    await act(async () => {
+      await expect(result.current.apiGet('/nonexistent')).rejects.toMatchObject(
+        {
+          isApiError: true,
+          name: 'ApiError',
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          message: 'Not found',
+          headers: { 'x-amzn-requestid': 'request-id' },
+          payload: { detail: 'Not found' },
+          payloadMessage: 'Not found',
+          bodyUsed: true
+        }
+      );
+    });
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 404,
+        statusText: 'Not Found'
+      })
+    );
+    const errorArg = onError.mock.calls[0][0];
+    expect(errorArg).toBeInstanceOf(ApiError);
+    expect(isApiError(errorArg)).toBe(true);
+
+    if (isApiError(errorArg)) {
+      expect(errorArg.status).toBe(404);
+      expect(errorArg.statusText).toBe('Not Found');
+      expect(errorArg.message).toBe('Not found');
+      expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
+      expect(errorArg.payload).toEqual({ detail: 'Not found' });
+      expect(errorArg.payloadMessage).toBe('Not found');
     }
   });
 
