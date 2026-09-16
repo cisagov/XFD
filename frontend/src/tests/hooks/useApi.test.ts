@@ -2,17 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, isApiError } from '../../hooks/useApi';
-
-export function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: init.status ?? 200,
-    statusText: init.statusText,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers as Record<string, string> | undefined)
-    }
-  });
-}
+import { jsonResponse } from '../../test-utils/jsonResponse';
 
 describe('useApi', () => {
   beforeEach(() => {

@@ -4,7 +4,7 @@ import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
 import type { Organization } from 'types';
 import { useAuthContext } from 'context';
 import { ApiError } from '@/hooks/useApi';
-import { jsonResponse } from '@/tests/hooks/useApi.test';
+import { jsonResponse } from '@/test-utils/jsonResponse';
 
 vi.mock('context', () => ({
   useAuthContext: vi.fn()
