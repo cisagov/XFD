@@ -2,10 +2,12 @@
 
 # Third-Party Libraries
 from django.db import connections, transaction
+import uuid
 
 
 def populate_cyhydash_sample_data():
     """Populate the cve table with sample data."""
+    # Create cve table
     with transaction.atomic(using="cyhy_dash_db"):
         with connections["cyhy_dash_db"].cursor() as cursor:
             cursor.execute(
@@ -128,4 +130,188 @@ def populate_cyhydash_sample_data():
                     ["CWE-79"],
                     ["https://example.gov/cve/CVE-2026-0001"],
                 ),
+            )
+
+    # Create scan table
+    with transaction.atomic(using="cyhy_dash_db"):
+        with connections["cyhy_dash_db"].cursor() as cursor:
+            # Create table
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS scan (
+                    id UUID NOT NULL,
+                    createdAt TIMESTAMPTZ NOT NULL,
+                    updatedAt TIMESTAMPTZ NOT NULL,
+                    name TEXT NOT NULL,
+                    arguments JSON NOT NULL,
+                    frequency INT NOT NULL,
+                    lastRun TIMESTAMPTZ NULL,
+                    isGranular BOOLEAN NOT NULL,
+                    createdById UUID NULL,
+                    isSingleScan BOOLEAN NOT NULL,
+                    manualRunPending BOOLEAN NOT NULL,
+                    isUserModifiable BOOLEAN NULL,
+                    concurrentTasks INT NOT NULL,
+
+                    CONSTRAINT scan_pkey PRIMARY KEY (id)
+                );
+                """
+            )
+            # Fill with dummy data
+            insert_values = [
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "dnsmonitor",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "1" 
+                ),
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "dnstwist",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "10" 
+                ),
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "flareCreds",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "2" 
+                ),
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "flareEvents",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "4" 
+                ),
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "shodan",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "1" 
+                ),
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "shodanTopCves",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "1" 
+                ),
+                (
+                    str(uuid.uuid4()),
+                    "2026-09-15T12:00:00Z",
+                    "2026-09-16T12:00:00Z",
+                    "asmSync",
+                    "{}",
+                    "1210000",
+                    "2026-09-16T12:00:00Z",
+                    "FALSE",
+                    str(uuid.uuid4()),
+                    "TRUE",
+                    "FALSE",
+                    "False",
+                    "1" 
+                )
+            ]
+
+            cursor.executemany(
+                """
+                INSERT INTO scan (
+                    id,
+                    createdAt,
+                    updatedAt,
+                    name,
+                    arguments,
+                    frequency,
+                    lastRun,
+                    isGranular,
+                    createdById,
+                    isSingleScan,
+                    manualRunPending,
+                    isUserModifiable,
+                    concurrentTasks
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s
+                )
+                ON CONFLICT (id)
+                DO UPDATE SET
+                    createdAt = EXCLUDED.createdAt,
+                    updatedAt = EXCLUDED.updatedAt,
+                    name = EXCLUDED.name,
+                    arguments = EXCLUDED.arguments,
+                    frequency = EXCLUDED.frequency,
+                    lastRun = EXCLUDED.lastRun,
+                    isGranular = EXCLUDED.isGranular,
+                    createdById = EXCLUDED.createdById,
+                    isSingleScan = EXCLUDED.isSingleScan,
+                    manualRunPending = EXCLUDED.manualRunPending,
+                    isUserModifiable = EXCLUDED.isUserModifiable,
+                    concurrentTasks = EXCLUDED.concurrentTasks;
+                """,
+                insert_values,
             )
