@@ -60,20 +60,20 @@ export class ApiError<TPayload = unknown> extends Error {
   readonly type: Response['type'];
   readonly bodyUsed: Response['bodyUsed'];
 
-  readonly payload: TPayload;
-  readonly detail?: string;
+  readonly payload: TPayload; // Raw payload from the API response
+  readonly payloadMessage?: string; // User-friendly message extracted from the payload
 
   constructor(response: Response, payload?: TPayload, message?: string) {
-    const detail = getPayloadMessage(payload);
+    const payloadMessage = getPayloadMessage(payload);
 
     /**
-     * Construct the error message using the provided message, the detail from the payload,
+     * Construct the error message using the provided message, the extracted user-friendly message from the payload,
      * the response status text, or a default message.
      */
 
     super(
       message ||
-        detail ||
+        payloadMessage ||
         response.statusText ||
         `Request failed with status ${response.status}`
     );
@@ -96,7 +96,7 @@ export class ApiError<TPayload = unknown> extends Error {
     this.bodyUsed = response.bodyUsed;
 
     this.payload = payload as TPayload;
-    this.detail = detail;
+    this.payloadMessage = payloadMessage;
   }
 }
 

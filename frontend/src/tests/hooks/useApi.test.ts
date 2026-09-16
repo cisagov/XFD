@@ -128,7 +128,7 @@ describe('useApi', () => {
         message: 'Not allowed',
         headers: { 'x-amzn-requestid': 'request-id' },
         payload: { detail: 'Not allowed' },
-        detail: 'Not allowed',
+        payloadMessage: 'Not allowed',
         bodyUsed: true
       });
     });
@@ -150,7 +150,7 @@ describe('useApi', () => {
       expect(errorArg.message).toBe('Not allowed');
       expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
       expect(errorArg.payload).toEqual({ detail: 'Not allowed' });
-      expect(errorArg.detail).toBe('Not allowed');
+      expect(errorArg.payloadMessage).toBe('Not allowed');
     }
   });
 
@@ -250,7 +250,7 @@ describe('useApi', () => {
       expect(error.message).toBe('Not allowed');
       expect(error.headers['x-amzn-requestid']).toBe('request-id');
       expect(error.payload).toEqual({ detail: 'Not allowed' });
-      expect(error.detail).toBe('Not allowed');
+      expect(error.payloadMessage).toBe('Not allowed');
       expect(error.bodyUsed).toBe(false);
     });
 
@@ -318,7 +318,7 @@ describe('useApi', () => {
       const error = new ApiError(response, { code: 'SOME_ERROR' });
 
       expect(error.message).toBe('Not Found');
-      expect(error.detail).toBeUndefined();
+      expect(error.payloadMessage).toBeUndefined();
     });
 
     it('falls back to generic status message when statusText is empty', () => {
@@ -326,7 +326,7 @@ describe('useApi', () => {
       const error = new ApiError(response);
 
       expect(error.message).toBe('Request failed with status 500');
-      expect(error.detail).toBeUndefined();
+      expect(error.payloadMessage).toBeUndefined();
     });
 
     it('is an instance of ApiError', () => {
