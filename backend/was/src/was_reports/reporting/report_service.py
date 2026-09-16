@@ -51,10 +51,24 @@ def generate_unencrypted_report(
     report_id_clearer: Callable[[str, str], None] | None = None,
     report_status_recorder: Callable[[str, str], None] | None = None,
     report_creation_intent_claim: Callable[[str], bool] | None = None,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = True,
 ) -> Path:
     """Generate one unencrypted PDF through the production WAS modules."""
-    tag_details = report_data.get_tag_details(client, stakeholder_tag)
-    organization_name = tag_details.description
+    resolved_tag_id = tag_id
+    resolved_organization_name = organization_name
+    if resolved_tag_id is None:
+        if not allow_tag_lookup:
+            raise ValueError(
+                "Automatic report generation requires a stored Qualys tag ID."
+            )
+        tag_details = report_data.get_tag_details(client, stakeholder_tag)
+        resolved_tag_id = tag_details.tag_id
+        if not resolved_organization_name:
+            resolved_organization_name = tag_details.description
+    if not resolved_organization_name:
+        resolved_organization_name = stakeholder_tag
     with report_retrieval.managed_report_source_data(
         client=client,
         stakeholder_tag=stakeholder_tag,
@@ -69,7 +83,7 @@ def generate_unencrypted_report(
         report_id_clearer=report_id_clearer,
         report_status_recorder=report_status_recorder,
         report_creation_intent_claim=report_creation_intent_claim,
-        tag_id=tag_details.tag_id,
+        tag_id=resolved_tag_id,
     ) as source_data:
         parsed_report = report_transformer.parse_report(source_data.report_xml)
         transformation = report_transformer.transform_report_to_csv(
@@ -102,7 +116,7 @@ def generate_unencrypted_report(
         template_data = report_template_data.build_template_data(
             report_xml=parsed_report,
             stakeholder_tag=stakeholder_tag,
-            organization_name=organization_name,
+            organization_name=resolved_organization_name,
             artifacts=report_template_data.TemplateArtifactInputs(
                 vulnerability_details=transformation.vulnerability_filename,
                 information_details=transformation.information_filename,
@@ -149,6 +163,9 @@ def generate_encrypted_report(
     report_id_clearer: Callable[[str, str], None] | None = None,
     report_status_recorder: Callable[[str, str], None] | None = None,
     report_creation_intent_claim: Callable[[str], bool] | None = None,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = True,
 ) -> Path:
     """Generate an encrypted report in an isolated, concurrency-safe workspace."""
     with report_workspace.report_output_lock(
@@ -181,6 +198,9 @@ def generate_encrypted_report(
                 report_id_clearer=report_id_clearer,
                 report_status_recorder=report_status_recorder,
                 report_creation_intent_claim=report_creation_intent_claim,
+                tag_id=tag_id,
+                organization_name=organization_name,
+                allow_tag_lookup=allow_tag_lookup,
             )
             encrypted_pdf_path = encrypt_pdf_in_place(pdf_path, report_password)
             return publish_encrypted_pdf(

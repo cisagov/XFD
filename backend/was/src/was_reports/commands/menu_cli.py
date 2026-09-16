@@ -920,6 +920,16 @@ class WasOperatorMenu:
                     self.output("Operation cancelled.")
                     return
                 if raw_value.upper() == "CLEAR":
+                    if (
+                        column_name
+                        in stakeholders_cli.REQUIRED_STAKEHOLDER_FIELDS
+                    ):
+                        self.output(
+                            "Invalid value: {} cannot be cleared.".format(
+                                column_name
+                            )
+                        )
+                        continue
                     if current_value is not None:
                         updates[column_name] = None
                     break
@@ -1212,37 +1222,49 @@ class WasOperatorMenu:
             "--customer-name",
             self.prompt_required("Customer name: "),
         ]
-        text_fields = (
+        optional_text_fields = (
             ("comments", "Comments [blank]: "),
             ("location-notes", "Location notes [blank]: "),
-            ("ci-type", "CI type [blank]: "),
-            ("testing-sector", "Testing sector [blank]: "),
-            ("subtype", "Subtype [blank]: "),
             ("distro-email", "Distribution email addresses [blank]: "),
             ("tech-poc-email", "Technical POC email addresses [blank]: "),
             ("was-report-poc", "WAS report POC [blank]: "),
-            ("frequency", "Report frequency [blank]: "),
             ("parent-tag", "Parent tag [blank]: "),
             ("ticket", "Ticket [blank]: "),
-            ("state", "State [blank]: "),
         )
-        for option_name, prompt in text_fields:
+        for option_name, prompt in optional_text_fields:
             value = self.prompt_optional(prompt)
             if value:
                 arguments.extend(["--{}".format(option_name), value])
 
-        integer_fields = (
-            ("num-web-apps", "Number of web applications [blank]: "),
+        required_text_fields = (
+            ("ci-type", "CI type: "),
+            ("testing-sector", "Testing sector: "),
+            ("subtype", "Subtype: "),
+            ("frequency", "Report frequency: "),
+            ("state", "State: "),
+        )
+        for option_name, prompt in required_text_fields:
+            arguments.extend(
+                ["--{}".format(option_name), self.prompt_required(prompt)]
+            )
+
+        num_web_apps = self.prompt_optional_nonnegative_integer(
+            "Number of web applications [blank]: "
+        )
+        if num_web_apps:
+            arguments.extend(["--num-web-apps", num_web_apps])
+
+        date_fields = (
             (
                 "web-apps-last-updated",
-                "Web application count last-updated epoch [blank]: ",
+                "Web application count last updated, YYYY-MM-DD or epoch [blank]: ",
             ),
-            ("last-scanned", "Last-scanned epoch [blank]: "),
-            ("next-scheduled", "Next-scheduled epoch [blank]: "),
-            ("onboarding-date", "Onboarding-date epoch [blank]: "),
+            ("last-scanned", "Last scanned, YYYY-MM-DD or epoch [blank]: "),
+            ("next-scheduled", "Next scheduled, YYYY-MM-DD or epoch [blank]: "),
+            ("onboarding-date", "Onboarding date, YYYY-MM-DD or epoch [blank]: "),
         )
-        for option_name, prompt in integer_fields:
-            value = self.prompt_optional_nonnegative_integer(prompt)
+        for option_name, prompt in date_fields:
+            value = self.prompt_optional(prompt)
             if value:
                 arguments.extend(["--{}".format(option_name), value])
 

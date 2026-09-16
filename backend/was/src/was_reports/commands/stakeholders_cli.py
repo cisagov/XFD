@@ -40,6 +40,12 @@ from was_reports.commands.stakeholder_import import (
 from was_reports.storage.stakeholder_exports import upload_stakeholder_export
 from was_reports.utils.env import require_env
 from was_reports.utils.logging_config import configure_logging, exception_details
+from was_reports.utils.stakeholder_validation import (
+    REQUIRED_STAKEHOLDER_FIELDS,
+    STAKEHOLDER_DATE_FIELDS,
+    parse_stakeholder_date,
+    validate_stakeholder_tag,
+)
 from was_reports.utils.states import validate_state_code
 
 LOGGER = logging.getLogger(__name__)
@@ -87,6 +93,22 @@ def nonnegative_integer(value: str) -> int:
             "Value must be a whole number of zero or greater."
         )
     return parsed_value
+
+
+def stakeholder_tag_value(value: str) -> str:
+    """Return a validated stakeholder tag."""
+    try:
+        return validate_stakeholder_tag(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+
+
+def stakeholder_date_value(value: str) -> int:
+    """Return an epoch parsed from YYYY-MM-DD or an existing epoch input."""
+    try:
+        return parse_stakeholder_date(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 def state_code_value(value: str) -> str:
@@ -143,6 +165,8 @@ def stakeholder_update_assignment(value: str) -> tuple[str, str]:
 def normalize_stakeholder_update(column_name: str, value: str) -> object:
     """Validate and convert one stakeholder field value."""
     try:
+        if column_name in STAKEHOLDER_DATE_FIELDS:
+            return stakeholder_date_value(value)
         if column_name in STAKEHOLDER_INTEGER_COLUMNS:
             return nonnegative_integer(value)
         if column_name in STAKEHOLDER_BOOLEAN_COLUMNS:
@@ -172,6 +196,8 @@ def stakeholder_updates(args: argparse.Namespace) -> dict[str, object]:
     for column_name in args.clear_values:
         if column_name in updates:
             raise ValueError("A stakeholder column may be updated only once.")
+        if column_name in REQUIRED_STAKEHOLDER_FIELDS:
+            raise ValueError("{} cannot be cleared.".format(column_name))
         updates[column_name] = None
     return updates
 
@@ -245,7 +271,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "update-contacts",
         help="Update stakeholder POC and email fields.",
     )
-    contacts_command.add_argument("--tag", required=True, type=nonempty_value)
+    contacts_command.add_argument("--tag", required=True, type=stakeholder_tag_value)
     add_contact_field_options(
         contacts_command,
         "was-report-poc",
@@ -274,13 +300,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "show",
         help="Display one stakeholder row by exact tag.",
     )
-    show_command.add_argument("--tag", required=True, type=nonempty_value)
+    show_command.add_argument("--tag", required=True, type=stakeholder_tag_value)
 
     update_command = subcommands.add_parser(
         "update",
         help="Update selected fields for one stakeholder.",
     )
-    update_command.add_argument("--tag", required=True, type=nonempty_value)
+    update_command.add_argument("--tag", required=True, type=stakeholder_tag_value)
     update_command.add_argument(
         "--set",
         dest="set_values",
@@ -352,7 +378,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "add",
         help="Add one stakeholder and generate its report password.",
     )
-    add_command.add_argument("--tag", required=True, type=nonempty_value)
+    add_command.add_argument("--tag", required=True, type=stakeholder_tag_value)
     add_command.add_argument("--customer-name", required=True, type=nonempty_value)
     for option_name in (
         "comments",
@@ -365,22 +391,27 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "parent-tag",
         "ticket",
     ):
-        add_command.add_argument("--{}".format(option_name), type=nonempty_value)
+        add_command.add_argument(
+            "--{}".format(option_name),
+            type=nonempty_value,
+            required=option_name.replace("-", "_") in REQUIRED_STAKEHOLDER_FIELDS,
+        )
     add_command.add_argument(
         "--state",
         type=state_code_value,
+        required=True,
         help="Uppercase two-letter state or territory code.",
     )
     add_command.add_argument("--distro-email", type=email_list_value)
     add_command.add_argument("--tech-poc-email", type=email_list_value)
+    add_command.add_argument("--num-web-apps", type=nonnegative_integer)
     for option_name in (
-        "num-web-apps",
         "web-apps-last-updated",
         "last-scanned",
         "next-scheduled",
         "onboarding-date",
     ):
-        add_command.add_argument("--{}".format(option_name), type=nonnegative_integer)
+        add_command.add_argument("--{}".format(option_name), type=stakeholder_date_value)
     add_command.add_argument("--elections", action="store_true")
     add_command.add_argument("--fceb", action="store_true")
     add_command.add_argument("--manual-report", action="store_true")

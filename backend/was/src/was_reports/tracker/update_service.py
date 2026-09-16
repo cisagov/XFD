@@ -109,6 +109,7 @@ def update_stakeholder_scan_metadata(
     last_scan: str,
     next_scan: str,
     app_count: int,
+    tag_id: int | None = None,
 ) -> None:
     """Update stakeholder scan metadata while preserving tracker completion."""
     last_scan_datetime = datetime.fromisoformat(last_scan.replace("Z", "+00:00"))
@@ -122,6 +123,7 @@ def update_stakeholder_scan_metadata(
             next_scheduled=int(next_scan_datetime.timestamp()),
             num_web_apps=app_count,
             web_apps_last_updated=int(time.time()),
+            qualys_tag_id=tag_id,
         )
     except Exception as error:
         LOGGER.error(
@@ -173,6 +175,7 @@ def build_tracker_row(
         last_scan=item.launched_date,
         next_scan=item.next_scan_date,
         app_count=num_apps,
+        tag_id=item.tag_id,
     )
 
     return DailyReportTrackerRow(
@@ -204,6 +207,7 @@ def build_tracker_row(
             "STATIC PASSWORD" if stakeholder and stakeholder.report_password else None
         ),
         schedule_id=item.schedule_id,
+        tag_id=item.tag_id,
         qualys_error=item.qualys_errors,
         scan_execution_key=item.scan_execution_key
         or scheduled_execution_key(item.schedule_id, item.launched_date),
@@ -399,6 +403,7 @@ def update_execution(
                 "recent_nws",
                 "remove_nws",
                 "qualys_error",
+                "tag_id",
             )
             cursor.execute(
                 sql.SQL(

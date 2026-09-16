@@ -126,6 +126,9 @@ def build_report_arguments(
     python_executable: str,
     create_missing_password: bool,
     generation_token: str,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = False,
 ) -> List[str]:
     """Build arguments for one WAS report generation call."""
     arguments = [
@@ -145,6 +148,12 @@ def build_report_arguments(
 
     if create_missing_password:
         arguments.append("--create-missing-password")
+    if tag_id is not None:
+        arguments.extend(["--tag-id", str(tag_id)])
+    if organization_name:
+        arguments.extend(["--organization-name", organization_name])
+    if allow_tag_lookup:
+        arguments.append("--allow-tag-lookup")
 
     return arguments
 
@@ -159,6 +168,9 @@ def generate_report_output(
     storage_mode: str,
     staging_directory: str,
     generation_token: str,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = False,
 ) -> str:
     """Generate one report and return its durable output reference."""
     check_operation_ownership()
@@ -181,6 +193,9 @@ def generate_report_output(
                 output_directory=run_directory,
                 python_executable=python_executable,
                 create_missing_password=create_missing_password,
+                tag_id=tag_id,
+                organization_name=organization_name,
+                allow_tag_lookup=allow_tag_lookup,
             )
             check_operation_ownership()
             report_generator.main(report_arguments, current_time=current_time)
@@ -216,6 +231,9 @@ def generate_report_output(
         output_directory=output_directory,
         python_executable=python_executable,
         create_missing_password=create_missing_password,
+        tag_id=tag_id,
+        organization_name=organization_name,
+        allow_tag_lookup=allow_tag_lookup,
     )
     check_operation_ownership()
     report_generator.main(report_arguments, current_time=current_time)
@@ -284,6 +302,8 @@ def run_due_reports(
                     output_directory=output_directory,
                     storage_mode=resolved_storage_mode,
                     staging_directory=staging_directory,
+                    tag_id=stakeholder.qualys_tag_id,
+                    organization_name=stakeholder.customer_name,
                 )
             completion_attempted = True
             complete_report_run_by_id(
@@ -464,6 +484,8 @@ def run_recent_scan_reports(
                     output_directory=output_directory,
                     storage_mode=resolved_storage_mode,
                     staging_directory=staging_directory,
+                    tag_id=candidate.tag_id,
+                    organization_name=candidate.organization_name,
                 )
             completion_attempted = True
             complete_report_run_by_id(

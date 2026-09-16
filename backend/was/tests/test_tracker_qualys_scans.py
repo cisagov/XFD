@@ -29,6 +29,41 @@ from was_reports.tracker.qualys_scans import (
 class TrackerQualysScansTests(unittest.TestCase):
     """Validate tracker schedule parsing and matching."""
 
+    @patch(
+        "was_reports.tracker.item_builder.stakeholder_flags",
+        return_value=("", False),
+    )
+    def test_qualys_error_list_uses_only_internal_error_results(
+        self,
+        mock_flags,
+    ) -> None:
+        """Exclude processing scans from the customer Qualys-error block."""
+        for result, expected_error in (
+            ("SCAN_INTERNAL_ERROR", "https://example.gov<br>"),
+            ("SCAN_RESULTS_INVALID", "https://example.gov<br>"),
+            ("PROCESSING", ""),
+        ):
+            with self.subTest(result=result):
+                scan = etree.fromstring(
+                    (
+                        "<WasScan><status>FINISHED</status><summary>"
+                        "<resultsStatus>{}</resultsStatus></summary><target>"
+                        "<webApp><url>https://example.gov</url></webApp>"
+                        "</target></WasScan>"
+                    ).format(result).encode("utf-8")
+                )
+                fields = create_multiscan(
+                    Mock(),
+                    "TAG",
+                    "Customer",
+                    "Customer Run #1",
+                    [scan],
+                    "2026-09-02T00:00:00Z",
+                    set(),
+                )
+                self.assertEqual(fields[7], expected_error)
+        self.assertEqual(mock_flags.call_count, 3)
+
     def test_xml_entities_are_not_expanded(self) -> None:
         """Leave declared entities unresolved rather than exposing their contents."""
         root = parse_xml(
@@ -63,8 +98,7 @@ class TrackerQualysScansTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             scheduled_execution_key(2, "2026-09-01T00:00:00")
 
-    @patch("was_reports.tracker.qualys_scans.get_tag_id", return_value="1")
-    def test_recurring_schedule_uses_actual_launch(self, mock_tag) -> None:
+    def test_recurring_schedule_uses_actual_launch(self) -> None:
         """Previously recorded schedules remain eligible for later executions."""
         client = Mock()
         client.request.return_value = (
@@ -72,6 +106,8 @@ class TrackerQualysScansTests(unittest.TestCase):
             "<name>WAVS - TAG - Customer - Monthly</name>"
             "<lastScan><launchedDate>2026-09-03T00:00:00Z</launchedDate></lastScan>"
             "<nextLaunchDate>2026-10-03T00:00:00Z</nextLaunchDate>"
+            "<target><tags><included><tagList><list><Tag><id>1</id>"
+            "</Tag></list></tagList></included></tags></target>"
             "</WasScanSchedule></data></ServiceResponse>"
         )
         candidates = search_schedules(client, datetime(2026, 9, 1), {2})
@@ -80,9 +116,8 @@ class TrackerQualysScansTests(unittest.TestCase):
             next(iter(candidates.values())).launched_date, "2026-09-03T00:00:00Z"
         )
 
-    @patch("was_reports.tracker.qualys_scans.get_tag_id", return_value="9")
-    def test_schedule_search_resolves_each_unique_tag_once(self, mock_tag) -> None:
-        """Reuse one Qualys tag lookup across multiple schedules for a tag."""
+    def test_schedule_search_uses_tag_ids_in_schedule_response(self) -> None:
+        """Use schedule target data without an Asset Management tag lookup."""
         client = Mock()
         client.request.return_value = (
             "<ServiceResponse><data>"
@@ -90,11 +125,15 @@ class TrackerQualysScansTests(unittest.TestCase):
             "<name>WAVS - TAG - Customer - Monthly</name>"
             "<lastScan><launchedDate>2026-09-03T00:00:00Z</launchedDate>"
             "</lastScan><nextLaunchDate>2026-10-03T00:00:00Z</nextLaunchDate>"
+            "<target><tags><included><tagList><list><Tag><id>9</id>"
+            "</Tag></list></tagList></included></tags></target>"
             "</WasScanSchedule>"
             "<WasScanSchedule><id>3</id>"
             "<name>WAVS - TAG - Customer - Daily</name>"
             "<lastScan><launchedDate>2026-09-04T00:00:00Z</launchedDate>"
             "</lastScan><nextLaunchDate>2026-09-05T00:00:00Z</nextLaunchDate>"
+            "<target><tags><included><tagList><list><Tag><id>9</id>"
+            "</Tag></list></tagList></included></tags></target>"
             "</WasScanSchedule>"
             "</data></ServiceResponse>"
         )
@@ -102,13 +141,11 @@ class TrackerQualysScansTests(unittest.TestCase):
         candidates = search_schedules(client, datetime(2026, 9, 1), set())
 
         self.assertEqual(len(candidates), 2)
-        mock_tag.assert_called_once_with(client, "TAG")
+        self.assertTrue(
+            all(candidate.tag_id == 9 for candidate in candidates.values())
+        )
 
-    @patch("was_reports.tracker.qualys_scans.get_tag_id")
-    def test_schedule_without_any_next_launch_date_is_skipped(
-        self,
-        mock_get_tag_id,
-    ) -> None:
+    def test_schedule_without_any_next_launch_date_is_skipped(self) -> None:
         """Continue schedule discovery when an ad hoc next date is unavailable."""
         client = Mock()
         client.request.side_effect = [
@@ -129,7 +166,6 @@ class TrackerQualysScansTests(unittest.TestCase):
 
         self.assertEqual(candidates, {})
         self.assertEqual(client.request.call_count, 2)
-        mock_get_tag_id.assert_not_called()
         self.assertIn(
             "neither it nor its primary schedule has a next launch date",
             captured_logs.output[0],

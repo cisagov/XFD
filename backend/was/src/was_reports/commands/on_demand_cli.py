@@ -71,6 +71,7 @@ def run_on_demand(args: argparse.Namespace) -> int:
                 output_directory="/output",
                 storage_mode="s3",
                 staging_directory=args.staging_directory,
+                allow_tag_lookup=True,
             )
     except OperationCancelledError as error:
         fail_report_run_by_id(

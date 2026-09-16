@@ -50,6 +50,7 @@ class TrackerItem:
     fceb: bool
     schedule_id: int
     qualys_errors: str
+    tag_id: int | None = None
     scan_execution_key: str | None = None
 
 

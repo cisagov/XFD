@@ -90,6 +90,9 @@ def generate_production_report(
     report_run_id: int | None = None,
     generation_token: str | None = None,
     current_time: datetime | None = None,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = False,
 ) -> Path:
     """Run the production report pipeline and return its encrypted PDF."""
     # Third-Party Libraries
@@ -178,6 +181,9 @@ def generate_production_report(
             report_id_clearer=report_id_clearer,
             report_status_recorder=report_status_recorder,
             report_creation_intent_claim=report_creation_intent_claim,
+            tag_id=tag_id,
+            organization_name=organization_name,
+            allow_tag_lookup=allow_tag_lookup,
         )
 
 
@@ -226,6 +232,20 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--generation-token",
         help="Ownership token for the supplied database report run.",
+    )
+    parser.add_argument(
+        "--tag-id",
+        type=int,
+        help="Qualys tag ID already obtained from schedule data.",
+    )
+    parser.add_argument(
+        "--organization-name",
+        help="Customer name already obtained from stakeholder data.",
+    )
+    parser.add_argument(
+        "--allow-tag-lookup",
+        action="store_true",
+        help="Allow a Qualys Asset Management tag lookup for a manual report.",
     )
     parser.add_argument(
         "--resource-root",
@@ -283,6 +303,13 @@ def main(
         report_password=args.report_password,
         create_missing_password=args.create_missing_password,
     )
+    production_options = {}
+    if args.report_run_id is not None or args.tag_id is not None:
+        production_options = {
+            "tag_id": args.tag_id,
+            "organization_name": args.organization_name,
+            "allow_tag_lookup": args.allow_tag_lookup,
+        }
     generate_production_report(
         stakeholder_tag=stakeholder_tag,
         resource_root=resource_root,
@@ -293,6 +320,7 @@ def main(
         report_run_id=args.report_run_id,
         generation_token=args.generation_token,
         current_time=current_time,
+        **production_options,
     )
     return 0
 

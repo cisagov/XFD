@@ -16,6 +16,14 @@ from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import configure_logging
 from was_reports.utils.passwords import DEFAULT_PASSWORD_LENGTH
 from was_reports.utils.states import validate_state_code
+from was_reports.utils.stakeholder_validation import (
+    REQUIRED_STAKEHOLDER_FIELDS,
+    STAKEHOLDER_DATE_FIELDS,
+    STAKEHOLDER_EMAIL_FIELDS,
+    parse_stakeholder_date,
+    validate_email_value,
+    validate_stakeholder_tag,
+)
 
 
 SOURCE_TO_DATABASE = (
@@ -106,9 +114,10 @@ def read_source_rows(input_path: Path) -> list[dict[str, str]]:
     for row_number, row in enumerate(rows, 2):
         if None in row:
             raise ValueError("Row {} contains extra CSV fields.".format(row_number))
-        tag = row["Tag"].strip()
-        if not tag:
-            raise ValueError("Row {} has a blank stakeholder tag.".format(row_number))
+        try:
+            tag = validate_stakeholder_tag(row["Tag"])
+        except ValueError as error:
+            raise ValueError("Row {}: {}".format(row_number, error)) from error
         if tag in tag_rows:
             raise ValueError(
                 "Duplicate stakeholder tag at rows {} and {}.".format(
@@ -156,6 +165,9 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
     if not value.strip():
         if header in BOOLEAN_SOURCE_HEADERS:
             return "FALSE"
+        database_column = dict(SOURCE_TO_DATABASE)[header]
+        if database_column in REQUIRED_STAKEHOLDER_FIELDS:
+            raise ValueError("{} must not be null or blank.".format(header))
         return null_token
     if header in BOOLEAN_SOURCE_HEADERS:
         normalized = value.strip().lower()
@@ -164,6 +176,11 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
         return normalized.upper()
     if header == "State":
         return validate_state_code(value)
+    database_column = dict(SOURCE_TO_DATABASE)[header]
+    if database_column in STAKEHOLDER_EMAIL_FIELDS:
+        validate_email_value(value, header)
+    if database_column in STAKEHOLDER_DATE_FIELDS:
+        return str(parse_stakeholder_date(value))
     if value == null_token:
         raise ValueError("A source value conflicts with the configured NULL token.")
     if header == "Report Password":

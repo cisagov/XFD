@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from email.headerregistry import Address
 from email.message import EmailMessage
 from html import escape
+from importlib.resources import files
 from pathlib import Path
 from typing import Iterable, List
 from zoneinfo import ZoneInfo
@@ -13,6 +14,7 @@ from zoneinfo import ZoneInfo
 from was_reports.data.assignees import list_active_assignee_emails_from_db
 
 # First-Party Libraries
+from was_mailer import customer_email_templates
 from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
 
 EASTERN_TIME = ZoneInfo("America/New_York")
@@ -22,6 +24,8 @@ ACTION_REQUIRED_TEMPLATES = frozenset(
 )
 CYBER_HYGIENE_URL = "https://www.cisa.gov/cyber-hygiene-services"
 WAS_ALLOWLIST_URL = "https://rules.vm.cyber.dhs.gov/was.txt"
+CISA_LOGO_RESOURCE = "resources/assets/cisa-logo.png"
+CISA_LOGO_CONTENT_ID = "cisa-logo"
 
 
 class AnalystRecipientError(ValueError):
@@ -150,9 +154,11 @@ def build_report_email(
     recipients: List[str],
     stakeholder_tag: str,
     report_path: Path | None,
+    poc_name: str | None = None,
     template: str | None = None,
     assignee_name: str | None = None,
     recent_nws: str | None = None,
+    nws_summary: str | None = None,
     remove_nws: str | None = None,
     qualys_error: str | None = None,
     last_scanned: int | None = None,
@@ -182,9 +188,11 @@ def build_report_email(
     )
     plain_body = report_email_body(
         stakeholder_tag=stakeholder_tag,
+        poc_name=poc_name,
         template=normalized_template,
         assignee_name=assignee_name,
         recent_nws=recent_nws,
+        nws_summary=nws_summary,
         remove_nws=remove_nws,
         qualys_error=qualys_error,
         last_scanned=last_scanned,
@@ -198,6 +206,15 @@ def build_report_email(
             stakeholder_tag=stakeholder_tag,
         ),
         subtype="html",
+    )
+    html_part = message.get_payload()[-1]
+    html_part.add_related(
+        files("was_reports").joinpath(CISA_LOGO_RESOURCE).read_bytes(),
+        maintype="image",
+        subtype="png",
+        cid="<{}>".format(CISA_LOGO_CONTENT_ID),
+        filename="cisa-logo.png",
+        disposition="inline",
     )
 
     if attachment_required and report_path is not None:
@@ -243,6 +260,31 @@ def eastern_timestamp(epoch_value: int | None) -> str:
     )
 
 
+def eastern_date(epoch_value: int | None) -> str | None:
+    """Format an epoch timestamp as the customer-facing Eastern calendar date."""
+    if epoch_value is None:
+        return None
+    timestamp = datetime.fromtimestamp(epoch_value, tz=timezone.utc)
+    return timestamp.astimezone(EASTERN_TIME).strftime("%B %d, %Y")
+
+
+def nws_counts(raw_summary: str | None) -> tuple[int, int] | None:
+    """Return total and inaccessible counts from the tracker NWS summary."""
+    if not raw_summary:
+        return None
+    parts = [part.strip() for part in raw_summary.split(",")]
+    if len(parts) < 2:
+        return None
+    try:
+        total_count = int(parts[0])
+        inaccessible_count = int(parts[1])
+    except ValueError:
+        return None
+    if total_count < 0 or inaccessible_count < 0:
+        return None
+    return total_count, inaccessible_count
+
+
 def append_value_list(lines: list[str], heading: str, values: list[str]) -> None:
     """Append a labeled customer-safe value list to an email body."""
     if not values:
@@ -252,9 +294,11 @@ def append_value_list(lines: list[str], heading: str, values: list[str]) -> None
 
 def report_email_body(
     stakeholder_tag: str,
+    poc_name: str | None,
     template: str,
     assignee_name: str | None,
     recent_nws: str | None,
+    nws_summary: str | None,
     remove_nws: str | None,
     qualys_error: str | None,
     last_scanned: int | None,
@@ -262,69 +306,120 @@ def report_email_body(
     analyst_delivery: bool = False,
 ) -> str:
     """Return the approved plain-text body for a WAS tracker outcome."""
-    lines = ["Hello,", ""]
+    greeting_name = (poc_name or "").strip()
+    greeting = (
+        "Hello {},".format(greeting_name)
+        if greeting_name and not analyst_delivery
+        else "Hello,"
+    )
+    lines = [greeting, ""]
     if analyst_delivery:
-        lines.append(
-            "The requested on-demand WAS report for {} is attached for "
-            "analyst review. This message is not a customer delivery.".format(
-                stakeholder_tag
-            )
-        )
-    elif template in ALL_NWS_TEMPLATES:
-        lines.append(
-            "The latest WAS scan for {} found no accessible web services. "
-            "No PDF report was generated for this scan.".format(stakeholder_tag)
-        )
-    else:
-        lines.append(
-            "The latest WAS report for {} is attached.".format(stakeholder_tag)
-        )
-    lines.extend(
-        [
-            "",
-            "Last scan: {}".format(eastern_timestamp(last_scanned)),
-            "Next scheduled scan: {}".format(eastern_timestamp(next_scheduled)),
-            "",
-        ]
-    )
-
-    append_value_list(
-        lines,
-        "Web applications with no accessible web service:",
-        tracker_values(recent_nws),
-    )
-    if template == "Targets Removed":
-        append_value_list(
-            lines,
-            "Web applications removed from Qualys after two consecutive "
-            "inaccessible scans:",
-            tracker_values(remove_nws),
-        )
-    if template == "FCEB All NWS" or template == "FCEB Action Required":
         lines.extend(
             [
-                "FCEB web applications remain enrolled during inaccessible "
-                "scans and are removed only at the customer's request.",
+                "The requested on-demand WAS report for {} is attached for "
+                "analyst review. This message is not a customer delivery.".format(
+                    stakeholder_tag
+                ),
+                "",
+                "Regards,",
+                assignee_name or "CISA WAS Reporting Team",
+            ]
+        )
+        return "\n".join(lines)
+
+    if template not in ALL_NWS_TEMPLATES:
+        lines.extend(
+            [
+                customer_email_templates.ALLOWLIST_NOTICE.format(
+                    allowlist_url=WAS_ALLOWLIST_URL
+                ),
+                "",
+                customer_email_templates.REPORT_ATTACHMENT_NOTICE,
                 "",
             ]
         )
+    else:
+        lines.extend([customer_email_templates.NO_REPORT_NOTICE, ""])
+
+    inaccessible_targets = tracker_values(recent_nws)
+    if inaccessible_targets:
+        lines.extend([customer_email_templates.NWS_EXPLANATION, ""])
+        counts = nws_counts(nws_summary)
+        if counts is None:
+            lines.append(customer_email_templates.INACCESSIBLE_TARGETS)
+        else:
+            total_count, inaccessible_count = counts
+            lines.append(
+                customer_email_templates.INACCESSIBLE_TARGETS_WITH_COUNTS.format(
+                    inaccessible_count=inaccessible_count,
+                    total_count=total_count,
+                )
+            )
+        lines.extend([*["- {}".format(value) for value in inaccessible_targets], ""])
+        lines.append(customer_email_templates.INACCESSIBLE_REASONS_HEADING)
+        lines.extend(
+            [
+                *[
+                    "- {}".format(reason)
+                    for reason in customer_email_templates.INACCESSIBLE_REASONS
+                ],
+                "",
+            ]
+        )
+
+        if template in {"FCEB All NWS", "FCEB Action Required"}:
+            lines.extend([customer_email_templates.FCEB_RETENTION_NOTICE, ""])
+        elif template == "All NWS":
+            lines.extend([customer_email_templates.TWO_SCAN_REMOVAL_NOTICE, ""])
+
+    if template == "Targets Removed":
+        removed_targets = tracker_values(remove_nws)
+        append_value_list(
+            lines,
+            customer_email_templates.REMOVED_TARGETS_HEADING,
+            removed_targets,
+        )
+        if removed_targets:
+            lines.extend(
+                [customer_email_templates.TARGETS_REMOVED_REQUEST_NOTICE, ""]
+            )
+    qualys_error_targets = tracker_values(qualys_error)
     append_value_list(
         lines,
-        "The following web applications encountered Qualys errors and do not "
-        "have updated results in this report:",
-        tracker_values(qualys_error),
+        customer_email_templates.QUALYS_ERROR_HEADING,
+        qualys_error_targets,
     )
+    if qualys_error_targets:
+        lines.extend([customer_email_templates.QUALYS_ERROR_RESCAN_NOTICE, ""])
+
+    if template not in ALL_NWS_TEMPLATES:
+        lines.extend(
+            [
+                customer_email_templates.APPENDIX_NOTICE.format(
+                    faq_url=CYBER_HYGIENE_URL
+                ),
+                "",
+                customer_email_templates.PASSWORD_SUPPORT_NOTICE,
+                "",
+                customer_email_templates.SENSITIVE_DATA_NOTICE,
+                "",
+            ]
+        )
+
+    lines.extend([customer_email_templates.QUESTIONS_NOTICE, ""])
+    next_scan_date = eastern_date(next_scheduled)
+    if next_scan_date is not None:
+        lines.extend(
+            [
+                customer_email_templates.NEXT_SCAN_NOTICE.format(
+                    next_scan_date=next_scan_date
+                ),
+                "",
+            ]
+        )
     lines.extend(
         [
-            "Qualys is currently unable to provide the sensitive-data "
-            "attachment for Social Security number and credit-card findings. "
-            "This temporary notice will be removed after Qualys restores the "
-            "capability.",
-            "",
-            "CISA Cyber Hygiene Services: {}".format(CYBER_HYGIENE_URL),
-            "WAS scanner IP allowlist: {}".format(WAS_ALLOWLIST_URL),
-            "",
-            "Thank you,",
+            "Regards,",
             assignee_name or "CISA WAS Reporting Team",
         ]
     )
@@ -344,8 +439,15 @@ def report_email_html(plain_body: str, stakeholder_tag: str) -> str:
     return (
         "<!doctype html><html><body>"
         '<h1 style="font-size:1.25rem">WAS Results for {}</h1>{}'
+        '<div style="margin-top:1.5rem">'
+        '<img src="cid:{}" alt="CISA" style="max-width:240px;height:auto">'
+        "</div>"
         "</body></html>"
-    ).format(escape(stakeholder_tag), "".join(paragraphs))
+    ).format(
+        escape(stakeholder_tag),
+        "".join(paragraphs),
+        CISA_LOGO_CONTENT_ID,
+    )
 
 
 def build_assignee_digest_email(

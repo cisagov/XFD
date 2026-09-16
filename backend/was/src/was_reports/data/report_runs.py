@@ -63,6 +63,7 @@ class ReportRunEmail:
     template: str | None = None
     assignee_name: str | None = None
     recent_nws: str | None = None
+    nws_summary: str | None = None
     remove_nws: str | None = None
     qualys_error: str | None = None
     last_scanned: int | None = None
@@ -1126,6 +1127,7 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 tracker.template,
                 COALESCE(assignees.name, tracker.assignee),
                 tracker.recent_nws,
+                tracker.nws,
                 tracker.remove_nws,
                 tracker.qualys_error,
                 stakeholders.last_scanned,
@@ -1171,12 +1173,13 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
         template=row[9],
         assignee_name=row[10],
         recent_nws=row[11],
-        remove_nws=row[12],
-        qualys_error=row[13],
-        last_scanned=row[14],
-        next_scheduled=row[15],
-        email_claim_token=row[16],
-        delivery_purpose=row[17],
+        nws_summary=row[12],
+        remove_nws=row[13],
+        qualys_error=row[14],
+        last_scanned=row[15],
+        next_scheduled=row[16],
+        email_claim_token=row[17],
+        delivery_purpose=row[18],
     )
 
 
@@ -1201,6 +1204,7 @@ def list_report_runs_ready_for_email(
             tracker.template,
             COALESCE(assignees.name, tracker.assignee),
             tracker.recent_nws,
+            tracker.nws,
             tracker.remove_nws,
             tracker.qualys_error,
             stakeholders.last_scanned,
@@ -1262,12 +1266,13 @@ def list_report_runs_ready_for_email(
                 template=row[9],
                 assignee_name=row[10],
                 recent_nws=row[11],
-                remove_nws=row[12],
-                qualys_error=row[13],
-                last_scanned=row[14],
-                next_scheduled=row[15],
-                email_claim_token=row[16],
-                delivery_purpose=row[17],
+                nws_summary=row[12],
+                remove_nws=row[13],
+                qualys_error=row[14],
+                last_scanned=row[15],
+                next_scheduled=row[16],
+                email_claim_token=row[17],
+                delivery_purpose=row[18],
             )
         )
 
@@ -1323,6 +1328,7 @@ def claim_report_run_email(
             tracker.template,
             COALESCE(assignees.name, tracker.assignee),
             tracker.recent_nws,
+            tracker.nws,
             tracker.remove_nws,
             tracker.qualys_error,
             stakeholders.last_scanned,
@@ -1370,12 +1376,13 @@ def claim_report_run_email(
         template=row[9],
         assignee_name=row[10],
         recent_nws=row[11],
-        remove_nws=row[12],
-        qualys_error=row[13],
-        last_scanned=row[14],
-        next_scheduled=row[15],
-        email_claim_token=row[16],
-        delivery_purpose=row[17],
+        nws_summary=row[12],
+        remove_nws=row[13],
+        qualys_error=row[14],
+        last_scanned=row[15],
+        next_scheduled=row[16],
+        email_claim_token=row[17],
+        delivery_purpose=row[18],
     )
 
 

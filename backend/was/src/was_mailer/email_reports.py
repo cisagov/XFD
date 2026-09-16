@@ -124,12 +124,16 @@ def send_report_run_email(
                     recipients=recipients,
                     stakeholder_tag=report_run_email.stakeholder_tag,
                     report_path=report_path,
+                    poc_name=report_run_email.was_report_poc,
                     template=(
                         "Results" if analyst_delivery else report_run_email.template
                     ),
                     assignee_name=report_run_email.assignee_name,
                     recent_nws=(
                         None if analyst_delivery else report_run_email.recent_nws
+                    ),
+                    nws_summary=(
+                        None if analyst_delivery else report_run_email.nws_summary
                     ),
                     remove_nws=(
                         None if analyst_delivery else report_run_email.remove_nws

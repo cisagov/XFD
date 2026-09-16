@@ -19,7 +19,6 @@ from was_reports.data.daily_report_tracker import (
     recent_schedule_ids,
 )
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
-from was_reports.qualys.report_data import get_tag_id
 from was_reports.tracker.models import (
     QualysScan,
     TrackerStakeholder,
@@ -174,6 +173,27 @@ def build_schedule_search_payload(input_date: datetime, offset: int) -> str:
     )
 
 
+def schedule_tag_id(schedule: etree._Element) -> int:
+    """Return the single included tag ID from a Qualys schedule response."""
+    tag_ids = []
+    for path in (
+        "./target/tags/included/tagList/list/Tag/id",
+        "./target/tags/included/tagList/set/Tag/id",
+        "./target/tags/included/tagList/Tag/id",
+    ):
+        tag_ids.extend(
+            value.strip()
+            for value in schedule.xpath("{}/text()".format(path))
+            if value.strip()
+        )
+    unique_tag_ids = tuple(dict.fromkeys(tag_ids))
+    if len(unique_tag_ids) != 1:
+        raise LookupError(
+            "Qualys schedule must contain exactly one included tag ID."
+        )
+    return int(unique_tag_ids[0])
+
+
 def search_schedules(
     client: QualysClient,
     input_date: datetime,
@@ -184,7 +204,6 @@ def search_schedules(
     input_date_text = input_date.strftime("%Y-%m-%dT%H:%M:%SZ")
     LOGGER.info("Tracker schedule search starts after %s", input_date_text)
     stakeholders: dict[str, TrackerStakeholder] = {}
-    tag_ids_by_tag: dict[str, int] = {}
     offset = 1
     while True:
         LOGGER.info("Fetching Qualys schedules from offset %d", offset)
@@ -236,11 +255,9 @@ def search_schedules(
                     continue
             execution_key = scheduled_execution_key(schedule_id, launched_date)
             if execution_key not in stakeholders:
-                if tag not in tag_ids_by_tag:
-                    tag_ids_by_tag[tag] = int(get_tag_id(client, tag))
                 stakeholders[execution_key] = TrackerStakeholder(
                     name=stakeholder_name,
-                    tag_id=tag_ids_by_tag[tag],
+                    tag_id=schedule_tag_id(schedule),
                     next_scan_date=next_scan_date,
                     launched_date=launched_date,
                     schedule_id=schedule_id,

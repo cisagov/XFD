@@ -870,6 +870,20 @@ Reduce the worker count if Qualys throttling or account-level capacity becomes
 visible. The documented 2,000-request-per-hour Qualys limit still applies to the
 combined worker pool.
 
+Run a real parallel end-to-end batch while redirecting every report, retry, and
+assignee digest to one or more active WAS assignee email addresses:
+
+```bash
+make recent-scan-batch-assignee-test \
+  TEST_RECIPIENTS="analyst@example.gov"
+```
+
+This command uses the same 30-container default as the production batch. It
+does not use customer email addresses. Recipient validation requires every
+submitted address to belong to an active, email-enabled WAS assignee. This is a
+live test that generates reports, archives them to S3, sends SES email, and
+updates successful tracker rows as sent.
+
 For a controlled end-to-end batch test, redirect every report and digest to one
 or more active WAS assignees. Customer addresses are not used, but successful
 tracker rows are recorded as sent:
@@ -984,11 +998,13 @@ Time, include the approved Cyber Hygiene and scanner allowlist links, and retain
 the temporary sensitive-data attachment notice until Qualys restores that
 capability. Removal eligibility uses two consecutive inaccessible scans.
 
-The exported Power Automate flow and Outlook `.msg` files are reference material
-only. Production code does not load or deploy them. Runtime messages are built
-from the tracker template in `src/was_mailer/message.py`, using the approved
-rules documented here when reference wording conflicts. The production workflow
-does not send Microsoft Teams notifications.
+The supplied Outlook `.msg` files are the source for customer-facing email
+wording. Their reusable sections are maintained in
+`src/was_mailer/customer_email_templates.py` and composed by
+`src/was_mailer/message.py` according to the tracker outcome. Report-only
+sections are omitted for notification runs without a PDF, and NWS, FCEB,
+removed-target, and Qualys-error sections are included only when applicable.
+The production workflow does not send Microsoft Teams notifications.
 
 Run the WAS mailer for one completed report run:
 
@@ -1452,6 +1468,7 @@ make update-tracker-delete-apps
 make assignee-digests
 make recent-scan-batch
 make recent-scan-batch BATCH_WORKERS=30
+make recent-scan-batch-assignee-test TEST_RECIPIENTS="analyst@example.gov"
 make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
 make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"

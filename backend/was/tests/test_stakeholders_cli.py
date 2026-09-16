@@ -1,6 +1,7 @@
 """Tests for the WAS stakeholder administration CLI."""
 
 # Standard Python Libraries
+import argparse
 import csv
 import os
 from pathlib import Path
@@ -14,6 +15,32 @@ from was_reports.commands import stakeholders_cli
 
 class StakeholdersCliTests(unittest.TestCase):
     """Validate stakeholder command safety and output behavior."""
+
+    def test_date_input_accepts_yyyy_mm_dd(self) -> None:
+        """Convert exact date-only input to midnight UTC epoch seconds."""
+        self.assertEqual(
+            stakeholders_cli.stakeholder_date_value("2026-09-16"),
+            1789516800,
+        )
+
+    def test_date_input_rejects_non_padded_date(self) -> None:
+        """Require date-only input to use the approved format."""
+        with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
+            stakeholders_cli.normalize_stakeholder_update(
+                "last_scanned",
+                "2026-9-6",
+            )
+
+    def test_tag_input_rejects_whitespace(self) -> None:
+        """Reject customer tags containing spaces or other whitespace."""
+        with self.assertRaisesRegex(argparse.ArgumentTypeError, "whitespace"):
+            stakeholders_cli.stakeholder_tag_value("CUSTOMER TAG")
+
+    def test_required_field_cannot_be_cleared(self) -> None:
+        """Prevent update commands from nulling required stakeholder fields."""
+        arguments = Mock(set_values=[], clear_values=["testing_sector"])
+        with self.assertRaisesRegex(ValueError, "cannot be cleared"):
+            stakeholders_cli.stakeholder_updates(arguments)
 
     def test_state_update_requires_exact_uppercase_valid_code(self) -> None:
         """Reject lowercase and unknown stakeholder state codes."""

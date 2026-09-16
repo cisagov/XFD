@@ -37,6 +37,7 @@ class DailyReportTrackerRow:
     remove_nws: str | None = None
     legacy_password: str | None = None
     schedule_id: int | None = None
+    tag_id: int | None = None
     qualys_error: str | None = None
     assignee_emailed_at: datetime | None = None
     assignee_email_message_id: str | None = None
@@ -71,6 +72,8 @@ class TrackerReportCandidate:
     report_run_id: int | None = None
     report_run_status: str | None = None
     report_email_status: str | None = None
+    tag_id: int | None = None
+    organization_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,7 @@ TRACKER_RECORD_COLUMNS = (
     "recent_nws",
     "remove_nws",
     "schedule_id",
+    "tag_id",
     "scan_execution_key",
     "qualys_error",
     "assignee_emailed_at",
@@ -155,6 +159,7 @@ def insert_daily_report_tracker_row(
                     remove_nws,
                     legacy_password,
                     schedule_id,
+                    tag_id,
                     qualys_error,
                     assignee_emailed_at,
                     assignee_email_message_id,
@@ -164,7 +169,7 @@ def insert_daily_report_tracker_row(
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s
+                    %s, %s, %s, %s
                 )
                 ON CONFLICT (scan_execution_key)
                     WHERE scan_execution_key IS NOT NULL
@@ -192,6 +197,7 @@ def insert_daily_report_tracker_row(
                     row.remove_nws,
                     row.legacy_password,
                     row.schedule_id,
+                    row.tag_id,
                     row.qualys_error,
                     row.assignee_emailed_at,
                     row.assignee_email_message_id,
@@ -277,6 +283,8 @@ def list_ready_report_candidates(
             tracker.data_pull_date,
             tracker.schedule_id,
             tracker.assignee_id,
+            tracker.tag_id,
+            stakeholders.customer_name,
             tracker.template,
             tracker.remove_nws,
             runs.id,
@@ -354,11 +362,13 @@ def list_ready_report_candidates(
             data_pull_date=row[2],
             schedule_id=row[3],
             assignee_id=row[4],
-            template=row[5],
-            remove_nws=row[6],
-            report_run_id=row[7],
-            report_run_status=row[8],
-            report_email_status=row[9],
+            tag_id=row[5],
+            organization_name=row[6],
+            template=row[7],
+            remove_nws=row[8],
+            report_run_id=row[9],
+            report_run_status=row[10],
+            report_email_status=row[11],
         )
         for row in rows
     ]

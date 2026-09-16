@@ -104,6 +104,50 @@ class WasMailerTests(unittest.TestCase):
         self.assertEqual(message["Subject"], "TAG1 WAS Results")
         self.assertNotIn("password123", message.as_string())
         self.assertIn("TAG1_report_2026-08-26.pdf", message.as_string())
+        html_body = message.get_body(preferencelist=("html",)).get_content()
+        self.assertIn('src="cid:cisa-logo"', html_body)
+        inline_images = [
+            part
+            for part in message.walk()
+            if part.get_content_type() == "image/png"
+        ]
+        self.assertEqual(len(inline_images), 1)
+        self.assertEqual(inline_images[0].get_filename(), "cisa-logo.png")
+
+    def test_build_report_email_greets_customer_poc(self) -> None:
+        """Address a customer report email to the configured WAS report POC."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                poc_name="Customer Name",
+            )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertTrue(body.startswith("Hello Customer Name,\n"))
+
+    def test_build_report_email_uses_generic_analyst_salutation(self) -> None:
+        """Do not address an analyst-only delivery to the customer POC."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["analyst@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                poc_name="Customer Name",
+                analyst_delivery=True,
+            )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertTrue(body.startswith("Hello,\n"))
 
     def test_build_all_nws_email_has_no_attachment(self) -> None:
         """Send an All NWS notice without inventing a PDF attachment."""
@@ -137,6 +181,117 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertIn("do not have updated results", message.as_string())
         self.assertIn("https://error.example.gov", message.as_string())
+        self.assertIn("preferred date and time", message.as_string())
+
+    def test_results_email_uses_supplied_template_sections(self) -> None:
+        """Compose a Results email from the supplied customer template sections."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                template="Results",
+                next_scheduled=1790985600,
+            )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertIn("review and revise your allowlist", body)
+        self.assertIn("Attached is a report containing the results", body)
+        self.assertIn("Appendix C: Attachments", body)
+        self.assertIn("update your WAS report password", body)
+        self.assertIn("Your next scan is scheduled for", body)
+        self.assertNotIn("common reasons why", body)
+
+    def test_action_required_email_uses_conditional_nws_sections(self) -> None:
+        """Add supplied inaccessible-target sections only when NWS data exists."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                template="Action Required",
+                recent_nws="https://one.example.gov<br>https://two.example.gov<br>",
+                nws_summary="5, 2, 0",
+            )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertIn("2 out of 5 web applications", body)
+        self.assertIn("NWS means No Web Service", body)
+        self.assertIn("https://one.example.gov", body)
+        self.assertIn("common reasons why", body)
+        self.assertNotIn("consecutive scans", body)
+
+    def test_targets_removed_extends_action_required_sections(self) -> None:
+        """Add removed targets and instructions for requesting replacements."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                template="Targets Removed",
+                recent_nws="https://nws.example.gov<br>",
+                nws_summary="5, 1, 1",
+                remove_nws="https://removed.example.gov<br>",
+            )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertIn("https://nws.example.gov", body)
+        self.assertIn("common reasons why", body)
+        self.assertIn("after two consecutive inaccessible scans", body)
+        self.assertIn("https://removed.example.gov", body)
+        self.assertIn("request additional targets", body)
+
+    def test_all_nws_email_omits_report_only_sections(self) -> None:
+        """Do not include attachment guidance when an All NWS run has no PDF."""
+        message = build_report_email(
+            source_email="sender@example.gov",
+            recipients=["recipient@example.gov"],
+            stakeholder_tag="TAG1",
+            report_path=None,
+            template="All NWS",
+            recent_nws="https://example.gov<br>",
+            nws_summary="1, 1, 0",
+        )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertIn("No PDF report was generated", body)
+        self.assertIn("2 consecutive scans", body)
+        self.assertNotIn("Attached is a report", body)
+        self.assertNotIn("Appendix C: Attachments", body)
+        self.assertNotIn("review and revise your allowlist", body)
+
+    def test_fceb_action_email_uses_retention_section(self) -> None:
+        """Replace target-removal wording with the FCEB retention rule."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                template="FCEB Action Required",
+                recent_nws="https://example.gov<br>",
+                nws_summary="2, 1, 0",
+            )
+
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertIn("removed only at the customer's request", body)
+        self.assertNotIn("2 consecutive scans", body)
+        self.assertNotIn("3 consecutive scans", body)
 
     def test_build_report_email_requires_recipient(self) -> None:
         """Reject messages without recipients."""

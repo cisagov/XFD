@@ -12,6 +12,12 @@ from was_reports.utils.passwords import (
     validate_report_password,
 )
 from was_reports.utils.states import validate_state_code
+from was_reports.utils.stakeholder_validation import (
+    STAKEHOLDER_EMAIL_FIELDS,
+    validate_email_value,
+    validate_required_fields,
+    validate_stakeholder_tag,
+)
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -27,6 +33,8 @@ class Stakeholder:
     next_scheduled: Optional[int] = None
     manual_report: bool = False
     retired: bool = False
+    customer_name: str = ""
+    qualys_tag_id: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -182,9 +190,7 @@ def get_stakeholder_record(
     conn: connection,
 ) -> dict[str, object]:
     """Return one complete stakeholder row with its password masked."""
-    normalized_tag = tag.strip()
-    if not normalized_tag:
-        raise ValueError("Stakeholder tag must not be empty.")
+    normalized_tag = validate_stakeholder_tag(tag)
     select_expressions = [
         (
             "CASE WHEN report_password IS NULL OR report_password = '' "
@@ -222,15 +228,16 @@ def update_stakeholder_fields(
     conn: connection,
 ) -> None:
     """Update selected allowlisted stakeholder business fields."""
-    normalized_tag = tag.strip()
-    if not normalized_tag:
-        raise ValueError("Stakeholder tag must not be empty.")
+    normalized_tag = validate_stakeholder_tag(tag)
     if not updates:
         raise ValueError("At least one stakeholder field update is required.")
     if set(updates).difference(STAKEHOLDER_MUTABLE_COLUMNS):
         raise ValueError("Unsupported or protected stakeholder field.")
 
     validated_updates = dict(updates)
+    validate_required_fields(validated_updates, require_all=False)
+    for field_name in STAKEHOLDER_EMAIL_FIELDS.intersection(validated_updates):
+        validate_email_value(validated_updates[field_name], field_name)
     if validated_updates.get("state") is not None:
         validated_updates["state"] = validate_state_code(
             str(validated_updates["state"])
@@ -280,14 +287,14 @@ def update_stakeholder_contacts(
     conn: connection,
 ) -> None:
     """Update selected stakeholder POC and email fields."""
-    normalized_tag = tag.strip()
-    if not normalized_tag:
-        raise ValueError("Stakeholder tag must not be empty.")
+    normalized_tag = validate_stakeholder_tag(tag)
     if not updates:
         raise ValueError("At least one stakeholder contact field is required.")
     invalid_columns = set(updates).difference(STAKEHOLDER_CONTACT_COLUMNS)
     if invalid_columns:
         raise ValueError("Unsupported stakeholder contact field.")
+    for field_name in STAKEHOLDER_EMAIL_FIELDS.intersection(updates):
+        validate_email_value(updates[field_name], field_name)
 
     assignments = []
     parameters: list[object] = []
@@ -334,6 +341,10 @@ def create_stakeholder(values: dict[str, object], conn: connection) -> str:
         raise ValueError("Stakeholder creation fields are incomplete or unsupported.")
 
     insert_values = dict(values)
+    insert_values["tag"] = validate_stakeholder_tag(insert_values["tag"])
+    validate_required_fields(insert_values, require_all=True)
+    for field_name in STAKEHOLDER_EMAIL_FIELDS:
+        validate_email_value(insert_values.get(field_name), field_name)
     if insert_values.get("state") is not None:
         insert_values["state"] = validate_state_code(str(insert_values["state"]))
     insert_values["report_password"] = generate_report_password()
@@ -414,6 +425,7 @@ def update_scan_metadata(
     next_scheduled: int,
     num_web_apps: int,
     web_apps_last_updated: int,
+    qualys_tag_id: int | None,
     conn: connection,
 ) -> None:
     """Update scan dates and web app counts for a stakeholder."""
@@ -426,6 +438,7 @@ def update_scan_metadata(
                     next_scheduled = %s,
                     num_web_apps = %s,
                     web_apps_last_updated = %s,
+                    qualys_tag_id = %s,
                     updated_at = NOW()
                 WHERE tag = %s
                 """,
@@ -434,6 +447,7 @@ def update_scan_metadata(
                     next_scheduled,
                     num_web_apps,
                     web_apps_last_updated,
+                    qualys_tag_id,
                     tag,
                 ),
             )
@@ -449,6 +463,7 @@ def update_scan_metadata_for_tag(
     next_scheduled: int,
     num_web_apps: int,
     web_apps_last_updated: int,
+    qualys_tag_id: int | None,
 ) -> None:
     """Update scan metadata using a managed database connection."""
     from was_reports.utils.database import close, connect
@@ -461,6 +476,7 @@ def update_scan_metadata_for_tag(
             next_scheduled=next_scheduled,
             num_web_apps=num_web_apps,
             web_apps_last_updated=web_apps_last_updated,
+            qualys_tag_id=qualys_tag_id,
             conn=conn,
         )
     finally:
@@ -476,7 +492,8 @@ def list_due_stakeholders(
 ) -> List[Stakeholder]:
     """Return stakeholders whose scheduled report date is due."""
     query = """
-        SELECT tag, report_password, next_scheduled, manual_report, retired
+        SELECT tag, report_password, next_scheduled, manual_report, retired,
+               customer_name, qualys_tag_id
         FROM was_stakeholders
         WHERE next_scheduled IS NOT NULL
           AND next_scheduled <= %s
@@ -508,6 +525,8 @@ def list_due_stakeholders(
                 next_scheduled=row[2],
                 manual_report=bool(row[3]),
                 retired=bool(row[4]),
+                customer_name=(row[5] or row[0]) if len(row) > 5 else row[0],
+                qualys_tag_id=row[6] if len(row) > 6 else None,
             )
         )
 

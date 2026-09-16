@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
-from was_reports.qualys import finding_ages, report_data
+from was_reports.qualys import finding_ages
 from was_reports.reporting import (
     chart_renderer,
     latex_renderer,
@@ -87,11 +87,6 @@ class ReportServiceTests(unittest.TestCase):
             """Yield representative managed Qualys source data."""
             yield source_data
 
-        mock_get_tag_details.return_value = report_data.QualysTagDetails(
-            tag_id="tag-1",
-            name="CUSTOMER",
-            description="Customer Organization",
-        )
         mock_managed_source_data.side_effect = source_context
         mock_transform.return_value = report_transformer.TransformationResult(
             vulnerability_filename="vulnerability-list-CUSTOMER.csv",
@@ -126,6 +121,9 @@ class ReportServiceTests(unittest.TestCase):
             paths=self.paths,
             python_executable="python3",
             current_time=CURRENT_TIME,
+            tag_id="tag-1",
+            organization_name="Customer Organization",
+            allow_tag_lookup=False,
         )
 
         self.assertEqual(result, Path("/output/CUSTOMER_report_2026-08-27.pdf"))
@@ -151,6 +149,7 @@ class ReportServiceTests(unittest.TestCase):
             mock_managed_source_data.call_args.kwargs["tag_id"],
             "tag-1",
         )
+        mock_get_tag_details.assert_not_called()
         mock_render.assert_called_once()
 
     @patch("was_reports.reporting.report_service.publish_encrypted_pdf")

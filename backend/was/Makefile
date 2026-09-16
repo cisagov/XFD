@@ -9,6 +9,7 @@ TRACKER_CSV ?= $(OUTPUT_DIR)/was-daily-tracker.csv
 STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
 TEST_RECIPIENTS ?= operator@example.gov
 BATCH_WORKERS ?= 30
+BATCH_TEST_RECIPIENTS ?=
 TAG ?=
 DAYS_BACK ?= 7
 ASSIGNEE ?=
@@ -21,7 +22,7 @@ INPUT_CSV ?=
 INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-test single-report manual-report
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -89,6 +90,7 @@ recent-scan-batch:
 			--create-missing-password \
 			--continue-on-error \
 			--send-email \
+			$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") \
 			--skip-ready-email-retry & \
 		worker_pids="$$worker_pids $$!"; \
 		worker_index=$$((worker_index + 1)); \
@@ -103,18 +105,25 @@ recent-scan-batch:
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
 		-v $(OUTPUT_DIR):/output \
 		--entrypoint was-mailer \
-		$(IMAGE) --all-ready --include-previous-failures || mailer_status=$$?; \
+		$(IMAGE) --all-ready --include-previous-failures \
+		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || mailer_status=$$?; \
 	echo 'Report delivery finished. Sending assignee digests once.'; \
 	digest_status=0; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
 		-v $(OUTPUT_DIR):/output \
 		--entrypoint was-mailer \
-		$(IMAGE) --assignee-digests --include-previous-failures || digest_status=$$?; \
+		$(IMAGE) --assignee-digests --include-previous-failures \
+		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || digest_status=$$?; \
 	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ] || [ "$$digest_status" -ne 0 ]; then \
 		echo 'Parallel WAS batch completed with one or more failures. Review local-output/logs.' >&2; \
 		exit 1; \
 	fi; \
 	echo 'Parallel WAS batch completed successfully.'
+
+recent-scan-batch-assignee-test:
+	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an active WAS assignee email address.' >&2; exit 2)
+	@echo 'All batch reports and digests will be sent only to $(TEST_RECIPIENTS).'
+	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)"
 
 recent-scan-batch-test:
 	mkdir -p $(OUTPUT_DIR)

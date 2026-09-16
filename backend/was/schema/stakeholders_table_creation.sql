@@ -1,19 +1,31 @@
 CREATE TABLE was_stakeholders (
-    tag                    VARCHAR(128) PRIMARY KEY,
+    tag                    VARCHAR(128) PRIMARY KEY
+                           CHECK (tag = BTRIM(tag)
+                                  AND POSITION(' ' IN tag) = 0
+                                  AND POSITION(CHR(9) IN tag) = 0
+                                  AND POSITION(CHR(10) IN tag) = 0
+                                  AND POSITION(CHR(13) IN tag) = 0),
 
     customer_name          VARCHAR(512),
     comments               TEXT,
     location_notes         TEXT,
 
-    ci_type                VARCHAR(128),
-    testing_sector         VARCHAR(256),
-    subtype                VARCHAR(128),
+    ci_type                VARCHAR(128) NOT NULL CHECK (BTRIM(ci_type) <> ''),
+    testing_sector         VARCHAR(256) NOT NULL
+                           CHECK (BTRIM(testing_sector) <> ''),
+    subtype                VARCHAR(128) NOT NULL CHECK (BTRIM(subtype) <> ''),
 
-    distro_email           TEXT,
-    tech_poc_email         TEXT,
+    distro_email           TEXT CHECK (
+        POSITION(CHR(10) IN COALESCE(distro_email, '')) = 0
+        AND POSITION(CHR(13) IN COALESCE(distro_email, '')) = 0
+    ),
+    tech_poc_email         TEXT CHECK (
+        POSITION(CHR(10) IN COALESCE(tech_poc_email, '')) = 0
+        AND POSITION(CHR(13) IN COALESCE(tech_poc_email, '')) = 0
+    ),
     was_report_poc         TEXT,
 
-    frequency              VARCHAR(64),
+    frequency              VARCHAR(64) NOT NULL CHECK (BTRIM(frequency) <> ''),
 
     num_web_apps           INTEGER,
     web_apps_last_updated  BIGINT,
@@ -32,8 +44,8 @@ CREATE TABLE was_stakeholders (
     manual_report          BOOLEAN DEFAULT FALSE,
     retired                BOOLEAN DEFAULT FALSE,
 
-    state                  VARCHAR(64) CHECK (
-        state IS NULL OR state IN (
+    state                  VARCHAR(64) NOT NULL CHECK (
+        state IN (
             'AK', 'AL', 'AR', 'AS', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE',
             'FL', 'GA', 'GU', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY',
             'LA', 'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MP', 'MS', 'MT',
@@ -42,6 +54,8 @@ CREATE TABLE was_stakeholders (
             'VI', 'VT', 'WA', 'WI', 'WV', 'WY'
         )
     ),
+
+    qualys_tag_id          BIGINT,
 
     report_password        VARCHAR(256),
 
@@ -128,6 +142,7 @@ CREATE TABLE was_daily_report_tracker (
     remove_nws               TEXT,
     legacy_password          TEXT,
     schedule_id              BIGINT,
+    tag_id                   BIGINT,
     scan_execution_key       TEXT,
     qualys_error             TEXT,
     assignee_emailed_at      TIMESTAMPTZ,

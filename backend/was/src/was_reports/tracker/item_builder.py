@@ -24,7 +24,7 @@ from was_reports.utils.logging_config import exception_details
 LOGGER = logging.getLogger(__name__)
 ADHOC_MARKERS = ("adhoc", "ad-hoc", "ad_hoc")
 QUALYS_ERROR_RESULTS = frozenset(
-    {"SCAN_INTERNAL_ERROR", "SCAN_RESULTS_INVALID", "PROCESSING"}
+    {"SCAN_INTERNAL_ERROR", "SCAN_RESULTS_INVALID"}
 )
 INACCESSIBLE_RESULTS = frozenset({"NO_WEB_SERVICE", "NO_HOST_ALIVE"})
 
@@ -199,6 +199,7 @@ def create_tracker_items(
                     manual=result_fields[5],
                     fceb=result_fields[6],
                     schedule_id=stakeholder.schedule_id,
+                    tag_id=stakeholder.tag_id,
                     qualys_errors=result_fields[7],
                     scan_execution_key=execution_key,
                 )
@@ -229,6 +230,7 @@ def create_tracker_items(
                     manual="MANUAL",
                     fceb=False,
                     schedule_id=stakeholder.schedule_id,
+                    tag_id=stakeholder.tag_id,
                     qualys_errors=type(error).__name__,
                     scan_execution_key=execution_key,
                 )

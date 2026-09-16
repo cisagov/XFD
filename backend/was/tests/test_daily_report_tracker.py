@@ -108,6 +108,7 @@ class DailyReportTrackerTests(unittest.TestCase):
             remove_nws="<br>https://old.example.gov",
             legacy_password="STATIC PASSWORD",
             schedule_id=12345,
+            tag_id=88,
             qualys_error=None,
             assignee_emailed_at=datetime(2026, 8, 26, tzinfo=timezone.utc),
             assignee_email_message_id="message-id",
@@ -126,10 +127,10 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(conn.cursor_instance.parameters[18], "STATIC PASSWORD")
         self.assertEqual(conn.cursor_instance.parameters[19], 12345)
         self.assertEqual(
-            conn.cursor_instance.parameters[21],
+            conn.cursor_instance.parameters[22],
             datetime(2026, 8, 26, tzinfo=timezone.utc),
         )
-        self.assertEqual(conn.cursor_instance.parameters[22], "message-id")
+        self.assertEqual(conn.cursor_instance.parameters[23], "message-id")
 
     def test_get_tracker_record_returns_safe_fields_by_id(self) -> None:
         """Return one row without exposing passwords or active claim tokens."""
@@ -248,6 +249,8 @@ class DailyReportTrackerTests(unittest.TestCase):
                     date(2026, 9, 1),
                     12345,
                     3,
+                    88,
+                    "Customer Name",
                     "Results",
                     "",
                     None,
@@ -326,6 +329,8 @@ class DailyReportTrackerTests(unittest.TestCase):
                     date(2026, 9, 1),
                     12345,
                     3,
+                    88,
+                    "Customer Name",
                     "Results",
                     "",
                     8,
