@@ -16,6 +16,10 @@ class StakeholderImportTests(unittest.TestCase):
     def test_state_requires_exact_uppercase_valid_code(self) -> None:
         """Accept valid state codes and reject lowercase or unknown values."""
         self.assertEqual(normalize_value("State", "WY", "\\N"), "WY")
+        self.assertEqual(
+            normalize_value("State", "INTERNATIONAL", "\\N"),
+            "INTERNATIONAL",
+        )
         for invalid_state in ("wy", "Wz"):
             with self.subTest(state=invalid_state), self.assertRaises(ValueError):
                 normalize_value("State", invalid_state, "\\N")
@@ -24,6 +28,10 @@ class StakeholderImportTests(unittest.TestCase):
         """Require imported stakeholders to include a state."""
         with self.assertRaisesRegex(ValueError, "State must not be null"):
             normalize_value("State", "", "\\N")
+
+    def test_blank_subtype_is_imported_as_null(self) -> None:
+        """Allow legacy and new stakeholder imports to omit subtype."""
+        self.assertEqual(normalize_value("Subtype", "", "\\N"), "\\N")
 
     def test_import_date_accepts_yyyy_mm_dd(self) -> None:
         """Normalize imported date-only input to an epoch value."""
@@ -48,6 +56,43 @@ class StakeholderImportTests(unittest.TestCase):
         self.assertEqual(
             normalize_imported_report_password(password),
             "Abcdefghijklmnopqrst123!",
+        )
+
+    def test_import_removes_short_legacy_password_wrapper(self) -> None:
+        """Remove literal wrapper quotes even for shorter legacy passwords."""
+        self.assertEqual(
+            normalize_imported_report_password('"ShortPassword1!"'),
+            "ShortPassword1!",
+        )
+
+    def test_import_rejects_password_edge_whitespace(self) -> None:
+        """Reject password whitespace instead of silently changing credentials."""
+        for password in (" Password1!", "Password1! ", '"Password1! "'):
+            with self.subTest(password=password), self.assertRaisesRegex(
+                ValueError,
+                "begin or end with whitespace",
+            ):
+                normalize_imported_report_password(password)
+
+    def test_import_normalizes_wrapped_tag_with_trailing_space(self) -> None:
+        """Remove a legacy wrapper and trailing whitespace from a tag."""
+        self.assertEqual(
+            normalize_value("Tag", '"DUPA_LAW "', "\\N"),
+            "DUPA_LAW",
+        )
+
+    def test_import_preserves_poc_comma_without_literal_quotes(self) -> None:
+        """Preserve the comma that a compliant CSV reader already decoded."""
+        self.assertEqual(
+            normalize_value("WAS Report POC", "Name, Name", "\\N"),
+            "Name, Name",
+        )
+
+    def test_import_removes_literal_poc_wrapper_quotes(self) -> None:
+        """Remove legacy literal quotes without changing a POC comma."""
+        self.assertEqual(
+            normalize_value("WAS Report POC", '"Name, Name"', "\\N"),
+            "Name, Name",
         )
 
     def test_import_decodes_multiple_doubled_password_quotes(self) -> None:

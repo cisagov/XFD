@@ -71,7 +71,7 @@ APPENDIX_NOTICE = (
 )
 
 PASSWORD_SUPPORT_NOTICE = (
-    "Please have a technical POC contact vulnerability@cisa.dhs.gov should you "
+    "Please have a technical POC contact reports@cisa.dhs.gov should you "
     "need a copy of, or to update your WAS report password."
 )
 

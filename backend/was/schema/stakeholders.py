@@ -23,7 +23,7 @@ def validate_report_password(value: str):
 
 
 class USStates(models.TextChoices):
-    """States and territories of the United States, including DC and territories."""
+    """Supported domestic and international stakeholder locations."""
 
     BLANK = "", ""
     AK = "AK", "AK"
@@ -82,6 +82,7 @@ class USStates(models.TextChoices):
     MP = "MP", "MP"
     PR = "PR", "PR"
     VI = "VI", "VI"
+    INTERNATIONAL = "INTERNATIONAL", "INTERNATIONAL"
 
 
 class TestingSectorChoices(models.TextChoices):

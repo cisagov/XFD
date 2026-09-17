@@ -321,6 +321,9 @@ class WasOperatorMenuTests(unittest.TestCase):
             output=menu.output,
         )
         menu.output.assert_any_call("Updated stakeholder row:")
+        menu.output.assert_any_call(
+            "Use INTERNATIONAL for the state of an international stakeholder."
+        )
 
     @patch(
         "was_reports.commands.menu_cli.stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS",

@@ -94,12 +94,31 @@ DEFAULT_NULL_TOKEN = "\\N"
 
 def normalize_imported_report_password(value: str) -> str:
     """Decode legacy DynamoDB CSV quoting from report passwords."""
-    if len(value) <= DEFAULT_PASSWORD_LENGTH:
-        return value
     normalized_value = value
+    wrapped_value = False
     if normalized_value.startswith('"') and normalized_value.endswith('"'):
         normalized_value = normalized_value[1:-1]
-    return normalized_value.replace('""', '"')
+        wrapped_value = True
+    if wrapped_value or len(value) > DEFAULT_PASSWORD_LENGTH:
+        normalized_value = normalized_value.replace('""', '"')
+    if normalized_value != normalized_value.strip():
+        raise ValueError(
+            "Report Password must not begin or end with whitespace."
+        )
+    return normalized_value
+
+
+def normalize_imported_text_wrapper(value: str) -> str:
+    """Remove one legacy pair of literal wrapper quotes from imported text."""
+    if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+        return value[1:-1]
+    return value
+
+
+def normalize_imported_tag(value: str) -> str:
+    """Return a clean tag after removing legacy wrappers and edge whitespace."""
+    normalized_value = normalize_imported_text_wrapper(value).strip()
+    return validate_stakeholder_tag(normalized_value)
 
 
 def read_source_rows(input_path: Path) -> list[dict[str, str]]:
@@ -115,9 +134,10 @@ def read_source_rows(input_path: Path) -> list[dict[str, str]]:
         if None in row:
             raise ValueError("Row {} contains extra CSV fields.".format(row_number))
         try:
-            tag = validate_stakeholder_tag(row["Tag"])
+            tag = normalize_imported_tag(row["Tag"])
         except ValueError as error:
             raise ValueError("Row {}: {}".format(row_number, error)) from error
+        row["Tag"] = tag
         if tag in tag_rows:
             raise ValueError(
                 "Duplicate stakeholder tag at rows {} and {}.".format(
@@ -128,6 +148,12 @@ def read_source_rows(input_path: Path) -> list[dict[str, str]]:
 
     for row_number, row in enumerate(rows, 2):
         parent_tag = row["Parent Tag"].strip()
+        if parent_tag:
+            try:
+                parent_tag = normalize_imported_tag(parent_tag)
+            except ValueError as error:
+                raise ValueError("Row {}: {}".format(row_number, error)) from error
+            row["Parent Tag"] = parent_tag
         if parent_tag and parent_tag not in tag_rows:
             raise ValueError(
                 "Row {} references missing parent tag {}.".format(
@@ -176,6 +202,8 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
         return normalized.upper()
     if header == "State":
         return validate_state_code(value)
+    if header in {"Tag", "Parent Tag"}:
+        return normalize_imported_tag(value)
     database_column = dict(SOURCE_TO_DATABASE)[header]
     if database_column in STAKEHOLDER_EMAIL_FIELDS:
         validate_email_value(value, header)
@@ -185,6 +213,8 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
         raise ValueError("A source value conflicts with the configured NULL token.")
     if header == "Report Password":
         return normalize_imported_report_password(value)
+    if header == "WAS Report POC":
+        return normalize_imported_text_wrapper(value)
     return value
 
 

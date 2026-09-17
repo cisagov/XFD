@@ -112,7 +112,7 @@ def stakeholder_date_value(value: str) -> int:
 
 
 def state_code_value(value: str) -> str:
-    """Return a validated uppercase stakeholder state or territory code."""
+    """Return a validated stakeholder state, territory, or international value."""
     try:
         return validate_state_code(value)
     except ValueError as error:
@@ -400,7 +400,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--state",
         type=state_code_value,
         required=True,
-        help="Uppercase two-letter state or territory code.",
+        help=(
+            "Uppercase two-letter state or territory code. Use INTERNATIONAL "
+            "for international stakeholders."
+        ),
     )
     add_command.add_argument("--distro-email", type=email_list_value)
     add_command.add_argument("--tech-poc-email", type=email_list_value)

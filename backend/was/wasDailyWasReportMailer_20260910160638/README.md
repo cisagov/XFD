@@ -183,7 +183,7 @@ the paper clip icon to the left of the attachment name. A helpful list of scan
 report and WAS FAQs can be found here:
 https://www.cisa.gov/cyber-hygiene-services
 
-Please have a technical POC contact vulnerability@cisa.dhs.gov should you need
+Please have a technical POC contact reports@cisa.dhs.gov should you need
 a copy of, or to update your WAS report password.
 
 Qualys is currently unable to provide the sensitive-data attachment for Social

@@ -203,6 +203,8 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("Attached is a report containing the results", body)
         self.assertIn("Appendix C: Attachments", body)
         self.assertIn("update your WAS report password", body)
+        self.assertIn("reports@cisa.dhs.gov", body)
+        self.assertNotIn("vulnerability@cisa.dhs.gov", body)
         self.assertIn("Your next scan is scheduled for", body)
         self.assertNotIn("common reasons why", body)
 

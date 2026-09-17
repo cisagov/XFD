@@ -13,7 +13,9 @@ CREATE TABLE was_stakeholders (
     ci_type                VARCHAR(128) NOT NULL CHECK (BTRIM(ci_type) <> ''),
     testing_sector         VARCHAR(256) NOT NULL
                            CHECK (BTRIM(testing_sector) <> ''),
-    subtype                VARCHAR(128) NOT NULL CHECK (BTRIM(subtype) <> ''),
+    subtype                VARCHAR(128) CHECK (
+        subtype IS NULL OR BTRIM(subtype) <> ''
+    ),
 
     distro_email           TEXT CHECK (
         POSITION(CHR(10) IN COALESCE(distro_email, '')) = 0
@@ -51,7 +53,7 @@ CREATE TABLE was_stakeholders (
             'LA', 'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MP', 'MS', 'MT',
             'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK',
             'OR', 'PA', 'PR', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA',
-            'VI', 'VT', 'WA', 'WI', 'WV', 'WY'
+            'VI', 'VT', 'WA', 'WI', 'WV', 'WY', 'INTERNATIONAL'
         )
     ),
 

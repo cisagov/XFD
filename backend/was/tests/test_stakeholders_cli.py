@@ -42,6 +42,15 @@ class StakeholdersCliTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot be cleared"):
             stakeholders_cli.stakeholder_updates(arguments)
 
+    def test_subtype_can_be_cleared(self) -> None:
+        """Allow the optional stakeholder subtype to be stored as null."""
+        arguments = Mock(set_values=[], clear_values=["subtype"])
+
+        self.assertEqual(
+            stakeholders_cli.stakeholder_updates(arguments),
+            {"subtype": None},
+        )
+
     def test_state_update_requires_exact_uppercase_valid_code(self) -> None:
         """Reject lowercase and unknown stakeholder state codes."""
         for invalid_state in ("wy", "Wz"):
@@ -57,6 +66,13 @@ class StakeholdersCliTests(unittest.TestCase):
         self.assertEqual(
             stakeholders_cli.normalize_stakeholder_update("state", "WY"),
             "WY",
+        )
+        self.assertEqual(
+            stakeholders_cli.normalize_stakeholder_update(
+                "state",
+                "INTERNATIONAL",
+            ),
+            "INTERNATIONAL",
         )
 
     @patch(

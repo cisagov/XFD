@@ -6,7 +6,7 @@ from typing import Mapping
 
 
 REQUIRED_STAKEHOLDER_FIELDS = frozenset(
-    {"ci_type", "testing_sector", "subtype", "frequency", "state"}
+    {"ci_type", "testing_sector", "frequency", "state"}
 )
 STAKEHOLDER_DATE_FIELDS = frozenset(
     {

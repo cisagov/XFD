@@ -1,4 +1,4 @@
-"""Validation helpers for stakeholder state and territory codes."""
+"""Validation helpers for stakeholder state and territory values."""
 
 US_STATE_AND_TERRITORY_CODES = frozenset(
     {
@@ -58,19 +58,22 @@ US_STATE_AND_TERRITORY_CODES = frozenset(
         "WI",
         "WV",
         "WY",
+        "INTERNATIONAL",
     }
 )
 
 
 def validate_state_code(value: str) -> str:
-    """Require an exact uppercase USPS state or territory abbreviation."""
+    """Require an exact state, territory, or international value."""
     normalized_value = value.strip()
     if normalized_value != value or normalized_value != normalized_value.upper():
         raise ValueError(
-            "State must be an uppercase two-letter state or territory code."
+            "State must be an uppercase two-letter state or territory code, "
+            "or INTERNATIONAL."
         )
     if normalized_value not in US_STATE_AND_TERRITORY_CODES:
         raise ValueError(
-            "State must be a valid uppercase two-letter state or territory code."
+            "State must be a valid uppercase two-letter state or territory code, "
+            "or INTERNATIONAL."
         )
     return normalized_value

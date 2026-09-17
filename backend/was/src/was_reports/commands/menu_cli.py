@@ -905,6 +905,9 @@ class WasOperatorMenu:
             "keep the current value, edit the prefilled value, use CLEAR for "
             "SQL NULL, or enter CANCEL to stop."
         )
+        self.output(
+            "Use INTERNATIONAL for the state of an international stakeholder."
+        )
         updates: dict[str, object] = {}
         for column_name in stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS:
             current_value = record[column_name]
@@ -1228,6 +1231,7 @@ class WasOperatorMenu:
             ("distro-email", "Distribution email addresses [blank]: "),
             ("tech-poc-email", "Technical POC email addresses [blank]: "),
             ("was-report-poc", "WAS report POC [blank]: "),
+            ("subtype", "Subtype [blank]: "),
             ("parent-tag", "Parent tag [blank]: "),
             ("ticket", "Ticket [blank]: "),
         )
@@ -1239,14 +1243,19 @@ class WasOperatorMenu:
         required_text_fields = (
             ("ci-type", "CI type: "),
             ("testing-sector", "Testing sector: "),
-            ("subtype", "Subtype: "),
             ("frequency", "Report frequency: "),
-            ("state", "State: "),
         )
         for option_name, prompt in required_text_fields:
             arguments.extend(
                 ["--{}".format(option_name), self.prompt_required(prompt)]
             )
+
+        self.output(
+            "Use INTERNATIONAL for the state of an international stakeholder."
+        )
+        arguments.extend(
+            ["--state", self.prompt_required("State or INTERNATIONAL: ")]
+        )
 
         num_web_apps = self.prompt_optional_nonnegative_integer(
             "Number of web applications [blank]: "
