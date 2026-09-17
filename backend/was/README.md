@@ -717,10 +717,12 @@ Do not email, commit, or place the sensitive CSV in shared storage.
 Stakeholder Management can prepare and atomically import new stakeholder rows
 from a DynamoDB CSV export. Existing tags are skipped. Blank values, Boolean
 values, state codes, hierarchy order, and database column order are normalized
-before insertion. For report-password values longer than 24 characters, the
-importer also removes a legacy outer quote wrapper and converts each doubled
-quote sequence (`""`) back to the intended single quote character (`"`). Other
-password characters remain unchanged.
+before insertion. The importer removes one legacy outer quote wrapper and
+converts doubled quote sequences (`""`) back to the intended single quote
+character (`"`) for wrapped or legacy-length report passwords. All other
+password characters, including intentional leading or trailing whitespace, are
+preserved exactly. Edge whitespace produces a warning containing the
+stakeholder tag but never the password.
 
 ### Interactive Operator Menu
 

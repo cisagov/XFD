@@ -65,14 +65,22 @@ class StakeholderImportTests(unittest.TestCase):
             "ShortPassword1!",
         )
 
-    def test_import_rejects_password_edge_whitespace(self) -> None:
-        """Reject password whitespace instead of silently changing credentials."""
+    def test_import_preserves_password_edge_whitespace_with_warning(self) -> None:
+        """Preserve intentional password whitespace and warn without exposing it."""
         for password in (" Password1!", "Password1! ", '"Password1! "'):
-            with self.subTest(password=password), self.assertRaisesRegex(
-                ValueError,
-                "begin or end with whitespace",
-            ):
-                normalize_imported_report_password(password)
+            expected_password = password[1:-1] if password.startswith('"') else password
+            with self.subTest(password=password), self.assertLogs(
+                "was_reports.commands.stakeholder_import",
+                level="WARNING",
+            ) as captured_logs:
+                normalized_password = normalize_imported_report_password(
+                    password,
+                    stakeholder_tag="TEST_TAG",
+                )
+
+            self.assertEqual(normalized_password, expected_password)
+            self.assertIn("TEST_TAG", " ".join(captured_logs.output))
+            self.assertNotIn(password, " ".join(captured_logs.output))
 
     def test_import_normalizes_wrapped_tag_with_trailing_space(self) -> None:
         """Remove a legacy wrapper and trailing whitespace from a tag."""

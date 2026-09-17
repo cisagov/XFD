@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import argparse
 import csv
+import logging
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -90,10 +91,14 @@ INTEGER_DATABASE_COLUMNS = frozenset(
     }
 )
 DEFAULT_NULL_TOKEN = "\\N"
+LOGGER = logging.getLogger(__name__)
 
 
-def normalize_imported_report_password(value: str) -> str:
-    """Decode legacy DynamoDB CSV quoting from report passwords."""
+def normalize_imported_report_password(
+    value: str,
+    stakeholder_tag: str | None = None,
+) -> str:
+    """Decode legacy quoting while preserving intentional password whitespace."""
     normalized_value = value
     wrapped_value = False
     if normalized_value.startswith('"') and normalized_value.endswith('"'):
@@ -102,8 +107,10 @@ def normalize_imported_report_password(value: str) -> str:
     if wrapped_value or len(value) > DEFAULT_PASSWORD_LENGTH:
         normalized_value = normalized_value.replace('""', '"')
     if normalized_value != normalized_value.strip():
-        raise ValueError(
-            "Report Password must not begin or end with whitespace."
+        LOGGER.warning(
+            "Report password for stakeholder tag %s begins or ends with "
+            "whitespace; preserving it exactly.",
+            stakeholder_tag or "[unknown]",
         )
     return normalized_value
 
@@ -186,7 +193,12 @@ def hierarchy_depths(rows: list[dict[str, str]]) -> dict[str, int]:
     return depths
 
 
-def normalize_value(header: str, value: str, null_token: str) -> str:
+def normalize_value(
+    header: str,
+    value: str,
+    null_token: str,
+    stakeholder_tag: str | None = None,
+) -> str:
     """Convert blank values and normalize supported Boolean values."""
     if not value.strip():
         if header in BOOLEAN_SOURCE_HEADERS:
@@ -212,7 +224,7 @@ def normalize_value(header: str, value: str, null_token: str) -> str:
     if value == null_token:
         raise ValueError("A source value conflicts with the configured NULL token.")
     if header == "Report Password":
-        return normalize_imported_report_password(value)
+        return normalize_imported_report_password(value, stakeholder_tag)
     if header == "WAS Report POC":
         return normalize_imported_text_wrapper(value)
     return value
@@ -229,7 +241,12 @@ def prepare_rows(
     )
     return [
         tuple(
-            normalize_value(source_column, row[source_column], null_token)
+            normalize_value(
+                source_column,
+                row[source_column],
+                null_token,
+                stakeholder_tag=row["Tag"],
+            )
             for source_column, _ in SOURCE_TO_DATABASE
         )
         for _, row in ordered_rows
