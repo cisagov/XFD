@@ -224,6 +224,16 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
       "Resource": [
         "${data.aws_ssm_parameter.mailer_arn.value}"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+      ],
+      "Resource": [
+        "${aws_kms_key.django_env.arn}"
+      ]
     }
   ]
 }
@@ -316,6 +326,10 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "DB_PORT",
         "value": "${var.db_port}"
+      },
+      {
+        "name": "DJANGO_CONFIG_BUCKET",
+        "value": "${var.django_env_bucket_name}"
       },
       {
         "name": "IS_DMZ",
