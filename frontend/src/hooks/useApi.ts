@@ -1,6 +1,105 @@
 import { useState, useCallback, useMemo } from 'react';
 // import { useMatomo } from '@datapunt/matomo-tracker-react';
 
+/**
+ * Helper function to extract a human-readable error message from an API response payload.
+ * Many files in the project may include API responses with a `detail`, `message`, or `error` field.
+ */
+
+function getPayloadMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+
+  const value = payload as Record<string, unknown>;
+
+  if (typeof value.detail === 'string') {
+    return value.detail;
+  }
+
+  if (typeof value.message === 'string') {
+    return value.message;
+  }
+
+  if (typeof value.error === 'string') {
+    return value.error;
+  }
+
+  return undefined;
+}
+
+/**
+ * Type guard to check if an error is an instance of ApiError.
+ */
+
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    (
+      error as {
+        isApiError?: unknown;
+      }
+    ).isApiError === true
+  );
+}
+
+/**
+ * Custom error class for API errors, encapsulating the response and payload.
+ */
+export class ApiError<TPayload = unknown> extends Error {
+  readonly name = 'ApiError';
+  readonly isApiError = true;
+
+  readonly ok: Response['ok'];
+  readonly status: Response['status'];
+  readonly statusText: Response['statusText'];
+  readonly headers: Record<string, string>;
+  readonly url: Response['url'];
+  readonly redirected: Response['redirected'];
+  readonly type: Response['type'];
+  readonly bodyUsed: Response['bodyUsed'];
+
+  readonly payload: TPayload; // Raw payload from the API response
+  readonly payloadMessage?: string; // User-friendly message extracted from the payload
+
+  constructor(response: Response, payload?: TPayload, message?: string) {
+    const payloadMessage = getPayloadMessage(payload);
+
+    /**
+     * Construct the error message using the provided message, the extracted user-friendly message from the payload,
+     * the response status text, or a default message.
+     */
+
+    super(
+      message ||
+        payloadMessage ||
+        response.statusText ||
+        `Request failed with status ${response.status}`
+    );
+
+    Object.setPrototypeOf(this, ApiError.prototype);
+
+    this.ok = response.ok;
+    this.status = response.status;
+    this.statusText = response.statusText;
+
+    /**
+     * Need to double check if normalizeHeaders is necessary anymore
+     */
+    this.headers = normalizeHeaders(
+      Object.fromEntries(response.headers.entries())
+    );
+    this.url = response.url;
+    this.redirected = response.redirected;
+    this.type = response.type;
+    this.bodyUsed = response.bodyUsed;
+
+    this.payload = payload as TPayload;
+    this.payloadMessage = payloadMessage;
+  }
+}
+
 const baseHeaders: HeadersInit = {
   'Content-Type': 'application/json',
   Accept: 'application/json'
@@ -18,6 +117,7 @@ const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
 /**
  * Normalize header-ish shapes to support both Fetch Headers and plain objects.
  */
+
 const normalizeHeaders = (header: any): Record<string, string> => {
   if (!header) return {};
 
@@ -137,8 +237,6 @@ export const useApi = (onError?: OnError) => {
             credentials: withCredentials ? 'include' : undefined
           });
 
-          const statusCode = response.status;
-
           let result: any;
           try {
             result =
@@ -150,16 +248,7 @@ export const useApi = (onError?: OnError) => {
           }
 
           if (!response.ok) {
-            const error = new Error(
-              result?.detail ||
-                result?.message ||
-                `Request failed with status code ${statusCode}`
-            );
-            throw Object.assign(error, {
-              statusCode,
-              body: result,
-              response: { status: statusCode, headers: response.headers }
-            });
+            throw new ApiError(response, result);
           }
 
           showLoading && setRequestCount((cnt) => cnt - 1);
@@ -173,39 +262,9 @@ export const useApi = (onError?: OnError) => {
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          const status =
-            e?.response?.statusCode ??
-            e?.response?.status ??
-            e?.status ??
-            e?.statusCode ??
-            (e?.message?.includes('401') ? 401 : undefined);
-
-          const errorDetail = (
-            e?.message ||
-            e?.body?.detail ||
-            e?.response?.data?.detail ||
-            ''
-          ).toLowerCase();
+          const status = isApiError(e) ? e.status : undefined;
 
           // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
-
-          // 2. Detect if this is an expired token:
-          //    - Explicit 401 status
-          //    - Error message referencing explicit token expiration or invalidity
-          const isAuthError =
-            status === 401 ||
-            errorDetail.includes('token has expired') ||
-            errorDetail.includes('jwt expired') ||
-            errorDetail.includes('invalid token') ||
-            errorDetail.includes('not authenticated');
-
-          if (isAuthError) {
-            // Standardize error shape so AuthContextProvider.handleError receives status 401
-            e.statusCode = 401;
-            if (!e.response) {
-              e.response = { status: 401 };
-            }
-          }
 
           if (!isLocal) {
             try {
