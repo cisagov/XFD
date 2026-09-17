@@ -417,7 +417,7 @@ def run_flare_events(orgs_list):
             if pe_org["cyhy_db_name"] in requested:
                 pe_orgs_final.append(pe_org)
 
-    data_source_uid = get_data_source_uid("Flare")
+    data_source_uid = get_data_source_uid("flareEvents")
 
     # Specify which event severities to collect
     event_severities = [

@@ -131,7 +131,7 @@ def get_ident_creds(ident_id, start_date, end_date):
         retrieve_ct += 1
 
     # Get Data Source UID for Flare
-    flare_data_source_uid = get_data_source_uid("Flare")
+    flare_data_source_uid = get_data_source_uid("flareCreds")
 
     # Once all data has been retrieved, format and return results
     results_list = [
@@ -339,7 +339,7 @@ def extract_stealer_log_creds(event, event_details, domain_idents):
         LOGGER.error("\tError: No credentials found for this stealer_log event")
         return None
     # Flare data source uid
-    flare_data_source_uid = get_data_source_uid("Flare")
+    flare_data_source_uid = get_data_source_uid("flareCreds")
     # If it does, iterate over the list of creds to find the ones relevant to the organization
     creds_list = []
     for dict in raw_creds_list:

@@ -116,7 +116,7 @@ def run_dnsmonitor(orgs_list):
             alerts_df.at[alert_index, "ipv6"] = ipv6
         # Set the data_source_uid and organization_uid columns
         alerts_df.dropna(subset=["sub_domain_uid"], inplace=True)
-        alerts_df["data_source_uid"] = get_data_source_uid("DNSMonitor")
+        alerts_df["data_source_uid"] = get_data_source_uid("dnsmonitor")
         alerts_df["organizations_uid"] = org_uid
         alerts_df = alerts_df.rename(
             columns={

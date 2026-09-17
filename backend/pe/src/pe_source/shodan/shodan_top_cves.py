@@ -44,7 +44,7 @@ def get_shodan_cve_info(cve):
 def get_cve_details(cve_list):
     """Retrieve details for the specified list of CVEs."""
     cve_detail_list = []
-    source_uid = get_data_source_uid("Shodan")
+    source_uid = get_data_source_uid("shodanTopCves")
     for idx, cve in enumerate(cve_list):
         # Call shodan API to get CVE info
         LOGGER.info(f"Retrieving CVE details for {cve} ({idx + 1} of {len(cve_list)})")

@@ -220,7 +220,7 @@ def run_dnstwist(orgs_list):
 
     # Get data source uid
     PE_conn = connect()
-    source_uid = get_data_source_uid("DNSTwist")
+    source_uid = get_data_source_uid("dnstwist")
 
     # Run DNSTwist on each organization
     failures = []
