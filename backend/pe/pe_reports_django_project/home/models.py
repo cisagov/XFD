@@ -2815,3 +2815,27 @@ class Cve(models.Model):
 
         managed = False
         db_table = "cve"
+
+
+class Scan(models.Model):
+    """Define Scan model."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    createdAt = models.DateTimeField(blank=True, null=True)
+    updatedAt = models.DateTimeField(blank=True, null=True)
+    name = models.TextField(blank=True, null=True)
+    arguments = models.JSONField(blank=True, null=True)
+    frequency = models.IntegerField(blank=True, null=True)
+    lastRun = models.DateTimeField(blank=True, null=True)
+    isGranular = models.BooleanField(blank=True, null=True)
+    createdById = models.UUIDField(blank=True, null=True)
+    isSingleScan = models.BooleanField(blank=True, null=True)
+    manualRunPending = models.BooleanField(blank=True, null=True)
+    isUserModifiable = models.BooleanField(blank=True, null=True)
+    concurrentTasks = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        """Set Scan model metadata."""
+
+        managed = False
+        db_table = "scan"

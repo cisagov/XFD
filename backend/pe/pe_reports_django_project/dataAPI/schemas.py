@@ -22,6 +22,24 @@ class DataSourceFullTable(BaseModel):
     last_run: str
 
 
+class ScanFullTable(BaseModel):
+    """Serialized scan row."""
+
+    id: str
+    createdAt: str
+    updatedAt: str
+    name: str
+    arguments: str
+    frequency: str
+    lastRun: str
+    isGranular: bool
+    createdById: str
+    isSingleScan: bool
+    manualRunPending: bool
+    isUserModifiable: str
+    concurrentTasks: str
+
+
 class SubDomainsSingleInsertInput(BaseModel):
     """Request body for sub_domains_single_insert."""
 

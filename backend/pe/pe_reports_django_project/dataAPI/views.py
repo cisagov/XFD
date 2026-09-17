@@ -32,6 +32,7 @@ from home.models import (
     Ips,
     Organizations,
     RootDomains,
+    Scan,
     ShodanAssets,
     ShodanVulns,
     SubDomains,
@@ -120,11 +121,32 @@ def organizations_demo_or_report_on(
     return rows
 
 
+# @api_router.post(
+#     "/data_source_by_name",
+#     dependencies=[Depends(verify_api_key)],
+#     response_model=List[schemas.DataSourceFullTable],
+#     tags=["data_sources"],
+# )
+# def data_source_by_name(
+#     data: schemas.DataSourceByNameInput,
+#     tokens: str = Depends(verify_api_key),  # noqa: B008
+# ):
+#     """Look up a data source row by name and refresh its last_run date."""
+#     del tokens
+#     rows = list(DataSource.objects.filter(name=data.name).values())
+#     today = dt.today().strftime("%Y-%m-%d")
+#     DataSource.objects.filter(name=data.name).update(last_run=today)
+#     for row in rows:
+#         row["data_source_uid"] = convert_uuid_to_string(row["data_source_uid"])
+#         row["last_run"] = convert_date_to_string(row.get("last_run"))
+#     return rows
+
+
 @api_router.post(
     "/data_source_by_name",
     dependencies=[Depends(verify_api_key)],
-    response_model=List[schemas.DataSourceFullTable],
-    tags=["data_sources"],
+    # response_model=List[schemas.ScanFullTable],
+    tags=["scan"],
 )
 def data_source_by_name(
     data: schemas.DataSourceByNameInput,
@@ -132,12 +154,14 @@ def data_source_by_name(
 ):
     """Look up a data source row by name and refresh its last_run date."""
     del tokens
-    rows = list(DataSource.objects.filter(name=data.name).values())
+    rows = list(
+        Scan.objects.using("cyhy_dash_db").filter(name=data.name).values("arguments")
+    )
     today = dt.today().strftime("%Y-%m-%d")
-    DataSource.objects.filter(name=data.name).update(last_run=today)
+    Scan.objects.using("cyhy_dash_db").filter(name=data.name).update(lastRun=today)
     for row in rows:
-        row["data_source_uid"] = convert_uuid_to_string(row["data_source_uid"])
-        row["last_run"] = convert_date_to_string(row.get("last_run"))
+        row["id"] = convert_uuid_to_string(row["id"])
+        row["lastRun"] = convert_date_to_string(row.get("lastRun"))
     return rows
 
 

@@ -1,8 +1,10 @@
 """Create sample CyHy Dash DB data for local development."""
 
+# Standard Python Libraries
+import uuid
+
 # Third-Party Libraries
 from django.db import connections, transaction
-import uuid
 
 
 def populate_cyhydash_sample_data():
@@ -139,19 +141,19 @@ def populate_cyhydash_sample_data():
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS scan (
-                    id UUID NOT NULL,
-                    createdAt TIMESTAMPTZ NOT NULL,
-                    updatedAt TIMESTAMPTZ NOT NULL,
-                    name TEXT NOT NULL,
-                    arguments JSON NOT NULL,
-                    frequency INT NOT NULL,
-                    lastRun TIMESTAMPTZ NULL,
-                    isGranular BOOLEAN NOT NULL,
-                    createdById UUID NULL,
-                    isSingleScan BOOLEAN NOT NULL,
-                    manualRunPending BOOLEAN NOT NULL,
-                    isUserModifiable BOOLEAN NULL,
-                    concurrentTasks INT NOT NULL,
+                    "id" UUID NOT NULL,
+                    "createdAt" TIMESTAMPTZ NOT NULL,
+                    "updatedAt" TIMESTAMPTZ NOT NULL,
+                    "name" TEXT NOT NULL,
+                    "arguments" JSON NOT NULL,
+                    "frequency" INT NOT NULL,
+                    "lastRun" TIMESTAMPTZ NULL,
+                    "isGranular" BOOLEAN NOT NULL,
+                    "createdById" UUID NULL,
+                    "isSingleScan" BOOLEAN NOT NULL,
+                    "manualRunPending" BOOLEAN NOT NULL,
+                    "isUserModifiable" BOOLEAN NULL,
+                    "concurrentTasks" INT NOT NULL,
 
                     CONSTRAINT scan_pkey PRIMARY KEY (id)
                 );
@@ -172,7 +174,7 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "1" 
+                    "1",
                 ),
                 (
                     str(uuid.uuid4()),
@@ -187,7 +189,7 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "10" 
+                    "10",
                 ),
                 (
                     str(uuid.uuid4()),
@@ -202,7 +204,7 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "2" 
+                    "2",
                 ),
                 (
                     str(uuid.uuid4()),
@@ -217,7 +219,7 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "4" 
+                    "4",
                 ),
                 (
                     str(uuid.uuid4()),
@@ -232,7 +234,7 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "1" 
+                    "1",
                 ),
                 (
                     str(uuid.uuid4()),
@@ -247,7 +249,7 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "1" 
+                    "1",
                 ),
                 (
                     str(uuid.uuid4()),
@@ -262,26 +264,26 @@ def populate_cyhydash_sample_data():
                     "TRUE",
                     "FALSE",
                     "False",
-                    "1" 
-                )
+                    "1",
+                ),
             ]
 
             cursor.executemany(
                 """
                 INSERT INTO scan (
-                    id,
-                    createdAt,
-                    updatedAt,
-                    name,
-                    arguments,
-                    frequency,
-                    lastRun,
-                    isGranular,
-                    createdById,
-                    isSingleScan,
-                    manualRunPending,
-                    isUserModifiable,
-                    concurrentTasks
+                    "id",
+                    "createdAt",
+                    "updatedAt",
+                    "name",
+                    "arguments",
+                    "frequency",
+                    "lastRun",
+                    "isGranular",
+                    "createdById",
+                    "isSingleScan",
+                    "manualRunPending",
+                    "isUserModifiable",
+                    "concurrentTasks"
                 )
                 VALUES (
                     %s,
@@ -300,18 +302,18 @@ def populate_cyhydash_sample_data():
                 )
                 ON CONFLICT (id)
                 DO UPDATE SET
-                    createdAt = EXCLUDED.createdAt,
-                    updatedAt = EXCLUDED.updatedAt,
-                    name = EXCLUDED.name,
-                    arguments = EXCLUDED.arguments,
-                    frequency = EXCLUDED.frequency,
-                    lastRun = EXCLUDED.lastRun,
-                    isGranular = EXCLUDED.isGranular,
-                    createdById = EXCLUDED.createdById,
-                    isSingleScan = EXCLUDED.isSingleScan,
-                    manualRunPending = EXCLUDED.manualRunPending,
-                    isUserModifiable = EXCLUDED.isUserModifiable,
-                    concurrentTasks = EXCLUDED.concurrentTasks;
+                    "createdAt" = EXCLUDED."createdAt",
+                    "updatedAt" = EXCLUDED."updatedAt",
+                    "name" = EXCLUDED."name",
+                    "arguments" = EXCLUDED."arguments",
+                    "frequency" = EXCLUDED."frequency",
+                    "lastRun" = EXCLUDED."lastRun",
+                    "isGranular" = EXCLUDED."isGranular",
+                    "createdById" = EXCLUDED."createdById",
+                    "isSingleScan" = EXCLUDED."isSingleScan",
+                    "manualRunPending" = EXCLUDED."manualRunPending",
+                    "isUserModifiable" = EXCLUDED."isUserModifiable",
+                    "concurrentTasks" = EXCLUDED."concurrentTasks";
                 """,
                 insert_values,
             )
