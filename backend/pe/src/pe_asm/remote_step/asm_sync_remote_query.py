@@ -256,19 +256,39 @@ def insert_sub_domains(df):
     conn.close()
 
 
+# def get_data_source_uid(source_name):
+#     """Get data source uid."""
+#     params = config()
+#     conn = psycopg2.connect(**params)
+#     cur = conn.cursor()
+#     sql = """SELECT * FROM data_source WHERE name = '{}'"""
+#     cur.execute(sql.format(source_name))
+#     source_uid = cur.fetchone()[0]
+#     cur.close()
+#     cur = conn.cursor()
+#     # Update last_run in data_source table
+#     date = datetime.today().strftime("%Y-%m-%d")
+#     sql = """UPDATE data_source SET last_run = '{}'
+#             WHERE name = '{}';"""
+#     cur.execute(sql.format(date, source_name))
+#     cur.close()
+#     conn.close()
+#     return source_uid
+
+
 def get_data_source_uid(source_name):
     """Get data source uid."""
-    params = config()
+    params = config_cyhy_dash_db()
     conn = psycopg2.connect(**params)
     cur = conn.cursor()
-    sql = """SELECT * FROM data_source WHERE name = '{}'"""
+    sql = """SELECT * FROM scan WHERE name = '{}'"""
     cur.execute(sql.format(source_name))
     source_uid = cur.fetchone()[0]
     cur.close()
+    # Update last_run in scan table
     cur = conn.cursor()
-    # Update last_run in data_source table
     date = datetime.today().strftime("%Y-%m-%d")
-    sql = """UPDATE data_source SET last_run = '{}'
+    sql = """UPDATE scan SET "lastRun" = '{}'
             WHERE name = '{}';"""
     cur.execute(sql.format(date, source_name))
     cur.close()
