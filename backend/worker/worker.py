@@ -78,9 +78,26 @@ def main():
     is_dmz = os.getenv("IS_DMZ")
     if str(is_dmz).lower() not in {"true", "1"}:
         zscaler_cert = ensure_zscaler_cert_downloaded()
+
+        combined_bundle_path = "/tmp/combined-ca-bundle.pem"  # nosec B108
+        try:
+            # Third-Party Libraries
+            import certifi
+
+            with open(combined_bundle_path, "w", encoding="utf-8") as out:
+                with open(certifi.where(), encoding="utf-8") as f:
+                    out.write(f.read())
+                with open(zscaler_cert, encoding="utf-8") as f:
+                    out.write(f.read())
+        except Exception:
+            LOGGER.exception(
+                "Failed to build combined CA bundle; falling back to zscaler_cert alone."
+            )
+            combined_bundle_path = zscaler_cert
+
         os.environ["AWS_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
-        os.environ["REQUESTS_CA_BUNDLE"] = zscaler_cert
-        os.environ["SSL_CERT_FILE"] = zscaler_cert
+        os.environ["REQUESTS_CA_BUNDLE"] = combined_bundle_path
+        os.environ["SSL_CERT_FILE"] = combined_bundle_path
         LOGGER.info("Set Zscaler cert environment variables for outbound TLS.")
     else:
         # If not set, ensure these are not set so traffic is direct
