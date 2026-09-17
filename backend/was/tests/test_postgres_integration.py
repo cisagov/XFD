@@ -43,7 +43,11 @@ class PostgresIntegrationTests(unittest.TestCase):
                 Path(__file__).parents[1] / "schema/stakeholders_table_creation.sql"
             )
             cursor.execute(schema_path.read_text())
-            cursor.execute("INSERT INTO was_stakeholders (tag) VALUES ('TEST')")
+            cursor.execute(
+                "INSERT INTO was_stakeholders "
+                "(tag, ci_type, testing_sector, frequency, state) "
+                "VALUES ('TEST', 'TEST', 'TEST', 'TEST', 'DC')"
+            )
         self.connection.commit()
 
     def tearDown(self) -> None:
@@ -215,42 +219,55 @@ class PostgresIntegrationTests(unittest.TestCase):
             )
             self.assertEqual(cursor.fetchone()[0], "pending")
 
-    def test_schema_upgrade_preserves_history_and_can_repeat(self) -> None:
-        """Apply update 010 twice to a pre-hardening schema with history."""
-        tracker_id = self.tracker_row()
-        report_runs.create_report_run("TEST", None, self.connection)
+    def test_canonical_schema_contains_integrated_update_fields(self) -> None:
+        """Keep the comprehensive schema aligned with the local update history."""
+        expected_columns = {
+            "was_stakeholders": {"qualys_tag_id"},
+            "was_report_runs": {
+                "generation_token",
+                "delivery_purpose",
+                "email_claim_token",
+                "source_tracker_id",
+                "qualys_detail_report_id",
+                "qualys_xml_report_id",
+            },
+            "was_daily_report_tracker": {
+                "tag_id",
+                "scan_execution_key",
+                "assignee_email_status",
+                "assignee_email_claim_token",
+                "digest_revision",
+                "digest_claimed_revision",
+            },
+        }
         with self.connection.cursor() as cursor:
+            for table_name, required_columns in expected_columns.items():
+                cursor.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = current_schema() AND table_name = %s",
+                    (table_name,),
+                )
+                actual_columns = {row[0] for row in cursor.fetchall()}
+                self.assertTrue(required_columns.issubset(actual_columns))
+
             cursor.execute(
-                "UPDATE was_daily_report_tracker SET assignee_emailed_at = NOW() "
-                "WHERE id = %s",
-                (tracker_id,),
+                "SELECT column_name, is_nullable FROM information_schema.columns "
+                "WHERE table_schema = current_schema() "
+                "AND table_name = 'was_stakeholders' "
+                "AND column_name IN "
+                "('ci_type', 'testing_sector', 'subtype', 'frequency', 'state')"
             )
-            cursor.execute(
-                "ALTER TABLE was_report_runs DROP COLUMN generation_token, "
-                "DROP COLUMN email_claim_token, DROP COLUMN delivery_purpose"
+            nullability = dict(cursor.fetchall())
+            self.assertEqual(
+                nullability,
+                {
+                    "ci_type": "NO",
+                    "testing_sector": "NO",
+                    "subtype": "YES",
+                    "frequency": "NO",
+                    "state": "NO",
+                },
             )
-            cursor.execute(
-                "ALTER TABLE was_daily_report_tracker DROP COLUMN scan_execution_key, "
-                "DROP COLUMN assignee_email_status, DROP COLUMN assignee_email_claim_token, "
-                "DROP COLUMN assignee_email_claimed_at, DROP COLUMN digest_revision, "
-                "DROP COLUMN digest_claimed_revision"
-            )
-        self.connection.commit()
-        update_path = (
-            Path(__file__).parents[1]
-            / "schema/updates/010_harden_report_delivery_and_tracker.sql"
-        )
-        upgrade = update_path.read_text()
-        with self.connection.cursor() as cursor:
-            cursor.execute(upgrade)
-            cursor.execute(upgrade)
-            cursor.execute(
-                "SELECT assignee_email_status FROM was_daily_report_tracker WHERE id = %s",
-                (tracker_id,),
-            )
-            self.assertEqual(cursor.fetchone()[0], "sent")
-            cursor.execute("SELECT qualys_xml_report_status FROM was_report_runs")
-            self.assertEqual(cursor.fetchone()[0], "CREATE_REQUESTED")
 
     def test_failure_during_digest_send_remains_pending(self) -> None:
         """Acknowledging an older snapshot must not swallow a new failure."""

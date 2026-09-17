@@ -307,17 +307,11 @@ timestamps are stored on `was_report_runs`. If a tracker-linked failed run is
 reclaimed after a container interruption, report generation reuses those IDs
 and resumes polling instead of creating duplicate Qualys reports. The temporary
 XML report ID is cleared after Qualys cleanup so a later retry cannot reference
-a deleted report. Apply the polling-state update to an existing WAS database
-before deploying this code:
-
-```bash
-PGPASSWORD="$WAS_DB_PASSWORD" psql \
-  --host "$WAS_DB_HOST" \
-  --port "$WAS_DB_PORT" \
-  --username "$WAS_DB_USERNAME" \
-  --dbname "$WAS_DB_NAME" \
-  --file schema/updates/009_add_qualys_report_polling_state.sql
-```
+a deleted report. Existing databases require a DBA-reviewed additive change
+before deploying code that depends on these columns. Incremental SQL history is
+kept locally and is intentionally not distributed in the repository. The
+canonical final schema is `schema/stakeholders_table_creation.sql`; do not run
+that complete creation file against an existing database.
 
 ### Qualys API Rate Limit
 
@@ -364,17 +358,10 @@ The staging environment uses the dedicated `cisa-was-reports` bucket through
 `WAS_REPORTS_PREFIX=was_reports`. Each deployed environment must supply its own
 bucket name and grant the two object-level permissions before deployment.
 
-Apply the report-run claim update to an existing WAS database before deploying
-this code:
-
-```bash
-PGPASSWORD="$WAS_DB_PASSWORD" psql \
-  --host "$WAS_DB_HOST" \
-  --port "$WAS_DB_PORT" \
-  --username "$WAS_DB_USERNAME" \
-  --dbname "$WAS_DB_NAME" \
-  -f schema/updates/008_add_report_run_delivery_claims.sql
-```
+Existing databases require a DBA-reviewed additive change for the report-run
+claim columns and indexes before deploying this code. Use
+`schema/stakeholders_table_creation.sql` as the canonical final-state reference,
+but do not execute the complete creation file against an existing database.
 
 The unique active-schedule index prevents separate report containers from
 generating the same stakeholder schedule concurrently. Email delivery uses an
@@ -651,8 +638,8 @@ The workflow validates integer, Boolean, and email values and displays the
 updated row afterward.
 Stakeholder state values must use an exact uppercase two-letter USPS state or
 territory code, such as `WY`. Values such as `wy` or `Wz` are rejected during
-single-stakeholder creation, stakeholder updates, and CSV imports. Leave the
-state blank when it does not apply so PostgreSQL stores `NULL`.
+single-stakeholder creation, stakeholder updates, and CSV imports. State is
+required; use `INTERNATIONAL` for an international stakeholder.
 The primary `tag`, `report_password`, `created_at`, and `updated_at` fields are
 protected. Use the dedicated password-rotation command for password changes.
 
@@ -830,16 +817,9 @@ schedule has no next launch date and its primary schedule also has no next
 launch date, that schedule is logged with its ID, name, and tag and skipped so
 the remaining batch can continue.
 
-Apply the tracker link once to an existing WAS database before using this mode:
-
-```bash
-psql \
-  --host "$WAS_DB_HOST" \
-  --port "$WAS_DB_PORT" \
-  --username "$WAS_DB_USERNAME" \
-  --dbname "$WAS_DB_NAME" \
-  --file schema/updates/008_link_report_runs_to_daily_tracker.sql
-```
+Existing databases require a DBA-reviewed additive change for the tracker link
+before using this mode. The canonical final-state definition is in
+`schema/stakeholders_table_creation.sql`.
 
 Run the complete recent-scan batch and send reports plus analyst digests:
 
@@ -1038,17 +1018,9 @@ Do not reset a held or interrupted digest without verifying SES delivery.
 Digest revisions preserve report failures arriving during a send: successful
 delivery acknowledges only the claimed revision, leaving newer failures pending.
 
-Apply the existing database update script before using this command against an
-already-created WAS database:
-
-```bash
-PGPASSWORD="$WAS_DB_PASSWORD" psql \
-  --host "$WAS_DB_HOST" \
-  --port "$WAS_DB_PORT" \
-  --username "$WAS_DB_USERNAME" \
-  --dbname "$WAS_DB_NAME" \
-  -f schema/updates/006_add_assignee_email_fields.sql
-```
+Existing databases require a DBA-reviewed additive change for the assignee
+email fields before using this command. The canonical final-state definition is
+in `schema/stakeholders_table_creation.sql`.
 
 Send unsent tracker rows grouped by assignee:
 
@@ -1078,16 +1050,9 @@ docker run --rm \
 `was_special_cases` stores active tag values that should bypass automatic NWS
 deletion logic. The initial seeded values are `CROSSFEED`, `CBOE`, and `SCCCS`.
 
-Apply the special-case table update against an already-created WAS database:
-
-```bash
-PGPASSWORD="$WAS_DB_PASSWORD" psql \
-  --host "$WAS_DB_HOST" \
-  --port "$WAS_DB_PORT" \
-  --username "$WAS_DB_USERNAME" \
-  --dbname "$WAS_DB_NAME" \
-  -f schema/updates/007_create_was_special_cases.sql
-```
+Existing databases require a DBA-reviewed additive change for the special-case
+table before using this command. The canonical final-state definition is in
+`schema/stakeholders_table_creation.sql`.
 
 List active special cases:
 

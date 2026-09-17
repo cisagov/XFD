@@ -58,9 +58,9 @@ confirm `SELECT current_database();` returns `was`, and apply the following
 additive SQL. Do not rerun the complete CREATE TABLE file. No historical rows
 are deleted by this update.
 
-The executable, rerunnable update is
-`schema/updates/010_harden_report_delivery_and_tracker.sql`. The SQL below is
-included for operator review and must remain aligned with that file.
+Incremental SQL history is intentionally kept outside the repository. The SQL
+below documents the additive change for operator review, while
+`schema/stakeholders_table_creation.sql` remains the canonical final schema.
 
 ```sql
 BEGIN;
@@ -146,4 +146,5 @@ The workbook contained seven unique assignee names:
 - Oscar Saunders
 - Wale Ojelabi
 
-The seed script is `schema/updates/005_seed_was_assignees.sql`.
+Assignee seed data is deployment-specific and is intentionally excluded from
+the canonical schema.

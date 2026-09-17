@@ -43,6 +43,7 @@ yarn-debug.log*
 yarn-error.log*
 backend/src/xfd_django/vuln_scanning_sync.log
 backend/WAS Automation Export 2026-05-06.zip
+backend/was/schema/updates/
 
 .serverless
 .build
