@@ -1,7 +1,7 @@
 """Pydantic schemas for dnstwist PE API endpoints."""
 
 # Standard Python Libraries
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # Third-Party Libraries
 from pydantic import BaseModel, ConfigDict
@@ -29,15 +29,15 @@ class ScanFullTable(BaseModel):
     createdAt: str
     updatedAt: str
     name: str
-    arguments: str
-    frequency: str
+    arguments: Dict[str, Any]
+    frequency: int
     lastRun: str
     isGranular: bool
     createdById: str
     isSingleScan: bool
     manualRunPending: bool
-    isUserModifiable: str
-    concurrentTasks: str
+    isUserModifiable: bool
+    concurrentTasks: int
 
 
 class SubDomainsSingleInsertInput(BaseModel):

@@ -15,7 +15,8 @@ from dataAPI import schemas
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import Max, Q
+from django.db.models import JSONField, Max, Q
+from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from fastapi import APIRouter, Depends, HTTPException, Security, status
@@ -145,7 +146,7 @@ def organizations_demo_or_report_on(
 @api_router.post(
     "/data_source_by_name",
     dependencies=[Depends(verify_api_key)],
-    # response_model=List[schemas.ScanFullTable],
+    response_model=List[schemas.ScanFullTable],
     tags=["scan"],
 )
 def data_source_by_name(
@@ -154,14 +155,26 @@ def data_source_by_name(
 ):
     """Look up a data source row by name and refresh its last_run date."""
     del tokens
+    # Special handling for arguments json field
+    field_names = [
+        field.attname
+        for field in Scan._meta.concrete_fields
+        if field.name != "arguments"
+    ]
     rows = list(
-        Scan.objects.using("cyhy_dash_db").filter(name=data.name).values("arguments")
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name=data.name)
+        .values(*field_names)
+        .annotate(arguments=Cast("arguments", output_field=JSONField()))
     )
     today = dt.today().strftime("%Y-%m-%d")
     Scan.objects.using("cyhy_dash_db").filter(name=data.name).update(lastRun=today)
     for row in rows:
         row["id"] = convert_uuid_to_string(row["id"])
+        row["createdAt"] = convert_date_to_string(row.get("createdAt"))
+        row["updatedAt"] = convert_date_to_string(row.get("updatedAt"))
         row["lastRun"] = convert_date_to_string(row.get("lastRun"))
+        row["createdById"] = convert_uuid_to_string(row["createdById"])
     return rows
 
 

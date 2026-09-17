@@ -123,8 +123,7 @@ def get_data_source_uid(source):
                 "'make -C backend/pe syncdb-populate' for local dev".format(source)
             )
         # Process data and return
-        tup_result = [tuple(row.values()) for row in result]
-        return tup_result[0][0]
+        return result[0].get("id")
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
