@@ -233,10 +233,10 @@ def upsert_ssvc(cve_object, parsed: dict) -> None:
     exploitation = (parsed.get("exploitation") or "").lower() or None
     automatable = (parsed.get("automatable") or "").lower() or None
     technical_impact = (parsed.get("technical_impact") or "").lower() or None
-    adp_provider = (parsed.get("adp_provider") or "").lower() or None
-    adp_title = (parsed.get("adp_title") or "").lower() or None
-    ssvc_version = (parsed.get("ssvc_version") or "").lower() or None
-    ssvc_timestamp = (parsed.get("ssvc_timestamp") or "").lower() or None
+    adp_provider = parsed.get("adp_provider") or None
+    adp_title = parsed.get("adp_title") or None
+    ssvc_version = parsed.get("ssvc_version") or None
+    ssvc_timestamp = parsed.get("ssvc_timestamp")
 
     CveSsvc.objects.update_or_create(
         cve=cve_object,
