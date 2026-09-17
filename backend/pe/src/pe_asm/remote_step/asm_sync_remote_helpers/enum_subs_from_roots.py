@@ -46,7 +46,7 @@ def whoisxml_enum_subs_from_root(root_domain, root_uid):
         retry_count += 1
     data = response.json()
     sub_domains = data["domainsList"]
-    data_source = get_data_source_uid("WhoisXML")
+    data_source = get_data_source_uid("asmSync")
     # First add the root domain to the total subs list
     found_subs = [
         {

@@ -288,9 +288,10 @@ def get_data_source_uid(source_name):
     # Update last_run in scan table
     cur = conn.cursor()
     date = datetime.today().strftime("%Y-%m-%d")
-    sql = """UPDATE scan SET "lastRun" = '{}'
-            WHERE name = '{}';"""
-    cur.execute(sql.format(date, source_name))
+    sql = """UPDATE scan SET "lastRun" = %s
+            WHERE name = %s;"""
+    cur.execute(sql, (date, source_name))
+    conn.commit()
     cur.close()
     conn.close()
     return source_uid
