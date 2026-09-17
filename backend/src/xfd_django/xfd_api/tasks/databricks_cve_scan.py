@@ -84,7 +84,7 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "references_json": extract_references(cna.get("references")),
         "source_json": cna.get("source"),
         "adp_json": None,
-        "published_at": cna.get("datePublic"),
+        "published_at": parse_iso8601(cna.get("datePublic")),
         "modified_at": None,
         "state": None,
         "date_reserved": None,
@@ -99,7 +99,7 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "adp_title": row.get("adp_title"),
         "adp_provider": row.get("adp_provider"),
         "ssvc_version": row.get("ssvc_version"),
-        "ssvc_timestamp": row.get("ssvc_timestamp"),
+        "ssvc_timestamp": parse_iso8601(crow.get("ssvc_timestamp")),
     }
 
 

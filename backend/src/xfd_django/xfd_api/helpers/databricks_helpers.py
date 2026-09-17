@@ -181,11 +181,12 @@ def parse_iso8601(value: Optional[str]) -> Optional[datetime]:
         return None
     # no regex; rely on fromisoformat tolerant variant where possible
     try:
+        value = value.strip().upper()
         # Handle 'Z' suffix
         if value.endswith("Z"):
-            value = value.replace("Z", "+00:00")
+            value = value[:-1] + "+00:00"
         return datetime.fromisoformat(value)
-    except ValueError:
+    except (ValueError, AttributeError):
         return None
 
 
