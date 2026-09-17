@@ -79,12 +79,6 @@ def main():
     if str(is_dmz).lower() not in {"true", "1"}:
         zscaler_cert = ensure_zscaler_cert_downloaded()
 
-        # REQUESTS_CA_BUNDLE/SSL_CERT_FILE replace the trust store entirely rather
-        # than adding to it -- pointing them at zscaler_cert alone (as before) makes
-        # requests/the Databricks SDK trust Zscaler-intercepted domains but reject
-        # every domain Zscaler bypasses with its own real, publicly-signed cert
-        # (S3, Databricks, etc. commonly get SSL-inspection exemptions). Combine
-        # zscaler_cert with certifi's public roots so both cases verify correctly.
         combined_bundle_path = "/tmp/combined-ca-bundle.pem"  # nosec B108
         try:
             # Third-Party Libraries
