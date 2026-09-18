@@ -258,15 +258,16 @@ def sub_domains_single_insert(
     )
     if not sub_domain_results.exists():
         # If it doesn't exist in subdomains table, check if root domain exists
-        findomain_inst = (
-            DataSource.objects.filter(name="findomain")
-            .order_by("data_source_uid")
+        scan_src_id = (
+            Scan.objects.using("cyhy_dash_db")
+            .filter(name=data.scan_src)
+            .values_list("id", flat=True)
             .first()
         )
-        if findomain_inst is None:
+        if scan_src_id is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="findomain data source is not configured",
+                detail="%s data source is not configured" % data.scan_src,
             )
         root_results = RootDomains.objects.filter(
             organizations_uid=data.pe_org_uid, root_domain=curr_root
@@ -279,7 +280,7 @@ def sub_domains_single_insert(
                     organizations_uid=data.pe_org_uid
                 ),
                 root_domain=curr_root,
-                data_source_uid=findomain_inst,
+                data_source_uid=scan_src_id,
                 enumerate_subs=False,
             )
         # Retrieve root domain record
@@ -291,7 +292,7 @@ def sub_domains_single_insert(
             sub_domain_uid=uuid.uuid4(),
             sub_domain=data.domain,
             root_domain_uid=root_inst,
-            data_source_uid=findomain_inst,
+            data_source_uid=scan_src_id,
             first_seen=curr_date,
             last_seen=curr_date,
             identified=False,

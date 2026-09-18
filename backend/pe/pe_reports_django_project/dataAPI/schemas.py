@@ -46,6 +46,7 @@ class SubDomainsSingleInsertInput(BaseModel):
     domain: str
     pe_org_uid: str
     root: bool
+    scan_src: str
 
 
 class SubdomainUIDByDomainInput(BaseModel):

@@ -164,6 +164,7 @@ def addSubdomain(domain, pe_org_uid, root):
             "domain": domain,
             "pe_org_uid": pe_org_uid,
             "root": root,
+            "scan_src": "dnstwist",
         }
     )
     result = requests.put(endpoint_url, headers=headers, data=data, timeout=60).json()
@@ -207,6 +208,7 @@ def insert_subdomain(domain, pe_org_uid, root):
             "domain": domain,
             "pe_org_uid": pe_org_uid,
             "root": root,
+            "scan_src": "dnsmonitor",
         }
     )
     try:
