@@ -26,7 +26,6 @@ from fastapi.security.api_key import APIKeyHeader
 from home.models import (
     CredentialBreaches,
     CyhyDbAssets,
-    DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
     DomainPermutations,
@@ -365,9 +364,6 @@ def domain_permu_insert(
                 curr_org_inst = Organizations.objects.get(
                     organizations_uid=record_dict["organizations_uid"]
                 )
-                curr_source_inst = DataSource.objects.get(
-                    data_source_uid=record_dict["data_source_uid"]
-                )
                 curr_subdomain_inst = SubDomains.objects.get(
                     sub_domain_uid=record_dict["sub_domain_uid"]
                 )
@@ -395,7 +391,7 @@ def domain_permu_insert(
                     mail_server=record_dict["mail_server"],
                     name_server=record_dict["name_server"],
                     sub_domain_uid=curr_subdomain_inst,
-                    data_source_uid=curr_source_inst,
+                    data_source_uid=record_dict["data_source_uid"],
                 )
                 update_ct += 1
             except DomainPermutations.DoesNotExist:
@@ -409,7 +405,7 @@ def domain_permu_insert(
                     mail_server=record_dict["mail_server"],
                     name_server=record_dict["name_server"],
                     sub_domain_uid=curr_subdomain_inst,
-                    data_source_uid=curr_source_inst,
+                    data_source_uid=record_dict["data_source_uid"],
                 )
                 create_ct += 1
         # Log completion and return
@@ -449,9 +445,6 @@ def domain_alerts_insert(
                 curr_sub_inst = SubDomains.objects.get(
                     sub_domain_uid=record_dict["sub_domain_uid"]
                 )
-                curr_source_inst = DataSource.objects.get(
-                    data_source_uid=record_dict["data_source_uid"]
-                )
             except ObjectDoesNotExist as error:
                 LOGGER.error(
                     "Error fetching related instances for record: %s, Error: %s",
@@ -474,7 +467,7 @@ def domain_alerts_insert(
                     domain_alert_uid=uuid.uuid4(),
                     organizations_uid=curr_org_inst,
                     sub_domain_uid=curr_sub_inst,
-                    data_source_uid=curr_source_inst,
+                    data_source_uid=record_dict["data_source_uid"],
                     alert_type=record_dict["alert_type"],
                     message=record_dict["message"],
                     previous_value=record_dict["previous_value"],
