@@ -85,9 +85,7 @@ class Alerts(models.Model):
     organizations_uid = models.ForeignKey(
         "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
     )
-    data_source_uid = models.ForeignKey(
-        "DataSource", on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     content_snip = models.TextField(blank=True, null=True)
     asset_mentioned = models.TextField(blank=True, null=True)
     asset_type = models.TextField(blank=True, null=True)
@@ -252,13 +250,7 @@ class Cidrs(models.Model):
         blank=True,
         null=True,
     )
-    data_source_uid = models.ForeignKey(
-        "DataSource",
-        on_delete=models.CASCADE,
-        db_column="data_source_uid",
-        blank=True,
-        null=True,
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     insert_alert = models.TextField(blank=True, null=True)
     first_seen = models.DateField(blank=True, null=True)
     last_seen = models.DateField(blank=True, null=True)
@@ -291,9 +283,7 @@ class CredentialBreaches(models.Model):
     is_sensitive = models.BooleanField(blank=True, null=True)
     is_retired = models.BooleanField(blank=True, null=True)
     is_spam_list = models.BooleanField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        "DataSource", on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
 
     class Meta:
         """Set CredentialBreaches model metadata."""
@@ -319,9 +309,7 @@ class CredentialExposures(models.Model):
         on_delete=models.CASCADE,
         db_column="credential_breaches_uid",
     )
-    data_source_uid = models.ForeignKey(
-        "DataSource", on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     name = models.TextField(blank=True, null=True)
     login_id = models.TextField(blank=True, null=True)
     phone = models.TextField(blank=True, null=True)
@@ -642,9 +630,7 @@ class DomainAlerts(models.Model):
     sub_domain_uid = models.ForeignKey(
         "SubDomains", on_delete=models.CASCADE, db_column="sub_domain_uid"
     )
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     organizations_uid = models.ForeignKey(
         "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
     )
@@ -680,9 +666,7 @@ class DomainPermutations(models.Model):
     malicious = models.BooleanField(blank=True, null=True)
     blocklist_attack_count = models.IntegerField(blank=True, null=True)
     blocklist_report_count = models.IntegerField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     sub_domain_uid = models.ForeignKey(
         "SubDomains",
         on_delete=models.CASCADE,
@@ -724,9 +708,7 @@ class FlareEvents(models.Model):
     related_identifiers = ArrayField(
         models.TextField(), blank=True, null=True, default=list
     )
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     severity = models.TextField(blank=True, null=True)
     related_identifiers_txt = ArrayField(
         models.TextField(), blank=True, null=True, default=list
@@ -863,9 +845,7 @@ class Mentions(models.Model):
     sub_category = models.TextField(blank=True, null=True)
     tags = models.TextField(blank=True, null=True)
     organizations_uid = models.UUIDField()
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     title_translated = models.TextField(blank=True, null=True)
     content_translated = models.TextField(blank=True, null=True)
     detected_lang = models.TextField(blank=True, null=True)
@@ -975,9 +955,7 @@ class PshttResults(models.Model):
     sub_domain_uid = models.ForeignKey(
         "SubDomains", on_delete=models.CASCADE, db_column="sub_domain_uid"
     )
-    data_source_uid = models.ForeignKey(
-        "DataSource", on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     sub_domain = models.TextField()
     date_scanned = models.DateField(blank=True, null=True)
     base_domain = models.TextField(blank=True, null=True)
@@ -1125,9 +1103,7 @@ class RootDomains(models.Model):
     )
     root_domain = models.TextField()
     ip_address = models.TextField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     enumerate_subs = models.BooleanField(blank=True, null=True)
 
     class Meta:
@@ -1217,9 +1193,7 @@ class ShodanAssets(models.Model):
     )
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     country_code = models.TextField(blank=True, null=True)
     location = models.TextField(blank=True, null=True)
 
@@ -1260,9 +1234,7 @@ class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
     )
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
 
     class Meta:
         """Set ShodanInsecureProtocolsUnverifiedVulns model metadata."""
@@ -1310,9 +1282,7 @@ class ShodanVulns(models.Model):
     )
     isn = models.TextField(blank=True, null=True)
     asn = models.IntegerField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     type = models.TextField(blank=True, null=True)
     name = models.TextField(blank=True, null=True)
     potential_vulns = ArrayField(
@@ -1344,9 +1314,7 @@ class SubDomains(models.Model):
     root_domain_uid = models.ForeignKey(
         RootDomains, on_delete=models.CASCADE, db_column="root_domain_uid"
     )
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
     dns_record_uid = models.ForeignKey(
         DnsRecords,
         on_delete=models.CASCADE,
@@ -1377,9 +1345,7 @@ class TopCves(models.Model):
     nvd_base_score = models.TextField(blank=True, null=True)
     date = models.DateField(blank=True, null=True)
     summary = models.TextField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
 
     class Meta:
         """Set TopCves model metadata."""
@@ -1400,9 +1366,7 @@ class TopCvesShodan(models.Model):
     nvd_base_score = models.TextField(blank=True, null=True)
     collection_date = models.DateField()
     summary = models.TextField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
 
     class Meta:
         """Set TopCvesShodan model metadata."""
@@ -1491,9 +1455,7 @@ class WebAssets(models.Model):
     report_on = models.BooleanField(blank=True, null=True)
     last_scanned = models.DateTimeField(blank=True, null=True)
     report_status_reason = models.TextField(blank=True, null=True)
-    data_source_uid = models.ForeignKey(
-        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-    )
+    data_source_uid = models.UUIDField(primary_key=False, blank=True, null=True)
 
     class Meta:
         """Set WebAssets model metadata."""
