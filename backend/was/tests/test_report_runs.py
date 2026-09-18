@@ -626,6 +626,7 @@ class ReportRunTests(unittest.TestCase):
             conn=conn,
             limit=5,
             stakeholder_tag="TAG1",
+            days_back=30,
         )
 
         self.assertEqual(report_run_emails[0].id, 7)
@@ -637,10 +638,15 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 [report_runs.EMAIL_PENDING],
                 "TAG1",
+                30,
                 5,
             ),
         )
         self.assertIn("runs.stakeholder_tag = %s", conn.cursor_instance.query)
+        self.assertIn(
+            "tracker.data_pull_date >= CURRENT_DATE - %s",
+            conn.cursor_instance.query,
+        )
 
     def test_list_report_runs_ready_for_email_can_retry_failures(self) -> None:
         """Allow failed email runs to be selected for retry."""

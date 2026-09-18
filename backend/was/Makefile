@@ -10,6 +10,7 @@ STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
 TEST_RECIPIENTS ?= operator@example.gov
 BATCH_WORKERS ?= 30
 BATCH_TEST_RECIPIENTS ?=
+BATCH_DAYS_BACK ?=
 TAG ?=
 DAYS_BACK ?= 7
 ASSIGNEE ?=
@@ -89,6 +90,7 @@ recent-scan-batch:
 			--worker-index "$$worker_index" \
 			--create-missing-password \
 			--continue-on-error \
+			$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
 			--send-email \
 			$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") \
 			--skip-ready-email-retry & \
@@ -106,6 +108,7 @@ recent-scan-batch:
 		-v $(OUTPUT_DIR):/output \
 		--entrypoint was-mailer \
 		$(IMAGE) --all-ready --include-previous-failures \
+		$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
 		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || mailer_status=$$?; \
 	echo 'Report delivery finished. Sending assignee digests once.'; \
 	digest_status=0; \
@@ -113,6 +116,7 @@ recent-scan-batch:
 		-v $(OUTPUT_DIR):/output \
 		--entrypoint was-mailer \
 		$(IMAGE) --assignee-digests --include-previous-failures \
+		$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
 		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || digest_status=$$?; \
 	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ] || [ "$$digest_status" -ne 0 ]; then \
 		echo 'Parallel WAS batch completed with one or more failures. Review local-output/logs.' >&2; \
@@ -123,7 +127,8 @@ recent-scan-batch:
 recent-scan-batch-assignee-test:
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an active WAS assignee email address.' >&2; exit 2)
 	@echo 'All batch reports and digests will be sent only to $(TEST_RECIPIENTS).'
-	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)"
+	@echo 'Only tracker work from the previous 30 calendar days will be processed.'
+	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)" BATCH_DAYS_BACK="30"
 
 recent-scan-batch-test:
 	mkdir -p $(OUTPUT_DIR)

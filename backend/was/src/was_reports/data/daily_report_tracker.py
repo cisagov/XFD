@@ -267,8 +267,9 @@ def list_ready_report_candidates(
     include_manual: bool = False,
     worker_count: int | None = None,
     worker_index: int | None = None,
+    days_back: int | None = None,
 ) -> list[TrackerReportCandidate]:
-    """Return tracker rows with a report-delivery gap."""
+    """Return report gaps, using only the newest automated row per tag."""
     if (worker_count is None) != (worker_index is None):
         raise ValueError("Worker count and worker index must be provided together.")
     if worker_count is not None:
@@ -276,77 +277,120 @@ def list_ready_report_candidates(
             raise ValueError("Worker count must be between 1 and 30.")
         if worker_index is None or worker_index < 0 or worker_index >= worker_count:
             raise ValueError("Worker index must be between 0 and worker count minus 1.")
-    query = """
-        SELECT
-            tracker.id,
-            tracker.tag,
-            tracker.data_pull_date,
-            tracker.schedule_id,
-            tracker.assignee_id,
-            tracker.tag_id,
-            stakeholders.customer_name,
-            tracker.template,
-            tracker.remove_nws,
-            runs.id,
-            runs.status,
-            runs.email_status
-        FROM was_daily_report_tracker AS tracker
-        JOIN was_stakeholders AS stakeholders
-          ON stakeholders.tag = tracker.tag
-        LEFT JOIN was_report_runs AS runs
-          ON runs.source_tracker_id = tracker.id
-        WHERE tracker.report_sent_date IS NULL
-          AND tracker.tag IS NOT NULL
-          AND BTRIM(tracker.tag) <> ''
-          AND COALESCE(tracker.scan_execution_key, '') NOT LIKE %s
-          AND COALESCE(tracker.template, '') <> 'Deactivated'
-          AND stakeholders.retired IS NOT TRUE
-    """
     parameters: list[object] = ["legacy-import:%"]
     if include_manual:
-        query += """
-          AND (
-                stakeholders.manual_report IS TRUE
-             OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
-             OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
-             OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
-          )
-          AND (
-                runs.id IS NULL
-             OR (
-                    runs.status = 'failed'
-                AND COALESCE(runs.email_status, 'pending') <> 'held'
-             )
-             OR (
-                    runs.status = 'completed'
-                AND runs.emailed_at IS NULL
-                AND COALESCE(runs.email_status, 'pending')
-                    IN ('pending', 'failed')
-             )
-          )
+        query = """
+            SELECT
+                tracker.id,
+                tracker.tag,
+                tracker.data_pull_date,
+                tracker.schedule_id,
+                tracker.assignee_id,
+                COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
+                stakeholders.customer_name,
+                tracker.template,
+                tracker.remove_nws,
+                runs.id,
+                runs.status,
+                runs.email_status
+            FROM was_daily_report_tracker AS tracker
+            JOIN was_stakeholders AS stakeholders
+              ON stakeholders.tag = tracker.tag
+            LEFT JOIN was_report_runs AS runs
+              ON runs.source_tracker_id = tracker.id
+            WHERE tracker.report_sent_date IS NULL
+              AND tracker.tag IS NOT NULL
+              AND BTRIM(tracker.tag) <> ''
+              AND COALESCE(tracker.scan_execution_key, '') NOT LIKE %s
+              AND COALESCE(tracker.template, '') <> 'Deactivated'
+              AND stakeholders.retired IS NOT TRUE
+              AND (
+                    stakeholders.manual_report IS TRUE
+                 OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
+                 OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
+                 OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
+              )
+              AND (
+                    runs.id IS NULL
+                 OR (
+                        runs.status = 'failed'
+                    AND COALESCE(runs.email_status, 'pending') <> 'held'
+                 )
+                 OR (
+                        runs.status = 'completed'
+                    AND runs.emailed_at IS NULL
+                    AND COALESCE(runs.email_status, 'pending')
+                        IN ('pending', 'failed')
+                 )
+              )
         """
     else:
-        query += """
-          AND runs.id IS NULL
-          AND (
-                LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
-             OR (
-                    LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'error'
-                AND BTRIM(COALESCE(tracker.qualys_error, '')) <> ''
-             )
-          )
-          AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
-          AND stakeholders.manual_report IS NOT TRUE
+        query = """
+            WITH ranked_tracker AS (
+                SELECT
+                    tracker.*,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY tracker.tag
+                        ORDER BY
+                            tracker.scan_start_date DESC NULLS LAST,
+                            tracker.data_pull_date DESC NULLS LAST,
+                            tracker.id DESC
+                    ) AS candidate_rank
+                FROM was_daily_report_tracker AS tracker
+                WHERE tracker.tag IS NOT NULL
+                  AND BTRIM(tracker.tag) <> ''
+                  AND COALESCE(tracker.scan_execution_key, '') NOT LIKE %s
         """
     if stakeholder_tag is not None:
         query += " AND tracker.tag = %s"
         parameters.append(stakeholder_tag)
+    if days_back is not None:
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        parameters.append(days_back)
     if worker_count is not None:
         query += (
             " AND MOD(ABS(HASHTEXT(tracker.tag)::BIGINT), %s) = %s"
         )
         parameters.extend((worker_count, worker_index))
-    query += " ORDER BY tracker.data_pull_date ASC, tracker.id ASC"
+    if not include_manual:
+        query += """
+            )
+            SELECT
+                tracker.id,
+                tracker.tag,
+                tracker.data_pull_date,
+                tracker.schedule_id,
+                tracker.assignee_id,
+                COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
+                stakeholders.customer_name,
+                tracker.template,
+                tracker.remove_nws,
+                runs.id,
+                runs.status,
+                runs.email_status
+            FROM ranked_tracker AS tracker
+            JOIN was_stakeholders AS stakeholders
+              ON stakeholders.tag = tracker.tag
+            LEFT JOIN was_report_runs AS runs
+              ON runs.source_tracker_id = tracker.id
+            WHERE tracker.candidate_rank = 1
+              AND tracker.report_sent_date IS NULL
+              AND COALESCE(tracker.template, '') <> 'Deactivated'
+              AND stakeholders.retired IS NOT TRUE
+              AND runs.id IS NULL
+              AND (
+                    LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
+                 OR (
+                        LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'error'
+                    AND BTRIM(COALESCE(tracker.qualys_error, '')) <> ''
+                 )
+              )
+              AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
+              AND stakeholders.manual_report IS NOT TRUE
+            ORDER BY tracker.data_pull_date ASC, tracker.id ASC
+        """
+    else:
+        query += " ORDER BY tracker.data_pull_date ASC, tracker.id ASC"
     if limit is not None:
         query += " LIMIT %s"
         parameters.append(limit)
@@ -380,6 +424,7 @@ def list_ready_report_candidates_from_db(
     include_manual: bool = False,
     worker_count: int | None = None,
     worker_index: int | None = None,
+    days_back: int | None = None,
 ) -> list[TrackerReportCandidate]:
     """Return report-delivery gaps using a managed database connection."""
     # Third-Party Libraries
@@ -394,6 +439,7 @@ def list_ready_report_candidates_from_db(
             include_manual=include_manual,
             worker_count=worker_count,
             worker_index=worker_index,
+            days_back=days_back,
         )
     finally:
         close(conn)
@@ -506,6 +552,7 @@ def list_ready_assignee_digests(
     data_pull_date: date | None = None,
     limit: int | None = None,
     include_previous_failures: bool = False,
+    days_back: int | None = None,
 ) -> list[AssigneeDigest]:
     """Return unsent tracker rows grouped by active assignee email address."""
     query = """
@@ -554,6 +601,9 @@ def list_ready_assignee_digests(
     if data_pull_date is not None:
         query += " AND tracker.data_pull_date = %s"
         parameters.append(data_pull_date)
+    if days_back is not None:
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        parameters.append(days_back)
 
     query += " ORDER BY assignees.id ASC, tracker.id ASC"
 
@@ -609,6 +659,7 @@ def list_ready_assignee_digests_from_db(
     data_pull_date: date | None = None,
     limit: int | None = None,
     include_previous_failures: bool = False,
+    days_back: int | None = None,
 ) -> list[AssigneeDigest]:
     """Return ready assignee digests using a managed database connection."""
     # Third-Party Libraries
@@ -621,6 +672,7 @@ def list_ready_assignee_digests_from_db(
             data_pull_date=data_pull_date,
             limit=limit,
             include_previous_failures=include_previous_failures,
+            days_back=days_back,
         )
     finally:
         close(conn)

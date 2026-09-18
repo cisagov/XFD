@@ -1188,6 +1188,7 @@ def list_report_runs_ready_for_email(
     limit: int | None = None,
     include_previous_failures: bool = False,
     stakeholder_tag: str | None = None,
+    days_back: int | None = None,
 ) -> list[ReportRunEmail]:
     """Return completed report runs that have not been emailed."""
     query = """
@@ -1239,6 +1240,10 @@ def list_report_runs_ready_for_email(
     if stakeholder_tag is not None:
         query += " AND runs.stakeholder_tag = %s"
         parameters.append(stakeholder_tag)
+
+    if days_back is not None:
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        parameters.append(days_back)
 
     query += " ORDER BY runs.completed_at ASC NULLS LAST, runs.id ASC"
 
@@ -1425,6 +1430,7 @@ def list_report_runs_ready_for_email_from_db(
     limit: int | None = None,
     include_previous_failures: bool = False,
     stakeholder_tag: str | None = None,
+    days_back: int | None = None,
 ) -> list[ReportRunEmail]:
     """Return ready-to-email report runs using a managed connection."""
     # Third-Party Libraries
@@ -1437,6 +1443,7 @@ def list_report_runs_ready_for_email_from_db(
             limit=limit,
             include_previous_failures=include_previous_failures,
             stakeholder_tag=stakeholder_tag,
+            days_back=days_back,
         )
     finally:
         close(conn)

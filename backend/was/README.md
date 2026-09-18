@@ -864,7 +864,11 @@ This command uses the same 30-container default as the production batch. It
 does not use customer email addresses. Recipient validation requires every
 submitted address to belong to an active, email-enabled WAS assignee. This is a
 live test that generates reports, archives them to S3, sends SES email, and
-updates successful tracker rows as sent.
+updates successful tracker rows as sent. As a safety guardrail, report
+generation, completed-report retries, and assignee digests are limited to
+tracker rows from the previous 30 calendar days. Automated report generation
+selects only the newest non-legacy tracker row for each stakeholder tag, so an
+older unsent row cannot trigger another current tag-level report.
 
 For a controlled end-to-end batch test, redirect every report and digest to one
 or more active WAS assignees. Customer addresses are not used, but successful

@@ -627,6 +627,7 @@ class WasMailerTests(unittest.TestCase):
         sent_count = email_reports.send_ready_report_emails(
             source_email="sender@example.gov",
             limit=2,
+            days_back=30,
         )
 
         self.assertEqual(sent_count, 2)
@@ -635,6 +636,7 @@ class WasMailerTests(unittest.TestCase):
             limit=2,
             include_previous_failures=False,
             stakeholder_tag=None,
+            days_back=30,
         )
 
     @patch("was_mailer.email_reports.recover_stale_report_operations_in_db")
@@ -655,6 +657,8 @@ class WasMailerTests(unittest.TestCase):
                 "--dry-run",
                 "--limit",
                 "1",
+                "--days-back",
+                "30",
             ]
         )
 
@@ -666,6 +670,7 @@ class WasMailerTests(unittest.TestCase):
             dry_run=True,
             limit=1,
             include_previous_failures=False,
+            days_back=30,
         )
 
     @patch("was_mailer.email_reports.recover_stale_report_operations_in_db")
@@ -688,6 +693,8 @@ class WasMailerTests(unittest.TestCase):
                 "2026-08-26",
                 "--limit",
                 "5",
+                "--days-back",
+                "30",
             ]
         )
 
@@ -700,6 +707,7 @@ class WasMailerTests(unittest.TestCase):
             data_pull_date=date(2026, 8, 26),
             limit=5,
             include_previous_failures=False,
+            days_back=30,
         )
 
     @patch("was_mailer.email_reports.approved_analyst_recipients")

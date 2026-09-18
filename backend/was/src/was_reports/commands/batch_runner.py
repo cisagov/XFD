@@ -361,6 +361,7 @@ def run_recent_scan_reports(
     worker_count: int | None = None,
     worker_index: int | None = None,
     retry_ready_emails: bool = True,
+    days_back: int | None = None,
 ) -> BatchExecutionSummary:
     """Generate and deliver reports for recent tracker rows with delivery gaps."""
     candidates = list_ready_report_candidates_from_db(
@@ -369,6 +370,7 @@ def run_recent_scan_reports(
         include_manual=include_manual,
         worker_count=worker_count,
         worker_index=worker_index,
+        days_back=days_back,
     )
     resolved_storage_mode = resolve_storage_mode(storage_mode)
     generated_count = 0
@@ -382,6 +384,7 @@ def run_recent_scan_reports(
             override_recipients=test_recipients,
             dry_run=dry_run_email,
             stakeholder_tag=stakeholder_tag,
+            days_back=days_back,
         )
 
     for candidate in candidates:
@@ -554,6 +557,7 @@ def run_recent_scan_reports(
             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
             override_recipients=test_recipients,
             dry_run=dry_run_email,
+            days_back=days_back,
         )
 
     summary = BatchExecutionSummary(
@@ -600,6 +604,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--limit",
         type=int,
         help="Maximum number of due stakeholder reports to generate.",
+    )
+    parser.add_argument(
+        "--days-back",
+        type=int,
+        help="Only process tracker work from this many calendar days back.",
     )
     parser.add_argument(
         "--recent-scans",
@@ -719,6 +728,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise ValueError("Manual report generation requires --tag.")
         if args.include_manual and not args.send_email:
             raise ValueError("Manual report generation requires --send-email.")
+        if args.days_back is not None and args.days_back < 1:
+            raise ValueError("Days back must be at least 1.")
         if (args.worker_count is None) != (args.worker_index is None):
             raise ValueError(
                 "Worker count and worker index must be provided together."
@@ -772,11 +783,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             worker_count=args.worker_count,
             worker_index=args.worker_index,
             retry_ready_emails=not args.skip_ready_email_retry,
+            days_back=args.days_back,
         )
         return 1 if summary.failed else 0
 
     recent_scan_only_options = [
         args.skip_tracker_refresh,
+        args.days_back is not None,
         args.worker_count is not None,
         args.worker_index is not None,
         args.tag is not None,

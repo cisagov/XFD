@@ -229,13 +229,19 @@ class DailyReportTrackerTests(unittest.TestCase):
         digests = list_ready_assignee_digests(
             conn=conn,
             data_pull_date=date(2026, 8, 26),
+            days_back=30,
         )
 
         self.assertEqual(len(digests), 1)
         self.assertEqual(digests[0].email, "analyst@example.gov")
         self.assertEqual(len(digests[0].rows), 2)
         self.assertEqual(
-            conn.cursor_instance.parameters, (["pending"], date(2026, 8, 26))
+            conn.cursor_instance.parameters,
+            (["pending"], date(2026, 8, 26), 30),
+        )
+        self.assertIn(
+            "tracker.data_pull_date >= CURRENT_DATE - %s",
+            conn.cursor_instance.query,
         )
         self.assertEqual([row.id for row in digests[0].rows], [1, 2])
 
@@ -264,6 +270,7 @@ class DailyReportTrackerTests(unittest.TestCase):
             conn=conn,
             stakeholder_tag="TAG1",
             limit=5,
+            days_back=30,
         )
 
         self.assertEqual(candidates[0].id, 7)
@@ -273,10 +280,33 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn(
             "stakeholders.manual_report IS NOT TRUE", conn.cursor_instance.query
         )
+        self.assertIn("PARTITION BY tracker.tag", conn.cursor_instance.query)
+        self.assertIn("WHERE tracker.candidate_rank = 1", conn.cursor_instance.query)
+        self.assertIn(
+            "tracker.scan_start_date DESC NULLS LAST",
+            conn.cursor_instance.query,
+        )
+        self.assertIn(
+            "tracker.data_pull_date DESC NULLS LAST",
+            conn.cursor_instance.query,
+        )
+        rank_position = conn.cursor_instance.query.index("ROW_NUMBER() OVER")
+        delivery_gap_position = conn.cursor_instance.query.index(
+            "tracker.report_sent_date IS NULL"
+        )
+        self.assertLess(rank_position, delivery_gap_position)
+        self.assertIn(
+            "FROM ranked_tracker AS tracker",
+            conn.cursor_instance.query,
+        )
         self.assertIn("NOT LIKE %s", conn.cursor_instance.query)
+        self.assertIn(
+            "tracker.data_pull_date >= CURRENT_DATE - %s",
+            conn.cursor_instance.query,
+        )
         self.assertEqual(
             conn.cursor_instance.parameters,
-            ("legacy-import:%", "TAG1", 5),
+            ("legacy-import:%", "TAG1", 30, 5),
         )
 
     def test_list_ready_report_candidates_partitions_tracker_rows(self) -> None:
@@ -296,6 +326,37 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(
             conn.cursor_instance.parameters,
             ("legacy-import:%", 5, 2),
+        )
+
+    def test_list_ready_report_candidates_falls_back_to_stakeholder_tag_id(
+        self,
+    ) -> None:
+        """Use the stakeholder Qualys tag ID when the tracker row lacks one."""
+        conn = FakeConnection(
+            fetchall_rows=[
+                (
+                    7,
+                    "TAG1",
+                    date(2026, 9, 1),
+                    12345,
+                    3,
+                    144,
+                    "Customer Name",
+                    "Results",
+                    "",
+                    None,
+                    None,
+                    None,
+                )
+            ]
+        )
+
+        candidates = list_ready_report_candidates(conn=conn)
+
+        self.assertEqual(candidates[0].tag_id, 144)
+        self.assertIn(
+            "COALESCE(tracker.tag_id, stakeholders.qualys_tag_id)",
+            conn.cursor_instance.query,
         )
 
     def test_list_ready_report_candidates_rejects_invalid_partition(self) -> None:
@@ -355,6 +416,8 @@ class DailyReportTrackerTests(unittest.TestCase):
             "stakeholders.manual_report IS NOT TRUE",
             conn.cursor_instance.query,
         )
+        self.assertNotIn("PARTITION BY tracker.tag", conn.cursor_instance.query)
+        self.assertNotIn("tracker.candidate_rank = 1", conn.cursor_instance.query)
         self.assertEqual(
             conn.cursor_instance.parameters,
             ("legacy-import:%", "TAG1", 1),

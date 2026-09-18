@@ -687,6 +687,7 @@ class BatchRunnerTests(unittest.TestCase):
             stakeholder_tag="TAG1",
             send_email=True,
             source_email="reports@example.gov",
+            days_back=30,
         )
 
         self.assertEqual(summary.candidates, 1)
@@ -698,6 +699,15 @@ class BatchRunnerTests(unittest.TestCase):
             override_recipients=None,
             dry_run=False,
             stakeholder_tag="TAG1",
+            days_back=30,
+        )
+        mock_list_candidates.assert_called_once_with(
+            stakeholder_tag="TAG1",
+            limit=None,
+            include_manual=False,
+            worker_count=None,
+            worker_index=None,
+            days_back=30,
         )
         mock_create_run.assert_called_once_with(
             stakeholder_tag="TAG1",
@@ -861,6 +871,7 @@ class BatchRunnerTests(unittest.TestCase):
             send_email=True,
             source_email="reports@example.gov",
             include_manual=True,
+            days_back=30,
         )
 
         self.assertEqual(summary.generated, 1)
@@ -871,6 +882,7 @@ class BatchRunnerTests(unittest.TestCase):
             include_manual=True,
             worker_count=None,
             worker_index=None,
+            days_back=30,
         )
         mock_retry_run.assert_called_once_with(9)
         mock_send_ready.assert_not_called()
@@ -1060,6 +1072,8 @@ class BatchRunnerTests(unittest.TestCase):
                 "--send-email",
                 "--test-recipients",
                 "first@example.gov; second@example.gov",
+                "--days-back",
+                "30",
             ]
         )
 
@@ -1071,6 +1085,7 @@ class BatchRunnerTests(unittest.TestCase):
             mock_run_recent.call_args.kwargs["test_recipients"],
             "first@example.gov,second@example.gov",
         )
+        self.assertEqual(mock_run_recent.call_args.kwargs["days_back"], 30)
         mock_update_tracker.assert_called_once_with(
             delete_apps=False,
             stakeholder_tag=None,
