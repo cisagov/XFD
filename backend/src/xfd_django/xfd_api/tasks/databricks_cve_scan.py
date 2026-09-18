@@ -17,6 +17,7 @@ from ..helpers.databricks_helpers import (
     extract_references,
     extract_weaknesses_from_problem_types,
     newdata_set,
+    parse_iso8601,
     pick_english_description,
 )
 from .utils.query_databricks import fetch_from_databricks_with_params
@@ -84,7 +85,7 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "references_json": extract_references(cna.get("references")),
         "source_json": cna.get("source"),
         "adp_json": None,
-        "published_at": cna.get("datePublic"),
+        "published_at": parse_iso8601(cna.get("datePublic")),
         "modified_at": None,
         "state": None,
         "date_reserved": None,
@@ -99,7 +100,7 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "adp_title": row.get("adp_title"),
         "adp_provider": row.get("adp_provider"),
         "ssvc_version": row.get("ssvc_version"),
-        "ssvc_timestamp": row.get("ssvc_timestamp"),
+        "ssvc_timestamp": parse_iso8601(row.get("ssvc_timestamp")),
     }
 
 
@@ -232,10 +233,10 @@ def upsert_ssvc(cve_object, parsed: dict) -> None:
     exploitation = (parsed.get("exploitation") or "").lower() or None
     automatable = (parsed.get("automatable") or "").lower() or None
     technical_impact = (parsed.get("technical_impact") or "").lower() or None
-    adp_provider = (parsed.get("adp_provider") or "").lower() or None
-    adp_title = (parsed.get("adp_title") or "").lower() or None
-    ssvc_version = (parsed.get("ssvc_version") or "").lower() or None
-    ssvc_timestamp = (parsed.get("ssvc_timestamp") or "").lower() or None
+    adp_provider = parsed.get("adp_provider") or None
+    adp_title = parsed.get("adp_title") or None
+    ssvc_version = parsed.get("ssvc_version") or None
+    ssvc_timestamp = parsed.get("ssvc_timestamp")
 
     CveSsvc.objects.update_or_create(
         cve=cve_object,
