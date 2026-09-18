@@ -10,7 +10,6 @@ import uuid
 from django.db import IntegrityError, transaction
 from home.models import (
     Cidrs,
-    DataSource,
     DomainAlerts,
     Executives,
     FlareEvents,
@@ -20,6 +19,7 @@ from home.models import (
     Organizations,
     ReportSummaryStats,
     RootDomains,
+    Scan,
     SubDomains,
     TopCves,
     TopCvesShodan,
@@ -81,14 +81,14 @@ def _ip_hash(ip_str: str) -> str:
     return hashlib.sha256(ip_str.encode()).hexdigest()
 
 
-def _ensure_top_cve_sample(shodan_source, today, cve_spec):
+def _ensure_top_cve_sample(shodan_top_cves_source, today, cve_spec):
     """Insert or refresh a sample top_cves row (idempotent on cve_id + date)."""
     lookup = {"cve_id": cve_spec["cve_id"], "date": today}
     updates = {
         "dynamic_rating": cve_spec["dynamic_rating"],
         "nvd_base_score": cve_spec["nvd_base_score"],
         "summary": cve_spec["summary"],
-        "data_source_uid": shodan_source,
+        "data_source_uid": shodan_top_cves_source,
     }
     row = TopCves.objects.filter(**lookup).first()
     if row is None:
@@ -104,14 +104,14 @@ def _ensure_top_cve_sample(shodan_source, today, cve_spec):
     TopCves.objects.filter(pk=row.pk).update(**updates)
 
 
-def _ensure_top_cves_shodan_sample(shodan_source, today, cve_spec):
+def _ensure_top_cves_shodan_sample(shodan_top_cves_source, today, cve_spec):
     """Insert or refresh a sample top_cves_shodan row (idempotent on cve_id + date)."""
     lookup = {"cve_id": cve_spec["cve_id"], "collection_date": today}
     updates = {
         "epss_score": cve_spec["epss_score"],
         "nvd_base_score": cve_spec["nvd_base_score"],
         "summary": cve_spec["summary"],
-        "data_source_uid": shodan_source,
+        "data_source_uid": shodan_top_cves_source,
     }
     row = TopCvesShodan.objects.filter(**lookup).first()
     if row is None:
@@ -239,89 +239,60 @@ def populate_sample_data():
     """Insert data sources, orgs, domains, and Shodan test IPs for local dev."""
     today = date.today()
 
-    dnsmonitor_source, created = DataSource.objects.get_or_create(
-        name="DNSMonitor",
-        defaults={
-            "data_source_uid": uuid.uuid4,
-            "description": "DNSMonitor domain alerts scan",
-            "last_run": today,
-        },
+    dnsmonitor_source = (
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name="dnsmonitor")
+        .values_list("id", flat=True)
+        .first()
     )
-    if not created:
-        DataSource.objects.filter(pk=dnsmonitor_source.pk).update(
-            description="DNSMonitor domain alerts scan",
-            last_run=today,
-        )
+    if dnsmonitor_source is None:
+        raise ValueError("Missing sample scan: dnsmonitor")
 
-    dnstwist_source, created = DataSource.objects.get_or_create(
-        name="DNSTwist",
-        defaults={
-            "data_source_uid": uuid.uuid4,
-            "description": "DNSTwist domain permutation scan",
-            "last_run": today,
-        },
+    dnstwist_source = (
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name="dnstwist")
+        .values_list("id", flat=True)
+        .first()
     )
-    if not created:
-        DataSource.objects.filter(pk=dnstwist_source.pk).update(
-            description="DNSTwist domain permutation scan",
-            last_run=today,
-        )
+    if dnstwist_source is None:
+        raise ValueError("Missing sample scan: dnstwist")
 
-    flare_source, created = DataSource.objects.get_or_create(
-        name="Flare",
-        defaults={
-            "data_source_uid": uuid.uuid4,
-            "description": "Flare scan",
-            "last_run": today,
-        },
+    flare_events_source = (
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name="flareEvents")
+        .values_list("id", flat=True)
+        .first()
     )
-    if not created:
-        DataSource.objects.filter(pk=flare_source.pk).update(
-            description="Flare scan",
-            last_run=today,
-        )
+    if flare_events_source is None:
+        raise ValueError("Missing sample scan: flare")
 
-    findomain_source, created = DataSource.objects.get_or_create(
-        name="findomain",
-        defaults={
-            "data_source_uid": uuid.uuid4,
-            "description": "findomain subdomain enumeration",
-            "last_run": today,
-        },
+    shodan_source = (
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name="shodan")
+        .values_list("id", flat=True)
+        .first()
     )
-    if not created:
-        DataSource.objects.filter(pk=findomain_source.pk).update(
-            description="findomain subdomain enumeration",
-            last_run=today,
-        )
+    if shodan_source is None:
+        raise ValueError("Missing sample scan: shodan")
 
-    shodan_source, created = DataSource.objects.get_or_create(
-        name="Shodan",
-        defaults={
-            "data_source_uid": uuid.uuid4,
-            "description": "Shodan internet-facing asset scan",
-            "last_run": today,
-        },
+    shodan_top_cves_source = (
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name="shodanTopCves")
+        .values_list("id", flat=True)
+        .first()
     )
-    if not created:
-        DataSource.objects.filter(pk=shodan_source.pk).update(
-            description="Shodan internet-facing asset scan",
-            last_run=today,
-        )
+    if shodan_top_cves_source is None:
+        raise ValueError("Missing sample scan: shodan")
 
-    whoisxml_source, created = DataSource.objects.get_or_create(
-        name="WhoisXML",
-        defaults={
-            "data_source_uid": uuid.uuid4,
-            "description": "WhoisXML IP and subdomain asset enumeration",
-            "last_run": today,
-        },
+    asmsync_source = (
+        Scan.objects.using("cyhy_dash_db")
+        .filter(name="asmSync")
+        .values_list("id", flat=True)
+        .first()
     )
-    if not created:
-        DataSource.objects.filter(pk=shodan_source.pk).update(
-            description="WhoisXML IP and subdomain asset enumeration",
-            last_run=today,
-        )
+    if asmsync_source is None:
+        raise ValueError("Missing sample scan: asmSync")
+
     for cve_spec in (
         {
             "cve_id": "CVE-2024-3400",
@@ -338,8 +309,8 @@ def populate_sample_data():
             "summary": "Sample CVE row for top_cves_shodan local report data.",
         },
     ):
-        _ensure_top_cve_sample(shodan_source, today, cve_spec)
-        _ensure_top_cves_shodan_sample(shodan_source, today, cve_spec)
+        _ensure_top_cve_sample(shodan_top_cves_source, today, cve_spec)
+        _ensure_top_cves_shodan_sample(shodan_top_cves_source, today, cve_spec)
 
     for event_type, definition in (
         ("chat_message", "Dark web or forum chat message mentioning the organization."),
@@ -379,13 +350,13 @@ def populate_sample_data():
             root_domain=root_domain,
             defaults={
                 "root_domain_uid": uuid.uuid4,
-                "data_source_uid": findomain_source,
+                "data_source_uid": asmsync_source,
                 "enumerate_subs": True,
             },
         )
         if not created:
             RootDomains.objects.filter(pk=root.pk).update(
-                data_source_uid=findomain_source,
+                data_source_uid=asmsync_source,
                 enumerate_subs=True,
             )
 
@@ -411,7 +382,7 @@ def populate_sample_data():
             network=curr_cidr,
             defaults={
                 "cidr_uid": uuid.uuid4,
-                "data_source_uid": whoisxml_source,
+                "data_source_uid": asmsync_source,
                 "first_seen": today,
                 "last_seen": today,
                 "current": True,
@@ -419,7 +390,7 @@ def populate_sample_data():
         )
         if not created:
             Cidrs.objects.filter(pk=cidr_obj.pk).update(
-                data_source_uid=whoisxml_source,
+                data_source_uid=asmsync_source,
                 last_seen=today,
                 current=True,
             )
@@ -488,14 +459,13 @@ def populate_sample_data():
     sub_inst = SubDomains.objects.get(
         sub_domain="dns.google", root_domain_uid=root_inst.root_domain_uid
     )
-    data_src_inst = DataSource.objects.get(name="DNSMonitor")
     dom_alert_obj, created = DomainAlerts.objects.update_or_create(
         organizations_uid=org_inst,
         message="The tracked domain dhs.gov has a new dnsA record, 12.345.678.910",
         date="2026-07-12",
         defaults={
             "sub_domain_uid": sub_inst,
-            "data_source_uid": data_src_inst,
+            "data_source_uid": dnsmonitor_source,
             "alert_type": "New Variant Record",
             "previous_value": "",
             "new_value": "12.345.678.910",
@@ -536,7 +506,6 @@ def populate_sample_data():
     )
 
     # Create Flare alert (event) data
-    flare_src_inst = DataSource.objects.get(name="Flare")
     long_content = "This is a really long content field... " + ("blah " * 6560)
     flare_event_obj, created = FlareEvents.objects.update_or_create(
         organizations_uid=org_inst,
@@ -554,7 +523,7 @@ def populate_sample_data():
             "url": "test_url.com",
             "risk_scores": "{'score': 2}",
             "related_identifiers": ["12345678"],
-            "data_source_uid": flare_src_inst,
+            "data_source_uid": flare_events_source,
             "severity": "low",
             "related_identifiers_txt": ["test_ident"],
         },
@@ -562,12 +531,12 @@ def populate_sample_data():
 
     return {
         "data_sources": [
-            dnsmonitor_source.name,
-            dnstwist_source.name,
-            findomain_source.name,
-            flare_source.name,
-            shodan_source.name,
-            whoisxml_source.name,
+            "asmSync:" + str(asmsync_source),
+            "dnsmonitor:" + str(dnsmonitor_source),
+            "dnstwist:" + str(dnstwist_source),
+            "flareEvents:" + str(flare_events_source),
+            "shodan:" + str(shodan_source),
+            "shodanTopCves:" + str(shodan_top_cves_source),
         ],
         "organizations": org_names,
         "shodan_samples": shodan_samples,

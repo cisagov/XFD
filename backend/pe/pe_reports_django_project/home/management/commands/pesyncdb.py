@@ -141,6 +141,10 @@ class Command(BaseCommand):
         ensure_local_report_views(stdout=self.stdout)
 
         if populate:
+            self.stdout.write("Populating CyHy Dash DB sample data...")
+            result = populate_cyhydash_sample_data()
+            self.stdout.write("Sample CyHy Dash DB data loaded")
+
             self.stdout.write("Populating PE sample data...")
             result = populate_sample_data()
             self.stdout.write(
@@ -151,9 +155,5 @@ class Command(BaseCommand):
                     result.get("shodan_samples"),
                 )
             )
-
-            self.stdout.write("Populating CyHy Dash DB sample data...")
-            result = populate_cyhydash_sample_data()
-            self.stdout.write("Sample CyHy Dash DB data loaded")
 
         self.stdout.write("PE database sync complete.")
