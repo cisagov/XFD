@@ -394,7 +394,7 @@ class TrackerCliTests(unittest.TestCase):
         mock_import.return_value = TrackerImportResult(
             source_rows=12,
             inserted_rows=7,
-            existing_rows=2,
+            updated_rows=2,
             workbook_duplicates=3,
             database_duplicates=0,
             blank_rows=1,
@@ -412,15 +412,16 @@ class TrackerCliTests(unittest.TestCase):
         self.assertEqual(mock_import.call_args.args, (Path("/input/tracker.xlsx"),))
         self.assertTrue(callable(mock_import.call_args.kwargs["status_callback"]))
         self.assertIn("Imported 7 new rows", output.getvalue())
+        self.assertIn("overwrote 2 matching rows", output.getvalue())
         self.assertIn("Former Analyst", output.getvalue())
 
     @patch("was_reports.commands.tracker_cli.import_tracker_workbook")
     def test_import_xlsx_explains_zero_new_rows(self, mock_import) -> None:
         """Tell the operator when a valid workbook contains no new data."""
         mock_import.return_value = TrackerImportResult(
-            source_rows=10,
+            source_rows=1,
             inserted_rows=0,
-            existing_rows=9,
+            updated_rows=0,
             workbook_duplicates=1,
             database_duplicates=0,
             blank_rows=2,
@@ -435,7 +436,7 @@ class TrackerCliTests(unittest.TestCase):
             exit_code = tracker_cli.import_xlsx(args)
 
         self.assertEqual(exit_code, 0)
-        self.assertIn("No new tracker data was added", output.getvalue())
+        self.assertIn("No tracker data was added or overwritten", output.getvalue())
 
     @patch("was_reports.commands.tracker_cli.import_tracker_workbook")
     def test_import_xlsx_explains_database_failure(self, mock_import) -> None:

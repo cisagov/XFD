@@ -102,6 +102,14 @@ FINGERPRINT_FIELDS = tuple(
     }
 )
 
+IMPORT_UPDATE_COLUMNS = tuple(
+    column
+    for column in DATABASE_COLUMNS
+    if column not in {"scan_execution_key", "assignee_email_status"}
+)
+
+TrackerImportKey = tuple[str, ...]
+
 
 @dataclass(frozen=True)
 class TrackerImportResult:
@@ -109,7 +117,7 @@ class TrackerImportResult:
 
     source_rows: int
     inserted_rows: int
-    existing_rows: int
+    updated_rows: int
     workbook_duplicates: int
     database_duplicates: int
     blank_rows: int
@@ -248,6 +256,28 @@ def tracker_fingerprint(row: DailyReportTrackerRow) -> str:
     return hashlib.sha256(serialized_values).hexdigest()
 
 
+def tracker_import_key(row: DailyReportTrackerRow) -> TrackerImportKey:
+    """Identify one imported scan execution using the best workbook fields."""
+    if row.schedule_id is not None and row.scan_start_date is not None:
+        return (
+            "schedule-execution",
+            str(row.schedule_id),
+            row.scan_start_date.isoformat(),
+        )
+    return ("fingerprint", tracker_fingerprint(row))
+
+
+def legacy_scan_execution_key(
+    row: DailyReportTrackerRow,
+    fingerprint: str,
+) -> str:
+    """Return a stable execution key for a newly imported tracker row."""
+    import_key = tracker_import_key(row)
+    if import_key[0] == "schedule-execution":
+        return "legacy-import:{}:{}".format(import_key[1], import_key[2])
+    return "legacy-import:{}".format(fingerprint)
+
+
 def validate_headers(values: Sequence[object]) -> None:
     """Require the known tracker headers and permit only blank trailing cells."""
     actual_headers = tuple(normalized_text(value) for value in values)
@@ -281,17 +311,20 @@ def read_workbook_rows(input_path: Path) -> Iterator[tuple[int, Sequence[object]
         workbook.close()
 
 
-def existing_tracker_fingerprints(conn: connection) -> set[str]:
-    """Return fingerprints for tracker rows already stored in Postgres."""
+def existing_tracker_rows(
+    conn: connection,
+) -> dict[TrackerImportKey, tuple[int, ...]]:
+    """Return stored tracker IDs grouped by workbook scan execution."""
     query = """
         SELECT
-            data_pull_date, tag, scan_name, assignee, status, result,
+            id, data_pull_date, tag, scan_name, assignee, status, result,
             report_sent_date, report_scan_notes, scan_start_date,
             next_scan_date, poc, poc_email, customer_notes, nws, template,
             recent_nws, remove_nws, legacy_password, schedule_id, qualys_error
         FROM was_daily_report_tracker
+        WHERE scan_execution_key LIKE 'legacy-import:%'
     """
-    fingerprints: set[str] = set()
+    tracker_ids: dict[TrackerImportKey, list[int]] = {}
     with conn.cursor() as cursor:
         cursor.execute(query)
         while True:
@@ -299,8 +332,26 @@ def existing_tracker_fingerprints(conn: connection) -> set[str]:
             if not rows:
                 break
             for values in rows:
-                fingerprints.add(tracker_fingerprint(workbook_values_to_row(values)))
-    return fingerprints
+                row = workbook_values_to_row(values[1:])
+                tracker_ids.setdefault(tracker_import_key(row), []).append(
+                    int(values[0])
+                )
+    duplicate_keys = [
+        import_key
+        for import_key, identifiers in tracker_ids.items()
+        if len(identifiers) > 1
+    ]
+    if duplicate_keys:
+        raise ValueError(
+            "Existing legacy tracker duplicates require reconciliation before "
+            "import. Found {} duplicated import execution key(s).".format(
+                len(duplicate_keys)
+            )
+        )
+    return {
+        import_key: tuple(identifiers)
+        for import_key, identifiers in tracker_ids.items()
+    }
 
 
 def assignee_identifiers(conn: connection) -> dict[str, int]:
@@ -338,7 +389,7 @@ def database_values(
         row.remove_nws,
         row.legacy_password,
         row.schedule_id,
-        "legacy-import:{}".format(fingerprint),
+        legacy_scan_execution_key(row, fingerprint),
         row.qualys_error,
         "held",
     )
@@ -349,17 +400,29 @@ def insert_converted_rows(
     rows: Sequence[tuple[object, ...]],
     status_callback: StatusCallback | None = None,
 ) -> int:
-    """Insert converted rows without replacing any existing tracker data."""
+    """Insert rows, atomically overwriting a concurrently matched import."""
     if not rows:
         return 0
+    conflict_assignments = []
+    for column in IMPORT_UPDATE_COLUMNS:
+        if column == "report_sent_date":
+            conflict_assignments.append(
+                "report_sent_date = COALESCE(EXCLUDED.report_sent_date, "
+                "was_daily_report_tracker.report_sent_date)"
+            )
+        else:
+            conflict_assignments.append("{} = EXCLUDED.{}".format(column, column))
     query = """
         INSERT INTO was_daily_report_tracker ({})
         VALUES %s
         ON CONFLICT (scan_execution_key)
             WHERE scan_execution_key IS NOT NULL
-        DO NOTHING
+        DO UPDATE SET {}, updated_at = NOW()
         RETURNING id
-    """.format(", ".join(DATABASE_COLUMNS))
+    """.format(
+        ", ".join(DATABASE_COLUMNS),
+        ", ".join(conflict_assignments),
+    )
     inserted_count = 0
     with conn.cursor() as cursor:
         for start_index in range(0, len(rows), 500):
@@ -383,11 +446,58 @@ def insert_converted_rows(
     return inserted_count
 
 
+def update_converted_rows(
+    conn: connection,
+    rows: Sequence[tuple[object, ...]],
+    status_callback: StatusCallback | None = None,
+) -> int:
+    """Overwrite workbook-controlled fields on matching tracker rows."""
+    if not rows:
+        return 0
+    assignments = []
+    for column in IMPORT_UPDATE_COLUMNS:
+        if column == "report_sent_date":
+            assignments.append(
+                "report_sent_date = COALESCE(imported.report_sent_date, "
+                "tracker.report_sent_date)"
+            )
+        else:
+            assignments.append(
+                "{} = imported.{}".format(column, column)
+            )
+    query = """
+        UPDATE was_daily_report_tracker AS tracker
+        SET {}, updated_at = NOW()
+        FROM (VALUES %s) AS imported ({}, tracker_id)
+        WHERE tracker.id = imported.tracker_id
+        RETURNING tracker.id
+    """.format(", ".join(assignments), ", ".join(IMPORT_UPDATE_COLUMNS))
+    updated_count = 0
+    with conn.cursor() as cursor:
+        for start_index in range(0, len(rows), 500):
+            updated_rows = execute_values(
+                cursor,
+                query,
+                rows[start_index : start_index + 500],
+                page_size=500,
+                fetch=True,
+            )
+            updated_count += len(updated_rows)
+            processed_count = min(start_index + 500, len(rows))
+            if processed_count % 5000 == 0 or processed_count == len(rows):
+                report_status(
+                    status_callback,
+                    "Tracker import: staged {} of {} matching rows for "
+                    "overwrite.".format(processed_count, len(rows)),
+                )
+    return updated_count
+
+
 def import_tracker_workbook(
     input_path: Path,
     status_callback: StatusCallback | None = None,
 ) -> TrackerImportResult:
-    """Convert and atomically import only new daily tracker workbook rows."""
+    """Convert and atomically insert or overwrite daily tracker workbook rows."""
     report_status(status_callback, "Tracker import: opening and validating workbook.")
     row_iterator = read_workbook_rows(input_path)
     try:
@@ -405,11 +515,15 @@ def import_tracker_workbook(
         row_iterator.close()
         raise
     try:
-        existing_fingerprints = existing_tracker_fingerprints(conn)
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "LOCK TABLE was_daily_report_tracker IN SHARE ROW EXCLUSIVE MODE"
+            )
+        existing_rows_by_key = existing_tracker_rows(conn)
         report_status(
             status_callback,
-            "Tracker import: loaded {} existing tracker fingerprints.".format(
-                len(existing_fingerprints)
+            "Tracker import: loaded {} existing tracker execution keys.".format(
+                len(existing_rows_by_key)
             ),
         )
         assignees = assignee_identifiers(conn)
@@ -418,11 +532,12 @@ def import_tracker_workbook(
             "Tracker import: loaded {} assignee mappings.".format(len(assignees)),
         )
         report_status(status_callback, "Tracker import: converting workbook rows.")
-        workbook_fingerprints: set[str] = set()
-        converted_rows: list[tuple[object, ...]] = []
+        converted_by_key: dict[
+            TrackerImportKey,
+            tuple[DailyReportTrackerRow, str],
+        ] = {}
         unknown_assignees: set[str] = set()
         source_rows = 0
-        existing_rows = 0
         workbook_duplicates = 0
         blank_rows = 0
 
@@ -446,25 +561,49 @@ def import_tracker_workbook(
                     ),
                 )
             fingerprint = tracker_fingerprint(row)
-            if fingerprint in workbook_fingerprints:
+            import_key = tracker_import_key(row)
+            if import_key in converted_by_key:
                 workbook_duplicates += 1
-                continue
-            workbook_fingerprints.add(fingerprint)
-            if fingerprint in existing_fingerprints:
-                existing_rows += 1
-                continue
+            converted_by_key[import_key] = (row, fingerprint)
+
+        converted_rows: list[tuple[object, ...]] = []
+        rows_to_update: list[tuple[object, ...]] = []
+        updated_import_keys = 0
+        for import_key, (row, fingerprint) in converted_by_key.items():
             assignee_id = None
             if row.assignee:
                 assignee_id = assignees.get(row.assignee.casefold())
                 if assignee_id is None:
                     unknown_assignees.add(row.assignee)
-            converted_rows.append(database_values(row, assignee_id, fingerprint))
+            values = database_values(row, assignee_id, fingerprint)
+            existing_ids = existing_rows_by_key.get(import_key, ())
+            if existing_ids:
+                updated_import_keys += 1
+                update_values = tuple(
+                    values[DATABASE_COLUMNS.index(column)]
+                    for column in IMPORT_UPDATE_COLUMNS
+                )
+                rows_to_update.extend(
+                    update_values + (tracker_id,) for tracker_id in existing_ids
+                )
+            else:
+                converted_rows.append(values)
 
         report_status(
             status_callback,
-            "Tracker import: conversion complete; {} new rows are ready to "
-            "stage in Postgres.".format(len(converted_rows)),
+            "Tracker import: conversion complete; {} new rows and {} matching "
+            "rows are ready to stage in Postgres.".format(
+                len(converted_rows),
+                updated_import_keys,
+            ),
         )
+        updated_physical_rows = update_converted_rows(
+            conn,
+            rows_to_update,
+            status_callback=status_callback,
+        )
+        if updated_physical_rows != len(rows_to_update):
+            raise RuntimeError("A matching tracker row disappeared during import.")
         inserted_rows = insert_converted_rows(
             conn,
             converted_rows,
@@ -485,7 +624,7 @@ def import_tracker_workbook(
     return TrackerImportResult(
         source_rows=source_rows,
         inserted_rows=inserted_rows,
-        existing_rows=existing_rows,
+        updated_rows=updated_import_keys,
         workbook_duplicates=workbook_duplicates,
         database_duplicates=database_duplicates,
         blank_rows=blank_rows,

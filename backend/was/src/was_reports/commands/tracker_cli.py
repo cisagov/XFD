@@ -477,20 +477,20 @@ def import_xlsx(args: argparse.Namespace) -> int:
             "details.".format(type(error).__name__)
         ) from error
     sys.stdout.write(
-        "Tracker import completed successfully. Imported {} new rows; skipped "
-        "{} existing rows, {} duplicate workbook rows, {} database conflict "
-        "rows, and {} blank rows.\n".format(
+        "Tracker import completed successfully. Imported {} new rows; "
+        "overwrote {} matching rows; ignored {} duplicate workbook rows, "
+        "{} database conflict rows, and {} blank rows.\n".format(
             result.inserted_rows,
-            result.existing_rows,
+            result.updated_rows,
             result.workbook_duplicates,
             result.database_duplicates,
             result.blank_rows,
         )
     )
-    if result.inserted_rows == 0:
+    if result.inserted_rows == 0 and result.updated_rows == 0:
         sys.stdout.write(
-            "No new tracker data was added. The workbook was valid, but every "
-            "nonblank row was already present or duplicated.\n"
+            "No tracker data was added or overwritten. The workbook contained "
+            "no unique nonblank rows to import.\n"
         )
     if result.unknown_assignees:
         sys.stdout.write(

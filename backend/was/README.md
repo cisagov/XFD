@@ -1221,7 +1221,7 @@ display and can produce substantial terminal output.
 
 ### Import A Legacy Daily Tracker Workbook
 
-Convert and import only new rows from an existing WAS daily tracker workbook:
+Convert and import rows from an existing WAS daily tracker workbook:
 
 ```bash
 make tracker-import INPUT_XLSX="/path/to/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx"
@@ -1234,9 +1234,19 @@ assignee names to `was_assignees`, preserves unknown assignee names as text,
 and reports them to the operator.
 
 Each converted row receives a deterministic `legacy-import` execution key.
-Rows already present in Postgres and duplicates within the workbook are skipped,
-so rerunning the same file does not insert duplicates. Imported historical rows
-are held from assignee digest delivery and excluded from report-generation
+When the schedule ID and scan start date are present, that pair identifies the
+legacy scan execution. A later row for the same execution overwrites the
+XLSX-owned fields on the existing legacy row without changing its database ID,
+delivery state, digest state, report-run linkage, or creation metadata. A blank
+imported report-sent date does not clear a stored sent date. Rows on different
+scan dates remain separate history even when they share a recurring schedule ID.
+Rows missing either key component retain fingerprint-based insert behavior.
+
+Within one workbook, the last row for a repeated legacy execution is
+authoritative. The importer stops before making changes when the database still
+contains multiple legacy rows for one schedule ID and scan date; reconcile those
+rows first so the overwrite target is unambiguous. Imported historical rows are
+held from assignee digest delivery and excluded from report-generation
 eligibility. The complete import is committed atomically, and any conversion or
 database failure rolls it back.
 
@@ -1262,9 +1272,9 @@ inside the container.
 During import, the operator sees status messages for workbook validation,
 database connection, duplicate-check loading, assignee loading, conversion,
 5,000-row progress intervals, database staging, and the final commit. The final
-summary distinguishes inserted rows, existing rows, duplicate workbook rows,
+summary distinguishes inserted rows, overwritten rows, duplicate workbook rows,
 database conflict rows, blank rows, and unknown assignee names. A successful
-zero-row import explicitly states that no new data was added.
+zero-row import explicitly states that no data was added or overwritten.
 
 Invalid headers, unsupported dates, and invalid schedule IDs identify the
 workbook row that failed. A conversion or database failure rolls back the full
