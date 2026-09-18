@@ -17,12 +17,24 @@ class UpdateTrackerCliTests(unittest.TestCase):
 
         self.assertFalse(arguments.delete_apps)
         self.assertIsNone(arguments.tag)
+        self.assertEqual(arguments.tracker_lookback_days, 3)
 
     def test_parse_args_allows_delete_apps(self) -> None:
         """Allow an operator to explicitly request webapp deletion."""
         arguments = update_tracker_cli.parse_args(["--delete-apps"])
 
         self.assertTrue(arguments.delete_apps)
+
+    def test_parse_args_allows_custom_tracker_lookback(self) -> None:
+        """Allow operators to expand Qualys schedule discovery."""
+        arguments = update_tracker_cli.parse_args(["--lookback-days", "7"])
+
+        self.assertEqual(arguments.tracker_lookback_days, 7)
+
+    def test_parse_args_rejects_nonpositive_tracker_lookback(self) -> None:
+        """Reject a nonpositive Qualys schedule discovery window."""
+        with self.assertRaises(SystemExit):
+            update_tracker_cli.parse_args(["--lookback-days", "0"])
 
     @patch("was_reports.commands.update_tracker_cli.refresh_daily_tracker")
     @patch("was_reports.commands.update_tracker_cli.create_qualys_client")
@@ -44,6 +56,7 @@ class UpdateTrackerCliTests(unittest.TestCase):
             client=client,
             delete_apps=True,
             stakeholder_tag="CUSTOMER",
+            tracker_lookback_days=3,
         )
 
     @patch("was_reports.commands.update_tracker_cli.run_update_tracker")
@@ -60,6 +73,7 @@ class UpdateTrackerCliTests(unittest.TestCase):
         mock_run_update_tracker.assert_called_once_with(
             delete_apps=True,
             stakeholder_tag="CUSTOMER",
+            tracker_lookback_days=3,
         )
 
 

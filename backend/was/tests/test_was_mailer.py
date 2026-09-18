@@ -738,6 +738,28 @@ class WasMailerTests(unittest.TestCase):
         )
 
     @patch("was_mailer.email_reports.recover_stale_report_operations_in_db")
+    @patch("was_mailer.email_reports.send_ready_report_emails")
+    def test_main_all_ready_accepts_unlimited_lookback(
+        self,
+        mock_send_ready,
+        mock_recover_stale,
+    ) -> None:
+        """Translate an explicit all value into an unlimited delivery window."""
+        exit_code = email_reports.main(
+            [
+                "--all-ready",
+                "--source-email",
+                "sender@example.gov",
+                "--days-back",
+                "all",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_recover_stale.assert_called_once_with()
+        self.assertIsNone(mock_send_ready.call_args.kwargs["days_back"])
+
+    @patch("was_mailer.email_reports.recover_stale_report_operations_in_db")
     @patch("was_mailer.email_reports.send_ready_assignee_digests")
     def test_main_assignee_digests_routes_to_digest_mode(
         self,

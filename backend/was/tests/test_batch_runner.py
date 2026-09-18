@@ -962,6 +962,107 @@ class BatchRunnerTests(unittest.TestCase):
     @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
     @patch("was_reports.commands.batch_runner.run_update_tracker")
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_main_preflight_only_does_not_generate_or_send_reports(
+        self,
+        mock_list_candidates,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Summarize eligible work and exit before report claims or delivery."""
+        mock_list_candidates.return_value = [
+            TrackerReportCandidate(
+                id=9,
+                tag="TAG1",
+                data_pull_date=date(2026, 9, 18),
+                schedule_id=123,
+                assignee_id=3,
+                template="Action Required",
+                qualys_error="Scan Internal Error",
+            )
+        ]
+
+        exit_code = batch_runner.main(
+            [
+                "--recent-scans",
+                "--skip-tracker-refresh",
+                "--preflight-only",
+                "--days-back",
+                "7",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_recover_stale.assert_not_called()
+        mock_update_tracker.assert_not_called()
+        mock_run_recent.assert_not_called()
+        mock_list_candidates.assert_called_once_with(
+            stakeholder_tag=None,
+            limit=None,
+            include_manual=False,
+            worker_count=None,
+            worker_index=None,
+            days_back=7,
+        )
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_main_preflight_only_defaults_to_seven_calendar_dates(
+        self,
+        mock_list_candidates,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Apply the automated seven-date guardrail to a preflight by default."""
+        mock_list_candidates.return_value = []
+
+        exit_code = batch_runner.main(
+            ["--recent-scans", "--skip-tracker-refresh", "--preflight-only"]
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(mock_list_candidates.call_args.kwargs["days_back"], 7)
+        mock_run_recent.assert_not_called()
+        mock_update_tracker.assert_not_called()
+        mock_recover_stale.assert_not_called()
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_main_preflight_only_accepts_all_tracker_history(
+        self,
+        mock_list_candidates,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Translate the explicit all marker to an unlimited database query."""
+        mock_list_candidates.return_value = []
+
+        exit_code = batch_runner.main(
+            [
+                "--recent-scans",
+                "--skip-tracker-refresh",
+                "--preflight-only",
+                "--days-back",
+                "all",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(mock_list_candidates.call_args.kwargs["days_back"])
+        mock_run_recent.assert_not_called()
+        mock_update_tracker.assert_not_called()
+        mock_recover_stale.assert_not_called()
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
     def test_main_recent_scans_refreshes_tracker_before_batch(
         self,
         mock_update_tracker,
@@ -994,6 +1095,71 @@ class BatchRunnerTests(unittest.TestCase):
             stakeholder_tag="TAG1",
         )
         self.assertEqual(mock_run_recent.call_args.kwargs["stakeholder_tag"], "TAG1")
+        self.assertEqual(mock_run_recent.call_args.kwargs["days_back"], 7)
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    def test_main_recent_scans_accepts_unlimited_lookback(
+        self,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Translate an explicit all value into an unlimited automated window."""
+        mock_run_recent.return_value = batch_runner.BatchExecutionSummary(
+            candidates=0,
+            generated=0,
+            sent=0,
+            failed=0,
+        )
+
+        exit_code = batch_runner.main(["--recent-scans", "--days-back", "all"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(mock_run_recent.call_args.kwargs["days_back"])
+        mock_update_tracker.assert_called_once_with(
+            delete_apps=False,
+            stakeholder_tag=None,
+        )
+        mock_recover_stale.assert_called_once_with()
+
+    @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
+    @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
+    @patch("was_reports.commands.batch_runner.run_update_tracker")
+    def test_main_manual_recent_scan_retains_unlimited_default(
+        self,
+        mock_update_tracker,
+        mock_run_recent,
+        mock_recover_stale,
+    ) -> None:
+        """Keep manual report selection unlimited when no lookback is requested."""
+        mock_run_recent.return_value = batch_runner.BatchExecutionSummary(
+            candidates=1,
+            generated=0,
+            sent=1,
+            failed=0,
+        )
+
+        exit_code = batch_runner.main(
+            [
+                "--recent-scans",
+                "--include-manual",
+                "--tag",
+                "TAG1",
+                "--send-email",
+                "--source-email",
+                "reports@example.gov",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(mock_run_recent.call_args.kwargs["days_back"])
+        mock_update_tracker.assert_called_once_with(
+            delete_apps=False,
+            stakeholder_tag="TAG1",
+        )
+        mock_recover_stale.assert_called_once_with()
 
     @patch("was_reports.commands.batch_runner.recover_stale_report_operations_in_db")
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")

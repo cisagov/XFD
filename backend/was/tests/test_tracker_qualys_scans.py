@@ -1,7 +1,7 @@
 """Tests for production tracker Qualys discovery helpers."""
 
 # Standard Python Libraries
-from datetime import datetime
+from datetime import datetime, timedelta
 import unittest
 from unittest.mock import Mock, patch
 
@@ -23,11 +23,69 @@ from was_reports.tracker.qualys_scans import (
     scan_matches_stakeholder,
     search_scans,
     search_schedules,
+    tracker_search_window,
 )
 
 
 class TrackerQualysScansTests(unittest.TestCase):
     """Validate tracker schedule parsing and matching."""
+
+    @patch("was_reports.tracker.qualys_scans.close")
+    @patch("was_reports.tracker.qualys_scans.recent_schedule_ids")
+    @patch("was_reports.tracker.qualys_scans.latest_tracker_pull_date")
+    @patch("was_reports.tracker.qualys_scans.connect")
+    def test_tracker_search_window_defaults_to_three_days(
+        self,
+        mock_connect,
+        mock_latest_pull_date,
+        mock_recent_schedule_ids,
+        mock_close,
+    ) -> None:
+        """Revisit three days of Qualys schedules by default."""
+        latest_pull_date = datetime(2026, 9, 18, 12, 0, 0)
+        mock_latest_pull_date.return_value = latest_pull_date
+        mock_recent_schedule_ids.return_value = [1, 2]
+
+        input_date, schedule_ids = tracker_search_window()
+
+        self.assertEqual(input_date, latest_pull_date - timedelta(days=3))
+        self.assertEqual(schedule_ids, {1, 2})
+        mock_recent_schedule_ids.assert_called_once_with(
+            mock_connect.return_value,
+            input_date,
+        )
+        mock_close.assert_called_once_with(mock_connect.return_value)
+
+    @patch("was_reports.tracker.qualys_scans.close")
+    @patch("was_reports.tracker.qualys_scans.recent_schedule_ids")
+    @patch("was_reports.tracker.qualys_scans.latest_tracker_pull_date")
+    @patch("was_reports.tracker.qualys_scans.connect")
+    def test_tracker_search_window_accepts_custom_days(
+        self,
+        mock_connect,
+        mock_latest_pull_date,
+        mock_recent_schedule_ids,
+        mock_close,
+    ) -> None:
+        """Allow operators to expand the Qualys discovery window."""
+        latest_pull_date = datetime(2026, 9, 18, 12, 0, 0)
+        mock_latest_pull_date.return_value = latest_pull_date
+        mock_recent_schedule_ids.return_value = []
+
+        input_date, schedule_ids = tracker_search_window(lookback_days=7)
+
+        self.assertEqual(input_date, latest_pull_date - timedelta(days=7))
+        self.assertEqual(schedule_ids, set())
+        mock_close.assert_called_once_with(mock_connect.return_value)
+
+    def test_tracker_search_window_rejects_nonpositive_days(self) -> None:
+        """Reject an invalid discovery window before opening a connection."""
+        with self.assertRaises(ValueError) as raised:
+            tracker_search_window(lookback_days=0)
+        self.assertEqual(
+            str(raised.exception),
+            "Tracker lookback days must be at least 1.",
+        )
 
     @patch(
         "was_reports.tracker.item_builder.stakeholder_flags",

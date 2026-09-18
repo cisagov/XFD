@@ -38,6 +38,7 @@ class TrackerServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(result, 0)
+        mock_search_window.assert_called_once_with(lookback_days=3)
         mock_search_scans.assert_not_called()
         mock_create_items.assert_not_called()
         mock_update_tracker.assert_not_called()
@@ -99,9 +100,11 @@ class TrackerServiceTests(unittest.TestCase):
             client=client,
             delete_apps=True,
             stakeholder_tag="CROSSFEED",
+            tracker_lookback_days=7,
         )
 
         self.assertEqual(result, 0)
+        mock_search_window.assert_called_once_with(lookback_days=7)
         mock_search_schedules.assert_called_once_with(
             client=client,
             input_date=input_date,

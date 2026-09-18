@@ -74,6 +74,7 @@ class TrackerReportCandidate:
     report_email_status: str | None = None
     tag_id: int | None = None
     organization_name: str = ""
+    qualys_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -270,6 +271,8 @@ def list_ready_report_candidates(
     days_back: int | None = None,
 ) -> list[TrackerReportCandidate]:
     """Return report gaps, using only the newest automated row per tag."""
+    if days_back is not None and days_back < 1:
+        raise ValueError("Days back must be at least 1.")
     if (worker_count is None) != (worker_index is None):
         raise ValueError("Worker count and worker index must be provided together.")
     if worker_count is not None:
@@ -290,6 +293,7 @@ def list_ready_report_candidates(
                 stakeholders.customer_name,
                 tracker.template,
                 tracker.remove_nws,
+                tracker.qualys_error,
                 runs.id,
                 runs.status,
                 runs.email_status
@@ -345,7 +349,7 @@ def list_ready_report_candidates(
         query += " AND tracker.tag = %s"
         parameters.append(stakeholder_tag)
     if days_back is not None:
-        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - (%s - 1)"
         parameters.append(days_back)
     if worker_count is not None:
         query += (
@@ -365,6 +369,7 @@ def list_ready_report_candidates(
                 stakeholders.customer_name,
                 tracker.template,
                 tracker.remove_nws,
+                tracker.qualys_error,
                 runs.id,
                 runs.status,
                 runs.email_status
@@ -410,9 +415,10 @@ def list_ready_report_candidates(
             organization_name=row[6],
             template=row[7],
             remove_nws=row[8],
-            report_run_id=row[9],
-            report_run_status=row[10],
-            report_email_status=row[11],
+            qualys_error=row[9],
+            report_run_id=row[10],
+            report_run_status=row[11],
+            report_email_status=row[12],
         )
         for row in rows
     ]
@@ -555,6 +561,8 @@ def list_ready_assignee_digests(
     days_back: int | None = None,
 ) -> list[AssigneeDigest]:
     """Return unsent tracker rows grouped by active assignee email address."""
+    if days_back is not None and days_back < 1:
+        raise ValueError("Days back must be at least 1.")
     query = """
         SELECT
             tracker.id,
@@ -602,7 +610,7 @@ def list_ready_assignee_digests(
         query += " AND tracker.data_pull_date = %s"
         parameters.append(data_pull_date)
     if days_back is not None:
-        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - (%s - 1)"
         parameters.append(days_back)
 
     query += " ORDER BY assignees.id ASC, tracker.id ASC"

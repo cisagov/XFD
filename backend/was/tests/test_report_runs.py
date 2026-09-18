@@ -644,7 +644,7 @@ class ReportRunTests(unittest.TestCase):
         )
         self.assertIn("runs.stakeholder_tag = %s", conn.cursor_instance.query)
         self.assertIn(
-            "tracker.data_pull_date >= CURRENT_DATE - %s",
+            "tracker.data_pull_date >= CURRENT_DATE - (%s - 1)",
             conn.cursor_instance.query,
         )
 

@@ -240,7 +240,7 @@ class DailyReportTrackerTests(unittest.TestCase):
             (["pending"], date(2026, 8, 26), 30),
         )
         self.assertIn(
-            "tracker.data_pull_date >= CURRENT_DATE - %s",
+            "tracker.data_pull_date >= CURRENT_DATE - (%s - 1)",
             conn.cursor_instance.query,
         )
         self.assertEqual([row.id for row in digests[0].rows], [1, 2])
@@ -258,6 +258,7 @@ class DailyReportTrackerTests(unittest.TestCase):
                     88,
                     "Customer Name",
                     "Results",
+                    "",
                     "",
                     None,
                     None,
@@ -301,7 +302,7 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
         self.assertIn("NOT LIKE %s", conn.cursor_instance.query)
         self.assertIn(
-            "tracker.data_pull_date >= CURRENT_DATE - %s",
+            "tracker.data_pull_date >= CURRENT_DATE - (%s - 1)",
             conn.cursor_instance.query,
         )
         self.assertEqual(
@@ -343,6 +344,7 @@ class DailyReportTrackerTests(unittest.TestCase):
                     144,
                     "Customer Name",
                     "Results",
+                    "",
                     "",
                     None,
                     None,
@@ -394,6 +396,7 @@ class DailyReportTrackerTests(unittest.TestCase):
                     "Customer Name",
                     "Results",
                     "",
+                    "Qualys internal error",
                     8,
                     "failed",
                     "pending",
@@ -410,6 +413,7 @@ class DailyReportTrackerTests(unittest.TestCase):
 
         self.assertEqual(candidates[0].id, 7)
         self.assertEqual(candidates[0].report_run_id, 8)
+        self.assertEqual(candidates[0].qualys_error, "Qualys internal error")
         self.assertIn("runs.status = 'failed'", conn.cursor_instance.query)
         self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
         self.assertNotIn(
@@ -513,7 +517,10 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
 
         self.assertEqual(rows, [])
-        self.assertIn("data_pull_date >= CURRENT_DATE - %s", conn.cursor_instance.query)
+        self.assertIn(
+            "data_pull_date >= CURRENT_DATE - %s",
+            conn.cursor_instance.query,
+        )
         self.assertIn("LOWER(BTRIM(COALESCE(assignee", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7, "Mina Salehi"))
 

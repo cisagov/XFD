@@ -22,6 +22,11 @@ from was_mailer.message import AnalystRecipientError, approved_analyst_recipient
 
 # First-Party Libraries
 from was_reports.commands import report_generator
+from was_reports.commands.batch_progress import (
+    log_candidate_progress,
+    log_preflight_summary,
+    summarize_candidates,
+)
 from was_reports.commands.update_tracker_cli import run_update_tracker
 from was_reports.data.daily_report_tracker import list_ready_report_candidates_from_db
 from was_reports.data.report_runs import (
@@ -59,6 +64,21 @@ from was_reports.utils.outputs import expected_pdf_output_path
 LOGGER = logging.getLogger(__name__)
 DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
 NO_REPORT_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
+DEFAULT_RECENT_SCAN_DAYS_BACK = 7
+ALL_DAYS_BACK = "all"
+
+
+def parse_days_back(value: str) -> int | str:
+    """Return a positive calendar-date count or the unlimited marker."""
+    normalized_value = value.strip().lower()
+    if normalized_value == ALL_DAYS_BACK:
+        return ALL_DAYS_BACK
+    try:
+        return int(normalized_value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "Days back must be a positive integer or 'all'."
+        ) from error
 
 
 @dataclass(frozen=True)
@@ -372,6 +392,11 @@ def run_recent_scan_reports(
         worker_index=worker_index,
         days_back=days_back,
     )
+    log_preflight_summary(
+        LOGGER,
+        summarize_candidates(candidates),
+        days_back=days_back,
+    )
     resolved_storage_mode = resolve_storage_mode(storage_mode)
     generated_count = 0
     sent_count = 0
@@ -387,8 +412,14 @@ def run_recent_scan_reports(
             days_back=days_back,
         )
 
-    for candidate in candidates:
+    for candidate_index, candidate in enumerate(candidates, start=1):
         raise_if_operation_cancelled()
+        log_candidate_progress(
+            LOGGER,
+            candidate_index=candidate_index,
+            candidate_count=len(candidates),
+            stakeholder_tag=candidate.tag,
+        )
         if candidate.report_run_status == "completed":
             if candidate.report_run_id is None:
                 raise RuntimeError("Completed manual report run has no run id.")
@@ -552,6 +583,7 @@ def run_recent_scan_reports(
                     raise
 
     if send_assignee_digests:
+        LOGGER.info("Phase 5/5: Sending ready assignee digests.")
         raise_if_operation_cancelled()
         send_ready_assignee_digests(
             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
@@ -607,8 +639,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--days-back",
-        type=int,
-        help="Only process tracker work from this many calendar days back.",
+        type=parse_days_back,
+        help=(
+            "Process this many calendar dates, including today, or use 'all'. "
+            "Automated recent-scan batches default to 7."
+        ),
     )
     parser.add_argument(
         "--recent-scans",
@@ -616,6 +651,14 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help=(
             "Refresh recent Qualys scans, then generate reports for tracker rows "
             "that have not been sent."
+        ),
+    )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help=(
+            "Refresh and summarize eligible recent-scan reports without "
+            "claiming, generating, or emailing them."
         ),
     )
     parser.add_argument(
@@ -728,8 +771,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise ValueError("Manual report generation requires --tag.")
         if args.include_manual and not args.send_email:
             raise ValueError("Manual report generation requires --send-email.")
-        if args.days_back is not None and args.days_back < 1:
+        if isinstance(args.days_back, int) and args.days_back < 1:
             raise ValueError("Days back must be at least 1.")
+        if args.days_back == ALL_DAYS_BACK:
+            resolved_days_back = None
+        elif args.days_back is not None:
+            resolved_days_back = args.days_back
+        elif args.include_manual:
+            resolved_days_back = None
+        else:
+            resolved_days_back = DEFAULT_RECENT_SCAN_DAYS_BACK
         if (args.worker_count is None) != (args.worker_index is None):
             raise ValueError(
                 "Worker count and worker index must be provided together."
@@ -758,12 +809,36 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.worker_index + 1,
                 args.worker_count,
             )
-        recover_stale_report_operations_in_db()
+        if not args.preflight_only:
+            LOGGER.info("Recovering interrupted report operations before batch work.")
+            recover_stale_report_operations_in_db()
         if not args.skip_tracker_refresh:
+            LOGGER.info("Updating the WAS daily report tracker.")
             run_update_tracker(
                 delete_apps=False,
                 stakeholder_tag=stakeholder_tag,
             )
+        else:
+            LOGGER.info("Using existing WAS daily report tracker rows.")
+        if args.preflight_only:
+            candidates = list_ready_report_candidates_from_db(
+                stakeholder_tag=stakeholder_tag,
+                limit=args.limit,
+                include_manual=args.include_manual,
+                worker_count=args.worker_count,
+                worker_index=args.worker_index,
+                days_back=resolved_days_back,
+            )
+            log_preflight_summary(
+                LOGGER,
+                summarize_candidates(candidates),
+                days_back=resolved_days_back,
+            )
+            LOGGER.info(
+                "Preflight-only batch completed without report claims, "
+                "generation, or email delivery."
+            )
+            return 0
         summary = run_recent_scan_reports(
             resource_root=args.resource_root,
             python_executable=args.python_executable,
@@ -783,12 +858,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             worker_count=args.worker_count,
             worker_index=args.worker_index,
             retry_ready_emails=not args.skip_ready_email_retry,
-            days_back=args.days_back,
+            days_back=resolved_days_back,
         )
         return 1 if summary.failed else 0
 
     recent_scan_only_options = [
         args.skip_tracker_refresh,
+        args.preflight_only,
         args.days_back is not None,
         args.worker_count is not None,
         args.worker_index is not None,

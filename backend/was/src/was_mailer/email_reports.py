@@ -43,6 +43,20 @@ from was_reports.utils.operation_lease import (
 )
 
 LOGGER = logging.getLogger(__name__)
+ALL_DAYS_BACK = "all"
+
+
+def parse_days_back(value: str) -> int | str:
+    """Return a positive calendar-date count or the unlimited marker."""
+    normalized_value = value.strip().lower()
+    if normalized_value == ALL_DAYS_BACK:
+        return ALL_DAYS_BACK
+    try:
+        return int(normalized_value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "Days back must be a positive integer or 'all'."
+        ) from error
 
 
 def require_environment_variable(name: str) -> str:
@@ -407,8 +421,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--days-back",
-        type=int,
-        help="Only deliver tracker work from this many calendar days back.",
+        type=parse_days_back,
+        help=(
+            "Deliver tracker work from this many calendar dates, including "
+            "today, or use 'all'."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -417,10 +434,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS mailer CLI."""
     configure_logging()
     args = parse_args(argv)
-    if args.days_back is not None and args.days_back < 1:
+    if isinstance(args.days_back, int) and args.days_back < 1:
         raise ValueError("Days back must be at least 1.")
     if args.report_run_id is not None and args.days_back is not None:
         raise ValueError("Days back can only be used with batch delivery modes.")
+    resolved_days_back = (
+        None if args.days_back == ALL_DAYS_BACK else args.days_back
+    )
     recover_stale_report_operations_in_db()
     source_email = args.source_email
     if not source_email:
@@ -433,7 +453,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             dry_run=args.dry_run,
             limit=args.limit,
             include_previous_failures=args.include_previous_failures,
-            days_back=args.days_back,
+            days_back=resolved_days_back,
         )
     elif args.assignee_digests:
         send_ready_assignee_digests(
@@ -443,7 +463,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             data_pull_date=args.data_pull_date,
             limit=args.limit,
             include_previous_failures=args.include_previous_failures,
-            days_back=args.days_back,
+            days_back=resolved_days_back,
         )
     else:
         send_report_run_email(

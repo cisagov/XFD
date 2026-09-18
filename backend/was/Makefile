@@ -10,7 +10,8 @@ STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
 TEST_RECIPIENTS ?= operator@example.gov
 BATCH_WORKERS ?= 30
 BATCH_TEST_RECIPIENTS ?=
-BATCH_DAYS_BACK ?=
+BATCH_DAYS_BACK ?= 7
+TRACKER_LOOKBACK_DAYS ?= 3
 TAG ?=
 DAYS_BACK ?= 7
 ASSIGNEE ?=
@@ -70,8 +71,11 @@ recent-scan-batch:
 	mkdir -p $(OUTPUT_DIR)
 	@case "$(BATCH_WORKERS)" in ''|*[!0-9]*) echo 'BATCH_WORKERS must be an integer from 1 through 30.' >&2; exit 2 ;; esac
 	@test "$(BATCH_WORKERS)" -ge 1 -a "$(BATCH_WORKERS)" -le 30 || (echo 'BATCH_WORKERS must be from 1 through 30.' >&2; exit 2)
-	@echo 'Refreshing the daily tracker once before parallel report generation.'
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker
+	@echo 'Phase 1/5: Refreshing the daily tracker.'
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker --lookback-days "$(TRACKER_LOOKBACK_DAYS)"
+	@echo 'Phase 2/5: Calculating the report workload before generation.'
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --skip-tracker-refresh --preflight-only --days-back "$(BATCH_DAYS_BACK)"
+	@echo 'Phase 3/5: Generating reports with $(BATCH_WORKERS) parallel workers.'
 	@set -u; \
 	worker_pids=''; \
 	stop_workers() { \
@@ -102,7 +106,7 @@ recent-scan-batch:
 		if ! wait "$$worker_pid"; then worker_status=1; fi; \
 	done; \
 	trap - INT TERM; \
-	echo 'Report workers finished. Delivering completed reports once.'; \
+	echo 'Phase 4/5: Report workers finished. Delivering completed reports once.'; \
 	mailer_status=0; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
 		-v $(OUTPUT_DIR):/output \
@@ -110,7 +114,7 @@ recent-scan-batch:
 		$(IMAGE) --all-ready --include-previous-failures \
 		$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
 		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || mailer_status=$$?; \
-	echo 'Report delivery finished. Sending assignee digests once.'; \
+	echo 'Phase 5/5: Report delivery finished. Sending assignee digests once.'; \
 	digest_status=0; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
 		-v $(OUTPUT_DIR):/output \

@@ -1242,7 +1242,7 @@ def list_report_runs_ready_for_email(
         parameters.append(stakeholder_tag)
 
     if days_back is not None:
-        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - (%s - 1)"
         parameters.append(days_back)
 
     query += " ORDER BY runs.completed_at ASC NULLS LAST, runs.id ASC"

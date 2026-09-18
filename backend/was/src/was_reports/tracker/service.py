@@ -9,6 +9,7 @@ from was_reports.data.special_cases import list_active_special_case_names
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.item_builder import create_tracker_items
 from was_reports.tracker.qualys_scans import (
+    DEFAULT_TRACKER_LOOKBACK_DAYS,
     search_scans,
     search_schedules,
     tracker_search_window,
@@ -32,9 +33,12 @@ def refresh_daily_tracker(
     client: QualysClient,
     delete_apps: bool = False,
     stakeholder_tag: str | None = None,
+    tracker_lookback_days: int = DEFAULT_TRACKER_LOOKBACK_DAYS,
 ) -> int:
     """Refresh recent Qualys scan results into Postgres tracker rows."""
-    input_date, previous_schedule_ids = tracker_search_window()
+    input_date, previous_schedule_ids = tracker_search_window(
+        lookback_days=tracker_lookback_days
+    )
     stakeholders = search_schedules(
         client=client,
         input_date=input_date,

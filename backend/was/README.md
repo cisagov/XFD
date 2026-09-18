@@ -854,6 +854,35 @@ Reduce the worker count if Qualys throttling or account-level capacity becomes
 visible. The documented 2,000-request-per-hour Qualys limit still applies to the
 combined worker pool.
 
+The production Make target searches Qualys from three days before the latest
+tracker update and limits automated report work to exactly seven calendar dates,
+including today. Override these independent windows when necessary:
+
+```bash
+make recent-scan-batch TRACKER_LOOKBACK_DAYS=5 BATCH_DAYS_BACK=14
+make recent-scan-batch BATCH_DAYS_BACK=all
+```
+
+`BATCH_DAYS_BACK=all` removes the report-generation and delivery date guardrail,
+so use it only for an intentional historical reconciliation. After refreshing
+the tracker and before starting any report worker, the Make target runs a
+read-only preflight. It prints the eligible candidate total, counts by template,
+and the number of Qualys-error overlays. The five phase messages identify tracker
+refresh, preflight, generation, report delivery, and assignee digest delivery.
+Each worker also reports its candidate fraction, such as `3/8`.
+
+Run a read-only preflight directly without claiming reports or sending email:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  was-reporting \
+  --recent-scans \
+  --skip-tracker-refresh \
+  --preflight-only \
+  --days-back 7
+```
+
 Run a real parallel end-to-end batch while redirecting every report, retry, and
 assignee digest to one or more email-enabled functional-test recipients:
 

@@ -29,7 +29,7 @@ from was_reports.utils.database import close, connect
 LOGGER = logging.getLogger(__name__)
 SCHEDULE_RESULTS_LIMIT = 50
 SCAN_RESULTS_LIMIT = 1000
-TRACKER_LOOKBACK_HOURS = 48
+DEFAULT_TRACKER_LOOKBACK_DAYS = 3
 
 
 def serialize_xml(root: etree._Element) -> str:
@@ -64,12 +64,16 @@ def response_count(root: etree._Element) -> int:
     return int(raw_count)
 
 
-def tracker_search_window() -> tuple[datetime, set[int]]:
+def tracker_search_window(
+    lookback_days: int = DEFAULT_TRACKER_LOOKBACK_DAYS,
+) -> tuple[datetime, set[int]]:
     """Return the lookback timestamp and recorded schedule IDs."""
+    if lookback_days < 1:
+        raise ValueError("Tracker lookback days must be at least 1.")
     conn = connect()
     try:
         input_date = latest_tracker_pull_date(conn) - timedelta(
-            hours=TRACKER_LOOKBACK_HOURS
+            days=lookback_days
         )
         previous_ids = set(recent_schedule_ids(conn, input_date))
     finally:
