@@ -42,7 +42,7 @@ class OnDemandTests(unittest.TestCase):
         self.services["send_report_run_email"].return_value = "test-message"
         self.stack.enter_context(
             patch(
-                "was_mailer.message.list_active_assignee_emails_from_db",
+                "was_mailer.message.list_functional_test_recipient_emails_from_db",
                 return_value=["analyst@example.gov"],
             )
         )
@@ -187,7 +187,7 @@ class OnDemandTests(unittest.TestCase):
         self.services["create_on_demand_report_run"].assert_not_called()
 
     def test_rejects_customer_recipient_for_on_demand_report(self) -> None:
-        """Limit explicit on-demand delivery to configured WAS assignees."""
+        """Limit on-demand delivery to configured functional-test recipients."""
         arguments = [
             "--tag",
             "CROSSFEED",
@@ -201,7 +201,7 @@ class OnDemandTests(unittest.TestCase):
             exit_code = on_demand_cli.main(arguments)
 
         self.assertEqual(exit_code, 2)
-        self.assertIn("not assigned to an active", error_output.getvalue())
+        self.assertIn("not configured as an email-enabled", error_output.getvalue())
         self.services["create_on_demand_report_run"].assert_not_called()
 
     def test_tracker_selection_is_explicit(self) -> None:

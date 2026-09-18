@@ -10,6 +10,7 @@ REQUIRED_RESOURCE_PATHS: Tuple[str, ...] = (
     "pdf_redactor.py",
     "redact_qualys.py",
     "assets/CISA_Logo.png",
+    "assets/CISA_logo_email.png",
     "assets/CoverPage_Template.pdf",
     "assets/TLP_AMBER.png",
     "assets/TLP_DEFINITIONS.png",

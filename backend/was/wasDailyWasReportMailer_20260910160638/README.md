@@ -22,9 +22,9 @@ The relevant runtime files are outside this export directory:
   the plain-text and HTML alternatives.
 - `../src/was_mailer/email_reports.py` obtains the report-run data, customer POC,
   recipients, and attachment, then sends the composed MIME message through SES.
-- `../src/was_reports/resources/assets/cisa-logo.png` is the packaged copy of the
-  CISA logo used at the bottom of the HTML alternative. The original remains at
-  `../was_report/assets/cisa-logo.png`.
+- `../src/was_reports/resources/assets/CISA_logo_email.png` is the packaged copy
+  of the individual CISA logo used at the bottom of the HTML alternative. The
+  original remains at `../was_report/assets/CISA_logo_email.png`.
 
 The Python mailer is the source of truth for current production behavior. The
 Power Automate JSON documents the workflow that preceded it.
@@ -69,7 +69,6 @@ data available for that report.
 | Scanner IP allowlist notice | A PDF report is being delivered |
 | Report attachment and password reminder | A PDF report is being delivered |
 | No-report notice | Template is `All NWS` or `FCEB All NWS` |
-| NWS definition | One or more inaccessible targets are listed |
 | Inaccessible-target count and list | `recent_nws` contains one or more targets |
 | Common inaccessible reasons | `recent_nws` contains one or more targets |
 | Two-scan removal notice | Template is `All NWS` |
@@ -97,8 +96,9 @@ customer-action condition.
 
 - Subject: `<TAG> WAS Results`
 - PDF: attached
-- Includes the allowlist, report/password, Appendix C, password support,
-  sensitive-data, questions, next-scan, signature, and logo sections.
+- Includes the allowlist, report/password, highlighted sensitive-data,
+  Appendix C, password support, questions, next-scan, assigned analyst and WAS
+  team signature, and individual CISA logo sections.
 - Inaccessible-target and Qualys-error sections are added only when their data
   is present.
 
@@ -175,6 +175,10 @@ Attached is a report containing the results from your most recent Web
 Application Scanning (WAS) vulnerability scan. You should use the same password
 as before. If you have yet to receive a password, please let us know.
 
+Important Note: Attachment 7 (Sensitive Data - Social Security and Credit Card
+Numbers) will not be populated for this scan cycle due to vendor maintenance.
+We apologize for any inconvenience and are happy to assist with any questions.
+
 Additional details regarding findings, links crawled, vulnerabilities by webapp
 and severity, sensitive data found, etc., can be found under Appendix C:
 Attachments. To access the attachments embedded within the report, open the
@@ -183,12 +187,8 @@ the paper clip icon to the left of the attachment name. A helpful list of scan
 report and WAS FAQs can be found here:
 https://www.cisa.gov/cyber-hygiene-services
 
-Please have a technical POC contact reports@cisa.dhs.gov should you need
+Please have a technical POC contact vulnerability@cisa.dhs.gov should you need
 a copy of, or to update your WAS report password.
-
-Qualys is currently unable to provide the sensitive-data attachment for Social
-Security number and credit-card findings. This temporary notice will be removed
-after Qualys restores the capability.
 
 If you have any additional questions or concerns, please let us know.
 
@@ -196,8 +196,11 @@ Your next scan is scheduled for October 16, 2026.
 
 Regards,
 Assigned Analyst
+Web Application Scanning (WAS)
+Cybersecurity and Infrastructure Security Agency (CISA)
+Email: reports@cyber.dhs.gov
 
-[CISA logo appears here in the HTML version]
+[Individual CISA logo appears here in the HTML version]
 ```
 
 The encrypted PDF is attached after the message alternatives in the MIME
@@ -209,9 +212,6 @@ For an `Action Required` outcome, the following block is inserted after the
 report introduction:
 
 ```text
-NWS means No Web Service. During the scan, our scanner could not reach an
-accessible web service for the target.
-
 Results indicate that 2 out of 10 web applications from your scan are
 inaccessible by our scanner. The inaccessible target(s) is/are:
 - https://first.example.gov
@@ -275,8 +275,11 @@ Your next scan is scheduled for October 16, 2026.
 
 Regards,
 Assigned Analyst
+Web Application Scanning (WAS)
+Cybersecurity and Infrastructure Security Agency (CISA)
+Email: reports@cyber.dhs.gov
 
-[CISA logo appears here in the HTML version]
+[Individual CISA logo appears here in the HTML version]
 ```
 
 ## HTML and accessibility behavior
@@ -284,7 +287,8 @@ Assigned Analyst
 The same content is sent as both plain text and HTML. The HTML alternative:
 
 - escapes all tracker and stakeholder values before rendering them;
-- renders list values as visible bullet rows;
+- renders list values as semantic bullet lists;
+- preserves the approved bold, italic, underline, and highlighted sections;
 - includes a descriptive `WAS Results for <TAG>` heading;
 - places the CISA logo after the signature and gives it `alt="CISA"`;
 - references the logo by content ID so it can render inline without retrieving
@@ -317,7 +321,7 @@ linked tracker and stakeholder records:
 | `stakeholder_tag` | Subject, heading, and report identity |
 | `was_report_poc` | Named customer salutation |
 | `template` | Selects the outcome-specific sections |
-| `assignee_name` | Signature |
+| `assignee_name` | One assigned analyst shown above the WAS team signature |
 | `recent_nws` | Inaccessible target list |
 | `nws` | Total and inaccessible counts |
 | `remove_nws` | Removed target list |

@@ -23,7 +23,7 @@ class ReportResourceTests(unittest.TestCase):
 
         self.assertEqual(resource_root, report_resource_root())
         self.assertEqual(missing_report_resources(resource_root), ())
-        self.assertEqual(len(REQUIRED_RESOURCE_PATHS), 29)
+        self.assertEqual(len(REQUIRED_RESOURCE_PATHS), 30)
 
     def test_legacy_creator_is_not_a_packaged_resource(self) -> None:
         """Keep the legacy report creator outside the future resource root."""

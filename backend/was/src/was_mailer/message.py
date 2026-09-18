@@ -11,7 +11,9 @@ from typing import Iterable, List
 from zoneinfo import ZoneInfo
 
 # Third-Party Libraries
-from was_reports.data.assignees import list_active_assignee_emails_from_db
+from was_reports.data.assignees import (
+    list_functional_test_recipient_emails_from_db,
+)
 
 # First-Party Libraries
 from was_mailer import customer_email_templates
@@ -24,7 +26,7 @@ ACTION_REQUIRED_TEMPLATES = frozenset(
 )
 CYBER_HYGIENE_URL = "https://www.cisa.gov/cyber-hygiene-services"
 WAS_ALLOWLIST_URL = "https://rules.vm.cyber.dhs.gov/was.txt"
-CISA_LOGO_RESOURCE = "resources/assets/cisa-logo.png"
+CISA_LOGO_RESOURCE = "resources/assets/CISA_logo_email.png"
 CISA_LOGO_CONTENT_ID = "cisa-logo"
 
 
@@ -83,7 +85,7 @@ def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
     recipients = unique_addresses(parse_email_addresses(raw_addresses))
     if not recipients:
         raise AnalystRecipientError(
-            "At least one active WAS assignee email address is required."
+            "At least one email-enabled WAS functional-test recipient is required."
         )
     for recipient in recipients:
         try:
@@ -100,7 +102,7 @@ def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
             )
     approved = {
         address.lower()
-        for configured in list_active_assignee_emails_from_db()
+        for configured in list_functional_test_recipient_emails_from_db()
         for address in parse_email_addresses(configured)
     }
     rejected_recipients = [
@@ -108,8 +110,10 @@ def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
     ]
     if rejected_recipients:
         raise AnalystRecipientError(
-            "The submitted email address is not assigned to an active, "
-            "email-enabled WAS assignee: {}.".format(", ".join(rejected_recipients))
+            "The submitted email address is not configured as an email-enabled "
+            "WAS functional-test recipient: {}.".format(
+                ", ".join(rejected_recipients)
+            )
         )
     return recipients
 
@@ -213,7 +217,7 @@ def build_report_email(
         maintype="image",
         subtype="png",
         cid="<{}>".format(CISA_LOGO_CONTENT_ID),
-        filename="cisa-logo.png",
+        filename="CISA_logo_email.png",
         disposition="inline",
     )
 
@@ -336,6 +340,8 @@ def report_email_body(
                 "",
                 customer_email_templates.REPORT_ATTACHMENT_NOTICE,
                 "",
+                customer_email_templates.SENSITIVE_DATA_NOTICE,
+                "",
             ]
         )
     else:
@@ -343,7 +349,6 @@ def report_email_body(
 
     inaccessible_targets = tracker_values(recent_nws)
     if inaccessible_targets:
-        lines.extend([customer_email_templates.NWS_EXPLANATION, ""])
         counts = nws_counts(nws_summary)
         if counts is None:
             lines.append(customer_email_templates.INACCESSIBLE_TARGETS)
@@ -401,8 +406,6 @@ def report_email_body(
                 "",
                 customer_email_templates.PASSWORD_SUPPORT_NOTICE,
                 "",
-                customer_email_templates.SENSITIVE_DATA_NOTICE,
-                "",
             ]
         )
 
@@ -421,21 +424,126 @@ def report_email_body(
         [
             "Regards,",
             assignee_name or "CISA WAS Reporting Team",
+            *customer_email_templates.CUSTOMER_SIGNATURE,
         ]
     )
     return "\n".join(lines)
 
 
+def customer_email_html_line(line: str) -> str:
+    """Return approved HTML formatting for one customer-email text line."""
+    escaped_line = escape(line)
+    if line == customer_email_templates.SENSITIVE_DATA_NOTICE:
+        note_label = escape("Important Note:")
+        notice_text = escape(line.removeprefix("Important Note: "))
+        notice_text = notice_text.replace(
+            "will not",
+            "<u>will not</u>",
+            1,
+        )
+        return (
+            '<span style="background-color:#f8e71c">'
+            "<strong>{}</strong> <em>{}</em></span>"
+        ).format(note_label, notice_text)
+    if line == customer_email_templates.APPENDIX_NOTICE.format(
+        faq_url=CYBER_HYGIENE_URL
+    ):
+        appendix_heading = (
+            "Additional details regarding findings, links crawled, "
+            "vulnerabilities by webapp and severity, sensitive data found, "
+            "etc., can be found under Appendix C: Attachments."
+        )
+        escaped_line = escaped_line.replace(
+            escape(appendix_heading),
+            "<strong>{}</strong>".format(escape(appendix_heading)),
+            1,
+        )
+        paperclip_instruction = "double-click on the paper clip icon"
+        escaped_line = escaped_line.replace(
+            escape(paperclip_instruction),
+            "<u>{}</u>".format(escape(paperclip_instruction)),
+            1,
+        )
+        return customer_email_html_links(escaped_line)
+    if line.startswith("Results indicate that "):
+        prefix = "Results indicate that "
+        inaccessible_count, separator, remainder = line.removeprefix(prefix).partition(
+            " out of "
+        )
+        total_count, count_separator, suffix = remainder.partition(
+            " web applications"
+        )
+        if separator and count_separator:
+            return (
+                "{}<strong>{}</strong> out of <strong>{}</strong> "
+                "web applications{}"
+            ).format(
+                escape(prefix),
+                escape(inaccessible_count),
+                escape(total_count),
+                escape(suffix),
+            )
+    if line.startswith("Your next scan is scheduled for "):
+        prefix = "Your next scan is scheduled for "
+        return "{}<strong>{}</strong>".format(
+            escape(prefix),
+            escape(line.removeprefix(prefix)),
+        )
+    if line in {
+        customer_email_templates.QUALYS_ERROR_HEADING,
+        customer_email_templates.REMOVED_TARGETS_HEADING,
+    }:
+        return "<strong>{}</strong>".format(escaped_line)
+    if line in customer_email_templates.CUSTOMER_SIGNATURE:
+        return '<span style="color:#552479">{}</span>'.format(escaped_line)
+    return customer_email_html_links(escaped_line)
+
+
+def customer_email_html_links(escaped_line: str) -> str:
+    """Render approved customer-email URLs as underlined links."""
+    rendered_line = escaped_line
+    for url in (WAS_ALLOWLIST_URL, CYBER_HYGIENE_URL):
+        escaped_url = escape(url)
+        rendered_line = rendered_line.replace(
+            escaped_url,
+            '<a href="{}"><u>{}</u></a>'.format(escaped_url, escaped_url),
+        )
+    return rendered_line
+
+
 def report_email_html(plain_body: str, stakeholder_tag: str) -> str:
-    """Return a simple accessible HTML alternative for a WAS customer email."""
-    paragraphs = []
+    """Return an accessible, template-formatted HTML customer email."""
+    body_parts = []
+    list_items = []
+    signature_name_pending = False
+
+    def append_list() -> None:
+        """Append any pending list items to the HTML body."""
+        if not list_items:
+            return
+        body_parts.append("<ul>{}</ul>".format("".join(list_items)))
+        list_items.clear()
+
     for line in plain_body.splitlines():
+        if line.startswith("- "):
+            list_items.append(
+                "<li>{}</li>".format(customer_email_html_line(line[2:]))
+            )
+            continue
+        append_list()
         if not line:
-            paragraphs.append("<br>")
-        elif line.startswith("- "):
-            paragraphs.append("<div>&bull; {}</div>".format(escape(line[2:])))
-        else:
-            paragraphs.append("<div>{}</div>".format(escape(line)))
+            body_parts.append("<br>")
+            continue
+        rendered_line = customer_email_html_line(line)
+        if signature_name_pending:
+            rendered_line = (
+                '<strong><span style="color:#552479">{}</span></strong>'
+            ).format(escape(line))
+            signature_name_pending = False
+        body_parts.append("<div>{}</div>".format(rendered_line))
+        if line == "Regards,":
+            signature_name_pending = True
+    append_list()
     return (
         "<!doctype html><html><body>"
         '<h1 style="font-size:1.25rem">WAS Results for {}</h1>{}'
@@ -445,7 +553,7 @@ def report_email_html(plain_body: str, stakeholder_tag: str) -> str:
         "</body></html>"
     ).format(
         escape(stakeholder_tag),
-        "".join(paragraphs),
+        "".join(body_parts),
         CISA_LOGO_CONTENT_ID,
     )
 

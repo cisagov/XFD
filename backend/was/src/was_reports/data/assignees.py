@@ -113,6 +113,34 @@ def list_active_assignee_emails_from_db() -> list[str]:
         close(conn)
 
 
+def list_functional_test_recipient_emails(conn: connection) -> list[str]:
+    """Return email-enabled recipients approved for functional testing."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT email
+            FROM was_assignees
+            WHERE email_enabled IS TRUE
+              AND NULLIF(BTRIM(email), '') IS NOT NULL
+            ORDER BY id ASC
+            """
+        )
+        rows = cursor.fetchall()
+
+    return [row[0] for row in rows]
+
+
+def list_functional_test_recipient_emails_from_db() -> list[str]:
+    """Return approved functional-test recipients using a managed connection."""
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_functional_test_recipient_emails(conn)
+    finally:
+        close(conn)
+
+
 def upsert_assignee(
     name: str,
     conn: connection,

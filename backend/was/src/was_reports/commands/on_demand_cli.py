@@ -34,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def validated_recipients(value: str) -> str:
-    """Require explicit recipients configured as active WAS assignees."""
+    """Require explicit email-enabled functional-test recipients."""
     return ",".join(approved_analyst_recipients(value))
 
 
@@ -135,7 +135,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--send-email", action="store_true")
     parser.add_argument(
         "--test-recipients",
-        help="Explicit active WAS assignee recipients for on-demand delivery.",
+        help="Explicit email-enabled recipients for functional-test delivery.",
     )
     parser.add_argument(
         "--resource-root", default=getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")

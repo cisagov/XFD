@@ -39,10 +39,11 @@ make menu
 
 For an approved standalone functional test, select **Report generation**, then
 **5, Generate a new on-demand report**. Enter the approved stakeholder tag and,
-if emailing, an address configured for an active WAS assignee. Leave the tracker
-ID blank unless intentionally linking an existing test tracker row. This
-generates a PDF, archives it to S3, and optionally emails it to analysts. It does
-not require recent-scan eligibility and does not deliver directly to customers.
+if emailing, an address configured as an email-enabled functional-test
+recipient. Leave the tracker ID blank unless intentionally linking an existing
+test tracker row. This generates a PDF, archives it to S3, and optionally emails
+it to analysts. It does not require recent-scan eligibility and does not deliver
+directly to customers.
 
 ### Update And Rebuild Cycle
 
@@ -746,12 +747,13 @@ Review the displayed status and the timestamped application log before
 retrying.
 
 Report Generation option 1 asks the operator to choose a delivery mode. Test
-mode requires one or more active WAS assignee email addresses and delivers all
-customer report messages and assignee digests only to those override addresses.
-One-off email recipients and batch test overrides must exactly match an email
-on an active, email-enabled `was_assignees` row. Invalid, unknown, inactive, or
-email-disabled addresses are rejected before report processing, and the
-operator receives a specific correction message.
+mode requires one or more email-enabled functional-test recipient addresses and
+delivers all customer report messages and assignee digests only to those
+override addresses. One-off email recipients and batch test overrides must
+exactly match an email-enabled `was_assignees` row. The row does not need to be
+active, allowing development testers to remain excluded from daily assignment
+and digest processing. Unknown or email-disabled addresses are rejected before
+report processing, and the operator receives a specific correction message.
 A successful test delivery still marks its report run and linked tracker row as
 sent, so operators must use it only for approved test data. Production mode uses
 the customer technical and distribution addresses and requires the operator to
@@ -853,7 +855,7 @@ visible. The documented 2,000-request-per-hour Qualys limit still applies to the
 combined worker pool.
 
 Run a real parallel end-to-end batch while redirecting every report, retry, and
-assignee digest to one or more active WAS assignee email addresses:
+assignee digest to one or more email-enabled functional-test recipients:
 
 ```bash
 make recent-scan-batch-assignee-test \
@@ -862,7 +864,8 @@ make recent-scan-batch-assignee-test \
 
 This command uses the same 30-container default as the production batch. It
 does not use customer email addresses. Recipient validation requires every
-submitted address to belong to an active, email-enabled WAS assignee. This is a
+submitted address to belong to an email-enabled `was_assignees` row. The row may
+be inactive so development testers remain outside daily operations. This is a
 live test that generates reports, archives them to S3, sends SES email, and
 updates successful tracker rows as sent. As a safety guardrail, report
 generation, completed-report retries, and assignee digests are limited to
@@ -871,8 +874,8 @@ selects only the newest non-legacy tracker row for each stakeholder tag, so an
 older unsent row cannot trigger another current tag-level report.
 
 For a controlled end-to-end batch test, redirect every report and digest to one
-or more active WAS assignees. Customer addresses are not used, but successful
-tracker rows are recorded as sent:
+or more email-enabled functional-test recipients. Customer addresses are not
+used, but successful tracker rows are recorded as sent:
 
 ```bash
 docker run --rm \
@@ -952,8 +955,9 @@ the email body.
 
 For operational tracker-driven delivery, the mailer always combines
 `tech_poc_email` and `distro_email`, removes duplicate addresses, and signs the
-customer message with the assigned analyst's name. Password delivery is an
-onboarding or analyst-managed process and is not performed by report automation.
+customer message with one assigned analyst followed by the WAS team identity
+and `reports@cyber.dhs.gov`. Password delivery is an onboarding or
+analyst-managed process and is not performed by report automation.
 
 Tracker templates control delivery behavior:
 
@@ -979,10 +983,10 @@ Tracker templates control delivery behavior:
   applications without updated results. Report-generation and delivery failures
   remain in the assignee digest instead of producing immediate customer mail.
 
-Customer messages display available scan and schedule timestamps in Eastern
-Time, include the approved Cyber Hygiene and scanner allowlist links, and retain
-the temporary sensitive-data attachment notice until Qualys restores that
-capability. Removal eligibility uses two consecutive inaccessible scans.
+Customer messages display the available next-scan date in Eastern Time, include
+the approved Cyber Hygiene and scanner allowlist links, and retain the temporary
+sensitive-data attachment notice until Qualys restores that capability. Removal
+eligibility uses two consecutive inaccessible scans.
 
 The supplied Outlook `.msg` files are the source for customer-facing email
 wording. Their reusable sections are maintained in
@@ -1509,8 +1513,8 @@ run. Existing scheduled batch eligibility is unchanged. A crashed run left in
 not blind regeneration or database status resets.
 
 The lower-level `was-report-on-demand` CLI defaults to archive-only and requires
-`--send-email` plus `--test-recipients` containing only active WAS assignee
-addresses to send. `was-reports` remains local-PDF-only. The on-demand command explicitly uses
+`--send-email` plus `--test-recipients` containing only email-enabled
+functional-test addresses to send. `was-reports` remains local-PDF-only. The on-demand command explicitly uses
 S3 even if `WAS_REPORT_STORAGE=local`; the bucket and IAM permissions must be
 configured. The updated container enables unbuffered output and a writable
 Matplotlib cache. Persisted `delivery_purpose=analyst` enforces analyst-only

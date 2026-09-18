@@ -469,7 +469,7 @@ class WasOperatorMenu:
             "--send-email",
             "--send-assignee-digests",
         ]
-        self.output("1) Test batch using an active WAS assignee override")
+        self.output("1) Test batch using an email-enabled test recipient override")
         self.output("2) Production batch using customer email addresses")
         self.output("3) Cancel")
         delivery_selection = self.input("Please select the delivery mode: ").strip()
@@ -486,7 +486,7 @@ class WasOperatorMenu:
             self.output("This batch will process all eligible reports.")
         if delivery_selection == "1":
             recipients = self.prompt_required(
-                "Active WAS assignee email address(es) for all batch email: "
+                "Email-enabled functional-test recipient address(es): "
             )
             self.output(
                 "Customer addresses will not be used. Successful tracker rows will "

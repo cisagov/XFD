@@ -1096,17 +1096,17 @@ class BatchRunnerTests(unittest.TestCase):
     @patch("was_reports.commands.batch_runner.run_recent_scan_reports")
     @patch("was_reports.commands.batch_runner.run_update_tracker")
     @patch("was_reports.commands.batch_runner.approved_analyst_recipients")
-    def test_main_reports_inactive_batch_test_recipient_before_processing(
+    def test_main_reports_unapproved_batch_test_recipient_before_processing(
         self,
         mock_approved_recipients,
         mock_update_tracker,
         mock_run_recent,
         mock_recover_stale,
     ) -> None:
-        """Tell the operator when a batch override is not an active assignee."""
+        """Tell the operator when a batch override is not test-enabled."""
         mock_approved_recipients.side_effect = AnalystRecipientError(
-            "The submitted email address is not assigned to an active, "
-            "email-enabled WAS assignee: inactive@example.gov."
+            "The submitted email address is not configured as an email-enabled "
+            "WAS functional-test recipient: unapproved@example.gov."
         )
         error_output = StringIO()
 
@@ -1116,12 +1116,12 @@ class BatchRunnerTests(unittest.TestCase):
                     "--recent-scans",
                     "--send-email",
                     "--test-recipients",
-                    "inactive@example.gov",
+                    "unapproved@example.gov",
                 ]
             )
 
         self.assertEqual(exit_code, 2)
-        self.assertIn("not assigned to an active", error_output.getvalue())
+        self.assertIn("not configured as an email-enabled", error_output.getvalue())
         mock_update_tracker.assert_not_called()
         mock_run_recent.assert_not_called()
         mock_recover_stale.assert_not_called()

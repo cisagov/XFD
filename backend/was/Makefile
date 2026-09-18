@@ -125,7 +125,7 @@ recent-scan-batch:
 	echo 'Parallel WAS batch completed successfully.'
 
 recent-scan-batch-assignee-test:
-	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an active WAS assignee email address.' >&2; exit 2)
+	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled WAS functional-test recipient.' >&2; exit 2)
 	@echo 'All batch reports and digests will be sent only to $(TEST_RECIPIENTS).'
 	@echo 'Only tracker work from the previous 30 calendar days will be processed.'
 	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)" BATCH_DAYS_BACK="30"

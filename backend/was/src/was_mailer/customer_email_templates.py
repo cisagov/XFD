@@ -16,11 +16,6 @@ NO_REPORT_NOTICE = (
     "no accessible web services. No PDF report was generated."
 )
 
-NWS_EXPLANATION = (
-    "NWS means No Web Service. During the scan, our scanner could not reach an "
-    "accessible web service for the target."
-)
-
 INACCESSIBLE_TARGETS_WITH_COUNTS = (
     "Results indicate that {inaccessible_count} out of {total_count} web "
     "applications from your scan are inaccessible by our scanner. The "
@@ -71,7 +66,7 @@ APPENDIX_NOTICE = (
 )
 
 PASSWORD_SUPPORT_NOTICE = (
-    "Please have a technical POC contact reports@cisa.dhs.gov should you "
+    "Please have a technical POC contact vulnerability@cisa.dhs.gov should you "
     "need a copy of, or to update your WAS report password."
 )
 
@@ -92,9 +87,16 @@ QUALYS_ERROR_RESCAN_NOTICE = (
 )
 
 SENSITIVE_DATA_NOTICE = (
-    "Qualys is currently unable to provide the sensitive-data attachment for "
-    "Social Security number and credit-card findings. This temporary notice will "
-    "be removed after Qualys restores the capability."
+    "Important Note: Attachment 7 (Sensitive Data - Social Security and Credit "
+    "Card Numbers) will not be populated for this scan cycle due to vendor "
+    "maintenance. We apologize for any inconvenience and are happy to assist "
+    "with any questions."
+)
+
+CUSTOMER_SIGNATURE = (
+    "Web Application Scanning (WAS)",
+    "Cybersecurity and Infrastructure Security Agency (CISA)",
+    "Email: reports@cyber.dhs.gov",
 )
 
 REMOVED_TARGETS_HEADING = (

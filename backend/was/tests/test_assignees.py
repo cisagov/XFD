@@ -108,6 +108,21 @@ class AssigneeTests(unittest.TestCase):
         self.assertEqual(names, ["Mina Salehi", "Tenesa Ellis"])
         self.assertIn("ORDER BY id ASC", conn.cursor_instance.query)
 
+    def test_functional_test_recipients_do_not_require_active_status(self) -> None:
+        """Allow email-enabled inactive users to receive controlled tests."""
+        conn = FakeConnection(
+            row=[("tester-one@example.gov",), ("tester-two@example.gov",)]
+        )
+
+        emails = assignees.list_functional_test_recipient_emails(conn)
+
+        self.assertEqual(
+            emails,
+            ["tester-one@example.gov", "tester-two@example.gov"],
+        )
+        self.assertIn("email_enabled IS TRUE", conn.cursor_instance.query)
+        self.assertNotIn("active IS TRUE", conn.cursor_instance.query)
+
 
 if __name__ == "__main__":
     unittest.main()

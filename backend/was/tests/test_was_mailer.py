@@ -112,7 +112,10 @@ class WasMailerTests(unittest.TestCase):
             if part.get_content_type() == "image/png"
         ]
         self.assertEqual(len(inline_images), 1)
-        self.assertEqual(inline_images[0].get_filename(), "cisa-logo.png")
+        self.assertEqual(
+            inline_images[0].get_filename(),
+            "CISA_logo_email.png",
+        )
 
     def test_build_report_email_greets_customer_poc(self) -> None:
         """Address a customer report email to the configured WAS report POC."""
@@ -164,6 +167,8 @@ class WasMailerTests(unittest.TestCase):
         self.assertEqual(len(list(message.iter_attachments())), 0)
         self.assertIn("No PDF report was generated", message.as_string())
         self.assertIn("Analyst Name", message.as_string())
+        self.assertIn("Web Application Scanning (WAS)", message.as_string())
+        self.assertIn("reports@cyber.dhs.gov", message.as_string())
 
     def test_build_report_email_lists_qualys_error_webapps(self) -> None:
         """Tell customers which applications lack updated Qualys results."""
@@ -203,10 +208,31 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("Attached is a report containing the results", body)
         self.assertIn("Appendix C: Attachments", body)
         self.assertIn("update your WAS report password", body)
-        self.assertIn("reports@cisa.dhs.gov", body)
-        self.assertNotIn("vulnerability@cisa.dhs.gov", body)
+        self.assertIn("vulnerability@cisa.dhs.gov", body)
+        self.assertNotIn("reports@cisa.dhs.gov", body)
+        self.assertIn("reports@cyber.dhs.gov", body)
+        self.assertLess(
+            body.index("Important Note:"),
+            body.index("contact vulnerability@cisa.dhs.gov"),
+        )
         self.assertIn("Your next scan is scheduled for", body)
         self.assertNotIn("common reasons why", body)
+
+        html_body = message.get_body(preferencelist=("html",)).get_content()
+        self.assertIn('style="background-color:#f8e71c"', html_body)
+        self.assertIn("<strong>Important Note:</strong>", html_body)
+        self.assertIn("<em>Attachment 7", html_body)
+        self.assertIn("<u>will not</u>", html_body)
+        self.assertIn("<strong>Additional details", html_body)
+        self.assertIn("<u>double-click on the paper clip icon</u>", html_body)
+        self.assertIn(
+            '<a href="https://rules.vm.cyber.dhs.gov/was.txt"><u>',
+            html_body,
+        )
+        self.assertIn(
+            '<a href="https://www.cisa.gov/cyber-hygiene-services"><u>',
+            html_body,
+        )
 
     def test_action_required_email_uses_conditional_nws_sections(self) -> None:
         """Add supplied inaccessible-target sections only when NWS data exists."""
@@ -225,11 +251,21 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
+        html_body = message.get_body(preferencelist=("html",)).get_content()
         self.assertIn("2 out of 5 web applications", body)
-        self.assertIn("NWS means No Web Service", body)
+        self.assertNotIn("NWS means No Web Service", body)
         self.assertIn("https://one.example.gov", body)
         self.assertIn("common reasons why", body)
         self.assertNotIn("consecutive scans", body)
+        self.assertIn(
+            "Results indicate that <strong>2</strong> out of "
+            "<strong>5</strong> web applications",
+            html_body,
+        )
+        self.assertNotIn(
+            "<strong>Results indicate that",
+            html_body,
+        )
 
     def test_targets_removed_extends_action_required_sections(self) -> None:
         """Add removed targets and instructions for requesting replacements."""
@@ -294,6 +330,34 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("removed only at the customer's request", body)
         self.assertNotIn("2 consecutive scans", body)
         self.assertNotIn("3 consecutive scans", body)
+
+    def test_customer_signature_uses_assignee_and_team_identity(self) -> None:
+        """Include one assignee plus the complete customer-facing team identity."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            message = build_report_email(
+                source_email="sender@example.gov",
+                recipients=["recipient@example.gov"],
+                stakeholder_tag="TAG1",
+                report_path=report_path,
+                assignee_name="Individual Analyst",
+            )
+
+        plain_body = message.get_body(preferencelist=("plain",)).get_content()
+        html_body = message.get_body(preferencelist=("html",)).get_content()
+        self.assertEqual(plain_body.count("Individual Analyst"), 1)
+        self.assertIn("Web Application Scanning (WAS)", plain_body)
+        self.assertIn(
+            "Cybersecurity and Infrastructure Security Agency (CISA)",
+            plain_body,
+        )
+        self.assertIn("Email: reports@cyber.dhs.gov", plain_body)
+        self.assertIn(
+            '<strong><span style="color:#552479">Individual Analyst</span></strong>',
+            html_body,
+        )
 
     def test_build_report_email_requires_recipient(self) -> None:
         """Reject messages without recipients."""
@@ -816,10 +880,10 @@ class DeliveryPolicyTests(unittest.TestCase):
         self.assertTrue(failed.call_args.kwargs["hold_for_manual_retry"])
         self.assertEqual(failed.call_args.kwargs["email_claim_token"], "token")
 
-    @patch("was_mailer.message.list_active_assignee_emails_from_db")
-    def test_analyst_policy_rejects_missing_and_unapproved_recipients(self, active):
+    @patch("was_mailer.message.list_functional_test_recipient_emails_from_db")
+    def test_analyst_policy_rejects_missing_and_unapproved_recipients(self, approved):
         """Never fall back to customer contacts for an analyst report."""
-        active.return_value = ["analyst@example.gov"]
+        approved.return_value = ["analyst@example.gov"]
         report = SimpleNamespace(delivery_purpose="analyst")
         for recipients in (None, "", "customer@example.gov", "not-an-email"):
             with self.subTest(recipients=recipients), self.assertRaises(ValueError):
@@ -831,7 +895,7 @@ class DeliveryPolicyTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             AnalystRecipientError,
-            "not assigned to an active, email-enabled WAS assignee",
+            "not configured as an email-enabled WAS functional-test recipient",
         ):
             approved_analyst_recipients("inactive@example.gov")
 
