@@ -102,7 +102,10 @@ def get_term_filter(term_filter):
         search_type = "wildcard"
     elif term_filter["field"] == "services.port":
         search_type = "match"
-    elif term_filter["field"] == "organization.region_id":
+    elif (
+        term_filter["field"] == "organization.region_id"
+        and term_filter["type"] == "any"
+    ):
         search_type = "terms"
 
     # --- Special handling for vulnerabilities.severity in post_filter ---
