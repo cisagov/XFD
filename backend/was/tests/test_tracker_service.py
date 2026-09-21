@@ -16,6 +16,84 @@ from was_reports.tracker.models import TrackerItem, TrackerStakeholder
 class TrackerServiceTests(unittest.TestCase):
     """Validate tracker orchestration without external systems."""
 
+    @patch("was_reports.tracker.service.close")
+    @patch("was_reports.tracker.service.connect")
+    def test_early_exclusion_requires_handled_exact_execution(self, mock_connect, mock_close):
+        """Retain uncertain records and recurring runs before expensive searches."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T02:00:00Z",
+            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2 Slice 1",
+        )
+        connection = mock_connect.return_value
+        cursor = connection.cursor.return_value.__enter__.return_value
+        baseline = [2, date(2026, 9, 2), "Customer Run #2", "Finished",
+                    "Successful", None, None, False, False]
+        cases = [
+            ({}, 0),
+            ({2: "Customer Run #1"}, 1),
+            ({0: 3}, 1),
+            ({1: date(2026, 9, 3)}, 1),
+            ({2: None}, 1),
+            ({3: "Error", 4: "Failed"}, 1),
+            ({4: "PROCESSING"}, 1),
+            ({4: " "}, 1),
+            ({6: "QUALYS DELETION REQUIRED"}, 1),
+            ({7: True}, 1),
+            ({7: True, 8: True}, 0),
+            ({7: True, 5: date(2026, 9, 4)}, 0),
+        ]
+        for changes, expected in cases:
+            with self.subTest(changes=changes):
+                row = baseline.copy()
+                for position, value in changes.items():
+                    row[position] = value
+                cursor.fetchall.return_value = [row]
+                counts = {}
+                result = service.pending_schedules({"run": stakeholder}, counts)
+                self.assertEqual(len(result), expected)
+                self.assertEqual(counts["early_excluded_schedules"], 1 - expected)
+        connection.set_session.assert_called_with(readonly=True)
+        connection.commit.assert_not_called()
+
+    @patch("was_reports.tracker.service.close")
+    @patch("was_reports.tracker.service.connect")
+    def test_unresolved_sibling_requires_delivery_evidence(self, mock_connect, mock_close):
+        """Only customer delivery evidence overrides an unresolved same-run sibling."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
+            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2",
+        )
+        cursor = mock_connect.return_value.cursor.return_value.__enter__.return_value
+        completed = [2, date(2026, 9, 3), "Customer Run #2", "Finished",
+                     "Successful", None, None, False, False]
+        unresolved = completed.copy()
+        unresolved[7] = True
+        cursor.fetchall.return_value = [completed, unresolved]
+        self.assertEqual(len(service.pending_schedules({"run": stakeholder})), 1)
+        completed[8] = True
+        self.assertEqual(len(service.pending_schedules({"run": stakeholder})), 0)
+        unresolved[6] = "QUALYS DELETION REQUIRED"
+        self.assertEqual(len(service.pending_schedules(
+            {"run": stakeholder}, delete_apps=True
+        )), 1)
+
+    def test_early_exclusion_prevents_all_downstream_calls(self):
+        """An entirely handled schedule set must not fetch slices or write rows."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
+            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2",
+        )
+        with patch.multiple(
+            service, tracker_search_window=DEFAULT, search_schedules=DEFAULT,
+            pending_schedules=DEFAULT, search_scans=DEFAULT, update_tracker=DEFAULT,
+        ) as mocks:
+            mocks["tracker_search_window"].return_value = (datetime(2026, 9, 1), set())
+            mocks["search_schedules"].return_value = {"run": stakeholder}
+            mocks["pending_schedules"].return_value = {}
+            self.assertEqual(service.refresh_daily_tracker(object()), 0)
+            mocks["search_scans"].assert_not_called()
+            mocks["update_tracker"].assert_not_called()
+
     def test_preflight_stops_before_enrichment_and_writes(self) -> None:
         """Discovery counts must never assign, enrich, or persist candidates."""
         stakeholder = TrackerStakeholder(

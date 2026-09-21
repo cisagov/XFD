@@ -860,6 +860,11 @@ including today. Override these independent windows when necessary:
 
 Daily discovery selects only the latest execution per schedule, combining its
 scan slices across all response pages before deciding whether it is complete.
+Before requesting scan slices, discovery checks tracker evidence for each
+schedule's latest execution and excludes already-handled matches. This follows
+the legacy ordering without treating a recurring schedule ID as permanently
+processed. Unresolved or ambiguous matches remain available for further checks.
+The read-only preview reports the number excluded before the scan search.
 The schedule's latest numbered run name identifies its slices. Schedule-level
 and slice-level launch timestamps need not match, so timestamp ordering does not
 override an exact latest-run-name match.

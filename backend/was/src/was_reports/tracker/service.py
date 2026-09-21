@@ -14,6 +14,7 @@ from was_reports.tracker.models import QualysScan, TrackerStakeholder
 from was_reports.tracker.update_service import convert_qualys_date
 from was_reports.tracker.qualys_scans import (
     DEFAULT_TRACKER_LOOKBACK_DAYS,
+    normalize_schedule_name,
     search_scans,
     search_schedules,
     tracker_search_window,
@@ -22,6 +23,97 @@ from was_reports.tracker.update_service import update_tracker
 from was_reports.utils.database import close, connect
 
 LOGGER = logging.getLogger(__name__)
+
+
+def pending_schedules(
+    stakeholders: dict[str, TrackerStakeholder],
+    counts: dict[str, int] | None = None,
+    delete_apps: bool = False,
+) -> dict[str, TrackerStakeholder]:
+    """Exclude positively handled latest executions before fetching scan slices.
+
+    Recurring schedules require a matching numbered run and Eastern scan day.
+    Missing identity, unresolved notes, and linked attempts without customer
+    delivery remain candidates. This read-only filter does not alter the queue.
+    """
+    identities = {}
+    for group_key, stakeholder in stakeholders.items():
+        run_name = normalize_schedule_name(
+            stakeholder.latest_scan_name.split(" Slice", 1)[0]
+        )
+        if " Run #" not in run_name:
+            continue
+        if not run_name.rsplit(" Run #", 1)[1].isdigit():
+            continue
+        identities[group_key] = (
+            stakeholder.schedule_id,
+            convert_qualys_date(stakeholder.launched_date),
+            run_name,
+        )
+    rows = []
+    if identities:
+        conn = connect()
+        try:
+            conn.set_session(readonly=True)
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT schedule_id, scan_start_date, scan_name, status,
+                           result, report_sent_date, report_scan_notes,
+                           EXISTS (SELECT 1 FROM was_report_runs run
+                                   WHERE run.source_tracker_id = tracker.id),
+                           EXISTS (SELECT 1 FROM was_report_runs run
+                                   WHERE run.source_tracker_id = tracker.id
+                                     AND run.delivery_purpose = 'customer'
+                                     AND run.email_status = 'sent')
+                    FROM was_daily_report_tracker tracker
+                    WHERE schedule_id = ANY(%s)
+                    """,
+                    (sorted({identity[0] for identity in identities.values()}),),
+                )
+                rows = cursor.fetchall()
+        finally:
+            close(conn)
+    handled = set()
+    delivered = set()
+    unresolved = set()
+    deletion_required = set()
+    for schedule_id, start_day, name, status, result, sent, notes, linked, emailed in rows:
+        identity = (
+            schedule_id, start_day,
+            normalize_schedule_name((name or "").split(" Slice", 1)[0]),
+        )
+        if delete_apps and (notes or "").strip() == "QUALYS DELETION REQUIRED":
+            deletion_required.add(identity)
+        if sent or emailed:
+            delivered.add(identity)
+        elif (
+            status == "Finished" and result and result.strip()
+            and result.strip().upper() not in {"PROCESSING", "RUNNING", "FAILED", "ERROR"}
+            and not (notes or "").strip() and not linked
+        ):
+            handled.add(identity)
+        else:
+            unresolved.add(identity)
+    excluded = {
+        group_key for group_key, identity in identities.items()
+        if identity not in deletion_required
+        and (identity in delivered or (identity in handled and identity not in unresolved))
+    }
+    pending = {
+        group_key: stakeholder for group_key, stakeholder in stakeholders.items()
+        if group_key not in excluded
+    }
+    if counts is not None:
+        counts["discovered_schedules"] = len(stakeholders)
+        counts["early_excluded_schedules"] = len(excluded)
+        counts["schedules_requiring_scans"] = len(pending)
+    LOGGER.info(
+        "Early tracker execution check: %d schedules discovered; %d handled "
+        "executions excluded before scan search; %d require scan search.",
+        len(stakeholders), len(excluded), len(pending),
+    )
+    return pending
 
 
 def print_discovery_breakdown(
@@ -211,6 +303,16 @@ def refresh_daily_tracker(
             LOGGER.info("No recent Qualys schedules found.")
         return 0
 
+    stakeholders = pending_schedules(stakeholders, counts=counts, delete_apps=delete_apps)
+    if not stakeholders:
+        if preflight_only:
+            print(
+                "Tracker discovery preflight: {} schedules; {} early exclusions; "
+                "0 pending runs.".format(
+                    counts["discovered_schedules"], counts["early_excluded_schedules"]
+                )
+            )
+        return 0
     history_groups = {}
     scan_groups = search_scans(
         client=client,
@@ -227,13 +329,18 @@ def refresh_daily_tracker(
             "Tracker discovery preflight: {} schedules; {} grouped runs; "
             "{} incomplete; {} completed; {} recorded; {} legacy overlaps; "
             "{} pending runs requiring enrichment.".format(
-                len({stakeholder.schedule_id for stakeholder in stakeholders.values()}),
+                counts["discovered_schedules"],
                 counts.get("grouped_runs", 0),
                 counts.get("incomplete_runs", 0),
                 counts.get("completed_runs", 0),
                 counts.get("recorded_runs", 0),
                 counts.get("legacy_overlaps", 0),
                 len(pending_groups),
+            )
+        )
+        print(
+            "Before scan search: {} handled executions excluded; {} schedules retained.".format(
+                counts["early_excluded_schedules"], counts["schedules_requiring_scans"]
             )
         )
         print(
