@@ -168,6 +168,7 @@ def build_report_email(
     last_scanned: int | None = None,
     next_scheduled: int | None = None,
     analyst_delivery: bool = False,
+    test_original_recipients: list[str] | None = None,
 ) -> EmailMessage:
     """Build a tracker-aware WAS customer email and optional PDF attachment."""
     if not recipients:
@@ -203,7 +204,6 @@ def build_report_email(
         next_scheduled=next_scheduled,
         analyst_delivery=analyst_delivery,
     )
-    message.set_content(plain_body)
     html_body = (
         report_email_html(plain_body, stakeholder_tag)
         if analyst_delivery
@@ -221,6 +221,29 @@ def build_report_email(
             html=True,
         )
     )
+    if test_original_recipients is not None:
+        original_addresses = "; ".join(test_original_recipients) or "Not available"
+        test_notice = (
+            "TEST DELIVERY ONLY\n"
+            "Original customer recipient(s): {}\n"
+            "This email was redirected to the configured test recipient(s)."
+        ).format(original_addresses)
+        plain_body = "{}\n\n{}".format(test_notice, plain_body)
+        html_notice = (
+            '<div role="note" style="border: 2px solid #555; padding: 12px; '
+            'margin-bottom: 16px;"><strong>TEST DELIVERY ONLY</strong><br>'
+            "Original customer recipient(s): {}<br>"
+            "This email was redirected to the configured test recipient(s).</div>"
+        ).format(escape(original_addresses))
+        body_start = html_body.find("<body")
+        body_open_end = html_body.find(">", body_start) if body_start >= 0 else -1
+        if body_open_end >= 0:
+            html_body = "{}{}{}".format(
+                html_body[:body_open_end + 1], html_notice, html_body[body_open_end + 1:]
+            )
+        else:
+            html_body = html_notice + html_body
+    message.set_content(plain_body)
     message.add_alternative(html_body, subtype="html")
     html_part = message.get_payload()[-1]
     html_part.add_related(

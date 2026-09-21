@@ -3,6 +3,8 @@
 # Standard Python Libraries
 from contextlib import contextmanager
 from datetime import date
+from email import policy
+from email.parser import BytesParser
 import os
 from pathlib import Path
 import tempfile
@@ -133,6 +135,92 @@ class WasMailerTests(unittest.TestCase):
 
         body = message.get_body(preferencelist=("plain",)).get_content()
         self.assertTrue(body.startswith("WAS Results for TAG1\n\nCustomer Name,\n"))
+
+    def test_test_delivery_notice_keeps_original_recipients_out_of_headers(self):
+        """Expose intended customer addresses only in redirected test bodies."""
+        message = build_report_email(
+            source_email="sender@example.gov", recipients=["tester@example.gov"],
+            stakeholder_tag="TAG1", template="All NWS", report_path=None,
+            test_original_recipients=["poc@example.gov", "team@example.gov"],
+        )
+        for content_type in ("plain", "html"):
+            body = message.get_body(preferencelist=(content_type,)).get_content()
+            self.assertIn("TEST DELIVERY ONLY", body)
+            self.assertIn("Original customer recipient(s):", body)
+            self.assertIn("poc@example.gov; team@example.gov", body)
+        self.assertEqual(message["To"], "tester@example.gov")
+        self.assertIsNone(message["Cc"])
+        self.assertIsNone(message["Bcc"])
+        headers = str(list(message.items()))
+        self.assertNotIn("poc@example.gov", headers)
+        self.assertNotIn("team@example.gov", headers)
+
+    def test_test_delivery_notice_escapes_html_and_handles_missing_contacts(self):
+        """Treat preview addresses as text and label unavailable customer contacts."""
+        for originals, expected in (([], "Not available"), (["<unsafe>&"], "&lt;unsafe&gt;&amp;")):
+            message = build_report_email(
+                source_email="sender@example.gov", recipients=["tester@example.gov"],
+                stakeholder_tag="TAG1", template="All NWS", report_path=None,
+                test_original_recipients=originals,
+            )
+            body = message.get_body(preferencelist=("html",)).get_content()
+            self.assertIn(expected, body)
+            self.assertNotIn("<unsafe>", body)
+
+    def test_production_email_has_no_test_delivery_notice(self):
+        """Leave approved customer template bodies unchanged without test metadata."""
+        message = build_report_email(
+            source_email="sender@example.gov", recipients=["customer@example.gov"],
+            stakeholder_tag="TAG1", template="All NWS", report_path=None,
+        )
+        for content_type in ("plain", "html"):
+            body = message.get_body(preferencelist=(content_type,)).get_content()
+            self.assertNotIn("TEST DELIVERY ONLY", body)
+            self.assertNotIn("Original customer recipient(s):", body)
+
+    @patch("was_mailer.message.approved_analyst_recipients")
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_customer_override_displays_original_contacts_only_in_test_body(
+        self, claim, finish, approved
+    ):
+        """Only redirected customer mail gets deduplicated original-recipient metadata."""
+        approved.return_value = ["tester@example.gov"]
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+            for purpose in ("customer", "analyst"):
+                with self.subTest(purpose=purpose):
+                    claim.return_value = ReportRunEmail(
+                        id=1, stakeholder_tag="TAG1", output_path=str(report_path),
+                        report_password=None, was_report_poc="Customer",
+                        tech_poc_email="poc@example.gov; shared@example.gov",
+                        distro_email="shared@example.gov, team@example.gov",
+                        delivery_purpose=purpose,
+                    )
+                    client = Mock()
+                    client.send_raw_email.return_value = {"MessageId": "message"}
+                    email_reports.send_report_run_email(
+                        1, "sender@example.gov", override_recipients="tester@example.gov",
+                        ses_client=client, storage_mode="local",
+                        local_output_directory=directory, delivery_purpose=purpose,
+                    )
+                    message = BytesParser(policy=policy.default).parsebytes(
+                        client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
+                    )
+                    body = message.get_body(preferencelist=("plain",)).get_content()
+                    if purpose == "customer":
+                        self.assertIn("TEST DELIVERY ONLY", body)
+                        self.assertIn(
+                            "poc@example.gov; shared@example.gov; team@example.gov", body
+                        )
+                        self.assertEqual(body.count("shared@example.gov"), 1)
+                    else:
+                        self.assertNotIn("TEST DELIVERY ONLY", body)
+                        self.assertNotIn("poc@example.gov", body)
+                    self.assertEqual(message["To"], "tester@example.gov")
+                    self.assertIsNone(message["Cc"])
+                    self.assertIsNone(message["Bcc"])
 
     def test_build_report_email_uses_generic_analyst_salutation(self) -> None:
         """Do not address an analyst-only delivery to the customer POC."""

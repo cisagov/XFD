@@ -907,6 +907,12 @@ docker run --rm \
 Run a real parallel end-to-end batch while redirecting every report, retry, and
 assignee digest to one or more email-enabled functional-test recipients:
 
+Customer report emails redirected with `--test-recipients` include a
+`TEST DELIVERY ONLY` block showing the original technical POC and distribution
+addresses in both plain text and HTML. These addresses are informational only;
+they are not added to To, CC, or BCC. Normal customer deliveries keep the approved
+template unchanged. Manual analyst-only report copies do not receive this block.
+
 ```bash
 make recent-scan-batch-assignee-test \
   TEST_RECIPIENTS="analyst@example.gov"

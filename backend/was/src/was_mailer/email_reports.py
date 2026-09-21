@@ -17,7 +17,9 @@ from was_mailer.message import (
     approved_analyst_recipients,
     build_assignee_digest_email,
     build_report_email,
+    parse_email_addresses,
     recipient_addresses,
+    unique_addresses,
 )
 from was_mailer.ses_client import create_ses_client
 from was_reports.data.daily_report_tracker import (
@@ -109,6 +111,12 @@ def send_report_run_email(
             override_recipients=override_recipients,
         )
         analyst_delivery = report_run_email.delivery_purpose == "analyst"
+        test_original_recipients = None
+        if override_recipients and not analyst_delivery:
+            test_original_recipients = unique_addresses(
+                parse_email_addresses(report_run_email.tech_poc_email)
+                + parse_email_addresses(report_run_email.distro_email)
+            )
         heartbeat_context = nullcontext()
         if delivery_claimed:
             heartbeat_context = operation_heartbeat(
@@ -158,6 +166,7 @@ def send_report_run_email(
                     last_scanned=report_run_email.last_scanned,
                     next_scheduled=report_run_email.next_scheduled,
                     analyst_delivery=analyst_delivery,
+                    test_original_recipients=test_original_recipients,
                 )
 
             if dry_run:
