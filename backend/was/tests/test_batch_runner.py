@@ -712,6 +712,8 @@ class BatchRunnerTests(unittest.TestCase):
         mock_create_run.assert_called_once_with(
             stakeholder_tag="TAG1",
             source_tracker_id=9,
+            enforce_automated_eligibility=True,
+            days_back=30,
         )
         mock_complete_run.assert_called_once_with(
             42,
@@ -885,6 +887,12 @@ class BatchRunnerTests(unittest.TestCase):
             days_back=30,
         )
         mock_retry_run.assert_called_once_with(9)
+        mock_create_run.assert_called_once_with(
+            stakeholder_tag="TAG1",
+            source_tracker_id=9,
+            enforce_automated_eligibility=False,
+            days_back=30,
+        )
         mock_send_ready.assert_not_called()
         mock_complete_run.assert_called_once_with(
             42,
@@ -1021,7 +1029,7 @@ class BatchRunnerTests(unittest.TestCase):
         mock_list_candidates.return_value = []
 
         exit_code = batch_runner.main(
-            ["--recent-scans", "--skip-tracker-refresh", "--preflight-only"]
+            ["--recent-scans", "--preflight-only"]
         )
 
         self.assertEqual(exit_code, 0)

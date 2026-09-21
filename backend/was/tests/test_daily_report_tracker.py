@@ -302,7 +302,7 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
         self.assertIn("NOT LIKE %s", conn.cursor_instance.query)
         self.assertIn(
-            "tracker.data_pull_date >= CURRENT_DATE - (%s - 1)",
+            "tracker.scan_start_date >= CURRENT_DATE - (%s - 1)",
             conn.cursor_instance.query,
         )
         self.assertEqual(
@@ -327,6 +327,47 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(
             conn.cursor_instance.parameters,
             ("legacy-import:%", 5, 2),
+        )
+
+    def test_automated_legacy_overlap_hold_happens_after_ranking(self) -> None:
+        """Hold day-only overlaps without falling back to older report rows."""
+        conn = FakeConnection()
+        list_ready_report_candidates(conn=conn, days_back=7)
+        query = conn.cursor_instance.query
+        self.assertIn("legacy.id <> tracker.id", query)
+        self.assertIn("legacy.schedule_id = tracker.schedule_id", query)
+        self.assertIn("legacy.scan_start_date = tracker.scan_start_date", query)
+        self.assertIn("legacy.scan_execution_key IS NULL", query)
+        self.assertIn("LIKE 'legacy-import:%%'", query)
+        self.assertLess(
+            query.index("WHERE tracker.candidate_rank = 1"),
+            query.index("legacy.id <> tracker.id"),
+        )
+        self.assertNotIn("legacy.tag = tracker.tag", query)
+
+    def test_manual_reports_do_not_inherit_legacy_overlap_hold(self) -> None:
+        """Leave deliberate manual generation unchanged by automated holds."""
+        conn = FakeConnection()
+        list_ready_report_candidates(conn=conn, include_manual=True)
+        self.assertNotIn("legacy.id <> tracker.id", conn.cursor_instance.query)
+        self.assertNotIn("sibling.id <> tracker.id", conn.cursor_instance.query)
+
+    def test_same_scan_run_hold_requires_exact_nonblank_run_identity(self) -> None:
+        """Do not confuse distinct named runs sharing a schedule and scan day."""
+        conn = FakeConnection()
+        list_ready_report_candidates(conn=conn)
+        query = conn.cursor_instance.query
+        self.assertIn("sibling.id <> tracker.id", query)
+        self.assertIn("sibling.schedule_id = tracker.schedule_id", query)
+        self.assertIn("sibling.scan_start_date = tracker.scan_start_date", query)
+        self.assertIn("BTRIM(COALESCE(tracker.scan_name, '')) <> ''", query)
+        self.assertIn("sibling.scan_name = tracker.scan_name", query)
+        self.assertIn("sibling.report_sent_date IS NOT NULL", query)
+        self.assertIn("sibling_run.source_tracker_id = sibling.id", query)
+        self.assertNotIn("sibling_run.status =", query)
+        self.assertLess(
+            query.index("WHERE tracker.candidate_rank = 1"),
+            query.index("sibling.id <> tracker.id"),
         )
 
     def test_list_ready_report_candidates_falls_back_to_stakeholder_tag_id(

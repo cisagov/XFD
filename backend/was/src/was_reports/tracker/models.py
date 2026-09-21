@@ -21,6 +21,7 @@ class TrackerStakeholder:
     cadence: str
     tag: str = ""
     schedule_name: str = ""
+    latest_scan_name: str = ""
 
 
 def scheduled_execution_key(schedule_id: int, launched_date: str) -> str:

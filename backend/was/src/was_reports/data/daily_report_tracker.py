@@ -349,7 +349,8 @@ def list_ready_report_candidates(
         query += " AND tracker.tag = %s"
         parameters.append(stakeholder_tag)
     if days_back is not None:
-        query += " AND tracker.data_pull_date >= CURRENT_DATE - (%s - 1)"
+        date_column = "data_pull_date" if include_manual else "scan_start_date"
+        query += " AND tracker.{} >= CURRENT_DATE - (%s - 1)".format(date_column)
         parameters.append(days_back)
     if worker_count is not None:
         query += (
@@ -392,6 +393,31 @@ def list_ready_report_candidates(
               )
               AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
               AND stakeholders.manual_report IS NOT TRUE
+              AND NOT EXISTS (
+                  SELECT 1 FROM was_daily_report_tracker AS legacy
+                  WHERE legacy.id <> tracker.id
+                    AND legacy.schedule_id = tracker.schedule_id
+                    AND legacy.scan_start_date = tracker.scan_start_date
+                    AND (
+                        legacy.scan_execution_key IS NULL
+                        OR legacy.scan_execution_key LIKE 'legacy-import:%%'
+                  )
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM was_daily_report_tracker AS sibling
+                  WHERE sibling.id <> tracker.id
+                    AND sibling.schedule_id = tracker.schedule_id
+                    AND sibling.scan_start_date = tracker.scan_start_date
+                    AND BTRIM(COALESCE(tracker.scan_name, '')) <> ''
+                    AND sibling.scan_name = tracker.scan_name
+                    AND (
+                        sibling.report_sent_date IS NOT NULL
+                        OR EXISTS (
+                            SELECT 1 FROM was_report_runs AS sibling_run
+                            WHERE sibling_run.source_tracker_id = sibling.id
+                        )
+                    )
+              )
             ORDER BY tracker.data_pull_date ASC, tracker.id ASC
         """
     else:
@@ -438,6 +464,7 @@ def list_ready_report_candidates_from_db(
 
     conn = connect()
     try:
+        conn.set_session(readonly=True)
         return list_ready_report_candidates(
             conn=conn,
             stakeholder_tag=stakeholder_tag,

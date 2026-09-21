@@ -23,9 +23,7 @@ from was_reports.utils.logging_config import exception_details
 
 LOGGER = logging.getLogger(__name__)
 ADHOC_MARKERS = ("adhoc", "ad-hoc", "ad_hoc")
-QUALYS_ERROR_RESULTS = frozenset(
-    {"SCAN_INTERNAL_ERROR", "SCAN_RESULTS_INVALID"}
-)
+QUALYS_ERROR_RESULTS = frozenset({"SCAN_INTERNAL_ERROR", "SCAN_RESULTS_INVALID"})
 INACCESSIBLE_RESULTS = frozenset({"NO_WEB_SERVICE", "NO_HOST_ALIVE"})
 
 
@@ -107,6 +105,7 @@ def create_multiscan(
     scans: list[QualysScan],
     search_date: str,
     keep_nws_tags: set[str],
+    previous_nws_cache: dict[str, list[str]] | None = None,
 ) -> tuple[str, str, bool, str, str, str, bool, str]:
     """Consolidate individual scan slices into one tracker result."""
     statuses: list[str] = []
@@ -135,13 +134,18 @@ def create_multiscan(
             continue
         prior_run = previous_run_name(scan_name)
         if prior_run and not previous_checked and not is_adhoc:
-            previous_urls = get_previous_nws(
-                client=client,
-                tag=tag,
-                stakeholder_name=stakeholder_name,
-                previous_run=prior_run,
-                search_date=search_date,
-            )
+            if previous_nws_cache is not None and prior_run in previous_nws_cache:
+                previous_urls = previous_nws_cache[prior_run]
+            else:
+                previous_urls = get_previous_nws(
+                    client=client,
+                    tag=tag,
+                    stakeholder_name=stakeholder_name,
+                    previous_run=prior_run,
+                    search_date=search_date,
+                )
+                if previous_nws_cache is not None:
+                    previous_nws_cache[prior_run] = previous_urls
             previous_checked = True
         if webapp_url in previous_urls:
             removed_nws.append(webapp_url)
@@ -165,9 +169,19 @@ def create_tracker_items(
     scan_groups: dict[str, list[QualysScan]],
     stakeholders: dict[str, TrackerStakeholder],
     keep_nws_tags: set[str],
+    previous_scan_groups: dict[str, list[QualysScan]] | None = None,
 ) -> list[TrackerItem]:
     """Build one consolidated tracker item for every stakeholder scan group."""
     tracker_items: list[TrackerItem] = []
+    previous_nws_cache: dict[str, list[str]] = {}
+    for scans in (previous_scan_groups or {}).values():
+        run_name = element_text(scans[0], "name").split(" Slice", 1)[0]
+        previous_nws_cache[run_name] = [
+            element_text(scan, "./target/webApp/url")
+            for scan in scans
+            if scan.findtext("status") != "ERROR"
+            and scan.findtext("./summary/resultsStatus") in INACCESSIBLE_RESULTS
+        ]
     for group_key, scans in scan_groups.items():
         stakeholder = stakeholders[group_key]
         tag = stakeholder.tag or group_key
@@ -184,6 +198,7 @@ def create_tracker_items(
                 scans=scans,
                 search_date=stakeholder.launched_date,
                 keep_nws_tags=keep_nws_tags,
+                previous_nws_cache=previous_nws_cache,
             )
             tracker_items.append(
                 TrackerItem(

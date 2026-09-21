@@ -101,7 +101,7 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message["From"], "sender@example.gov")
         self.assertEqual(message["To"], "recipient@example.gov")
-        self.assertEqual(message["Subject"], "TAG1 WAS Results")
+        self.assertEqual(message["Subject"], "TAG1 - WAS Results")
         self.assertNotIn("password123", message.as_string())
         self.assertIn("TAG1_report_2026-08-26.pdf", message.as_string())
         html_body = message.get_body(preferencelist=("html",)).get_content()
@@ -132,7 +132,7 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
-        self.assertTrue(body.startswith("Hello Customer Name,\n"))
+        self.assertTrue(body.startswith("WAS Results for TAG1\n\nCustomer Name,\n"))
 
     def test_build_report_email_uses_generic_analyst_salutation(self) -> None:
         """Do not address an analyst-only delivery to the customer POC."""
@@ -165,7 +165,7 @@ class WasMailerTests(unittest.TestCase):
         )
 
         self.assertEqual(len(list(message.iter_attachments())), 0)
-        self.assertIn("No PDF report was generated", message.as_string())
+        self.assertIn("could not be generated", message.as_string())
         self.assertIn("Analyst Name", message.as_string())
         self.assertIn("Web Application Scanning (WAS)", message.as_string())
         self.assertIn("reports@cyber.dhs.gov", message.as_string())
@@ -184,9 +184,9 @@ class WasMailerTests(unittest.TestCase):
                 qualys_error="https://error.example.gov<br>",
             )
 
-        self.assertIn("do not have updated results", message.as_string())
+        self.assertIn("experienced an internal error", message.as_string())
         self.assertIn("https://error.example.gov", message.as_string())
-        self.assertIn("preferred date and time", message.as_string())
+        self.assertIn("date and time for an ad hoc scan", message.as_string())
 
     def test_results_email_uses_supplied_template_sections(self) -> None:
         """Compose a Results email from the supplied customer template sections."""
@@ -204,33 +204,32 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
-        self.assertIn("review and revise your allowlist", body)
+        self.assertNotIn("review and revise your allowlist", body)
         self.assertIn("Attached is a report containing the results", body)
         self.assertIn("Appendix C: Attachments", body)
-        self.assertIn("update your WAS report password", body)
-        self.assertIn("vulnerability@cisa.dhs.gov", body)
-        self.assertNotIn("reports@cisa.dhs.gov", body)
+        self.assertNotIn("update your WAS report password", body)
+        self.assertIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
+        self.assertNotIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
         self.assertIn("reports@cyber.dhs.gov", body)
         self.assertLess(
             body.index("Important Note:"),
-            body.index("contact vulnerability@cisa.dhs.gov"),
+            body.index(
+                "If you have questions, please email at reports@cisa.dhs.gov"
+            ),
         )
         self.assertIn("Your next scan is scheduled for", body)
-        self.assertNotIn("common reasons why", body)
+        self.assertNotIn("This may be due to:", body)
 
         html_body = message.get_body(preferencelist=("html",)).get_content()
-        self.assertIn('style="background-color:#f8e71c"', html_body)
+        self.assertIn('style="background-color:#ffff00"', html_body)
         self.assertIn("<strong>Important Note:</strong>", html_body)
         self.assertIn("<em>Attachment 7", html_body)
-        self.assertIn("<u>will not</u>", html_body)
+        self.assertIn("<u><em>will not</em></u>", html_body)
         self.assertIn("<strong>Additional details", html_body)
         self.assertIn("<u>double-click on the paper clip icon</u>", html_body)
+        self.assertNotIn("scanner IP's have recently changed", html_body)
         self.assertIn(
-            '<a href="https://rules.vm.cyber.dhs.gov/was.txt"><u>',
-            html_body,
-        )
-        self.assertIn(
-            '<a href="https://www.cisa.gov/cyber-hygiene-services"><u>',
+            'href="https://www.cisa.gov/cyber-hygiene-services">',
             html_body,
         )
 
@@ -255,11 +254,10 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("2 out of 5 web applications", body)
         self.assertNotIn("NWS means No Web Service", body)
         self.assertIn("https://one.example.gov", body)
-        self.assertIn("common reasons why", body)
-        self.assertNotIn("consecutive scans", body)
+        self.assertIn("This may be due to:", body)
+        self.assertIn("two consecutive scans", body)
         self.assertIn(
-            "Results indicate that <strong>2</strong> out of "
-            "<strong>5</strong> web applications",
+            "<strong>2 </strong>out of " "<strong>5</strong> web applications",
             html_body,
         )
         self.assertNotIn(
@@ -286,10 +284,13 @@ class WasMailerTests(unittest.TestCase):
 
         body = message.get_body(preferencelist=("plain",)).get_content()
         self.assertIn("https://nws.example.gov", body)
-        self.assertIn("common reasons why", body)
-        self.assertIn("after two consecutive inaccessible scans", body)
+        self.assertIn("This may be due to:", body)
+        self.assertIn("two consecutive times, and have been removed", body)
         self.assertIn("https://removed.example.gov", body)
-        self.assertIn("request additional targets", body)
+        self.assertIn(
+            "Please provide an updated list of targets to vulnerability@cisa.dhs.gov",
+            body,
+        )
 
     def test_all_nws_email_omits_report_only_sections(self) -> None:
         """Do not include attachment guidance when an All NWS run has no PDF."""
@@ -304,14 +305,14 @@ class WasMailerTests(unittest.TestCase):
         )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
-        self.assertIn("No PDF report was generated", body)
-        self.assertIn("2 consecutive scans", body)
+        self.assertIn("could not be generated", body)
+        self.assertIn("two consecutive scans", body)
         self.assertNotIn("Attached is a report", body)
         self.assertNotIn("Appendix C: Attachments", body)
         self.assertNotIn("review and revise your allowlist", body)
 
     def test_fceb_action_email_uses_retention_section(self) -> None:
-        """Replace target-removal wording with the FCEB retention rule."""
+        """Follow the flowchart by omitting the removal section for FCEB."""
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.pdf"
             report_path.write_bytes(b"%PDF")
@@ -327,8 +328,8 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
-        self.assertIn("removed only at the customer's request", body)
-        self.assertNotIn("2 consecutive scans", body)
+        self.assertNotIn("removed only at the customer's request", body)
+        self.assertNotIn("two consecutive scans", body)
         self.assertNotIn("3 consecutive scans", body)
 
     def test_customer_signature_uses_assignee_and_team_identity(self) -> None:
@@ -355,7 +356,7 @@ class WasMailerTests(unittest.TestCase):
         )
         self.assertIn("Email: reports@cyber.dhs.gov", plain_body)
         self.assertIn(
-            '<strong><span style="color:#552479">Individual Analyst</span></strong>',
+            "<strong>Individual Analyst</strong>",
             html_body,
         )
 
@@ -949,7 +950,7 @@ class DeliveryPolicyTests(unittest.TestCase):
             1, "sender@example.gov", allow_held=True, ses_client=client
         )
         message_bytes = client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
-        self.assertIn(b"No PDF report was generated", message_bytes)
+        self.assertIn(b"could not be generated", message_bytes)
         self.assertNotIn(b"Analyst Copy", message_bytes)
         finish.assert_called_once_with(1, "message", email_claim_token="token")
 

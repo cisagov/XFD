@@ -19,6 +19,8 @@ class BatchPreflightSummary:
     candidates: int
     template_counts: tuple[tuple[str, int], ...]
     qualys_error_overlays: int
+    pdf_reports: int = 0
+    notification_only: int = 0
 
 
 def summarize_candidates(
@@ -39,6 +41,14 @@ def summarize_candidates(
         candidates=len(candidate_list),
         template_counts=tuple(sorted(template_counts.items())),
         qualys_error_overlays=qualys_error_overlays,
+        pdf_reports=sum(
+            candidate.template not in {"All NWS", "FCEB All NWS"}
+            for candidate in candidate_list
+        ),
+        notification_only=sum(
+            candidate.template in {"All NWS", "FCEB All NWS"}
+            for candidate in candidate_list
+        ),
     )
 
 
@@ -70,6 +80,11 @@ def log_preflight_summary(
     logger.info(
         "Qualys error overlays: %d.",
         summary.qualys_error_overlays,
+    )
+    logger.info(
+        "PDF reports: %d; notification-only emails: %d.",
+        summary.pdf_reports,
+        summary.notification_only,
     )
 
 

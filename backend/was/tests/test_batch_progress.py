@@ -93,6 +93,8 @@ class BatchProgressTests(unittest.TestCase):
         self.assertIn("last 7 calendar days", output)
         self.assertIn("All NWS=1", output)
         self.assertIn("Qualys error overlays: 0", output)
+        self.assertEqual(summary.pdf_reports, 0)
+        self.assertEqual(summary.notification_only, 1)
 
     def test_log_candidate_progress_reports_phase_and_fraction(self) -> None:
         """Show each worker's current candidate and its partition total."""

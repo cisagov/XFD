@@ -23,9 +23,12 @@ def positive_day_count(value: str) -> int:
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parse WAS update tracker CLI arguments."""
     parser = argparse.ArgumentParser(
-        description=(
-            "Run the WAS daily tracker update from Qualys into Postgres."
-        ),
+        description=("Run the WAS daily tracker update from Qualys into Postgres."),
+    )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Count discovered pending runs without enrichment or database updates.",
     )
     parser.add_argument(
         "--delete-apps",
@@ -60,6 +63,7 @@ def run_update_tracker(
     delete_apps: bool,
     stakeholder_tag: Optional[str] = None,
     tracker_lookback_days: int = DEFAULT_TRACKER_LOOKBACK_DAYS,
+    preflight_only: bool = False,
 ) -> None:
     """Run the WAS-owned Qualys-to-Postgres tracker workflow."""
     refresh_daily_tracker(
@@ -67,6 +71,7 @@ def run_update_tracker(
         delete_apps=delete_apps,
         stakeholder_tag=stakeholder_tag,
         tracker_lookback_days=tracker_lookback_days,
+        preflight_only=preflight_only,
     )
 
 
@@ -81,6 +86,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         delete_apps=args.delete_apps,
         stakeholder_tag=stakeholder_tag,
         tracker_lookback_days=args.tracker_lookback_days,
+        preflight_only=args.preflight_only,
     )
     return 0
 

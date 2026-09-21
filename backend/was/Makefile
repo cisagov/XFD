@@ -67,6 +67,14 @@ mailer-help:
 stakeholders-help:
 	docker run --rm $(IMAGE) was-stakeholders --help
 
+.PHONY: recent-scan-batch-preflight recent-scan-batch-preflight-local
+
+recent-scan-batch-preflight:
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) --entrypoint python $(IMAGE) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
+
+recent-scan-batch-preflight-local:
+	PYTHONPATH=src $(PYTHON) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
+
 recent-scan-batch:
 	mkdir -p $(OUTPUT_DIR)
 	@case "$(BATCH_WORKERS)" in ''|*[!0-9]*) echo 'BATCH_WORKERS must be an integer from 1 through 30.' >&2; exit 2 ;; esac

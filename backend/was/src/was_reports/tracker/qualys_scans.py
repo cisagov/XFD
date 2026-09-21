@@ -72,9 +72,8 @@ def tracker_search_window(
         raise ValueError("Tracker lookback days must be at least 1.")
     conn = connect()
     try:
-        input_date = latest_tracker_pull_date(conn) - timedelta(
-            days=lookback_days
-        )
+        conn.set_session(readonly=True)
+        input_date = latest_tracker_pull_date(conn) - timedelta(days=lookback_days)
         previous_ids = set(recent_schedule_ids(conn, input_date))
     finally:
         close(conn)
@@ -192,9 +191,7 @@ def schedule_tag_id(schedule: etree._Element) -> int:
         )
     unique_tag_ids = tuple(dict.fromkeys(tag_ids))
     if len(unique_tag_ids) != 1:
-        raise LookupError(
-            "Qualys schedule must contain exactly one included tag ID."
-        )
+        raise LookupError("Qualys schedule must contain exactly one included tag ID.")
     return int(unique_tag_ids[0])
 
 
@@ -268,6 +265,7 @@ def search_schedules(
                     cadence=cadence,
                     tag=tag,
                     schedule_name=normalize_schedule_name(schedule_name),
+                    latest_scan_name=schedule.findtext("./lastScan/name") or "",
                 )
         count = response_count(root)
         if not response_has_more_records(root):
@@ -341,11 +339,14 @@ def search_scans(
     client: QualysClient,
     stakeholders: dict[str, TrackerStakeholder],
     input_date: datetime,
+    counts: dict[str, int] | None = None,
+    history_groups: dict[str, list[QualysScan]] | None = None,
 ) -> dict[str, list[QualysScan]]:
-    """Return recent Qualys scan slices grouped by stakeholder tag."""
+    """Return only each schedule's latest complete run, without older fallback."""
     if not stakeholders:
         return {}
-    scan_groups: dict[str, list[QualysScan]] = {}
+    scan_groups: dict[tuple[int, str], list[QualysScan]] = {}
+    group_stakeholders: dict[tuple[int, str], TrackerStakeholder] = {}
     schedule_candidates = tuple(stakeholders.items())
     tag_ids = tuple(
         sorted({stakeholder.tag_id for _, stakeholder in schedule_candidates})
@@ -388,13 +389,14 @@ def search_scans(
                     tag=tag,
                     stakeholder=stakeholder,
                 ):
-                    execution_key = scheduled_execution_key(
-                        stakeholder.schedule_id, launched_date
-                    )
-                    stakeholders[execution_key] = replace(
-                        stakeholder, launched_date=launched_date, tag=tag
-                    )
-                    scan_groups.setdefault(execution_key, []).append(scan)
+                    run_name = normalize_schedule_name(scan_name.split(" Slice", 1)[0])
+                    if " Run #" not in run_name:
+                        run_name = "{}:{}".format(run_name, launched_date)
+                    # Slices in the same numbered run can launch seconds apart.
+                    # Group the complete run before choosing its launch instant.
+                    run_identity = (stakeholder.schedule_id, run_name)
+                    scan_groups.setdefault(run_identity, []).append(scan)
+                    group_stakeholders[run_identity] = stakeholder
                     break
         count = response_count(root)
         if not response_has_more_records(root):
@@ -409,15 +411,107 @@ def search_scans(
         "Finished grouping Qualys scans for %d stakeholders",
         len(scan_groups),
     )
-    return {
-        execution_key: scans
-        for execution_key, scans in sorted(scan_groups.items())
+    latest_runs: dict[int, tuple[tuple[int, str], datetime]] = {}
+    ambiguous_schedules: set[int] = set()
+    run_launches: dict[tuple[int, str], str] = {}
+    for run_identity, scans in sorted(scan_groups.items()):
+        stakeholder = group_stakeholders[run_identity]
+        launched_date = min(
+            (scan.findtext("launchedDate") for scan in scans),
+            key=lambda value: datetime.fromisoformat(value.replace("Z", "+00:00")),
+        )
+        run_launches[run_identity] = launched_date
+        if history_groups is not None and all(
+            scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
+            and scan.findtext("./summary/resultsStatus") != "PROCESSING"
+            for scan in scans
+        ):
+            history_groups["{}:{}".format(*run_identity)] = scans
+        launch_instant = datetime.fromisoformat(launched_date.replace("Z", "+00:00"))
+        current_latest = latest_runs.get(stakeholder.schedule_id)
+        if current_latest is None or launch_instant > current_latest[1]:
+            latest_runs[stakeholder.schedule_id] = (run_identity, launch_instant)
+            ambiguous_schedules.discard(stakeholder.schedule_id)
+        elif launch_instant == current_latest[1]:
+            ambiguous_schedules.add(stakeholder.schedule_id)
+
+    named_schedules: set[int] = set()
+    for _, stakeholder in schedule_candidates:
+        if not stakeholder.latest_scan_name.strip():
+            LOGGER.info(
+                "Schedule %s has no latest scan name; using conservative timestamp checks.",
+                stakeholder.schedule_id,
+            )
+            continue
+        named_schedules.add(stakeholder.schedule_id)
+        run_name = normalize_schedule_name(stakeholder.latest_scan_name).split(" Slice", 1)[0]
+        run_identity = (stakeholder.schedule_id, run_name)
+        # Schedule timestamps can follow all slice timestamps for the same run.
+        # Its explicit numbered identity is authoritative, not timestamp order.
+        ambiguous_schedules.discard(stakeholder.schedule_id)
+        if " Run #" in run_name and run_identity in scan_groups:
+            latest_runs[stakeholder.schedule_id] = (
+                run_identity,
+                datetime.fromisoformat(run_launches[run_identity].replace("Z", "+00:00")),
+            )
+        else:
+            latest_runs.pop(stakeholder.schedule_id, None)
+            LOGGER.warning(
+                "Holding schedule %s: its named latest numbered run is not visible.",
+                stakeholder.schedule_id,
+            )
+
+    # Rank before checking completion. An older finished run must never replace
+    # the latest run while that latest run is running or processing.
+    completed_groups = {}
+    incomplete_runs = 0
+    missing_latest_runs = len(
+        {stakeholder.schedule_id for _, stakeholder in schedule_candidates} - latest_runs.keys()
+    )
+    for run_identity, _ in latest_runs.values():
+        scans = scan_groups[run_identity]
+        stakeholder = group_stakeholders[run_identity]
+        if stakeholder.schedule_id in ambiguous_schedules:
+            LOGGER.warning(
+                "Holding schedule %s: multiple runs share the latest launch timestamp.",
+                stakeholder.schedule_id,
+            )
+            continue
+        launched_date = run_launches[run_identity]
+        latest_slice_launch = max(
+            datetime.fromisoformat(scan.findtext("launchedDate").replace("Z", "+00:00"))
+            for scan in scans
+        )
+        schedule_launch = datetime.fromisoformat(
+            stakeholder.launched_date.replace("Z", "+00:00")
+        )
+        if stakeholder.schedule_id not in named_schedules and schedule_launch > latest_slice_launch:
+            # Schedule discovery can precede scan-search visibility. Never
+            # substitute an older run when the schedule points to a newer one.
+            missing_latest_runs += 1
+            LOGGER.warning(
+                "Holding schedule %s: its latest launch is newer than returned scan slices.",
+                stakeholder.schedule_id,
+            )
+            continue
+        execution_key = scheduled_execution_key(stakeholder.schedule_id, launched_date)
+        stakeholders[execution_key] = replace(stakeholder, launched_date=launched_date)
         if all(
             scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
             and scan.findtext("./summary/resultsStatus") != "PROCESSING"
             for scan in scans
-        )
-    }
+        ):
+            completed_groups[execution_key] = scans
+        else:
+            incomplete_runs += 1
+    if counts is not None:
+        counts["grouped_runs"] = len(scan_groups)
+        counts["completed_runs"] = len(completed_groups)
+        counts["incomplete_runs"] = incomplete_runs
+        counts["older_runs_excluded"] = len(scan_groups) - len(latest_runs)
+        counts["missing_latest_runs"] = missing_latest_runs
+        counts["ambiguous_latest_runs"] = len(ambiguous_schedules)
+    return completed_groups
 
 
 def build_previous_nws_payload(

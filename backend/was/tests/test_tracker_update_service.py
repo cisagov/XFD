@@ -80,6 +80,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertTrue(has_legacy_execution_overlap(self.removal_item(False), conn))
         query, parameters = cursor.execute.call_args.args
         self.assertIn("scan_execution_key IS NULL", query)
+        self.assertIn("scan_execution_key LIKE 'legacy-import:%%'", query)
         self.assertEqual(parameters, (1, date(2026, 8, 31)))
         cursor.fetchone.return_value = (False,)
         self.assertFalse(has_legacy_execution_overlap(self.removal_item(False), conn))

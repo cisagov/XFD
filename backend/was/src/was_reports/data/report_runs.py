@@ -897,21 +897,77 @@ def create_on_demand_report_run(
 def create_report_run_for_tracker(
     stakeholder_tag: str,
     source_tracker_id: int,
+    enforce_automated_eligibility: bool = False,
+    days_back: int | None = None,
 ) -> ReportRun | None:
-    """Atomically claim one daily tracker row for report generation."""
+    """Claim a tracker row, optionally rechecking automated eligibility under lock.
+
+    Automated claims for a schedule/date serialize across tracker IDs and tags.
+    Imports do not share this lock; run imports outside active report batches.
+    """
     # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
     try:
+        if enforce_automated_eligibility:
+            conn.set_session(isolation_level="READ COMMITTED", autocommit=False)
+            if not _lock_eligible_automated_tracker(
+                conn, stakeholder_tag, source_tracker_id, days_back
+            ):
+                conn.rollback()
+                return None
         return create_report_run(
             stakeholder_tag=stakeholder_tag,
             scheduled_epoch=None,
             source_tracker_id=source_tracker_id,
             conn=conn,
         )
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         close(conn)
+
+
+def _lock_eligible_automated_tracker(
+    conn: connection,
+    stakeholder_tag: str,
+    source_tracker_id: int,
+    days_back: int | None,
+) -> bool:
+    """Hold execution and row locks while checking the current candidate query."""
+    # First-Party Libraries
+    from was_reports.data.daily_report_tracker import list_ready_report_candidates
+
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT schedule_id, scan_start_date FROM was_daily_report_tracker "
+            "WHERE id = %s",
+            (source_tracker_id,),
+        )
+        identity = cursor.fetchone()
+        if identity is None or identity[0] is None or identity[1] is None:
+            return False
+        lock_key = "was-tracker-report:{}:{}".format(identity[0], identity[1])
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (lock_key,),
+        )
+        cursor.execute(
+            "SELECT tag, schedule_id, scan_start_date FROM was_daily_report_tracker "
+            "WHERE id = %s FOR UPDATE",
+            (source_tracker_id,),
+        )
+        locked_row = cursor.fetchone()
+        if locked_row != (stakeholder_tag, identity[0], identity[1]):
+            return False
+    candidates = list_ready_report_candidates(
+        conn,
+        stakeholder_tag=stakeholder_tag,
+        days_back=days_back,
+    )
+    return any(candidate.id == source_tracker_id for candidate in candidates)
 
 
 def retry_failed_report_run_for_tracker(

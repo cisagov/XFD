@@ -235,7 +235,8 @@ def has_legacy_execution_overlap(item: TrackerItem, conn: connection) -> bool:
             """
             SELECT EXISTS (
                 SELECT 1 FROM was_daily_report_tracker
-                WHERE scan_execution_key IS NULL
+                WHERE (scan_execution_key IS NULL
+                       OR scan_execution_key LIKE 'legacy-import:%%')
                   AND schedule_id = %s
                   AND scan_start_date = %s
             )

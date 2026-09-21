@@ -1,110 +1,89 @@
-"""Composable customer-email sections derived from the supplied Outlook templates."""
+"""Compose the approved September 21 email components without rewriting them."""
 
-ALLOWLIST_NOTICE = (
-    "Please be sure to review and revise your allowlist for CISA WAS source "
-    "IP's as our scanner IP's have recently changed: {allowlist_url}"
-)
+from html import escape
 
-REPORT_ATTACHMENT_NOTICE = (
-    "Attached is a report containing the results from your most recent Web "
-    "Application Scanning (WAS) vulnerability scan. You should use the same "
-    "password as before. If you have yet to receive a password, please let us know."
-)
+from was_mailer.authoritative_email_sections import SECTIONS
 
-NO_REPORT_NOTICE = (
-    "Your most recent Web Application Scanning (WAS) vulnerability scan found "
-    "no accessible web services. No PDF report was generated."
-)
+ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
+FCEB_TEMPLATES = frozenset({"FCEB Action Required", "FCEB All NWS"})
 
-INACCESSIBLE_TARGETS_WITH_COUNTS = (
-    "Results indicate that {inaccessible_count} out of {total_count} web "
-    "applications from your scan are inaccessible by our scanner. The "
-    "inaccessible target(s) is/are:"
-)
+# Explicit user correction approved September 21, after the source ZIP review.
+# Keep the original extracted components intact for source-fidelity checks.
+QUESTIONS_SOURCE = "If you have questions, please email at vulnerability@cisa.dhs.gov."
+QUESTIONS_APPROVED = "If you have questions, please email at reports@cisa.dhs.gov."
 
-INACCESSIBLE_TARGETS = (
-    "Results indicate that the following web applications from your scan are "
-    "inaccessible by our scanner:"
-)
 
-INACCESSIBLE_REASONS_HEADING = (
-    "A few common reasons why the web applications are inaccessible are:"
-)
+def section_names(
+    template: str,
+    has_nws: bool,
+    has_removed: bool,
+    has_errors: bool,
+) -> list[str]:
+    """Select sections in the order specified by the supplied flowchart."""
+    if template in ALL_NWS_TEMPLATES:
+        return ["report_not_generated", "results_part2"]
+    names = ["results_part1"]
+    if has_errors:
+        names.append("qualys_scan_error")
+    if has_nws:
+        names.append("nws_notification")
+        if template not in FCEB_TEMPLATES:
+            names.append("nws_webapp_removal_warning")
+            if has_removed:
+                names.append("targets_removed")
+    names.append("results_part2")
+    return names
 
-INACCESSIBLE_REASONS = (
-    "The web applications are not publicly accessible via the internet and can "
-    "only be reached in your internal network.",
-    "Your firewalls are blocking our traffic. We recommend safelisting CISA "
-    "CyHy source IP addresses.",
-    "The target web applications may have been down for maintenance or "
-    "experiencing connectivity issues during the time of the scan.",
-    "The target web applications are behind a login page. Web applications that "
-    "require authentication may either completely fail to scan or return with "
-    "limited findings.",
-)
 
-TWO_SCAN_REMOVAL_NOTICE = (
-    "In accordance with DHS CyHy WAS policy, if web applications fail to resolve "
-    "to a web service for 2 consecutive scans, they will be removed from the list "
-    "of scan targets. Please provide an updated list of targets. Once we receive "
-    "an updated list of targets, they will be scanned as part of your next "
-    "regularly scheduled scan."
-)
+def substitute_values(source: str, values: dict[str, str], html: bool) -> str:
+    """Substitute source placeholders once, escaping all supplied customer data."""
+    opening = "&lt;" if html else "<"
+    closing = "&gt;" if html else ">"
+    rendered = []
+    remaining = source
+    while opening in remaining:
+        prefix, _, candidate = remaining.partition(opening)
+        name, separator, suffix = candidate.partition(closing)
+        rendered.append(prefix)
+        if not separator:
+            rendered.append(opening + candidate)
+            break
+        if name not in values:
+            rendered.append(opening + name + closing)
+        elif html and name == "cisa_logo":
+            rendered.append(
+                '<img src="cid:cisa-logo" alt="CISA" '
+                'style="max-width:240px;height:auto">'
+            )
+        else:
+            value = values[name]
+            rendered.append(escape(value).replace("\n", "<br>") if html else value)
+        remaining = suffix
+    else:
+        rendered.append(remaining)
+    return "".join(rendered)
 
-FCEB_RETENTION_NOTICE = (
-    "FCEB web applications remain enrolled during inaccessible scans and are "
-    "removed only at the customer's request."
-)
 
-APPENDIX_NOTICE = (
-    "Additional details regarding findings, links crawled, vulnerabilities by "
-    "webapp and severity, sensitive data found, etc., can be found under Appendix "
-    "C: Attachments. To access the attachments embedded within the report, open "
-    "the report with a dedicated PDF reader, such as Adobe Acrobat, and "
-    "double-click on the paper clip icon to the left of the attachment name. A "
-    "helpful list of scan report and WAS FAQs can be found here: {faq_url}"
-)
-
-PASSWORD_SUPPORT_NOTICE = (
-    "Please have a technical POC contact vulnerability@cisa.dhs.gov should you "
-    "need a copy of, or to update your WAS report password."
-)
-
-QUESTIONS_NOTICE = (
-    "If you have any additional questions or concerns, please let us know."
-)
-
-NEXT_SCAN_NOTICE = "Your next scan is scheduled for {next_scan_date}."
-
-QUALYS_ERROR_HEADING = (
-    "A Qualys internal error prevented the scan from completing for the following "
-    "web applications, so they do not have updated results in this report:"
-)
-
-QUALYS_ERROR_RESCAN_NOTICE = (
-    "If you would like a rescan before your next regularly scheduled scan, "
-    "please provide a preferred date and time for an ad hoc scan."
-)
-
-SENSITIVE_DATA_NOTICE = (
-    "Important Note: Attachment 7 (Sensitive Data - Social Security and Credit "
-    "Card Numbers) will not be populated for this scan cycle due to vendor "
-    "maintenance. We apologize for any inconvenience and are happy to assist "
-    "with any questions."
-)
-
-CUSTOMER_SIGNATURE = (
-    "Web Application Scanning (WAS)",
-    "Cybersecurity and Infrastructure Security Agency (CISA)",
-    "Email: reports@cyber.dhs.gov",
-)
-
-REMOVED_TARGETS_HEADING = (
-    "Web applications removed from Qualys after two consecutive inaccessible scans:"
-)
-
-TARGETS_REMOVED_REQUEST_NOTICE = (
-    "Please provide an updated list of targets to request additional targets. "
-    "Once we receive the updated list, the targets will be scanned as part of "
-    "your next regularly scheduled scan."
-)
+def render_sections(
+    template: str,
+    values: dict[str, str],
+    has_nws: bool,
+    has_removed: bool,
+    has_errors: bool,
+    html: bool = False,
+) -> str:
+    """Render exact source sections, changing only documented placeholders."""
+    names = section_names(template, has_nws, has_removed, has_errors)
+    source = ("<br>\n" if html else "\n\n").join(
+        SECTIONS[name]["html" if html else "text"] for name in names
+    )
+    source = source.replace(QUESTIONS_SOURCE, QUESTIONS_APPROVED)
+    body = substitute_values(source, values, html)
+    if html:
+        return (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"></head><body '
+            'style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:11pt">'
+            + body
+            + "</body></html>"
+        )
+    return body.rstrip()

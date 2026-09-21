@@ -204,13 +204,24 @@ def build_report_email(
         analyst_delivery=analyst_delivery,
     )
     message.set_content(plain_body)
-    message.add_alternative(
-        report_email_html(
-            plain_body=plain_body,
-            stakeholder_tag=stakeholder_tag,
-        ),
-        subtype="html",
+    html_body = (
+        report_email_html(plain_body, stakeholder_tag)
+        if analyst_delivery
+        else customer_report_body(
+            stakeholder_tag,
+            poc_name,
+            normalized_template,
+            assignee_name,
+            recent_nws,
+            nws_summary,
+            remove_nws,
+            qualys_error,
+            last_scanned,
+            next_scheduled,
+            html=True,
+        )
     )
+    message.add_alternative(html_body, subtype="html")
     html_part = message.get_payload()[-1]
     html_part.add_related(
         files("was_reports").joinpath(CISA_LOGO_RESOURCE).read_bytes(),
@@ -242,9 +253,13 @@ def report_email_subject(
     """Return the approved subject for a tracker-selected email template."""
     if analyst_delivery:
         return "{} WAS Results - Analyst Copy".format(stakeholder_tag)
-    if template in ACTION_REQUIRED_TEMPLATES or template in ALL_NWS_TEMPLATES:
-        return "{} WAS Results - Action Required".format(stakeholder_tag)
-    return "{} WAS Results".format(stakeholder_tag)
+    if template in ALL_NWS_TEMPLATES:
+        return "{} - WAS Report Not Generated - Action Required".format(stakeholder_tag)
+    if template == "Targets Removed":
+        return "{} - WAS Results - Targets Removed".format(stakeholder_tag)
+    if template in ACTION_REQUIRED_TEMPLATES:
+        return "{} - WAS Results - Action Required".format(stakeholder_tag)
+    return "{} - WAS Results".format(stakeholder_tag)
 
 
 def tracker_values(raw_value: str | None) -> list[str]:
@@ -331,229 +346,71 @@ def report_email_body(
         )
         return "\n".join(lines)
 
-    if template not in ALL_NWS_TEMPLATES:
-        lines.extend(
-            [
-                customer_email_templates.ALLOWLIST_NOTICE.format(
-                    allowlist_url=WAS_ALLOWLIST_URL
-                ),
-                "",
-                customer_email_templates.REPORT_ATTACHMENT_NOTICE,
-                "",
-                customer_email_templates.SENSITIVE_DATA_NOTICE,
-                "",
-            ]
-        )
-    else:
-        lines.extend([customer_email_templates.NO_REPORT_NOTICE, ""])
+    return customer_report_body(
+        stakeholder_tag,
+        poc_name,
+        template,
+        assignee_name,
+        recent_nws,
+        nws_summary,
+        remove_nws,
+        qualys_error,
+        last_scanned,
+        next_scheduled,
+    )
 
+
+def customer_report_body(
+    stakeholder_tag: str,
+    poc_name: str | None,
+    template: str,
+    assignee_name: str | None,
+    recent_nws: str | None,
+    nws_summary: str | None,
+    remove_nws: str | None,
+    qualys_error: str | None,
+    last_scanned: int | None,
+    next_scheduled: int | None,
+    html: bool = False,
+) -> str:
+    """Fill the authoritative DOCX placeholders with escaped tracker values."""
     inaccessible_targets = tracker_values(recent_nws)
-    if inaccessible_targets:
-        counts = nws_counts(nws_summary)
-        if counts is None:
-            lines.append(customer_email_templates.INACCESSIBLE_TARGETS)
-        else:
-            total_count, inaccessible_count = counts
-            lines.append(
-                customer_email_templates.INACCESSIBLE_TARGETS_WITH_COUNTS.format(
-                    inaccessible_count=inaccessible_count,
-                    total_count=total_count,
-                )
-            )
-        lines.extend([*["- {}".format(value) for value in inaccessible_targets], ""])
-        lines.append(customer_email_templates.INACCESSIBLE_REASONS_HEADING)
-        lines.extend(
-            [
-                *[
-                    "- {}".format(reason)
-                    for reason in customer_email_templates.INACCESSIBLE_REASONS
-                ],
-                "",
-            ]
-        )
-
-        if template in {"FCEB All NWS", "FCEB Action Required"}:
-            lines.extend([customer_email_templates.FCEB_RETENTION_NOTICE, ""])
-        elif template == "All NWS":
-            lines.extend([customer_email_templates.TWO_SCAN_REMOVAL_NOTICE, ""])
-
-    if template == "Targets Removed":
-        removed_targets = tracker_values(remove_nws)
-        append_value_list(
-            lines,
-            customer_email_templates.REMOVED_TARGETS_HEADING,
-            removed_targets,
-        )
-        if removed_targets:
-            lines.extend(
-                [customer_email_templates.TARGETS_REMOVED_REQUEST_NOTICE, ""]
-            )
-    qualys_error_targets = tracker_values(qualys_error)
-    append_value_list(
-        lines,
-        customer_email_templates.QUALYS_ERROR_HEADING,
-        qualys_error_targets,
+    removed_targets = tracker_values(remove_nws)
+    error_targets = tracker_values(qualys_error)
+    counts = nws_counts(nws_summary)
+    values = {
+        "tag": stakeholder_tag,
+        "poc_names": (poc_name or "Hello").strip(),
+        "assignee_name": assignee_name or "CISA WAS Reporting Team",
+        "last_scan_date": eastern_timestamp(last_scanned),
+        "next_scan_date": eastern_timestamp(next_scheduled),
+        "num_nws_webapps": str(counts[1] if counts else len(inaccessible_targets)),
+        "num_total_webapps": str(counts[0]) if counts else "Not available",
+        "num_removed_webapps": str(len(removed_targets)),
+        "list_nws_webapps": "\n".join(inaccessible_targets),
+        "list_removed_webapps": "\n".join(removed_targets),
+        "list_error_webapps": "\n".join(error_targets),
+        "cisa_logo": "",
+    }
+    return customer_email_templates.render_sections(
+        template,
+        values,
+        bool(inaccessible_targets),
+        bool(removed_targets),
+        bool(error_targets),
+        html=html,
     )
-    if qualys_error_targets:
-        lines.extend([customer_email_templates.QUALYS_ERROR_RESCAN_NOTICE, ""])
-
-    if template not in ALL_NWS_TEMPLATES:
-        lines.extend(
-            [
-                customer_email_templates.APPENDIX_NOTICE.format(
-                    faq_url=CYBER_HYGIENE_URL
-                ),
-                "",
-                customer_email_templates.PASSWORD_SUPPORT_NOTICE,
-                "",
-            ]
-        )
-
-    lines.extend([customer_email_templates.QUESTIONS_NOTICE, ""])
-    next_scan_date = eastern_date(next_scheduled)
-    if next_scan_date is not None:
-        lines.extend(
-            [
-                customer_email_templates.NEXT_SCAN_NOTICE.format(
-                    next_scan_date=next_scan_date
-                ),
-                "",
-            ]
-        )
-    lines.extend(
-        [
-            "Regards,",
-            assignee_name or "CISA WAS Reporting Team",
-            *customer_email_templates.CUSTOMER_SIGNATURE,
-        ]
-    )
-    return "\n".join(lines)
-
-
-def customer_email_html_line(line: str) -> str:
-    """Return approved HTML formatting for one customer-email text line."""
-    escaped_line = escape(line)
-    if line == customer_email_templates.SENSITIVE_DATA_NOTICE:
-        note_label = escape("Important Note:")
-        notice_text = escape(line.removeprefix("Important Note: "))
-        notice_text = notice_text.replace(
-            "will not",
-            "<u>will not</u>",
-            1,
-        )
-        return (
-            '<span style="background-color:#f8e71c">'
-            "<strong>{}</strong> <em>{}</em></span>"
-        ).format(note_label, notice_text)
-    if line == customer_email_templates.APPENDIX_NOTICE.format(
-        faq_url=CYBER_HYGIENE_URL
-    ):
-        appendix_heading = (
-            "Additional details regarding findings, links crawled, "
-            "vulnerabilities by webapp and severity, sensitive data found, "
-            "etc., can be found under Appendix C: Attachments."
-        )
-        escaped_line = escaped_line.replace(
-            escape(appendix_heading),
-            "<strong>{}</strong>".format(escape(appendix_heading)),
-            1,
-        )
-        paperclip_instruction = "double-click on the paper clip icon"
-        escaped_line = escaped_line.replace(
-            escape(paperclip_instruction),
-            "<u>{}</u>".format(escape(paperclip_instruction)),
-            1,
-        )
-        return customer_email_html_links(escaped_line)
-    if line.startswith("Results indicate that "):
-        prefix = "Results indicate that "
-        inaccessible_count, separator, remainder = line.removeprefix(prefix).partition(
-            " out of "
-        )
-        total_count, count_separator, suffix = remainder.partition(
-            " web applications"
-        )
-        if separator and count_separator:
-            return (
-                "{}<strong>{}</strong> out of <strong>{}</strong> "
-                "web applications{}"
-            ).format(
-                escape(prefix),
-                escape(inaccessible_count),
-                escape(total_count),
-                escape(suffix),
-            )
-    if line.startswith("Your next scan is scheduled for "):
-        prefix = "Your next scan is scheduled for "
-        return "{}<strong>{}</strong>".format(
-            escape(prefix),
-            escape(line.removeprefix(prefix)),
-        )
-    if line in {
-        customer_email_templates.QUALYS_ERROR_HEADING,
-        customer_email_templates.REMOVED_TARGETS_HEADING,
-    }:
-        return "<strong>{}</strong>".format(escaped_line)
-    if line in customer_email_templates.CUSTOMER_SIGNATURE:
-        return '<span style="color:#552479">{}</span>'.format(escaped_line)
-    return customer_email_html_links(escaped_line)
-
-
-def customer_email_html_links(escaped_line: str) -> str:
-    """Render approved customer-email URLs as underlined links."""
-    rendered_line = escaped_line
-    for url in (WAS_ALLOWLIST_URL, CYBER_HYGIENE_URL):
-        escaped_url = escape(url)
-        rendered_line = rendered_line.replace(
-            escaped_url,
-            '<a href="{}"><u>{}</u></a>'.format(escaped_url, escaped_url),
-        )
-    return rendered_line
 
 
 def report_email_html(plain_body: str, stakeholder_tag: str) -> str:
-    """Return an accessible, template-formatted HTML customer email."""
-    body_parts = []
-    list_items = []
-    signature_name_pending = False
-
-    def append_list() -> None:
-        """Append any pending list items to the HTML body."""
-        if not list_items:
-            return
-        body_parts.append("<ul>{}</ul>".format("".join(list_items)))
-        list_items.clear()
-
-    for line in plain_body.splitlines():
-        if line.startswith("- "):
-            list_items.append(
-                "<li>{}</li>".format(customer_email_html_line(line[2:]))
-            )
-            continue
-        append_list()
-        if not line:
-            body_parts.append("<br>")
-            continue
-        rendered_line = customer_email_html_line(line)
-        if signature_name_pending:
-            rendered_line = (
-                '<strong><span style="color:#552479">{}</span></strong>'
-            ).format(escape(line))
-            signature_name_pending = False
-        body_parts.append("<div>{}</div>".format(rendered_line))
-        if line == "Regards,":
-            signature_name_pending = True
-    append_list()
+    """Render the existing analyst-only message as escaped HTML."""
     return (
-        "<!doctype html><html><body>"
-        '<h1 style="font-size:1.25rem">WAS Results for {}</h1>{}'
-        '<div style="margin-top:1.5rem">'
-        '<img src="cid:{}" alt="CISA" style="max-width:240px;height:auto">'
-        "</div>"
-        "</body></html>"
+        '<!doctype html><html lang="en"><body><h1>WAS Results for {}</h1>'
+        '<div>{}</div><img src="cid:{}" alt="CISA" '
+        'style="max-width:240px;height:auto"></body></html>'
     ).format(
         escape(stakeholder_tag),
-        "".join(body_parts),
+        escape(plain_body).replace("\n", "<br>"),
         CISA_LOGO_CONTENT_ID,
     )
 

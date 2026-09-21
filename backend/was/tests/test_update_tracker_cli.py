@@ -25,6 +25,11 @@ class UpdateTrackerCliTests(unittest.TestCase):
 
         self.assertTrue(arguments.delete_apps)
 
+    def test_parse_args_allows_preflight_only(self) -> None:
+        """Expose read-only discovery without report generation."""
+        arguments = update_tracker_cli.parse_args(["--preflight-only"])
+        self.assertTrue(arguments.preflight_only)
+
     def test_parse_args_allows_custom_tracker_lookback(self) -> None:
         """Allow operators to expand Qualys schedule discovery."""
         arguments = update_tracker_cli.parse_args(["--lookback-days", "7"])
@@ -57,6 +62,7 @@ class UpdateTrackerCliTests(unittest.TestCase):
             delete_apps=True,
             stakeholder_tag="CUSTOMER",
             tracker_lookback_days=3,
+            preflight_only=False,
         )
 
     @patch("was_reports.commands.update_tracker_cli.run_update_tracker")
@@ -65,15 +71,14 @@ class UpdateTrackerCliTests(unittest.TestCase):
         mock_run_update_tracker,
     ) -> None:
         """Trim the optional stakeholder tag before service execution."""
-        exit_code = update_tracker_cli.main(
-            ["--delete-apps", "--tag", " CUSTOMER "]
-        )
+        exit_code = update_tracker_cli.main(["--delete-apps", "--tag", " CUSTOMER "])
 
         self.assertEqual(exit_code, 0)
         mock_run_update_tracker.assert_called_once_with(
             delete_apps=True,
             stakeholder_tag="CUSTOMER",
             tracker_lookback_days=3,
+            preflight_only=False,
         )
 
 

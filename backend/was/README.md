@@ -858,13 +858,29 @@ The production Make target searches Qualys from three days before the latest
 tracker update and limits automated report work to exactly seven calendar dates,
 including today. Override these independent windows when necessary:
 
+Daily discovery selects only the latest execution per schedule, combining its
+scan slices across all response pages before deciding whether it is complete.
+The schedule's latest numbered run name identifies its slices. Schedule-level
+and slice-level launch timestamps need not match, so timestamp ordering does not
+override an exact latest-run-name match.
+It does not fall back to older executions when the latest is incomplete or
+already handled. Missing evidence for the schedule's latest execution is held
+instead of substituting an older run. Manual report generation is unchanged.
+Increasing the discovery lookback does not enable older-run recovery.
+
+Historical recovery is separate from daily discovery. An automated recovery
+command is not provided by this latest-only change; use an explicitly reviewed
+reconciliation plan and counts-only preview before generating historical work.
+
 ```bash
 make recent-scan-batch TRACKER_LOOKBACK_DAYS=5 BATCH_DAYS_BACK=14
 make recent-scan-batch BATCH_DAYS_BACK=all
 ```
 
-`BATCH_DAYS_BACK=all` removes the report-generation and delivery date guardrail,
-so use it only for an intentional historical reconciliation. After refreshing
+`BATCH_DAYS_BACK=all` removes the report-generation and delivery date guardrail
+for existing tracker data; it does not discover every historical execution or
+override newest-row selection. Use it only for an intentional historical
+reconciliation. After refreshing
 the tracker and before starting any report worker, the Make target runs a
 read-only preflight. It prints the eligible candidate total, counts by template,
 and the number of Qualys-error overlays. The five phase messages identify tracker

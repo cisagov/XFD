@@ -1,9 +1,12 @@
 """Tests for WAS report run data access."""
 
 # Standard Python Libraries
-from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timezone
+from threading import Event, Lock
+from types import SimpleNamespace
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -66,6 +69,157 @@ class FakeConnection:
 
 class ReportRunTests(unittest.TestCase):
     """Validate report run persistence helpers."""
+
+    @patch("was_reports.utils.database.close")
+    @patch("was_reports.utils.database.connect")
+    @patch("was_reports.data.report_runs.create_report_run")
+    @patch("was_reports.data.daily_report_tracker.list_ready_report_candidates")
+    def test_automated_claim_rechecks_current_candidate(
+        self, candidates, create_run, connect, close
+    ) -> None:
+        """Reject a stale row when a newer row or safety hold replaces it."""
+        conn = connect.return_value
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [(42, date(2026, 9, 21)),
+                                       ("TAG", 42, date(2026, 9, 21))]
+        candidates.return_value = [SimpleNamespace(id=102)]
+        result = report_runs.create_report_run_for_tracker(
+            "TAG", 101, enforce_automated_eligibility=True, days_back=7
+        )
+        self.assertIsNone(result)
+        candidates.assert_called_once_with(conn, stakeholder_tag="TAG", days_back=7)
+        create_run.assert_not_called()
+        conn.rollback.assert_called_once_with()
+        close.assert_called_once_with(conn)
+        conn.set_session.assert_called_once_with(
+            isolation_level="READ COMMITTED", autocommit=False
+        )
+        queries = [str(call.args[0]) for call in cursor.execute.call_args_list]
+        self.assertIn("pg_advisory_xact_lock", queries[1])
+        self.assertIn("FOR UPDATE", queries[2])
+
+    @patch("was_reports.utils.database.close")
+    @patch("was_reports.utils.database.connect")
+    @patch("was_reports.data.report_runs.create_report_run")
+    @patch("was_reports.data.daily_report_tracker.list_ready_report_candidates")
+    def test_automated_claim_rejects_changed_identity(
+        self, candidates, create_run, connect, close
+    ) -> None:
+        """Do not claim a row whose execution changed while acquiring its lock."""
+        conn = connect.return_value
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [(42, date(2026, 9, 21)),
+                                       ("TAG", 43, date(2026, 9, 21))]
+        self.assertIsNone(report_runs.create_report_run_for_tracker(
+            "TAG", 101, enforce_automated_eligibility=True
+        ))
+        candidates.assert_not_called()
+        create_run.assert_not_called()
+        conn.rollback.assert_called_once_with()
+
+    @patch("was_reports.utils.database.close")
+    @patch("was_reports.utils.database.connect")
+    @patch("was_reports.data.report_runs.create_report_run")
+    def test_automated_claim_releases_transaction_on_recheck_error(
+        self, create_run, connect, close
+    ) -> None:
+        """A failed eligibility read must not leave an execution lock open."""
+        with patch(
+            "was_reports.data.report_runs._lock_eligible_automated_tracker",
+            side_effect=RuntimeError("read failed"),
+        ):
+            with self.assertRaises(RuntimeError):
+                report_runs.create_report_run_for_tracker(
+                    "TAG", 101, enforce_automated_eligibility=True
+                )
+        create_run.assert_not_called()
+        connect.return_value.rollback.assert_called_once_with()
+        close.assert_called_once_with(connect.return_value)
+
+    @patch("was_reports.utils.database.close")
+    @patch("was_reports.utils.database.connect")
+    @patch("was_reports.data.report_runs.create_report_run")
+    def test_manual_tracker_claim_keeps_existing_behavior(
+        self, create_run, connect, close
+    ) -> None:
+        """Default/manual claims do not apply automated eligibility restrictions."""
+        result = report_runs.create_report_run_for_tracker("TAG", 101)
+        self.assertIs(result, create_run.return_value)
+        connect.return_value.cursor.assert_not_called()
+        connect.return_value.set_session.assert_not_called()
+        create_run.assert_called_once_with(
+            stakeholder_tag="TAG", scheduled_epoch=None,
+            source_tracker_id=101, conn=connect.return_value,
+        )
+
+    @patch("was_reports.utils.database.close")
+    @patch("was_reports.utils.database.connect")
+    @patch("was_reports.data.report_runs.create_report_run")
+    @patch("was_reports.data.daily_report_tracker.list_ready_report_candidates")
+    def test_sibling_claims_serialize_before_rechecking(
+        self, candidates, create_run, connect, close
+    ) -> None:
+        """Model blocking DB locks: two tags/IDs cannot claim the same execution."""
+        execution_lock = Lock()
+        first_check = Event()
+        second_lock_attempt = Event()
+        claimed_ids = []
+        lock_keys = []
+        connection_ids = {}
+
+        def connection_for(row_id: int, tag: str):
+            """Build a connection whose advisory transaction lock blocks peers."""
+            conn = MagicMock()
+            connection_ids[id(conn)] = row_id
+            cursor = conn.cursor.return_value.__enter__.return_value
+            cursor.fetchone.side_effect = [(42, date(2026, 9, 21)),
+                                           (tag, 42, date(2026, 9, 21))]
+
+            def execute(query, parameters):
+                """Use a local mutex to model PostgreSQL's transaction lock."""
+                if "pg_advisory_xact_lock" in str(query):
+                    lock_keys.append(parameters[0])
+                    if row_id == 102:
+                        second_lock_attempt.set()
+                    if not execution_lock.acquire(timeout=5):
+                        raise AssertionError("Execution lock was not released")
+
+            cursor.execute.side_effect = execute
+            conn.commit.side_effect = execution_lock.release
+            conn.rollback.side_effect = execution_lock.release
+            return conn
+
+        first_conn = connection_for(101, "TAG")
+        second_conn = connection_for(102, "TAG_ALIAS")
+        connect.side_effect = [first_conn, second_conn]
+
+        def eligible(conn, **kwargs):
+            """Read sibling claims only after the execution lock is acquired."""
+            if conn is first_conn:
+                first_check.set()
+                if not second_lock_attempt.wait(timeout=5):
+                    raise AssertionError("Second claim did not reach lock")
+            return [] if claimed_ids else [SimpleNamespace(id=connection_ids[id(conn)])]
+
+        def insert_run(**kwargs):
+            """Persist a simulated claim and release the transaction lock."""
+            claimed_ids.append(kwargs["source_tracker_id"])
+            kwargs["conn"].commit()
+            return SimpleNamespace(id=1)
+
+        candidates.side_effect = eligible
+        create_run.side_effect = insert_run
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            first = workers.submit(report_runs.create_report_run_for_tracker,
+                                   "TAG", 101, True, 7)
+            self.assertTrue(first_check.wait(timeout=5))
+            second = workers.submit(report_runs.create_report_run_for_tracker,
+                                    "TAG_ALIAS", 102, True, 7)
+            self.assertIsNotNone(first.result(timeout=5))
+            self.assertIsNone(second.result(timeout=5))
+        self.assertEqual(claimed_ids, [101])
+        self.assertEqual(lock_keys, ["was-tracker-report:42:2026-09-21"] * 2)
+        self.assertEqual(candidates.call_count, 2)
 
     def test_creation_intent_commits_before_authorizing_post(self) -> None:
         """Authorize one create only when the token-fenced intent commits."""

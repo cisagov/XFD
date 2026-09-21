@@ -448,12 +448,14 @@ def run_recent_scan_reports(
         report_run = create_report_run_for_tracker(
             stakeholder_tag=candidate.tag,
             source_tracker_id=candidate.id,
+            enforce_automated_eligibility=not include_manual,
+            days_back=days_back,
         )
         if report_run is None and include_manual:
             report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
         if report_run is None:
             LOGGER.info(
-                "Skipping tracker row %s because another worker already claimed it.",
+                "Skipping tracker row %s because it was claimed or is no longer eligible.",
                 candidate.id,
             )
             continue
@@ -657,7 +659,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--preflight-only",
         action="store_true",
         help=(
-            "Refresh and summarize eligible recent-scan reports without "
+            "Summarize existing tracker rows without refreshing, recovering, "
             "claiming, generating, or emailing them."
         ),
     )
@@ -812,7 +814,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not args.preflight_only:
             LOGGER.info("Recovering interrupted report operations before batch work.")
             recover_stale_report_operations_in_db()
-        if not args.skip_tracker_refresh:
+        if not args.skip_tracker_refresh and not args.preflight_only:
             LOGGER.info("Updating the WAS daily report tracker.")
             run_update_tracker(
                 delete_apps=False,
