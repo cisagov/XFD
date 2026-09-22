@@ -7,8 +7,11 @@ import io
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 # Third-Party Libraries
+from lxml import etree
+
 # First-Party Libraries
 from was_reports.reporting import report_transformer
 
@@ -135,6 +138,42 @@ class ReportTransformerTests(unittest.TestCase):
 
         with self.assertRaises(LookupError):
             report_transformer.parse_qid_definitions(report)
+
+    def test_parse_report_accepts_qualys_text_node_above_default_limit(self) -> None:
+        """Parse a Qualys report containing a text node larger than 10 MB."""
+        oversized_text = b"A" * 10_000_001
+        report_xml = b"<WAS_WEBAPP_REPORT><PAYLOAD>" + oversized_text + (
+            b"</PAYLOAD></WAS_WEBAPP_REPORT>"
+        )
+
+        report = report_transformer.parse_report(report_xml)
+
+        self.assertEqual(len(str(report.PAYLOAD)), len(oversized_text))
+
+    def test_parse_report_does_not_expand_entities(self) -> None:
+        """Keep internal and network entities unresolved with large-tree parsing."""
+        report_xml = b"""<!DOCTYPE WAS_WEBAPP_REPORT [
+        <!ENTITY internal "sensitive-value">
+        <!ENTITY external SYSTEM "http://127.0.0.1:9/sensitive-value">
+        ]>
+        <WAS_WEBAPP_REPORT>
+          <INTERNAL>&internal;</INTERNAL>
+          <EXTERNAL>&external;</EXTERNAL>
+        </WAS_WEBAPP_REPORT>
+        """
+
+        report = report_transformer.parse_report(report_xml)
+        serialized_report = etree.tostring(report)
+
+        self.assertIn(b"&internal;", serialized_report)
+        self.assertIn(b"&external;", serialized_report)
+        self.assertNotIn(b"sensitive-value</INTERNAL>", serialized_report)
+
+    def test_parse_report_rejects_document_above_safety_limit(self) -> None:
+        """Bound memory use even when large-tree parsing is required."""
+        with patch.object(report_transformer, "MAX_REPORT_XML_BYTES", 10):
+            with self.assertRaisesRegex(ValueError, "exceeds the 10 byte safety limit"):
+                report_transformer.parse_report(b"<REPORT>large</REPORT>")
 
 
 if __name__ == "__main__":

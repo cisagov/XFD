@@ -22,6 +22,7 @@ INFORMATION_HEADER = (
     "INFO_ID,NAME,QID,URL,LAST DETECTION,SEVERITY,DESCRIPTION,IMPACT,SOLUTION"
 )
 QUALYS_DATETIME_FORMAT = "%d %b %Y %I:%M%p %Z"
+MAX_REPORT_XML_BYTES = 256 * 1024 * 1024
 
 
 class _TextExtractor(HTMLParser):
@@ -269,16 +270,25 @@ def vulnerability_csv_row(
 def parse_report(report_xml: Union[str, bytes, object]):
     """Return a Qualys report XML root from text, bytes, or an XML element."""
     if isinstance(report_xml, str):
-        return objectify.fromstring(
-            report_xml.encode("utf-8"),
-            parser=objectify.makeparser(resolve_entities=False, no_network=True),
+        report_bytes = report_xml.encode("utf-8")
+    elif isinstance(report_xml, bytes):
+        report_bytes = report_xml
+    else:
+        return report_xml
+    if len(report_bytes) > MAX_REPORT_XML_BYTES:
+        raise ValueError(
+            "Qualys report XML exceeds the {} byte safety limit.".format(
+                MAX_REPORT_XML_BYTES
+            )
         )
-    if isinstance(report_xml, bytes):
-        return objectify.fromstring(
-            report_xml,
-            parser=objectify.makeparser(resolve_entities=False, no_network=True),
-        )
-    return report_xml
+    return objectify.fromstring(
+        report_bytes,
+        parser=objectify.makeparser(
+            resolve_entities=False,
+            no_network=True,
+            huge_tree=True,
+        ),
+    )
 
 
 def transform_report_to_csv(
