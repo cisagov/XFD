@@ -39,6 +39,19 @@ class PdfSecurityTests(unittest.TestCase):
             with Pdf.open(pdf_path, password="SecurePassword123!") as pdf:
                 self.assertEqual(len(pdf.pages), 1)
 
+    def test_encrypt_pdf_accepts_existing_password_punctuation(self) -> None:
+        """Encrypt and reopen PDFs with legacy commas and hyphens unchanged."""
+        for report_password in ("Legacy,Password123!", "Legacy-Password123!"):
+            with self.subTest(report_password=report_password):
+                with tempfile.TemporaryDirectory() as directory:
+                    pdf_path = Path(directory) / "report.pdf"
+                    self.create_pdf(pdf_path)
+
+                    pdf_security.encrypt_pdf_in_place(pdf_path, report_password)
+
+                    with Pdf.open(pdf_path, password=report_password) as pdf:
+                        self.assertEqual(len(pdf.pages), 1)
+
     def test_encryption_failure_preserves_original_pdf(self) -> None:
         """Leave the unencrypted source intact when encrypted save fails."""
         with tempfile.TemporaryDirectory() as directory:

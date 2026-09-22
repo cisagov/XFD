@@ -20,6 +20,7 @@ PASSWORD_CHARACTER_SET = "".join(
     for character in string.ascii_letters + string.digits + string.punctuation
     if character not in BANNED_PASSWORD_CHARACTERS
 )
+EXISTING_PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET + ",-"
 
 
 def password_length_from_environment() -> int:
@@ -41,16 +42,26 @@ def password_length_from_environment() -> int:
     return password_length
 
 
-def validate_report_password(value: str) -> None:
-    """Validate that a report password follows WAS character rules."""
+def _validate_password_characters(value: str, allowed_characters: str) -> None:
+    """Require a nonempty password containing only the supplied characters."""
     if not value:
         raise ValueError("report_password must not be empty.")
 
     for character in value:
-        if character not in PASSWORD_CHARACTER_SET:
+        if character not in allowed_characters:
             raise ValueError(
                 "Character '{}' is not allowed in report_password.".format(character)
             )
+
+
+def validate_report_password(value: str) -> None:
+    """Validate that a new report password follows WAS character rules."""
+    _validate_password_characters(value, PASSWORD_CHARACTER_SET)
+
+
+def validate_existing_report_password(value: str) -> None:
+    """Allow legacy comma and hyphen characters when encrypting reports."""
+    _validate_password_characters(value, EXISTING_PASSWORD_CHARACTER_SET)
 
 
 def _contains_any(value: str, characters: Iterable[str]) -> bool:

@@ -166,6 +166,11 @@ def build_schedule_search_payload(input_date: datetime, offset: int) -> str:
                     operator="GREATER",
                 ),
                 E.Criteria(
+                    "RUNNING",
+                    field="lastScan.status",
+                    operator="NOT EQUALS",
+                ),
+                E.Criteria(
                     "VULNERABILITY",
                     field="type",
                     operator="EQUALS",
@@ -227,13 +232,17 @@ def search_schedules(
                 continue
             launched_date = schedule.findtext("./lastScan/launchedDate")
             if not launched_date:
-                LOGGER.warning(
-                    "Skipping Qualys schedule %s (%s) for tag %s because it has "
-                    "no actual launch timestamp.",
-                    schedule_id,
-                    normalize_schedule_name(schedule_name),
-                    tag,
-                )
+                last_scan_status = (
+                    schedule.findtext("./lastScan/status") or ""
+                ).strip().upper()
+                if last_scan_status != "RUNNING":
+                    LOGGER.warning(
+                        "Skipping Qualys schedule %s (%s) for tag %s because it has "
+                        "no actual launch timestamp.",
+                        schedule_id,
+                        normalize_schedule_name(schedule_name),
+                        tag,
+                    )
                 continue
             cadence = schedule.findtext("./scheduling/occurrenceType") or ""
             next_scan_date = schedule.findtext("nextLaunchDate")

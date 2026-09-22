@@ -26,9 +26,23 @@ class PasswordTests(unittest.TestCase):
             passwords.generate_report_password(length=8)
 
     def test_validate_report_password_rejects_banned_characters(self) -> None:
-        """Reject existing passwords that contain banned characters."""
-        with self.assertRaises(ValueError):
-            passwords.validate_report_password("Bad,Password123!")
+        """Reject commas and hyphens in newly entered passwords."""
+        for report_password in ("Bad,Password123!", "Bad-Password123!"):
+            with self.subTest(report_password=report_password):
+                with self.assertRaises(ValueError):
+                    passwords.validate_report_password(report_password)
+
+    def test_existing_password_accepts_legacy_punctuation(self) -> None:
+        """Accept commas and hyphens already stored for PDF encryption."""
+        passwords.validate_existing_report_password("Legacy,Password123!")
+        passwords.validate_existing_report_password("Legacy-Password123!")
+
+    def test_existing_password_still_rejects_whitespace(self) -> None:
+        """Keep the compatibility exception limited to comma and hyphen."""
+        for report_password in ("", "Legacy Password123!"):
+            with self.subTest(report_password=report_password):
+                with self.assertRaises(ValueError):
+                    passwords.validate_existing_report_password(report_password)
 
     def test_validate_report_password_accepts_apostrophe(self) -> None:
         """Accept an apostrophe in an existing stakeholder report password."""

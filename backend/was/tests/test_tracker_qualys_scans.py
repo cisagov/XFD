@@ -13,6 +13,7 @@ from was_reports.tracker.item_builder import create_multiscan, previous_run_name
 from was_reports.tracker.models import TrackerStakeholder, scheduled_execution_key
 from was_reports.tracker.qualys_scans import (
     base_stakeholder_tag,
+    build_schedule_search_payload,
     build_scan_search_payload,
     get_previous_nws,
     normalize_schedule_name,
@@ -29,6 +30,16 @@ from was_reports.tracker.qualys_scans import (
 
 class TrackerQualysScansTests(unittest.TestCase):
     """Validate tracker schedule parsing and matching."""
+
+    def test_schedule_payload_excludes_running_last_scan(self) -> None:
+        """Ask Qualys to omit schedules whose last scan is still running."""
+        payload = build_schedule_search_payload(datetime(2026, 9, 20), 1)
+        root = etree.fromstring(payload.encode("utf-8"))
+
+        criteria = root.xpath('./filters/Criteria[@field="lastScan.status"]')
+        self.assertEqual(len(criteria), 1)
+        self.assertEqual(criteria[0].get("operator"), "NOT EQUALS")
+        self.assertEqual(criteria[0].text, "RUNNING")
 
     @patch("was_reports.tracker.qualys_scans.close")
     @patch("was_reports.tracker.qualys_scans.recent_schedule_ids")
@@ -207,6 +218,46 @@ class TrackerQualysScansTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 2)
         self.assertTrue(all(candidate.tag_id == 9 for candidate in candidates.values()))
+
+    def test_running_schedule_without_launch_is_quietly_skipped(self) -> None:
+        """A running Qualys scan without a launch date is not a warning."""
+        client = Mock()
+        client.request.return_value = (
+            "<ServiceResponse><data><WasScanSchedule><id>2</id>"
+            "<name>WAVS - KUHS - Kuakini Health System - Monthly</name>"
+            "<lastScan><status>RUNNING</status></lastScan>"
+            "<nextLaunchDate>2026-10-22T00:00:00Z</nextLaunchDate>"
+            "</WasScanSchedule></data></ServiceResponse>"
+        )
+
+        with patch("was_reports.tracker.qualys_scans.LOGGER.warning") as warning:
+            candidates = search_schedules(client, datetime(2026, 9, 20), set())
+
+        self.assertEqual(candidates, {})
+        warning.assert_not_called()
+        client.request.assert_called_once()
+
+    def test_nonrunning_schedule_without_launch_still_warns(self) -> None:
+        """Missing launch dates remain visible for terminal or unknown status."""
+        for status in ("FINISHED", "UNKNOWN", ""):
+            with self.subTest(status=status):
+                client = Mock()
+                client.request.return_value = (
+                    "<ServiceResponse><data><WasScanSchedule><id>2</id>"
+                    "<name>WAVS - KUHS - Kuakini Health System - Monthly</name>"
+                    "<lastScan><status>{}</status></lastScan>"
+                    "<nextLaunchDate>2026-10-22T00:00:00Z</nextLaunchDate>"
+                    "</WasScanSchedule></data></ServiceResponse>"
+                ).format(status)
+
+                with patch("was_reports.tracker.qualys_scans.LOGGER.warning") as warning:
+                    candidates = search_schedules(
+                        client, datetime(2026, 9, 20), set()
+                    )
+
+                self.assertEqual(candidates, {})
+                warning.assert_called_once()
+                self.assertIn("no actual launch timestamp", warning.call_args.args[0])
 
     def test_schedule_without_any_next_launch_date_is_skipped(self) -> None:
         """Continue schedule discovery when an ad hoc next date is unavailable."""

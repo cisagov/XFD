@@ -10,12 +10,12 @@ from pathlib import Path
 from pikepdf import Encryption, Pdf
 
 # First-Party Libraries
-from was_reports.utils.passwords import validate_report_password
+from was_reports.utils.passwords import validate_existing_report_password
 
 
 def encrypt_pdf_in_place(pdf_path: Path, report_password: str) -> Path:
     """Atomically replace a PDF with its password-encrypted equivalent."""
-    validate_report_password(report_password)
+    validate_existing_report_password(report_password)
     if not pdf_path.is_file():
         raise FileNotFoundError(
             "WAS PDF report not found at {}.".format(pdf_path)

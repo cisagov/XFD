@@ -46,15 +46,15 @@ class ComparisonTests(unittest.TestCase):
                 with patch.object(HARNESS, "LEGACY_SOURCE_SHA256", hashlib.sha256(source).hexdigest()):
                     self.assertEqual(HARNESS.load_legacy_function({})(), 7)
 
-    def test_legacy_excludes_recorded_schedule_and_running(self):
-        """Expose the two known candidate differences with shared inputs."""
+    def test_current_matches_legacy_running_filter(self):
+        """Exclude running schedules while exposing the recorded-ID difference."""
         snapshot = {"anchor": "2026-09-18T00:00:00+00:00",
                     "tracker_rows": [[1, "2026-09-16", "2026-09-17"]],
                     "schedules": [schedule(1, "OLD"), schedule(2, "NEW"),
                                   schedule(3, "RUN", "RUNNING")]}
         result = HARNESS.compare(snapshot, 2)
         self.assertEqual(result["legacy_tags"], 1)
-        self.assertEqual(result["current_executions"], 3)
+        self.assertEqual(result["current_executions"], 2)
         self.assertEqual(result["both_tag_schedule_pairs"], 1)
         excluded = {item["tag"]: item for item in result["current_only"]}
         self.assertTrue(excluded["OLD"]["legacy_excluded_schedule_id"])
@@ -64,7 +64,7 @@ class ComparisonTests(unittest.TestCase):
         # The original archive deliberately sets Stakeholder.launched_date to
         # INPUT_DATE, unlike the subsequently modified extracted legacy tree.
         self.assertEqual(result["legacy_selected"][0]["launched_date"], "2026-09-16T00:00:00Z")
-        self.assertEqual(len(result["current_selected"]), 3)
+        self.assertEqual(len(result["current_selected"]), 2)
 
     def test_replay_refuses_other_endpoints(self):
         """Prevent accidental use of non-allowlisted operations."""
