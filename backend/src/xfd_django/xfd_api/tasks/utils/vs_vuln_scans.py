@@ -53,6 +53,15 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 CHUNK_SIZE = 10000  # tune as needed
 
 
+def _parse_databricks_bool(value) -> bool:
+    """Coerce a Databricks JSON_ARRAY boolean ("true"/"false" string, or a real bool/None) into an actual bool."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() == "true"
+
+
 @cloudwatch_metric()
 def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     """
@@ -201,7 +210,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
         "ip_id": ip_id if ip_id else None,
-        "latest": vuln.get("latest", None),
+        "latest": _parse_databricks_bool(vuln.get("latest")),
         "owner": vuln.get("owner", None),
         "osvdb_id": vuln.get("osvdb", None),
         "organization_id": owner_id,
@@ -228,15 +237,17 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
         "xref": vuln.get("xref", None),
         "cwe": vuln.get("cwe", None),
         "bid": vuln.get("bid", None),
-        "exploited_by_malware": bool(vuln.get("exploited_by_malware", None)),
-        "thorough_tests": bool(vuln.get("thorough_tests", None)),
+        "exploited_by_malware": _parse_databricks_bool(
+            vuln.get("exploited_by_malware", None)
+        ),
+        "thorough_tests": _parse_databricks_bool(vuln.get("thorough_tests", None)),
         "cvss_score_rationale": vuln.get("cvss_score_rationale", None),
         "cvss_score_source": vuln.get("cvss_score_source", None),
         "cvss3_base_score": vuln.get("cvss3_base_score", None),
         "cvss3_vector": vuln.get("cvss3_vector", None),
         "cvss3_temporal_vector": vuln.get("cvss3_temporal_vector", None),
         "cvss3_temporal_score": vuln.get("cvss3_temporal_score", None),
-        "asset_inventory": bool(vuln.get("asset_inventory", None)),
+        "asset_inventory": _parse_databricks_bool(vuln.get("asset_inventory", None)),
         "plugin_id": vuln.get("plugin_id", None),
         "plugin_modification_date": safe_fromisoformat(
             vuln.get("plugin_modification_date", None)
