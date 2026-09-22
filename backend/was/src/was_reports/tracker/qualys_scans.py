@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 # Standard Python Libraries
-from dataclasses import replace
 from datetime import datetime, timedelta
 import logging
 import unicodedata
@@ -266,6 +265,7 @@ def search_schedules(
                     tag=tag,
                     schedule_name=normalize_schedule_name(schedule_name),
                     latest_scan_name=schedule.findtext("./lastScan/name") or "",
+                    latest_scan_status=schedule.findtext("./lastScan/status") or "",
                 )
         count = response_count(root)
         if not response_has_more_records(root):
@@ -347,6 +347,7 @@ def search_scans(
         return {}
     scan_groups: dict[tuple[int, str], list[QualysScan]] = {}
     group_stakeholders: dict[tuple[int, str], TrackerStakeholder] = {}
+    multi_parents: dict[tuple[int, str], list[QualysScan]] = {}
     schedule_candidates = tuple(stakeholders.items())
     tag_ids = tuple(
         sorted({stakeholder.tag_id for _, stakeholder in schedule_candidates})
@@ -393,8 +394,11 @@ def search_scans(
                     if " Run #" not in run_name:
                         run_name = "{}:{}".format(run_name, launched_date)
                     # Slices in the same numbered run can launch seconds apart.
-                    # Group the complete run before choosing its launch instant.
+                    # Group the complete run without using slice timestamps as its identity.
                     run_identity = (stakeholder.schedule_id, run_name)
+                    if (scan.findtext("multi") or "").strip().lower() == "true":
+                        multi_parents.setdefault(run_identity, []).append(scan)
+                        break
                     scan_groups.setdefault(run_identity, []).append(scan)
                     group_stakeholders[run_identity] = stakeholder
                     break
@@ -421,7 +425,12 @@ def search_scans(
             key=lambda value: datetime.fromisoformat(value.replace("Z", "+00:00")),
         )
         run_launches[run_identity] = launched_date
-        if history_groups is not None and all(
+        parent_complete = all(
+            parent.findtext("status") == "FINISHED"
+            and parent.findtext("./summary/resultsStatus") != "PROCESSING"
+            for parent in multi_parents.get(run_identity, [])
+        )
+        if history_groups is not None and parent_complete and all(
             scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
             and scan.findtext("./summary/resultsStatus") != "PROCESSING"
             for scan in scans
@@ -477,7 +486,6 @@ def search_scans(
                 stakeholder.schedule_id,
             )
             continue
-        launched_date = run_launches[run_identity]
         latest_slice_launch = max(
             datetime.fromisoformat(scan.findtext("launchedDate").replace("Z", "+00:00"))
             for scan in scans
@@ -494,9 +502,22 @@ def search_scans(
                 stakeholder.schedule_id,
             )
             continue
-        execution_key = scheduled_execution_key(stakeholder.schedule_id, launched_date)
-        stakeholders[execution_key] = replace(stakeholder, launched_date=launched_date)
-        if all(
+        # The schedule's parent launch is stable across reordered or changing
+        # slice subsets. Slice launches are used for selection, never identity.
+        execution_key = scheduled_execution_key(
+            stakeholder.schedule_id, stakeholder.launched_date
+        )
+        stakeholders[execution_key] = stakeholder
+        # Failed/canceled parent envelopes cannot be discarded and replaced by
+        # successful children. Hold them for review without hiding slice errors.
+        parent_finished = (
+            not stakeholder.latest_scan_status or stakeholder.latest_scan_status == "FINISHED"
+        ) and all(
+            parent.findtext("status") == "FINISHED"
+            and parent.findtext("./summary/resultsStatus") != "PROCESSING"
+            for parent in multi_parents.get(run_identity, [])
+        )
+        if parent_finished and all(
             scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
             and scan.findtext("./summary/resultsStatus") != "PROCESSING"
             for scan in scans

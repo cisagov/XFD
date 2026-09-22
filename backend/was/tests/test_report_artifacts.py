@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 # Third-Party Libraries
 from lxml import etree
 from requests import Response
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, Timeout
 
 # First-Party Libraries
 from was_reports.reporting import report_artifacts
@@ -42,6 +42,94 @@ def build_http_error(status_code: int, response_body: str) -> HTTPError:
 
 class ReportArtifactTests(unittest.TestCase):
     """Validate legacy-compatible report attachment generation."""
+
+    def test_other_error_leaves_sensitive_attachment_unpopulated(self) -> None:
+        """Handle vendor errors on either request and discard previous data."""
+        failure_xml = (
+            "<ServiceResponse><responseCode>OTHER_ERROR</responseCode>"
+            "<responseErrorDetails><errorMessage>Vendor internal failure</errorMessage>"
+            "</responseErrorDetails></ServiceResponse>"
+        )
+        first_page = SENSITIVE_RESPONSE.replace("false", "true").replace(
+            "<data>", "<lastId>1000</lastId><data>"
+        )
+        for failure in (failure_xml, build_http_error(400, failure_xml),
+                        build_http_error(500, failure_xml)):
+            for preceding in ([], [SENSITIVE_RESPONSE], [first_page],
+                              [SENSITIVE_RESPONSE, first_page]):
+                with self.subTest(failure=type(failure).__name__, pages=len(preceding)):
+                    client = Mock()
+                    client.request.side_effect = preceding + [failure]
+                    with tempfile.TemporaryDirectory() as directory:
+                        with self.assertLogs(report_artifacts.LOGGER, level="WARNING") as logs:
+                            filename = report_artifacts.write_sensitive_data_attachment(
+                                client, "CUSTOMER", Path(directory)
+                            )
+                        records = list(csv.reader((Path(directory) / filename).read_text().splitlines()))
+                    self.assertEqual(records, [["SSN URL", "SSN FOUND", "", "CC URL", "CREDIT CARD FOUND"]])
+                    self.assertEqual(client.request.call_count, len(preceding) + 1)
+                    self.assertIn("leaving Attachment 7 unpopulated", logs.output[0])
+                    self.assertNotIn("123-45-6789", " ".join(logs.output))
+                    self.assertNotIn("Vendor internal failure", " ".join(logs.output))
+
+    def test_other_error_keeps_other_report_artifacts(self) -> None:
+        """Continue artifact generation with the sensitive CSV present but empty."""
+        client = Mock()
+        client.request.return_value = (
+            "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            assets = Path(directory)
+            with self.assertLogs(report_artifacts.LOGGER, level="WARNING"):
+                result = report_artifacts.generate_report_artifacts(
+                    FIXTURE_PATH.read_bytes(), "CUSTOMER", assets, client
+                )
+            self.assertTrue((assets / result.vulnerabilities_by_webapp).is_file())
+            self.assertTrue((assets / result.application_overview).is_file())
+            self.assertEqual(len((assets / result.sensitive_data).read_text().splitlines()), 1)
+
+    def test_sensitive_other_error_does_not_suppress_auth_or_malformed_errors(self) -> None:
+        """Authorization failures and non-vendor responses must still abort."""
+        failure_xml = (
+            "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
+        )
+        for status, body in ((401, failure_xml), (403, failure_xml),
+                             (500, "not XML"),
+                             (500, "<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>")):
+            with self.subTest(status=status, body=body):
+                client = Mock()
+                client.request.side_effect = build_http_error(status, body)
+                with tempfile.TemporaryDirectory() as directory:
+                    with self.assertRaises(HTTPError):
+                        report_artifacts.write_sensitive_data_attachment(
+                            client, "CUSTOMER", Path(directory)
+                        )
+                    self.assertFalse((Path(directory) / "ssn-and-cc-found.csv").exists())
+
+    def test_sensitive_other_error_does_not_expand_entities(self) -> None:
+        """Entity content must not turn another response into an approved fallback."""
+        body = (
+            '<!DOCTYPE ServiceResponse [<!ENTITY probe "OTHER_ERROR">]>'
+            '<ServiceResponse><responseCode>&probe;</responseCode></ServiceResponse>'
+        )
+        self.assertFalse(report_artifacts.is_sensitive_other_error(build_http_error(500, body)))
+
+    def test_sensitive_network_and_other_response_codes_still_abort(self) -> None:
+        """Do not turn transport errors or other vendor codes into empty data."""
+        scenarios = (
+            (Timeout("request timed out"), Timeout),
+            ("<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>", RuntimeError),
+        )
+        for response, exception_type in scenarios:
+            with self.subTest(error=exception_type.__name__):
+                client = Mock()
+                client.request.side_effect = [response]
+                with tempfile.TemporaryDirectory() as directory:
+                    with self.assertRaises(exception_type):
+                        report_artifacts.write_sensitive_data_attachment(
+                            client, "CUSTOMER", Path(directory)
+                        )
+                    self.assertFalse((Path(directory) / "ssn-and-cc-found.csv").exists())
 
     def test_unsupported_module_response_does_not_expand_entities(self) -> None:
         """Do not let an XML entity turn a failure into an unavailable marker."""
@@ -218,7 +306,7 @@ class ReportArtifactTests(unittest.TestCase):
         self.assertIn("No Credit Card data found.", output_text)
 
     def test_sensitive_data_unsupported_module_logs_and_continues(self) -> None:
-        """Mark unavailable data and continue for the known Qualys response."""
+        """Leave all data blank for unsupported-module OTHER_ERROR responses."""
         client = Mock()
         client.request.side_effect = [
             build_http_error(400, UNSUPPORTED_MODULE_RESPONSE),
@@ -235,10 +323,9 @@ class ReportArtifactTests(unittest.TestCase):
                 )
             output_text = (asset_directory / filename).read_text()
 
-        self.assertEqual(client.request.call_count, 2)
-        self.assertEqual(len(logs.output), 2)
-        self.assertIn("SSN data unavailable from Qualys.", output_text)
-        self.assertIn("Credit Card data unavailable from Qualys.", output_text)
+        self.assertEqual(client.request.call_count, 1)
+        self.assertEqual(len(logs.output), 1)
+        self.assertEqual(output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND")
 
     def test_sensitive_data_unsupported_module_continues_after_server_error(
         self,
@@ -260,8 +347,7 @@ class ReportArtifactTests(unittest.TestCase):
                 )
             output_text = (asset_directory / filename).read_text()
 
-        self.assertIn("SSN data unavailable from Qualys.", output_text)
-        self.assertIn("No Credit Card data found.", output_text)
+        self.assertEqual(output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND")
 
     def test_sensitive_data_unexpected_http_error_is_raised(self) -> None:
         """Do not suppress Qualys errors outside the approved fallback."""

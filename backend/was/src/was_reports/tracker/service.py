@@ -29,12 +29,16 @@ def pending_schedules(
     stakeholders: dict[str, TrackerStakeholder],
     counts: dict[str, int] | None = None,
     delete_apps: bool = False,
+    *,
+    tracker_rows: list[tuple[object, ...]] | None = None,
 ) -> dict[str, TrackerStakeholder]:
     """Exclude positively handled latest executions before fetching scan slices.
 
     Recurring schedules require a matching numbered run and Eastern scan day.
     Missing identity, unresolved notes, and linked attempts without customer
     delivery remain candidates. This read-only filter does not alter the queue.
+    Supplied tracker_rows reuse a diagnostic snapshot without opening a database
+    connection, including when the supplied snapshot has no matching records.
     """
     identities = {}
     for group_key, stakeholder in stakeholders.items():
@@ -50,8 +54,8 @@ def pending_schedules(
             convert_qualys_date(stakeholder.launched_date),
             run_name,
         )
-    rows = []
-    if identities:
+    rows = [] if tracker_rows is None else tracker_rows
+    if identities and tracker_rows is None:
         conn = connect()
         try:
             conn.set_session(readonly=True)

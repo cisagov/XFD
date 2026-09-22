@@ -748,6 +748,20 @@ class ReportRunTests(unittest.TestCase):
             ),
         )
 
+    def test_get_report_email_only_uses_active_signature_assignee(self) -> None:
+        """Never fall back to an inactive or unvalidated historical signature name."""
+        conn = FakeConnection(row=(
+            7, "TAG1", "report.pdf", None, "recipient@example.gov", None, "Customer",
+            42, "pdf", "Results", None, "", "", "", "", None, None, "token", "customer",
+        ))
+        email = report_runs.get_report_run_email(7, conn)
+        self.assertIsNone(email.assignee_name)
+        self.assertIn(
+            "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
+
     def test_list_report_runs_ready_for_email_excludes_failures(self) -> None:
         """Return completed report runs that are ready to email."""
         conn = FakeConnection(
@@ -784,6 +798,11 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(report_run_emails[0].id, 7)
+        self.assertIn(
+            "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
         self.assertIn("COALESCE(runs.email_status", conn.cursor_instance.query)
         self.assertEqual(
             conn.cursor_instance.parameters,
@@ -854,6 +873,11 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(claimed.id, 7)
+        self.assertIn(
+            "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
         self.assertEqual(claimed.source_tracker_id, 42)
         self.assertTrue(conn.committed)
         self.assertIn("UPDATE was_report_runs", conn.cursor_instance.query)

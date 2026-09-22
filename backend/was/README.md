@@ -873,9 +873,97 @@ already handled. Missing evidence for the schedule's latest execution is held
 instead of substituting an older run. Manual report generation is unchanged.
 Increasing the discovery lookback does not enable older-run recovery.
 
+Tracker execution identity must come from the schedule's latest launch, not
+from individual slice launch timestamps. Earlier discovery code used each
+slice timestamp in its execution key, so slices of one numbered run could
+produce different keys and pass the unique-key constraint. Grouping slices by
+numbered run reduced that problem, but choosing the earliest returned slice
+still made identity depend on which slices were visible. The current guard
+anchors the key to the schedule launch and holds conflicting existing numbered
+run identities for manual reconciliation. It does not delete or merge existing
+rows. Apply this behavior to every running worker before resuming refreshes;
+an older process does not acquire the new safeguards merely because files have
+been updated.
+
+Explicit MULTI parents are excluded from per-target aggregation. A visible
+parent or schedule parent with a known status other than Finished holds the
+run for review or a later refresh; a parent-only response cannot create a
+successful tracker result. This does not independently prove that Qualys
+returned every expected child. Parent-child grouping still uses the normalized
+numbered scan name, not a newly verified API parent-ID relationship. Missing or
+renamed numbered-run identities also limit historical overlap detection.
+Validate representative live MULTI and SINGLE responses before treating these
+unit-tested safeguards as full API parity.
+
+Slice result aggregation uses the operator-approved priority: Scan Results
+Invalid, Scan Internal Error, No Web Service, No Host Alive, Service Error,
+Time Limit Reached, Successful. No Host Alive remains an inaccessible-target
+result. Empty, unknown, or incomplete inputs cannot become Successful. This
+priority is an explicit correction to the archived legacy behavior, which
+placed Service Error ahead of No Web Service.
+
+If the sensitive-finding API explicitly returns `OTHER_ERROR`, Attachment 7
+contains its CSV headings with no data rows. Partial findings from earlier
+pages or the other sensitive-finding query are discarded, and the rest of the
+report continues. A warning identifies the unavailable attachment without
+logging finding contents. Authentication failures, network failures, malformed
+responses, and unrelated API errors are not suppressed. A blank attachment in
+this case does not mean that the scan found no sensitive data.
+
 Historical recovery is separate from daily discovery. An automated recovery
 command is not provided by this latest-only change; use an explicitly reviewed
 reconciliation plan and counts-only preview before generating historical work.
+
+### Read-only legacy alignment diagnostic
+
+After importing tracker data, or before approving selection changes, run from
+`backend/was` in a checkout with the original `../WAS Automation Export 2026-05-06.zip`:
+
+```bash
+make report-alignment-diagnostic-local
+```
+
+This local command needs the project Python environment and working read-only
+database/Qualys connectivity. It does not start Docker. It writes timestamped,
+owner-readable JSON and replay snapshots under `local-output/`. It uses a
+database-enforced read-only repeatable-read transaction and only Qualys schedule
+searches. It does not refresh the tracker, retrieve scan slices, generate or
+delete reports, assign analysts, send emails, or recover stale operations.
+
+The diagnostic compares the hash-pinned original ZIP's schedule selector against
+current selection using the same captured schedule pages. It shows the original
+48-hour baseline, an equal-window rule comparison, the configured modern window
+(three days by default), and the actual modern early tracker exclusion stage.
+Final stored report eligibility is queried with the production selector on the
+same database snapshot, defaulting to seven calendar dates. Output includes
+tracker IDs, tags, templates, scan dates, PDF versus notification counts, Qualys
+error overlays, exclusions, and source-code hashes, including uncommitted edits.
+
+These are separate stages, not a claim that discovery counts equal PDF counts.
+Legacy AM tag lookups use the included schedule tag ID and missing next-launch
+dates receive a neutral placeholder; adaptations are recorded. Report linkage
+to discovery is at tag/schedule level only, not proof of the same execution.
+This command does not predict reports after a future tracker refresh or verify
+slice completeness, NWS history, generated PDF content, or delivered mail.
+Differences require explanation and approval, not automatic acceptance as parity.
+
+For an offline discovery regression check, keep the original snapshot and choose
+a new output filename:
+
+```bash
+make report-alignment-diagnostic-local \
+  DIAGNOSTIC_SNAPSHOT=/absolute/path/report-alignment-previous.snapshot.json \
+  DIAGNOSTIC_OUTPUT=/absolute/path/report-alignment-replay.json
+```
+
+Offline replay makes no database or Qualys calls. It reruns discovery/early-filter
+logic against frozen inputs; stored report eligibility remains the captured SQL
+result, explicitly not a fresh evaluation of changed eligibility SQL. Window
+arguments apply to live capture; offline replay uses the snapshot's windows.
+For eligibility SQL changes, run the diagnostic live again and review database
+timestamp/source hashes before attributing differences to code. Files are never
+overwritten. Snapshots exclude passwords, POC addresses, findings, and full notes;
+they still contain customer tags and scan names and should remain private.
 
 ```bash
 make recent-scan-batch TRACKER_LOOKBACK_DAYS=5 BATCH_DAYS_BACK=14
@@ -925,7 +1013,10 @@ be inactive so development testers remain outside daily operations. This is a
 live test that generates reports, archives them to S3, sends SES email, and
 updates successful tracker rows as sent. As a safety guardrail, report
 generation, completed-report retries, and assignee digests are limited to
-tracker rows from the previous 30 calendar days. Automated report generation
+tracker rows within `BATCH_DAYS_BACK`, defaulting to the same seven calendar dates
+as the production batch and counts-only preview. Set `BATCH_DAYS_BACK=30` for an
+explicit longer test, or `BATCH_DAYS_BACK=all` to remove the date limit.
+Automated report generation
 selects only the newest non-legacy tracker row for each stakeholder tag, so an
 older unsent row cannot trigger another current tag-level report.
 

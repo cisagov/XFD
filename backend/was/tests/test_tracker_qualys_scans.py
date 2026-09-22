@@ -318,7 +318,7 @@ class TrackerQualysScansTests(unittest.TestCase):
                 self.assertIn("2:WAVS - TAG - Customer - Monthly Run #70", history_groups)
                 if groups:
                     self.assertEqual(
-                        list(groups), [scheduled_execution_key(2, "2026-09-02T01:01:00Z")]
+                        list(groups), [scheduled_execution_key(2, "2026-09-02T02:45:40Z")]
                     )
                     self.assertEqual(len(next(iter(groups.values()))), 2)
 
@@ -494,8 +494,75 @@ class TrackerQualysScansTests(unittest.TestCase):
                 self.assertEqual(len(next(iter(groups.values()))), 2)
                 self.assertEqual(
                     next(iter(groups)),
-                    scheduled_execution_key(2, "2026-09-03T00:00:01Z"),
+                    scheduled_execution_key(2, "2026-09-03T00:00:02Z"),
                 )
+
+    def test_parent_identity_stable_across_slice_order_and_subset(self) -> None:
+        """Retrying with different returned slices preserves the schedule launch key."""
+        parent_launch = "2026-09-03T04:01:00Z"
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", parent_launch,
+            2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
+            "WAVS - TAG - Customer - Monthly Run #2",
+        )
+        expected_key = scheduled_execution_key(2, parent_launch)
+        for slice_numbers in ((1, 2), (2, 1), (1,), (2,)):
+            with self.subTest(slice_numbers=slice_numbers):
+                client = Mock()
+                client.request.return_value = (
+                    "<ServiceResponse><data>{}</data></ServiceResponse>"
+                ).format("".join(
+                    "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2 Slice {}</name>"
+                    "<status>FINISHED</status><summary><resultsStatus>SUCCESSFUL</resultsStatus>"
+                    "</summary><launchedDate>2026-09-03T03:59:0{}Z</launchedDate>"
+                    "</WasScan>".format(number, number)
+                    for number in slice_numbers
+                ))
+                stakeholders = {"TAG": stakeholder}
+                groups = search_scans(client, stakeholders, datetime(2026, 9, 1))
+                self.assertEqual(list(groups), [expected_key])
+                self.assertEqual(stakeholders[expected_key].launched_date, parent_launch)
+                self.assertEqual(len(groups[expected_key]), len(slice_numbers))
+
+    def test_multi_parent_is_not_a_target_slice(self) -> None:
+        """Aggregate child targets once and require any visible MULTI parent to finish."""
+        for child_count, parent_status, schedule_status, expected in (
+            (50, "FINISHED", "FINISHED", 1),
+            (0, "FINISHED", "FINISHED", 0),
+            (50, "RUNNING", "FINISHED", 0),
+            (50, "FINISHED", "RUNNING", 0),
+            (50, "ERROR", "FINISHED", 0),
+            (50, "CANCELED", "FINISHED", 0),
+            (50, "FINISHED", "ERROR", 0),
+            (50, "FINISHED", "CANCELED", 0),
+        ):
+            with self.subTest(child_count=child_count, parent_status=parent_status,
+                              schedule_status=schedule_status):
+                parent = (
+                    "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2</name>"
+                    "<multi>true</multi><status>{}</status>"
+                    "<launchedDate>2026-09-03T04:01:00Z</launchedDate></WasScan>"
+                ).format(parent_status)
+                children = "".join(
+                    "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2 Slice {}</name>"
+                    "<multi>false</multi><status>FINISHED</status><summary>"
+                    "<resultsStatus>SUCCESSFUL</resultsStatus></summary>"
+                    "<launchedDate>2026-09-03T04:01:01Z</launchedDate></WasScan>".format(number)
+                    for number in range(child_count)
+                )
+                client = Mock()
+                client.request.return_value = (
+                    "<ServiceResponse><data>{}{}</data></ServiceResponse>"
+                ).format(parent, children)
+                stakeholders = {"TAG": TrackerStakeholder(
+                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T04:01:00Z",
+                    2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
+                    "WAVS - TAG - Customer - Monthly Run #2", schedule_status,
+                )}
+                groups = search_scans(client, stakeholders, datetime(2026, 9, 1))
+                self.assertEqual(len(groups), expected)
+                if groups:
+                    self.assertEqual(len(next(iter(groups.values()))), 50)
 
     def test_previous_run_matches_full_name(self) -> None:
         """Run one must not match run ten or another schedule."""

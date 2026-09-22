@@ -39,35 +39,36 @@ def combined_status_and_result(
     statuses: list[str],
     results: list[str],
 ) -> tuple[str, str]:
-    """Return the consolidated status and result for multiple scan slices."""
+    """Combine completed slices using the operator-approved result precedence.
+
+    Incomplete or unknown inputs never become successful. NO_HOST_ALIVE keeps
+    its distinct label at the inaccessible-target tier immediately after NWS.
+    """
+    if not statuses or len(statuses) != len(results):
+        return "Error", "Scan Incomplete"
     if "RUNNING" in statuses:
         return "Running", "Running"
-    if "ERROR" in statuses:
-        error_index = statuses.index("ERROR")
-        return "Error", results[error_index]
-    if any(status != "FINISHED" for status in statuses):
+    if any(status not in {"FINISHED", "ERROR"} for status in statuses):
         return "Error", "Scan Incomplete"
-
-    allowed_results = frozenset(
-        {
-            "SUCCESSFUL",
-            "NO_WEB_SERVICE",
-            "NO_HOST_ALIVE",
-            "TIME_LIMIT_REACHED",
-            "SERVICE_ERROR",
-        }
+    priority = (
+        ("SCAN_RESULTS_INVALID", "Scan Results Invalid"),
+        ("SCAN_INTERNAL_ERROR", "Scan Internal Error"),
+        ("NO_WEB_SERVICE", "No Web Service"),
+        ("NO_HOST_ALIVE", "No Host Alive"),
+        ("SERVICE_ERROR", "Service Error"),
+        ("TIME_LIMIT_REACHED", "Time Limit Reached"),
+        ("SUCCESSFUL", "Successful"),
     )
+    allowed_results = {result for result, label in priority}
     if any(result not in allowed_results for result in results):
-        return "Error", "Scan Internal Error"
-    if "SERVICE_ERROR" in results:
-        return "Finished", "Service Error"
-    if "NO_WEB_SERVICE" in results:
-        return "Finished", "No Web Service"
-    if "NO_HOST_ALIVE" in results:
-        return "Finished", "No Host Alive"
-    if "TIME_LIMIT_REACHED" in results:
-        return "Finished", "Time Limit Reached"
-    return "Finished", "Successful"
+        return "Error", "Scan Incomplete"
+    for result, label in priority:
+        if result in results:
+            status = "Error" if "ERROR" in statuses or result in QUALYS_ERROR_RESULTS else "Finished"
+            if status == "Error" and result == "SUCCESSFUL":
+                return "Error", "Scan Incomplete"
+            return status, label
+    return "Error", "Scan Incomplete"
 
 
 def previous_run_name(scan_name: str) -> str | None:

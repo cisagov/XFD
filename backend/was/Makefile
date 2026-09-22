@@ -12,6 +12,8 @@ BATCH_WORKERS ?= 30
 BATCH_TEST_RECIPIENTS ?=
 BATCH_DAYS_BACK ?= 7
 TRACKER_LOOKBACK_DAYS ?= 3
+DIAGNOSTIC_OUTPUT ?= $(OUTPUT_DIR)/report-alignment-$(shell date -u +%Y%m%dT%H%M%SZ).json
+DIAGNOSTIC_SNAPSHOT ?=
 TAG ?=
 DAYS_BACK ?= 7
 ASSIGNEE ?=
@@ -68,6 +70,12 @@ stakeholders-help:
 	docker run --rm $(IMAGE) was-stakeholders --help
 
 .PHONY: recent-scan-batch-preflight recent-scan-batch-preflight-local
+
+.PHONY: report-alignment-diagnostic-local
+
+report-alignment-diagnostic-local:
+	mkdir -p "$(dir $(DIAGNOSTIC_OUTPUT))"
+	PYTHONPATH=src $(PYTHON) scripts/diagnose_report_alignment.py --days-back "$(BATCH_DAYS_BACK)" --discovery-days "$(TRACKER_LOOKBACK_DAYS)" --output "$(DIAGNOSTIC_OUTPUT)" $(if $(strip $(DIAGNOSTIC_SNAPSHOT)),--snapshot "$(DIAGNOSTIC_SNAPSHOT)")
 
 recent-scan-batch-preflight:
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) --entrypoint python $(IMAGE) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
@@ -139,8 +147,8 @@ recent-scan-batch:
 recent-scan-batch-assignee-test:
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled WAS functional-test recipient.' >&2; exit 2)
 	@echo 'All batch reports and digests will be sent only to $(TEST_RECIPIENTS).'
-	@echo 'Only tracker work from the previous 30 calendar days will be processed.'
-	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)" BATCH_DAYS_BACK="30"
+	@echo 'Report lookback: $(BATCH_DAYS_BACK) calendar days (all removes the date limit).'
+	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)" BATCH_DAYS_BACK="$(BATCH_DAYS_BACK)"
 
 recent-scan-batch-test:
 	mkdir -p $(OUTPUT_DIR)

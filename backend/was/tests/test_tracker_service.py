@@ -18,6 +18,31 @@ class TrackerServiceTests(unittest.TestCase):
 
     @patch("was_reports.tracker.service.close")
     @patch("was_reports.tracker.service.connect")
+    def test_captured_schedule_rows_never_open_database(self, mock_connect, mock_close):
+        """Replay empty, handled, and unresolved snapshots with production rules."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T02:00:00Z",
+            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2 Slice 1",
+        )
+        handled = (
+            2, date(2026, 9, 2), "Customer Run #2", "Finished", "Successful",
+            None, None, False, False,
+        )
+        unresolved = handled[:7] + (True, False)
+        for rows, expected in (([], 1), ([handled], 0), ([unresolved], 1),
+                               ([handled, unresolved], 1)):
+            with self.subTest(rows=rows):
+                counts = {}
+                result = service.pending_schedules(
+                    {"run": stakeholder}, counts, tracker_rows=rows
+                )
+                self.assertEqual(len(result), expected)
+                self.assertEqual(counts["early_excluded_schedules"], 1 - expected)
+        mock_connect.assert_not_called()
+        mock_close.assert_not_called()
+
+    @patch("was_reports.tracker.service.close")
+    @patch("was_reports.tracker.service.connect")
     def test_early_exclusion_requires_handled_exact_execution(self, mock_connect, mock_close):
         """Retain uncertain records and recurring runs before expensive searches."""
         stakeholder = TrackerStakeholder(

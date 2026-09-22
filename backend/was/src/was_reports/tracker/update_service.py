@@ -31,6 +31,7 @@ from was_reports.qualys.qualys_client import QualysClient
 from was_reports.qualys.report_data import count_webapps
 from was_reports.tracker.assignments import round_robin_assignee
 from was_reports.tracker.models import TrackerItem, scheduled_execution_key
+from was_reports.tracker.qualys_scans import normalize_schedule_name
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import exception_details
 
@@ -246,6 +247,43 @@ def has_legacy_execution_overlap(item: TrackerItem, conn: connection) -> bool:
         return bool(cursor.fetchone()[0])
 
 
+def numbered_run_identity(scan_name: str) -> str | None:
+    """Return the full normalized numbered run, excluding only its slice suffix."""
+    normalized = normalize_schedule_name(scan_name)
+    base_name, separator, slice_number = normalized.rpartition(" Slice ")
+    if separator and slice_number.isdigit():
+        normalized = base_name
+    if " Run #" not in normalized:
+        return None
+    if not normalized.rsplit(" Run #", 1)[1].isdigit():
+        return None
+    return normalized
+
+
+def has_live_numbered_run_overlap(
+    item: TrackerItem, execution_key: str, conn: connection
+) -> bool:
+    """Hold old slice-timestamp identities without modifying historical records."""
+    identity = numbered_run_identity(item.scan_name)
+    if identity is None:
+        return False
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT scan_name FROM was_daily_report_tracker
+            WHERE schedule_id = %s
+              AND scan_execution_key IS NOT NULL
+              AND scan_execution_key NOT LIKE 'legacy-import:%%'
+              AND scan_execution_key <> %s
+            """,
+            (item.schedule_id, execution_key),
+        )
+        return any(
+            numbered_run_identity(name or "") == identity
+            for (name,) in cursor.fetchall()
+        )
+
+
 def update_tracker(
     client: QualysClient,
     tracker_items: list[TrackerItem],
@@ -280,7 +318,9 @@ def update_tracker(
                 item.schedule_id, item.launched_date
             )
             lock_key = int.from_bytes(
-                hashlib.sha256(execution_key.encode()).digest()[:8],
+                hashlib.sha256(
+                    "tracker-schedule:{}".format(item.schedule_id).encode()
+                ).digest()[:8],
                 "big",
                 signed=True,
             )
@@ -290,7 +330,8 @@ def update_tracker(
             if not acquired:
                 conn.rollback()
                 LOGGER.info(
-                    "Skipping tracker execution for %s; another refresh holds its lock.",
+                    "Skipping tracker execution for %s; another refresh holds its lock "
+                    "for this schedule.",
                     item.tag,
                 )
                 continue
@@ -354,6 +395,13 @@ def update_execution(
             )
             if cursor.fetchone()[0]:
                 return 0
+    if not existing and has_live_numbered_run_overlap(item, execution_key, conn):
+        LOGGER.warning(
+            "Holding tracker execution for %s: the numbered schedule run already "
+            "exists under a different execution key; reconciliation is required.",
+            item.tag,
+        )
+        return 0
     if has_legacy_execution_overlap(item, conn):
         raise RuntimeError(
             "Legacy tracker execution overlaps; manual reconciliation is required."

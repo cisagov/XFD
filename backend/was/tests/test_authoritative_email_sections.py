@@ -31,6 +31,46 @@ class TextCollector(HTMLParser):
             self.parts.append("\n")
 
 
+class FormattedTextCollector(HTMLParser):
+    """Capture visible character emphasis independently of HTML run splitting."""
+
+    def __init__(self) -> None:
+        """Initialize style ancestry and character records."""
+        super().__init__()
+        self.ancestors = []
+        self.characters = []
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        """Track semantic emphasis and source highlight/font-size styles."""
+        if tag in {"br", "img", "meta"}:
+            return
+        styles = set()
+        if tag == "strong":
+            styles.add("bold")
+        if tag == "em":
+            styles.add("italic")
+        if tag in {"u", "a"}:
+            styles.add("underline")
+        style = dict(attrs).get("style", "")
+        if "background-color:#ffff00" in style:
+            styles.add("yellow")
+        if "font-size:15pt" in style:
+            styles.add("heading")
+        self.ancestors.append((tag, styles))
+
+    def handle_endtag(self, tag: str) -> None:
+        """Close the most recent matching emphasis scope."""
+        for index in range(len(self.ancestors) - 1, -1, -1):
+            if self.ancestors[index][0] == tag:
+                del self.ancestors[index:]
+                break
+
+    def handle_data(self, data: str) -> None:
+        """Record each visible character with its inherited formatting."""
+        styles = frozenset().union(*(item[1] for item in self.ancestors))
+        self.characters.extend((character, styles) for character in data if not character.isspace())
+
+
 class AuthoritativeEmailTests(unittest.TestCase):
     """Protect source wording, flowchart branches, formatting, and escaping."""
 
@@ -83,6 +123,41 @@ class AuthoritativeEmailTests(unittest.TestCase):
                     for line in section["text"].splitlines()
                 )
                 self.assertEqual(html_words, " ".join(text_words.split()))
+
+    def test_html_emphasis_matches_source_docx_runs(self) -> None:
+        """Verify every source character's bold/italic/underline/highlight/font size."""
+        source = Path(__file__).parents[1] / "WAS_EMAIL_templates_Newest9_21.zip"
+        if not source.exists():
+            self.skipTest("Operator source ZIP is not distributed with the package")
+        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        value_attribute = "{" + namespace["w"] + "}val"
+        with ZipFile(source) as archive:
+            for name, section in SECTIONS.items():
+                with self.subTest(component=name):
+                    raw = archive.read("WAS_email_templates/{}.docx".format(name))
+                    with ZipFile(BytesIO(raw)) as document:
+                        root = ElementTree.fromstring(document.read("word/document.xml"))
+                    expected = []
+                    for run in root.findall(".//w:body/w:p//w:r", namespace):
+                        styles = set()
+                        for property_name, style in (("b", "bold"), ("i", "italic"), ("u", "underline")):
+                            element = run.find("w:rPr/w:" + property_name, namespace)
+                            if element is not None and element.get(value_attribute) not in {"0", "false", "none"}:
+                                styles.add(style)
+                        for property_name, property_value, style in (
+                            ("highlight", "yellow", "yellow"),
+                            ("sz", "30", "heading"),
+                            ("rStyle", "Hyperlink", "underline"),
+                        ):
+                            element = run.find("w:rPr/w:" + property_name, namespace)
+                            if element is not None and element.get(value_attribute) == property_value:
+                                styles.add(style)
+                        for text in run.findall("w:t", namespace):
+                            expected.extend((character, frozenset(styles)) for character in text.text or ""
+                                            if not character.isspace())
+                    collector = FormattedTextCollector()
+                    collector.feed(section["html"])
+                    self.assertEqual(collector.characters, expected)
 
     def test_flowchart_orders_conditional_sections(self) -> None:
         """Qualys errors precede NWS, warning, removals, and shared closing."""

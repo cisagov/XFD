@@ -36,6 +36,10 @@ UNSUPPORTED_MODULE_MESSAGE = (
 LOGGER = logging.getLogger(__name__)
 
 
+class SensitiveFindingUnavailableError(RuntimeError):
+    """Signal vendor OTHER_ERROR without exposing response or finding payloads."""
+
+
 @dataclass(frozen=True)
 class ReportArtifactResult:
     """Filenames for report attachments produced from Qualys data."""
@@ -221,6 +225,10 @@ def retrieve_sensitive_findings(
         )
         root = parse_report(response_xml)
         response_code = root.findtext("responseCode")
+        if response_code == "OTHER_ERROR":
+            raise SensitiveFindingUnavailableError(
+                "Qualys sensitive finding search returned OTHER_ERROR."
+            )
         if response_code is not None and response_code != "SUCCESS":
             raise RuntimeError("Qualys sensitive finding search was rejected.")
         page_links, page_responses = parse_sensitive_findings(response_xml)
@@ -271,6 +279,12 @@ def retrieve_sensitive_findings_or_unavailable(
     try:
         return retrieve_sensitive_findings(client, stakeholder_tag, qids)
     except HTTPError as error:
+        if error.response is not None and error.response.status_code in {401, 403}:
+            raise
+        if is_sensitive_other_error(error):
+            raise SensitiveFindingUnavailableError(
+                "Qualys sensitive finding search returned OTHER_ERROR."
+            ) from None
         if not is_unsupported_module_error(error):
             raise
         LOGGER.warning(
@@ -282,28 +296,57 @@ def retrieve_sensitive_findings_or_unavailable(
         return ["{} data unavailable from Qualys.".format(finding_label)], []
 
 
+def is_sensitive_other_error(error: HTTPError) -> bool:
+    """Recognize explicit vendor failure XML without suppressing authorization."""
+    response = error.response
+    if (
+        response is None
+        or not 400 <= response.status_code < 600
+        or response.status_code in {401, 403}
+        or not response.content
+    ):
+        return False
+    try:
+        root = etree.fromstring(
+            response.content,
+            parser=etree.XMLParser(resolve_entities=False, no_network=True),
+        )
+    except etree.XMLSyntaxError:
+        return False
+    return root.findtext("responseCode") == "OTHER_ERROR"
+
+
 def write_sensitive_data_attachment(
     client: QualysClient,
     stakeholder_tag: str,
     asset_directory: Path,
 ) -> str:
-    """Write the legacy SSN and credit-card findings attachment."""
-    ssn_links, ssn_values = retrieve_sensitive_findings_or_unavailable(
-        client,
-        stakeholder_tag,
-        SSN_QIDS,
-        "SSN",
-    )
-    card_links, card_values = retrieve_sensitive_findings_or_unavailable(
-        client,
-        stakeholder_tag,
-        CREDIT_CARD_QIDS,
-        "Credit Card",
-    )
-    if not ssn_links:
-        ssn_links.append("No SSN data found.")
-    if not card_links:
-        card_links.append("No Credit Card data found.")
+    """Write complete findings, or headers only on the approved vendor failure."""
+    try:
+        ssn_links, ssn_values = retrieve_sensitive_findings_or_unavailable(
+            client,
+            stakeholder_tag,
+            SSN_QIDS,
+            "SSN",
+        )
+        card_links, card_values = retrieve_sensitive_findings_or_unavailable(
+            client,
+            stakeholder_tag,
+            CREDIT_CARD_QIDS,
+            "Credit Card",
+        )
+    except SensitiveFindingUnavailableError:
+        LOGGER.warning(
+            "Qualys sensitive attachment returned OTHER_ERROR for stakeholder %s; "
+            "leaving Attachment 7 unpopulated and continuing the report.",
+            stakeholder_tag,
+        )
+        ssn_links, ssn_values, card_links, card_values = [], [], [], []
+    else:
+        if not ssn_links:
+            ssn_links.append("No SSN data found.")
+        if not card_links:
+            card_links.append("No Credit Card data found.")
 
     filename = "ssn-and-cc-found.csv"
     output_path = asset_directory / filename
