@@ -78,7 +78,7 @@ export const Header: React.FC = () => {
       case 'standard':
         return ROUTES.VSDASHBOARD;
       default:
-        return ROUTES.LOGIN;
+        return ROUTES.HOME;
     }
   };
 
