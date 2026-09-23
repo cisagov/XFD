@@ -1716,6 +1716,57 @@ make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"
 ```
 
+## Test-Only Report Resends And Manual Retries
+
+Use `make test-report-replay` to test existing PDFs and explicitly approved
+manual retries without resetting tracker status, sent dates, or original report
+runs. Run the test while normal batches are idle to avoid overlapping work for
+different tracker rows belonging to the same tag. Apply local migration
+`schema/updates/018_test_report_replay.sql` before
+using the updated mailer. The same definitions are included in the comprehensive
+`schema/stakeholders_table_creation.sql`; do not run that full creation script
+against an existing database. Incremental update files remain local and ignored.
+
+From `backend/was`, preview the last seven calendar dates, including today:
+
+```bash
+make test-report-replay DAYS_BACK=7 \
+  TEST_RECIPIENTS="zachary.cogswell@associates.cisa.dhs.gov"
+```
+
+Preview does not update the database, call Qualys, or send email. The window uses
+the tracker scan date, falling back to pull date, against the Eastern calendar.
+Review the listed IDs. All recipients must be email-enabled assignees; inactive
+assignees are allowed. There is no fallback to customer POCs.
+
+For example, resend the existing PDF from report run `3081` to the test recipient:
+
+```bash
+make test-report-replay DAYS_BACK=7 REPORT_RUN_IDS=3081 \
+  TEST_RECIPIENTS="zachary.cogswell@associates.cisa.dhs.gov" \
+  REPLAY_ID="$(uuidgen)" APPLY=1
+```
+
+Save the replay ID printed by the command. If interrupted, reuse that exact ID;
+do not generate another UUID blindly. Already reserved items are skipped even if
+failed or interrupted, so inspect the child report-run status before considering
+another replay. This deliberately favors avoiding duplicate sends over automatic
+retry of uncertain delivery outcomes. The replay ID is bound to its recipient.
+
+To generate a report for an incorrectly marked manual, explicitly select its
+tracker ID with `MANUAL_TRACKER_IDS=123` (replace `123` with a reviewed eligible
+ID). Omit `APPLY=1` first to preview that selection. Multiple IDs use commas.
+`REPORT_RUN_IDS` selects archived PDFs; `MANUAL_TRACKER_IDS` selects generation.
+No command automatically retries every manual row.
+
+Resends reuse the archived PDF; manual generation queries current Qualys data,
+not a guaranteed historical scan snapshot. Email bodies are rendered using the
+current template code and tracker/customer context, with the original POC
+addresses shown as test information, not recipients. This is not a byte-identical
+replay of an archived email. New test runs have analyst delivery purpose and do
+not alter the original tracker or delivery history, including its manual notes.
+No shared analyst digest is sent by this command.
+
 ## On-Demand Generation, S3 Archive, And Email
 
 Use this workflow when you need a new report regardless of recent-scan tracker

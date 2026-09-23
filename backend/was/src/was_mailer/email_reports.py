@@ -83,8 +83,13 @@ def send_report_run_email(
     local_output_directory: Optional[str] = None,
     allow_held: bool = False,
     delivery_purpose: str = "customer",
+    preserve_customer_template: bool = False,
 ) -> Optional[str]:
     """Send a completed WAS report run email."""
+    if preserve_customer_template:
+        if delivery_purpose != "analyst":
+            raise ValueError("Template replay requires analyst delivery purpose.")
+        override_recipients = ",".join(approved_analyst_recipients(override_recipients))
     if dry_run:
         report_run_email = get_report_run_email_by_id(report_run_id)
         delivery_claimed = False
@@ -109,7 +114,10 @@ def send_report_run_email(
             report_run_email=report_run_email,
             override_recipients=override_recipients,
         )
-        analyst_delivery = report_run_email.delivery_purpose == "analyst"
+        analyst_delivery = (
+            report_run_email.delivery_purpose == "analyst"
+            and not preserve_customer_template
+        )
         test_original_recipients = None
         if override_recipients and not analyst_delivery:
             test_original_recipients = unique_addresses(

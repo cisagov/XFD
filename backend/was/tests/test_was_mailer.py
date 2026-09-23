@@ -1057,6 +1057,58 @@ class DeliveryPolicyTests(unittest.TestCase):
         client.send_raw_email.assert_not_called()
         self.assertTrue(failed.call_args.kwargs["hold_for_manual_retry"])
 
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_template_replay_rejects_customer_purpose_before_claim(self, claim):
+        """A template replay must never use the customer delivery policy."""
+        with self.assertRaises(ValueError):
+            email_reports.send_report_run_email(
+                1, "sender@example.gov", preserve_customer_template=True
+            )
+        claim.assert_not_called()
+
+    @patch("was_mailer.message.list_functional_test_recipient_emails_from_db",
+           return_value=["analyst@example.gov"])
+    @patch("was_mailer.email_reports.approved_analyst_recipients",
+           return_value=["analyst@example.gov"])
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.touch_report_email_claim_by_id", return_value=True)
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_replay_preserves_template_without_customer_delivery(
+        self, claim, touch, finish, validate, configured
+    ):
+        """Use the customer body but only approved analyst recipients."""
+        claim.return_value = ReportRunEmail(
+            id=2, stakeholder_tag="TAG1", output_path=None,
+            report_password=None, distro_email="customer@example.gov",
+            tech_poc_email=None, was_report_poc="Customer",
+            template="All NWS", delivery_purpose="analyst", email_claim_token="token",
+        )
+        client = Mock()
+        client.send_raw_email.return_value = {"MessageId": "message"}
+        email_reports.send_report_run_email(
+            2, "sender@example.gov", override_recipients="analyst@example.gov",
+            delivery_purpose="analyst", preserve_customer_template=True,
+            ses_client=client,
+        )
+        message_bytes = client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
+        self.assertIn(b"To: analyst@example.gov", message_bytes)
+        self.assertNotIn(b"To: customer@example.gov", message_bytes)
+        self.assertIn(b"could not be generated", message_bytes)
+        self.assertNotIn(b"Analyst Copy", message_bytes)
+        finish.assert_called_once_with(2, "message", email_claim_token="token")
+
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    @patch("was_mailer.email_reports.approved_analyst_recipients",
+           side_effect=AnalystRecipientError("Recipient not enabled"))
+    def test_replay_rejects_disabled_recipient_before_claim(self, validate, claim):
+        """An unapproved recipient cannot cause a replay claim or send."""
+        with self.assertRaises(AnalystRecipientError):
+            email_reports.send_report_run_email(
+                2, "sender@example.gov", override_recipients="disabled@example.gov",
+                delivery_purpose="analyst", preserve_customer_template=True,
+            )
+        claim.assert_not_called()
+
     def digest(self):
         """Return a minimal persisted snapshot for lifecycle tests."""
         return SimpleNamespace(

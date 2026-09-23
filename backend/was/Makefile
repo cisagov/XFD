@@ -21,6 +21,10 @@ REPORT_STATUS ?=
 TRACKER_ID ?=
 SENT_DATE ?=
 SEND_EMAIL ?= 0
+REPLAY_ID ?=
+REPORT_RUN_IDS ?=
+MANUAL_TRACKER_IDS ?=
+APPLY ?= 0
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
 INPUT_XLSX ?=
@@ -185,6 +189,23 @@ on-demand-report:
 	  *) echo 'SEND_EMAIL must be 0 or 1.' >&2; exit 1 ;; \
 	esac; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint was-report-on-demand $(IMAGE) "$$@"
+
+.PHONY: test-report-replay
+
+test-report-replay:
+	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled assignee.' >&2; exit 2)
+	@set -- --days-back "$(DAYS_BACK)" --test-recipients "$(TEST_RECIPIENTS)"; \
+	if [ -n "$(REPORT_RUN_IDS)" ]; then set -- "$$@" --report-run-ids "$(REPORT_RUN_IDS)"; fi; \
+	if [ -n "$(MANUAL_TRACKER_IDS)" ]; then set -- "$$@" --manual-tracker-ids "$(MANUAL_TRACKER_IDS)"; fi; \
+	if [ -n "$(REPLAY_ID)" ]; then set -- "$$@" --replay-id "$(REPLAY_ID)"; fi; \
+	case "$(APPLY)" in \
+	  0) ;; \
+	  1) test -n "$(REPLAY_ID)" || { echo 'APPLY=1 requires REPLAY_ID, a stable UUID.' >&2; exit 2; }; \
+	     mkdir -p "$(OUTPUT_DIR)"; set -- "$$@" --apply ;; \
+	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; \
+	esac; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output \
+	  --entrypoint python $(IMAGE) -m was_reports.commands.test_replay "$$@"
 
 special-cases:
 	docker run --rm --env-file $(ENV_FILE) $(IMAGE) was-special-cases list

@@ -235,3 +235,19 @@ CREATE TABLE was_batch_report_attempts (
     attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (batch_id, tracker_id)
 );
+
+CREATE TABLE was_test_replay_batches (
+    replay_id UUID PRIMARY KEY,
+    recipient TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE was_test_replay_items (
+    replay_id UUID NOT NULL REFERENCES was_test_replay_batches(replay_id),
+    tracker_id BIGINT NOT NULL REFERENCES was_daily_report_tracker(id),
+    original_run_id BIGINT REFERENCES was_report_runs(id),
+    report_run_id BIGINT NOT NULL UNIQUE REFERENCES was_report_runs(id),
+    action TEXT NOT NULL CHECK (action IN ('resend', 'manual')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (replay_id, tracker_id)
+);

@@ -1194,7 +1194,10 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
             JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = runs.stakeholder_tag
             LEFT JOIN was_daily_report_tracker AS tracker
-              ON tracker.id = runs.source_tracker_id
+              ON tracker.id = COALESCE(runs.source_tracker_id, (
+                  SELECT replay.tracker_id FROM was_test_replay_items AS replay
+                  WHERE replay.report_run_id = runs.id
+              ))
             LEFT JOIN was_assignees AS assignees
               ON assignees.id = tracker.assignee_id
             WHERE runs.id = %s
@@ -1400,7 +1403,10 @@ def claim_report_run_email(
         JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = claimed.stakeholder_tag
         LEFT JOIN was_daily_report_tracker AS tracker
-          ON tracker.id = claimed.source_tracker_id
+          ON tracker.id = COALESCE(claimed.source_tracker_id, (
+              SELECT replay.tracker_id FROM was_test_replay_items AS replay
+              WHERE replay.report_run_id = claimed.id
+          ))
         LEFT JOIN was_assignees AS assignees
           ON assignees.id = tracker.assignee_id
     """
