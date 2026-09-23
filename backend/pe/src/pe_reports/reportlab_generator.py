@@ -388,7 +388,7 @@ def report_gen(data_dict, soc_med_included=False):
             "<font name='Franklin_Gothic_Demi_Regular'>Notice:</font> "
             "The Executive Alerts section will be removed from this report at the start of FY27 (October 1, 2026). "
             "Your visibility into external exposures remains unchanged, and no action is required. "
-            "For questions, contact <a href='vulnerability@cisa.dhs.gov'><font color='#0078AE'><u>vulnerability@cisa.dhs.gov</u></font></a>."
+            "For questions, contact <a href='vulnerability@cisa.dhs.gov'><font color='#7ab9d5'><u>vulnerability@cisa.dhs.gov</u></font></a>."
         )
 
         badge_style = ParagraphStyle(
