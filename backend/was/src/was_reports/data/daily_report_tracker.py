@@ -45,6 +45,8 @@ class DailyReportTrackerRow:
     id: int | None = None
     scan_execution_key: str | None = None
     digest_revision: int = 0
+    scan_started_at: datetime | None = None
+    scan_ended_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,8 @@ TRACKER_RECORD_COLUMNS = (
     "assignee_email_status",
     "assignee_email_claimed_at",
     "digest_revision",
+    "scan_started_at",
+    "scan_ended_at",
     "digest_claimed_revision",
     "created_at",
     "updated_at",
@@ -165,12 +169,14 @@ def insert_daily_report_tracker_row(
                     assignee_emailed_at,
                     assignee_email_message_id,
                     assignee_email_error,
+                    scan_started_at,
+                    scan_ended_at,
                     scan_execution_key
                 )
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s
                 )
                 ON CONFLICT (scan_execution_key)
                     WHERE scan_execution_key IS NOT NULL
@@ -203,6 +209,8 @@ def insert_daily_report_tracker_row(
                     row.assignee_emailed_at,
                     row.assignee_email_message_id,
                     row.assignee_email_error,
+                    row.scan_started_at,
+                    row.scan_ended_at,
                     row.scan_execution_key,
                 ),
             )

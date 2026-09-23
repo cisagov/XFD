@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 
@@ -23,6 +23,8 @@ class TrackerStakeholder:
     schedule_name: str = ""
     latest_scan_name: str = ""
     latest_scan_status: str = ""
+    scan_started_at: datetime | None = None
+    scan_ended_at: datetime | None = None
 
 
 def scheduled_execution_key(schedule_id: int, launched_date: str) -> str:
@@ -54,6 +56,40 @@ class TrackerItem:
     qualys_errors: str
     tag_id: int | None = None
     scan_execution_key: str | None = None
+    scan_started_at: datetime | None = None
+    scan_ended_at: datetime | None = None
 
 
 QualysScan = Any
+
+
+def scan_time_bounds(scans: list[QualysScan]) -> tuple[datetime | None, datetime | None]:
+    """Return complete, timezone-aware actual scan bounds without inventing times."""
+    starts = []
+    ends = []
+    for scan in scans:
+        values = []
+        for field in ("launchedDate", "endScanDate"):
+            value = scan.findtext(field)
+            try:
+                timestamp = datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+                if timestamp is not None and timestamp.tzinfo is not None:
+                    timestamp = timestamp.astimezone(timezone.utc)
+                else:
+                    timestamp = None
+            except ValueError:
+                timestamp = None
+            values.append(timestamp)
+        start, end = values
+        if start is not None and not scan.findtext("endScanDate") and scan.findtext("status") == "FINISHED":
+            duration = (scan.findtext("scanDuration") or "").strip()
+            if duration.isascii() and duration.isdigit():
+                try:
+                    end = start + timedelta(seconds=int(duration))
+                except OverflowError:
+                    end = None
+        starts.append(start)
+        ends.append(end if start is not None and end is not None and end >= start else None)
+    started = min(starts) if starts and all(value is not None for value in starts) else None
+    ended = max(ends) if ends and all(value is not None for value in ends) else None
+    return started, ended

@@ -2,7 +2,7 @@
 
 import argparse
 import base64
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from email import policy
 from importlib.resources import files
 from pathlib import Path
@@ -24,6 +24,7 @@ def create_preview(
     template: str,
     report_pdf: Path | None,
     qualys_error: bool = False,
+    report_date: date | None = None,
 ) -> tuple[Path, Path, Path]:
     """Save the production MIME message plus browser and plain-text previews.
 
@@ -49,6 +50,7 @@ def create_preview(
         qualys_error=("https://error.example.invalid" if qualys_error else None),
         last_scanned=int(datetime(2026, 8, 26, 13, tzinfo=timezone.utc).timestamp()),
         next_scheduled=int(datetime(2026, 9, 26, 13, tzinfo=timezone.utc).timestamp()),
+        report_date=report_date,
     )
     output_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     name = template.lower().replace(" ", "-")
@@ -74,13 +76,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--template", choices=TEMPLATES, default="Results")
     parser.add_argument("--report-pdf", type=Path)
+    parser.add_argument(
+        "--report-date", type=date.fromisoformat,
+        help="Explicit generation date (YYYY-MM-DD) for PDFs without a dated filename.",
+    )
     parser.add_argument("--qualys-error", action="store_true")
     parser.add_argument("--output-directory", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.template not in ALL_NWS_TEMPLATES and args.report_pdf is None:
         parser.error("--report-pdf is required for templates that attach a report")
     paths = create_preview(
-        args.output_directory, args.template, args.report_pdf, args.qualys_error
+        args.output_directory, args.template, args.report_pdf, args.qualys_error,
+        args.report_date,
     )
     print("Synthetic preview only. No database changes or email delivery.")
     for preview_path in paths:

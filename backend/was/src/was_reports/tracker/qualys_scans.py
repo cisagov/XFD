@@ -5,8 +5,10 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from datetime import datetime, timedelta
+from dataclasses import replace
 import logging
 import unicodedata
+import requests
 
 # Third-Party Libraries
 from lxml import etree
@@ -19,6 +21,7 @@ from was_reports.data.daily_report_tracker import (
 )
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 from was_reports.tracker.models import (
+    scan_time_bounds,
     QualysScan,
     TrackerStakeholder,
     scheduled_execution_key,
@@ -344,6 +347,32 @@ def scan_matches_stakeholder(
     )
 
 
+def execution_detail_bounds(
+    client: QualysClient, scan: QualysScan,
+) -> tuple[datetime | None, datetime | None]:
+    """Fetch one completed parent/single scan's missing timing metadata safely."""
+    start, end = scan_time_bounds([scan])
+    identifier = (scan.findtext("id") or "").strip()
+    if end is not None or scan.findtext("status") != "FINISHED" or not identifier.isdigit():
+        return start, end
+    try:
+        response = client.request(QualysRequest(
+            endpoint="/get/was/wasscan/{}".format(identifier), http_method="get"
+        ))
+        root = parse_xml(response, "scan timing detail")
+        detail = root.find("./data/WasScan")
+        if detail is None or detail.findtext("id") != identifier:
+            raise ValueError("Scan detail identity did not match.")
+        detail_start, detail_end = scan_time_bounds([detail])
+        if detail.findtext("status") != "FINISHED" or detail_start != start:
+            raise ValueError("Scan detail status or launch did not match.")
+        return detail_start, detail_end
+    except (requests.RequestException, ValueError, RuntimeError, AttributeError) as error:
+        LOGGER.warning("Unable to obtain scan timing detail for %s (%s); end remains unknown.",
+                       identifier, type(error).__name__)
+        return start, None
+
+
 def search_scans(
     client: QualysClient,
     stakeholders: dict[str, TrackerStakeholder],
@@ -516,7 +545,13 @@ def search_scans(
         execution_key = scheduled_execution_key(
             stakeholder.schedule_id, stakeholder.launched_date
         )
-        stakeholders[execution_key] = stakeholder
+        # Use only explicit WasScan parent bounds, never schedule metadata, for
+        # displayed times. Multiple parent envelopes are ambiguous and ignored.
+        parents = multi_parents.get(run_identity, [])
+        parent_start, parent_end = scan_time_bounds(parents) if len(parents) == 1 else (None, None)
+        stakeholders[execution_key] = replace(
+            stakeholder, scan_started_at=parent_start, scan_ended_at=parent_end
+        )
         # Failed/canceled parent envelopes cannot be discarded and replaced by
         # successful children. Hold them for review without hiding slice errors.
         parent_finished = (
@@ -531,6 +566,15 @@ def search_scans(
             and scan.findtext("./summary/resultsStatus") != "PROCESSING"
             for scan in scans
         ):
+            timing_scan = parents[0] if len(parents) == 1 else (
+                scans[0] if not parents and len(scans) == 1
+                and " Slice" not in (scans[0].findtext("name") or "") else None
+            )
+            if timing_scan is not None:
+                timing_start, timing_end = execution_detail_bounds(client, timing_scan)
+                stakeholders[execution_key] = replace(
+                    stakeholder, scan_started_at=timing_start, scan_ended_at=timing_end
+                )
             completed_groups[execution_key] = scans
         else:
             incomplete_runs += 1

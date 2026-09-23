@@ -7,10 +7,8 @@ from was_mailer.authoritative_email_sections import SECTIONS
 ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
 FCEB_TEMPLATES = frozenset({"FCEB Action Required", "FCEB All NWS"})
 
-# Explicit user correction approved September 21, after the source ZIP review.
-# Keep the original extracted components intact for source-fidelity checks.
-QUESTIONS_SOURCE = "If you have questions, please email at vulnerability@cisa.dhs.gov."
-QUESTIONS_APPROVED = "If you have questions, please email at reports@cisa.dhs.gov."
+# September 23 correction restores the source questions address verbatim.
+# The signature address remains reports@cyber.dhs.gov in the source sections.
 
 
 def section_names(
@@ -77,7 +75,6 @@ def render_sections(
     source = ("<br>\n" if html else "\n\n").join(
         SECTIONS[name]["html" if html else "text"] for name in names
     )
-    source = source.replace(QUESTIONS_SOURCE, QUESTIONS_APPROVED)
     body = substitute_values(source, values, html)
     if html:
         return (

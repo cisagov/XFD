@@ -762,6 +762,20 @@ class ReportRunTests(unittest.TestCase):
         )
         self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
 
+    def test_report_email_start_belongs_to_source_execution(self) -> None:
+        """A later stakeholder update cannot change the selected report's start."""
+        conn = FakeConnection(row=(
+            7, "TAG1", "report.pdf", None, "recipient@example.gov", None, "Customer",
+            42, "pdf", "Results", None, "", "", "", "",
+            int(datetime(2026, 9, 1, 12, tzinfo=timezone.utc).timestamp()), None, "token", "customer",
+        ))
+        email = report_runs.get_report_run_email(7, conn)
+        self.assertEqual(email.last_scanned, int(
+            datetime(2026, 9, 1, 12, tzinfo=timezone.utc).timestamp()
+        ))
+        self.assertIn("EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint", conn.cursor_instance.query)
+        self.assertNotIn("stakeholders.last_scanned", conn.cursor_instance.query)
+
     def test_list_report_runs_ready_for_email_excludes_failures(self) -> None:
         """Return completed report runs that are ready to email."""
         conn = FakeConnection(
@@ -798,6 +812,8 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(report_run_emails[0].id, 7)
+        self.assertIn("EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint", conn.cursor_instance.query)
+        self.assertNotIn("stakeholders.last_scanned", conn.cursor_instance.query)
         self.assertIn(
             "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
             conn.cursor_instance.query,
@@ -873,6 +889,8 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(claimed.id, 7)
+        self.assertIn("EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint", conn.cursor_instance.query)
+        self.assertNotIn("stakeholders.last_scanned", conn.cursor_instance.query)
         self.assertIn(
             "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
             conn.cursor_instance.query,

@@ -105,7 +105,7 @@ class WasMailerTests(unittest.TestCase):
         self.assertEqual(message["To"], "recipient@example.gov")
         self.assertEqual(message["Subject"], "TAG1 - WAS Results")
         self.assertNotIn("password123", message.as_string())
-        self.assertIn("TAG1_report_2026-08-26.pdf", message.as_string())
+        self.assertIn("TAG1_WAS_report_2026-08-26.pdf", message.as_string())
         html_body = message.get_body(preferencelist=("html",)).get_content()
         self.assertIn('src="cid:cisa-logo"', html_body)
         inline_images = [
@@ -122,7 +122,7 @@ class WasMailerTests(unittest.TestCase):
     def test_build_report_email_greets_customer_poc(self) -> None:
         """Address a customer report email to the configured WAS report POC."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -187,7 +187,7 @@ class WasMailerTests(unittest.TestCase):
         """Only redirected customer mail gets deduplicated original-recipient metadata."""
         approved.return_value = ["tester@example.gov"]
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
             for purpose in ("customer", "analyst"):
                 with self.subTest(purpose=purpose):
@@ -225,7 +225,7 @@ class WasMailerTests(unittest.TestCase):
     def test_build_report_email_uses_generic_analyst_salutation(self) -> None:
         """Do not address an analyst-only delivery to the customer POC."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -261,7 +261,7 @@ class WasMailerTests(unittest.TestCase):
     def test_build_report_email_lists_qualys_error_webapps(self) -> None:
         """Tell customers which applications lack updated Qualys results."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -279,7 +279,7 @@ class WasMailerTests(unittest.TestCase):
     def test_results_email_uses_supplied_template_sections(self) -> None:
         """Compose a Results email from the supplied customer template sections."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -296,13 +296,13 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("Attached is a report containing the results", body)
         self.assertIn("Appendix C: Attachments", body)
         self.assertNotIn("update your WAS report password", body)
-        self.assertIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
-        self.assertNotIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
+        self.assertIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
+        self.assertNotIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
         self.assertIn("reports@cyber.dhs.gov", body)
         self.assertLess(
             body.index("Important Note:"),
             body.index(
-                "If you have questions, please email at reports@cisa.dhs.gov"
+                "If you have questions, please email at vulnerability@cisa.dhs.gov"
             ),
         )
         self.assertIn("Your next scan is scheduled for", body)
@@ -324,7 +324,7 @@ class WasMailerTests(unittest.TestCase):
     def test_action_required_email_uses_conditional_nws_sections(self) -> None:
         """Add supplied inaccessible-target sections only when NWS data exists."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -356,7 +356,7 @@ class WasMailerTests(unittest.TestCase):
     def test_targets_removed_extends_action_required_sections(self) -> None:
         """Add removed targets and instructions for requesting replacements."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -402,7 +402,7 @@ class WasMailerTests(unittest.TestCase):
     def test_fceb_action_email_uses_retention_section(self) -> None:
         """Follow the flowchart by omitting the removal section for FCEB."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -423,7 +423,7 @@ class WasMailerTests(unittest.TestCase):
     def test_customer_signature_uses_assignee_and_team_identity(self) -> None:
         """Include one assignee plus the complete customer-facing team identity."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             message = build_report_email(
@@ -451,7 +451,7 @@ class WasMailerTests(unittest.TestCase):
     def test_build_report_email_requires_recipient(self) -> None:
         """Reject messages without recipients."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
 
             with self.assertRaises(ValueError):
@@ -511,7 +511,7 @@ class WasMailerTests(unittest.TestCase):
     ) -> None:
         """Send a completed report through SES."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
             mock_claim_report_run_email.return_value = ReportRunEmail(
                 id=1,
@@ -540,17 +540,19 @@ class WasMailerTests(unittest.TestCase):
         )
 
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
     def test_send_report_run_email_downloads_s3_report_temporarily(
         self,
         mock_claim_report_run_email,
+        mock_mark_failed,
         mock_mark_emailed,
     ) -> None:
         """Download an S3 report for SES and remove the temporary file."""
         mock_claim_report_run_email.return_value = ReportRunEmail(
             id=1,
             stakeholder_tag="TAG1",
-            output_path="s3://reports/was_reports/2026-08-28/TAG1/1/report.pdf",
+            output_path="s3://reports/was_reports/2026-08-28/TAG1/1/TAG1_report_2026-08-28.pdf",
             report_password="secret",
             distro_email="recipient@example.gov",
             tech_poc_email=None,
@@ -584,6 +586,7 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message_id, "message-id")
         self.assertFalse(downloaded_paths[0].exists())
+        mock_mark_failed.assert_not_called()
         mock_mark_emailed.assert_called_once_with(
             1, "message-id", email_claim_token=None
         )
@@ -599,7 +602,7 @@ class WasMailerTests(unittest.TestCase):
         mock_claim_report_run_email.return_value = ReportRunEmail(
             id=1,
             stakeholder_tag="TAG1",
-            output_path="s3://reports/was_reports/2026-08-28/TAG1/1/report.pdf",
+            output_path="s3://reports/was_reports/2026-08-28/TAG1/1/TAG1_report_2026-08-28.pdf",
             report_password="secret",
             distro_email="recipient@example.gov",
             tech_poc_email=None,
@@ -641,7 +644,7 @@ class WasMailerTests(unittest.TestCase):
     ) -> None:
         """Build but do not send when dry-run is enabled."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
             mock_get_report_run_email.return_value = ReportRunEmail(
                 id=1,
@@ -679,7 +682,7 @@ class WasMailerTests(unittest.TestCase):
     ) -> None:
         """Record a delivery failure when SES send fails."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
             mock_claim_report_run_email.return_value = ReportRunEmail(
                 id=1,
@@ -721,7 +724,7 @@ class WasMailerTests(unittest.TestCase):
     ) -> None:
         """Leave an uncertain claim for manual review after SES accepts email."""
         with tempfile.TemporaryDirectory() as directory:
-            report_path = Path(directory) / "report.pdf"
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
             mock_claim_report_run_email.return_value = ReportRunEmail(
                 id=1,

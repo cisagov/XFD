@@ -84,6 +84,24 @@ class FakeConnection:
 class DailyReportTrackerTests(unittest.TestCase):
     """Validate daily report tracker persistence helpers."""
 
+    def test_insert_preserves_full_execution_timestamps(self) -> None:
+        """Persist exact start and end separately from execution identity."""
+        conn = FakeConnection()
+        started = datetime(2026, 9, 23, 5, 0, 44, tzinfo=timezone.utc)
+        ended = datetime(2026, 9, 23, 6, 1, 44, tzinfo=timezone.utc)
+        row = DailyReportTrackerRow(
+            scan_started_at=started,
+            scan_ended_at=ended,
+            scan_execution_key="scheduled:123:unchanged",
+        )
+        insert_daily_report_tracker_row(row=row, conn=conn)
+        self.assertEqual(conn.cursor_instance.parameters[-3:],
+                         (started, ended, "scheduled:123:unchanged"))
+        self.assertEqual(conn.cursor_instance.query.count("%s"),
+                         len(conn.cursor_instance.parameters))
+        self.assertIn("scan_started_at", conn.cursor_instance.query)
+        self.assertIn("scan_ended_at", conn.cursor_instance.query)
+
     def test_insert_daily_report_tracker_row_maps_workbook_columns(self) -> None:
         """Insert tracker fields in workbook column order."""
         conn = FakeConnection()

@@ -235,23 +235,23 @@ class AuthoritativeEmailTests(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "If you have questions, please email at reports@cisa.dhs.gov.", body
+            "If you have questions, please email at vulnerability@cisa.dhs.gov.", body
         )
         self.assertIn(
             "Regards,\n\nSample Analyst\nWeb Application Scanning (WAS)", body
         )
         self.assertNotIn("<last_scan_date>", body)
 
-    def test_approved_questions_override_preserves_other_contacts(self) -> None:
-        """Apply the user's exact correction in both MIME bodies, nowhere else."""
+    def test_restored_questions_address_preserves_signature(self) -> None:
+        """Restore the source questions address in both MIME bodies, not the signature."""
         for html in (False, True):
             body = customer_report_body(
                 "TAG", "Sample POC", "Targets Removed", "Sample Analyst",
                 "https://example.gov", "2,1,1", "https://example.gov", None,
                 None, None, html=html,
             )
-            self.assertIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
-            self.assertNotIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
+            self.assertIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
+            self.assertNotIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
             self.assertIn("updated list of targets to vulnerability@cisa.dhs.gov.", body)
             self.assertIn("reports@cyber.dhs.gov", body)
 

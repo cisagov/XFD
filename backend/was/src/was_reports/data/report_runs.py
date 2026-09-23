@@ -1186,7 +1186,7 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 tracker.nws,
                 tracker.remove_nws,
                 tracker.qualys_error,
-                stakeholders.last_scanned,
+                EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint,
                 stakeholders.next_scheduled,
                 runs.email_claim_token,
                 runs.delivery_purpose
@@ -1264,7 +1264,7 @@ def list_report_runs_ready_for_email(
             tracker.nws,
             tracker.remove_nws,
             tracker.qualys_error,
-            stakeholders.last_scanned,
+            EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint,
             stakeholders.next_scheduled,
                 runs.email_claim_token,
                 runs.delivery_purpose
@@ -1392,7 +1392,7 @@ def claim_report_run_email(
             tracker.nws,
             tracker.remove_nws,
             tracker.qualys_error,
-            stakeholders.last_scanned,
+            EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint,
             stakeholders.next_scheduled,
             claimed.email_claim_token,
             claimed.delivery_purpose

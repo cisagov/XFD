@@ -548,6 +548,43 @@ class TrackerQualysScansTests(unittest.TestCase):
                     scheduled_execution_key(2, "2026-09-03T00:00:02Z"),
                 )
 
+    def test_detail_timing_uses_one_lowercase_get_and_duration(self) -> None:
+        """Use FINISHED duration without per-target requests or guessed ends."""
+        from was_reports.tracker.qualys_scans import execution_detail_bounds
+        scan = etree.fromstring(
+            "<WasScan><id>123</id><status>FINISHED</status>"
+            "<launchedDate>2026-09-03T05:00:44Z</launchedDate></WasScan>"
+        )
+        client = Mock()
+        client.request.return_value = (
+            "<ServiceResponse><data><WasScan><id>123</id><status>FINISHED</status>"
+            "<launchedDate>2026-09-03T05:00:44Z</launchedDate>"
+            "<scanDuration>3660</scanDuration></WasScan></data></ServiceResponse>"
+        )
+        start, end = execution_detail_bounds(client, scan)
+        self.assertEqual(start.isoformat(), "2026-09-03T05:00:44+00:00")
+        self.assertEqual(end.isoformat(), "2026-09-03T06:01:44+00:00")
+        client.request.assert_called_once()
+        self.assertEqual(client.request.call_args.args[0].http_method, "get")
+        self.assertEqual(client.request.call_args.args[0].endpoint, "/get/was/wasscan/123")
+        client.reset_mock()
+        etree.SubElement(scan, "endScanDate").text = "2026-09-03T06:00:00Z"
+        self.assertIsNotNone(execution_detail_bounds(client, scan)[1])
+        client.request.assert_not_called()
+
+    def test_timing_detail_failure_preserves_start(self) -> None:
+        """Optional metadata failures must not fail report selection."""
+        from was_reports.tracker.qualys_scans import execution_detail_bounds
+        scan = etree.fromstring(
+            "<WasScan><id>123</id><status>FINISHED</status>"
+            "<launchedDate>2026-09-03T05:00:44Z</launchedDate></WasScan>"
+        )
+        client = Mock()
+        client.request.side_effect = RuntimeError("unavailable")
+        start, end = execution_detail_bounds(client, scan)
+        self.assertIsNotNone(start)
+        self.assertIsNone(end)
+
     def test_parent_identity_stable_across_slice_order_and_subset(self) -> None:
         """Retrying with different returned slices preserves the schedule launch key."""
         parent_launch = "2026-09-03T04:01:00Z"
@@ -592,7 +629,8 @@ class TrackerQualysScansTests(unittest.TestCase):
                 parent = (
                     "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2</name>"
                     "<multi>true</multi><status>{}</status>"
-                    "<launchedDate>2026-09-03T04:01:00Z</launchedDate></WasScan>"
+                    "<launchedDate>2026-09-03T04:01:00Z</launchedDate>"
+                    "<endScanDate>2026-09-03T06:01:00Z</endScanDate></WasScan>"
                 ).format(parent_status)
                 children = "".join(
                     "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2 Slice {}</name>"
@@ -614,6 +652,9 @@ class TrackerQualysScansTests(unittest.TestCase):
                 self.assertEqual(len(groups), expected)
                 if groups:
                     self.assertEqual(len(next(iter(groups.values()))), 50)
+                    selected = stakeholders[next(iter(groups))]
+                    self.assertEqual(selected.scan_started_at.isoformat(), "2026-09-03T04:01:00+00:00")
+                    self.assertEqual(selected.scan_ended_at.isoformat(), "2026-09-03T06:01:00+00:00")
 
     def test_previous_run_matches_full_name(self) -> None:
         """Run one must not match run ten or another schedule."""

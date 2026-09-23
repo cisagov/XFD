@@ -1,8 +1,8 @@
 """Tests for production tracker consolidation and update helpers."""
 
 # Standard Python Libraries
-from dataclasses import replace
-from datetime import date
+from dataclasses import fields, replace
+from datetime import date, datetime, timezone
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -15,6 +15,7 @@ from was_reports.tracker.item_builder import (
 )
 from was_reports.tracker.models import TrackerItem, TrackerStakeholder
 from was_reports.tracker.update_service import (
+    build_tracker_row,
     combined_email_value,
     convert_qualys_date,
     has_legacy_execution_overlap,
@@ -27,6 +28,62 @@ from was_reports.tracker.update_service import (
 
 class TrackerUpdateServiceTests(unittest.TestCase):
     """Validate tracker result and database-row transformations."""
+
+    def test_actual_scan_bounds_do_not_change_parent_execution_identity(self) -> None:
+        """Persist real timing separately from parent-based identity and scan day."""
+        started = datetime(2026, 8, 30, 23, tzinfo=timezone.utc)
+        ended = datetime(2026, 9, 1, 1, tzinfo=timezone.utc)
+        item = replace(self.removal_item(False), scan_started_at=started, scan_ended_at=ended)
+        stakeholder = Mock(
+            was_report_poc="POC", tech_poc_email=None, distro_email=None,
+            comments=None, report_password=None,
+        )
+        with patch("was_reports.tracker.update_service.resolve_stakeholder_details",
+                   return_value=stakeholder), \
+                patch("was_reports.tracker.update_service.count_webapps", return_value=2), \
+                patch("was_reports.tracker.update_service.upsert_assignee",
+                      return_value=Mock(id=1, name="Analyst")), \
+                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata"):
+            row = build_tracker_row(Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2))
+        self.assertEqual(row.scan_started_at, started)
+        self.assertEqual(row.scan_ended_at, ended)
+        self.assertEqual(row.scan_start_date, date(2026, 8, 31))
+        self.assertEqual(row.scan_execution_key, "schedule:1:2026-09-01T00:00:00+00:00")
+
+    def test_insert_and_incomplete_update_persist_both_actual_bounds(self) -> None:
+        """Future refreshes bind start and end on both persistence branches."""
+        started = datetime(2026, 9, 1, tzinfo=timezone.utc)
+        ended = datetime(2026, 9, 1, 1, tzinfo=timezone.utc)
+        row = DailyReportTrackerRow(tag="TAG", scan_started_at=started, scan_ended_at=ended)
+        item = replace(self.removal_item(False), removed_nws="", scan_started_at=started,
+                       scan_ended_at=ended)
+        for existing in (False, True):
+            with self.subTest(existing=existing):
+                conn = MagicMock()
+                cursor = conn.cursor.return_value.__enter__.return_value
+                cursor.fetchone.side_effect = (
+                    [(17, "Running", "PROCESSING", ""), (False,)]
+                    if existing else [None, (17,)]
+                )
+                cursor.rowcount = 1
+                with patch("was_reports.tracker.update_service.build_tracker_row",
+                           return_value=row), \
+                        patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
+                              return_value=False):
+                    count = update_execution(Mock(), item, False, date(2026, 9, 2),
+                                             "Analyst", conn, "stable-parent-key")
+                self.assertEqual(count, 1)
+                query, parameters = cursor.execute.call_args.args
+                self.assertIn("scan_started_at", str(query))
+                self.assertIn("scan_ended_at", str(query))
+                if existing:
+                    self.assertEqual(parameters[5:7], [started, ended])
+                else:
+                    names = [field.name for field in fields(row) if field.name != "id"]
+                    bindings = dict(zip(names, parameters))
+                    self.assertEqual(bindings["scan_started_at"], started)
+                    self.assertEqual(bindings["scan_ended_at"], ended)
+                    self.assertEqual(bindings["scan_execution_key"], "stable-parent-key")
 
     def test_metadata_error_log_omits_exception_payload(self) -> None:
         """Retain safe operation context without SQL values or tracebacks."""

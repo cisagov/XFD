@@ -189,6 +189,8 @@ def build_tracker_row(
         result=item.result,
         report_scan_notes=report_scan_notes,
         scan_start_date=convert_qualys_date(item.launched_date),
+        scan_started_at=item.scan_started_at,
+        scan_ended_at=item.scan_ended_at,
         next_scan_date=convert_qualys_date(item.next_scan_date),
         poc=stakeholder.was_report_poc if stakeholder else None,
         poc_email=(
@@ -446,6 +448,8 @@ def update_execution(
                 "result",
                 "report_scan_notes",
                 "scan_start_date",
+                "scan_started_at",
+                "scan_ended_at",
                 "next_scan_date",
                 "nws",
                 "template",

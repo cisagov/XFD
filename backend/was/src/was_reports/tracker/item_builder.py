@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 import logging
+from datetime import datetime
 
 # Third-Party Libraries
 import requests
@@ -17,6 +18,7 @@ from was_reports.tracker.models import (
     TrackerItem,
     TrackerStakeholder,
     scheduled_execution_key,
+    scan_time_bounds,
 )
 from was_reports.tracker.qualys_scans import get_previous_nws
 from was_reports.utils.logging_config import exception_details
@@ -81,6 +83,11 @@ def previous_run_name(scan_name: str) -> str | None:
     if run_number <= 1:
         return None
     return "{} Run #{}".format(scan_name.split(marker, 1)[0], run_number - 1)
+
+
+def earliest_slice_start(scans: list[QualysScan]) -> datetime | None:
+    """Return the earliest actual target launch only when every timestamp is known."""
+    return scan_time_bounds(scans)[0]
 
 
 def stakeholder_flags(tag: str) -> tuple[str, bool]:
@@ -191,6 +198,13 @@ def create_tracker_items(
         )
         try:
             scan_name = element_text(scans[0], "name").split(" Slice", 1)[0]
+            scan_started_at, scan_ended_at = scan_time_bounds(scans)
+            scan_started_at = stakeholder.scan_started_at or scan_started_at
+            scan_ended_at = stakeholder.scan_ended_at or scan_ended_at
+            if scan_started_at is None or (
+                scan_ended_at is not None and scan_ended_at < scan_started_at
+            ):
+                scan_ended_at = None
             result_fields = create_multiscan(
                 client=client,
                 tag=tag,
@@ -218,6 +232,8 @@ def create_tracker_items(
                     tag_id=stakeholder.tag_id,
                     qualys_errors=result_fields[7],
                     scan_execution_key=execution_key,
+                    scan_started_at=scan_started_at,
+                    scan_ended_at=scan_ended_at,
                 )
             )
         except (

@@ -1,7 +1,7 @@
 """Email message helpers for WAS report delivery."""
 
 # Standard Python Libraries
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from email.headerregistry import Address
 from email.message import EmailMessage
 from html import escape
@@ -18,6 +18,7 @@ from was_reports.data.assignees import (
 # First-Party Libraries
 from was_mailer import customer_email_templates
 from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
+from was_reports.reporting.latex_renderer import validate_filename_component
 
 EASTERN_TIME = ZoneInfo("America/New_York")
 ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
@@ -169,6 +170,7 @@ def build_report_email(
     next_scheduled: int | None = None,
     analyst_delivery: bool = False,
     test_original_recipients: list[str] | None = None,
+    report_date: date | None = None,
 ) -> EmailMessage:
     """Build a tracker-aware WAS customer email and optional PDF attachment."""
     if not recipients:
@@ -263,9 +265,37 @@ def build_report_email(
             report_bytes,
             maintype="application",
             subtype="pdf",
-            filename=report_path.name,
+            filename=(
+                report_path.name if analyst_delivery
+                else customer_report_attachment_filename(
+                    stakeholder_tag, report_path, report_date
+                )
+            ),
         )
     return message
+
+
+def customer_report_attachment_filename(
+    stakeholder_tag: str,
+    report_path: Path,
+    report_date: date | None = None,
+) -> str:
+    """Name the customer PDF using its existing generation date, without UUIDs."""
+    safe_tag = validate_filename_component(stakeholder_tag)
+    if report_path.suffix.lower() != ".pdf":
+        raise ValueError("Customer report attachment must be a PDF.")
+    if report_date is None:
+        unused_prefix, separator, suffix = report_path.stem.rpartition("_report_")
+        raw_date = suffix[:10]
+        if not separator or len(raw_date) != 10 or (len(suffix) > 10 and suffix[10] != "-"):
+            raise ValueError("Report attachment requires an explicit generation date.")
+        try:
+            report_date = date.fromisoformat(raw_date)
+        except ValueError as error:
+            raise ValueError("Report attachment filename contains an invalid date.") from error
+        if report_date.isoformat() != raw_date:
+            raise ValueError("Report attachment filename must use YYYY-MM-DD.")
+    return "{}_WAS_report_{}.pdf".format(safe_tag, report_date.isoformat())
 
 
 def report_email_subject(

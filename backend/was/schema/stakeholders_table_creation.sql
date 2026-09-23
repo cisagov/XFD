@@ -134,6 +134,8 @@ CREATE TABLE was_daily_report_tracker (
     report_sent_date         DATE,
     report_scan_notes        TEXT,
     scan_start_date          DATE,
+    scan_started_at          TIMESTAMPTZ,
+    scan_ended_at            TIMESTAMPTZ,
     next_scan_date           DATE,
     poc                      TEXT,
     poc_email                TEXT,

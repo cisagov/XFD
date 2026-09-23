@@ -914,6 +914,93 @@ Historical recovery is separate from daily discovery. An automated recovery
 command is not provided by this latest-only change; use an explicitly reviewed
 reconciliation plan and counts-only preview before generating historical work.
 
+### Customer email dates and attachment names
+
+Customer email corrections approved September 23 retain the source questions
+address `vulnerability@cisa.dhs.gov`; the signature remains
+`reports@cyber.dhs.gov`. Customer PDF attachments use
+`<TAG>_WAS_report_<YYYY-MM-DD>.pdf`. The date remains the existing report artifact
+date. Unique internal artifact paths and S3 keys are retained to avoid overwrites.
+
+Email scan-start text uses the execution's separate `scan_started_at` timestamp,
+recorded from the actual MULTI parent or SINGLE scan launch, falling back to
+complete target launch data when necessary. It does not use the shared
+stakeholder timestamp or reinterpret the duplicate-prevention execution key.
+Both `scan_started_at` and `scan_ended_at` preserve timezone-aware timestamps.
+When Qualys omits an explicit end, completed scan details provide the duration
+used to calculate the end from the launch timestamp. This requires at most one
+details lookup per selected customer execution, not one per target slice.
+Missing timing data remains unknown. Customer emails display the start in
+Eastern Time, including daylight-saving adjustment; the approved template does
+not gain a new end-time sentence.
+The tracker requires nullable `scan_started_at TIMESTAMPTZ` and
+`scan_ended_at TIMESTAMPTZ` columns before
+deploying this code; existing rows remain unknown rather than being backfilled
+from completion dates or date-only imports. The comprehensive creation schema
+includes both columns. Incremental SQL stays local under `schema/updates/`;
+apply `016_store_tracker_scan_timestamps.sql` before deployment.
+
+The additive migration, which does not change existing row values, is:
+
+```sql
+ALTER TABLE was_daily_report_tracker
+    ADD COLUMN IF NOT EXISTS scan_started_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS scan_ended_at TIMESTAMPTZ;
+```
+
+Verify column types and remaining missing timestamps after migration/backfill:
+
+```sql
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = current_schema()
+  AND table_name = 'was_daily_report_tracker'
+  AND column_name IN ('scan_started_at', 'scan_ended_at');
+
+SELECT COUNT(*) AS total_rows,
+       COUNT(*) FILTER (WHERE scan_started_at IS NULL) AS missing_starts,
+       COUNT(*) FILTER (WHERE scan_ended_at IS NULL) AS missing_ends
+FROM was_daily_report_tracker;
+```
+
+Normal tracker refresh persists these values for newly processed executions.
+Date-only CSV/XLSX imports do not invent timestamps, and existing completed rows
+are not automatically revisited for historical timestamp enrichment. Missing
+Qualys timing information remains NULL. The columns must remain in place while
+timestamp-aware code is deployed; rolling back the code does not require dropping
+these additive columns.
+
+For historical rows, use the bounded timestamp backfill from the repository root
+with the existing WAS database and Qualys environment configuration. The database
+tunnel must be available when the configured host is a forwarded local port.
+Start with a small read-only preview (the dates and tag below are an example):
+
+```bash
+PYTHONPATH=backend/was/src ./cd_WAS_update/bin/python \
+  backend/was/scripts/backfill_tracker_timestamps.py \
+  --since 2026-09-01 --until 2026-09-23 --tag RSDOR --limit 100
+```
+
+Review the proposed timestamps and Qualys scan IDs, then repeat with
+`--apply --confirm-name-date-matches` to write them. Omit
+`--tag RSDOR` for all tags within the chosen window. `--after-id` allows paging
+past reviewed tracker IDs. Dates use the tracker's Eastern calendar convention.
+The backfill requires an unambiguous exact normalized numbered scan name, tag,
+and calendar-date match to a Qualys customer scan. It does not infer a launch
+time from an execution key. Unmatched or ambiguous rows remain unchanged.
+This match does not independently prove that the returned scan belongs to the
+stored schedule ID. A recreated schedule could reuse a name and numbered run.
+The confirmation flag explicitly acknowledges operator review of that mapping;
+do not apply when the displayed scan identity cannot be confirmed.
+
+The apply operation only fills missing timestamp fields. It guards the row's
+identity and previously observed timestamps against concurrent changes, and
+rolls the batch transaction back on failure. It does not generate reports, send
+emails, modify report status, or delete rows. Take a database backup before
+applying historical changes and retain the command output for the affected IDs
+and timestamps. A committed correction should be reversed only for those exact
+IDs after checking that no subsequent update has changed the values.
+
 ### Read-only legacy alignment diagnostic
 
 After importing tracker data, or before approving selection changes, run from
