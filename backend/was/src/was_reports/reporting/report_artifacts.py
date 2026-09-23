@@ -321,32 +321,23 @@ def write_sensitive_data_attachment(
     stakeholder_tag: str,
     asset_directory: Path,
 ) -> str:
-    """Write complete findings, or headers only on the approved vendor failure."""
-    try:
-        ssn_links, ssn_values = retrieve_sensitive_findings_or_unavailable(
-            client,
-            stakeholder_tag,
-            SSN_QIDS,
-            "SSN",
-        )
-        card_links, card_values = retrieve_sensitive_findings_or_unavailable(
-            client,
-            stakeholder_tag,
-            CREDIT_CARD_QIDS,
-            "Credit Card",
-        )
-    except SensitiveFindingUnavailableError:
-        LOGGER.warning(
-            "Qualys sensitive attachment returned OTHER_ERROR for stakeholder %s; "
-            "leaving Attachment 7 unpopulated and continuing the report.",
-            stakeholder_tag,
-        )
-        ssn_links, ssn_values, card_links, card_values = [], [], [], []
-    else:
-        if not ssn_links:
-            ssn_links.append("No SSN data found.")
-        if not card_links:
-            card_links.append("No Credit Card data found.")
+    """Write header-only sensitive data CSV while Qualys SSN/CC queries are disabled."""
+    # TODO: Re-enable only after explicit validation and operator approval.
+    # Operator reports Qualys plans a fix for 2026-10-09. Do not automatically
+    # re-enable on that date. Finding-age lookups are unrelated and remain active.
+    # ssn_links, ssn_values = retrieve_sensitive_findings_or_unavailable(
+    #     client, stakeholder_tag, SSN_QIDS, "SSN"
+    # )
+    # card_links, card_values = retrieve_sensitive_findings_or_unavailable(
+    #     client, stakeholder_tag, CREDIT_CARD_QIDS, "Credit Card"
+    # )
+    ssn_links, ssn_values, card_links, card_values = [], [], [], []
+    LOGGER.warning(
+        "SSN and credit-card queries are temporarily disabled for stakeholder %s "
+        "due to a known Qualys issue; sensitive data is unavailable. "
+        "Leaving Attachment 7 unpopulated, not reporting no findings.",
+        stakeholder_tag,
+    )
 
     filename = "ssn-and-cc-found.csv"
     output_path = asset_directory / filename

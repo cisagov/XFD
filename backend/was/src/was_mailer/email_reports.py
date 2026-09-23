@@ -25,7 +25,6 @@ from was_mailer.ses_client import create_ses_client
 from was_reports.data.daily_report_tracker import (
     claim_assignee_digest_rows,
     finish_assignee_digest_rows,
-    list_ready_assignee_digests_from_db,
 )
 from was_reports.data.report_runs import (
     claim_report_run_email_by_id,
@@ -312,6 +311,8 @@ def send_ready_report_emails(
     sent_count = 0
 
     for report_run in report_runs:
+        message_id = None
+        delivery_error = None
         try:
             message_id = send_report_run_email(
                 report_run_id=report_run.id,
@@ -321,12 +322,24 @@ def send_ready_report_emails(
                 include_previous_failure=include_previous_failures,
             )
         except Exception as error:
+            delivery_error = type(error).__name__
             LOGGER.error(
                 "Report email failed for run id %s; continuing: %s",
                 report_run.id,
                 exception_details(error),
             )
             continue
+        finally:
+            batch_id = getenv("WAS_ANALYST_BATCH_ID")
+            tracker_id = getattr(report_run, "source_tracker_id", None)
+            if batch_id and tracker_id is not None and not dry_run:
+                from was_reports.reporting.analyst_summaries import record_report_attempt
+
+                record_report_attempt(
+                    batch_id, tracker_id, duration_seconds=0.0,
+                    generated=False, sent=bool(message_id), error=delivery_error,
+                    report_run_id=report_run.id,
+                )
         if message_id or dry_run:
             sent_count += 1
 
@@ -341,35 +354,21 @@ def send_ready_assignee_digests(
     limit: Optional[int] = None,
     include_previous_failures: bool = False,
     days_back: Optional[int] = None,
+    batch_id: Optional[str] = None,
 ) -> int:
-    """Send ready WAS daily tracker assignee digests through SES."""
-    digests = list_ready_assignee_digests_from_db(
-        data_pull_date=data_pull_date,
-        limit=limit,
-        include_previous_failures=include_previous_failures,
-        days_back=days_back,
+    """Send one shared batch summary instead of individual assignment emails."""
+    from was_reports.reporting.analyst_summaries import send_batch_summary
+
+    resolved_batch_id = batch_id or getenv("WAS_ANALYST_BATCH_ID")
+    if not resolved_batch_id:
+        raise ValueError("Shared analyst summaries require --batch-id from the reporting batch.")
+    if data_pull_date is not None or limit is not None or days_back is not None:
+        raise ValueError("Shared summaries use batch membership, not date or limit filters.")
+    message_id = send_batch_summary(
+        resolved_batch_id, source_email,
+        override_recipients=override_recipients, dry_run=dry_run,
     )
-    sent_count = 0
-
-    for digest in digests:
-        try:
-            message_id = send_assignee_digest_email(
-                assignee_digest=digest,
-                source_email=source_email,
-                override_recipients=override_recipients,
-                dry_run=dry_run,
-            )
-        except Exception as error:
-            LOGGER.error(
-                "Assignee digest failed for id %s; continuing: %s",
-                digest.assignee_id,
-                exception_details(error),
-            )
-            continue
-        if message_id or dry_run:
-            sent_count += 1
-
-    return sent_count
+    return int(bool(message_id) or dry_run)
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -391,8 +390,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     run_selection.add_argument(
         "--assignee-digests",
         action="store_true",
-        help="Email daily tracker assignment digests to assignees.",
+        help="Send one shared analyst summary for --batch-id.",
     )
+    parser.add_argument("--batch-id", default=getenv("WAS_ANALYST_BATCH_ID"),
+                        help="Batch identifier for the shared analyst summary.")
     parser.add_argument(
         "--delivery-purpose",
         choices=("customer", "analyst"),
@@ -473,6 +474,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             limit=args.limit,
             include_previous_failures=args.include_previous_failures,
             days_back=resolved_days_back,
+            batch_id=args.batch_id,
         )
     else:
         send_report_run_email(

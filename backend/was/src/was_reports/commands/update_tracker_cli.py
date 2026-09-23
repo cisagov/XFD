@@ -2,7 +2,10 @@
 
 # Standard Python Libraries
 import argparse
+import logging
+import os
 import sys
+from time import monotonic
 from typing import List, Optional
 
 # First-Party Libraries
@@ -10,6 +13,19 @@ from was_reports.qualys.qualys_client import create_qualys_client
 from was_reports.tracker.qualys_scans import DEFAULT_TRACKER_LOOKBACK_DAYS
 from was_reports.tracker.service import refresh_daily_tracker
 from was_reports.utils.logging_config import configure_logging
+
+
+class TrackerErrorCounter(logging.Handler):
+    """Count tracker errors without retaining sensitive log messages."""
+
+    def __init__(self) -> None:
+        """Observe only errors emitted during this tracker operation."""
+        super().__init__(logging.ERROR)
+        self.count = 0
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Keep only an aggregate count, never formatted log content."""
+        self.count += 1
 
 
 def positive_day_count(value: str) -> int:
@@ -64,15 +80,42 @@ def run_update_tracker(
     stakeholder_tag: Optional[str] = None,
     tracker_lookback_days: int = DEFAULT_TRACKER_LOOKBACK_DAYS,
     preflight_only: bool = False,
+    analyst_batch_id: str | None = None,
+    summary_enabled: bool = True,
 ) -> None:
     """Run the WAS-owned Qualys-to-Postgres tracker workflow."""
-    refresh_daily_tracker(
-        client=create_qualys_client(),
-        delete_apps=delete_apps,
-        stakeholder_tag=stakeholder_tag,
-        tracker_lookback_days=tracker_lookback_days,
-        preflight_only=preflight_only,
+    batch_id = None if preflight_only or not summary_enabled else (
+        analyst_batch_id or os.environ.get("WAS_ANALYST_BATCH_ID")
     )
+    started = monotonic()
+    error_name = None
+    rows_updated = None
+    error_counter = TrackerErrorCounter()
+    tracker_logger = logging.getLogger("was_reports.tracker")
+    if batch_id:
+        from was_reports.reporting import analyst_summaries
+
+        analyst_summaries.start_batch(batch_id)
+        tracker_logger.addHandler(error_counter)
+    try:
+        rows_updated = refresh_daily_tracker(
+            client=create_qualys_client(),
+            delete_apps=delete_apps,
+            stakeholder_tag=stakeholder_tag,
+            tracker_lookback_days=tracker_lookback_days,
+            preflight_only=preflight_only,
+        )
+    except Exception as error:
+        error_name = type(error).__name__
+        raise
+    finally:
+        if batch_id:
+            tracker_logger.removeHandler(error_counter)
+            if error_name is None and error_counter.count:
+                error_name = "TrackerLoggedErrors_{}".format(error_counter.count)
+            analyst_summaries.record_tracker_result(
+                batch_id, monotonic() - started, error=error_name, rows_updated=rows_updated
+            )
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -849,7 +849,8 @@ container receives a non-overlapping stakeholder partition so two reports for
 the same stakeholder cannot run concurrently. Existing database claims prevent
 duplicate tracker-row report runs. A worker emails each report after successful
 S3 archival. After all workers exit, one mailer container retries any remaining
-completed deliveries and one mailer container sends the assignee digests.
+completed deliveries and one mailer container sends the shared final analyst
+summary. A separate shared summary is sent after tracker refresh and preflight.
 Reduce the worker count if Qualys throttling or account-level capacity becomes
 visible. The documented 2,000-request-per-hour Qualys limit still applies to the
 combined worker pool.
@@ -1099,10 +1100,13 @@ submitted address to belong to an email-enabled `was_assignees` row. The row may
 be inactive so development testers remain outside daily operations. This is a
 live test that generates reports, archives them to S3, sends SES email, and
 updates successful tracker rows as sent. As a safety guardrail, report
-generation, completed-report retries, and assignee digests are limited to
+generation and completed-report retries are limited to
 tracker rows within `BATCH_DAYS_BACK`, defaulting to the same seven calendar dates
 as the production batch and counts-only preview. Set `BATCH_DAYS_BACK=30` for an
 explicit longer test, or `BATCH_DAYS_BACK=all` to remove the date limit.
+The shared analyst summary includes this batch's attempts plus all open manuals,
+including older manual work outside the generation window. Both summary emails
+use the test-recipient override during functional tests.
 Automated report generation
 selects only the newest non-legacy tracker row for each stakeholder tag, so an
 older unsent row cannot trigger another current tag-level report.
@@ -1247,34 +1251,44 @@ the SES message, and removes the local copy before sending. Existing local paths
 are accepted only when `WAS_REPORT_STORAGE=local`, must reference a PDF, and must
 resolve beneath `WAS_OUTPUT_DIRECTORY`.
 
-### Send Assignee Tracker Digests
+### Shared Analyst Batch Summaries
 
-Assignee tracker digest emails use `was_assignees.email`. Populate that field
-before enabling production delivery. `--test-recipients` should be used for
-validation because it overrides the assignee email recipients.
-Each digest includes a CSV attachment containing that assignee's tracker rows.
-The mailer claims exact row IDs atomically, so another sender cannot claim the
-same snapshot and later rows are not incorrectly marked sent. Known failures
-require `--include-previous-failures`; uncertain sends remain held for review.
-Do not reset a held or interrupted digest without verifying SES delivery.
-Digest revisions preserve report failures arriving during a send: successful
-delivery acknowledges only the claimed revision, leaving newer failures pending.
+The reporting batch sends two shared SES emails, not individual assignment
+emails. Both include all analysts with `was_assignees.email_enabled IS TRUE`,
+including inactive analysts. This does not change eligibility for assignments.
+Test-recipient overrides apply to both emails and must resolve to email-enabled
+analysts. Customer reports retain their existing delivery behavior.
 
-Existing databases require a DBA-reviewed additive change for the assignee
-email fields before using this command. The canonical final-state definition is
-in `schema/stakeholders_table_creation.sql`.
+The tracker-completion email summarizes the planned workload before generation:
+report counts, NWS/error report and affected-webapp counts, tracker duration, and
+refresh errors. NWS and error categories can overlap. Unavailable counts are not
+presented as zero.
 
-Send unsent tracker rows grouped by assignee:
+The final email reports generation counts, timing, and errors. Its body lists only
+open manuals, sorted by assignee and identifying the assignee for each item.
+The CSV includes attempted tracker rows, including failures and unsent reports,
+plus open manuals, deduplicated by tracker ID. Password fields are excluded.
+
+Batch IDs and per-report attempt records preserve scope across parallel workers.
+Each email phase is claimed once; an uncertain send is held for review, not
+automatically resent. Check SES before resetting any sending/held phase.
+Existing databases require the local additive migration
+`schema/updates/017_shared_analyst_batch_summaries.sql` before deployment.
+The comprehensive schema includes `was_batch_runs` and
+`was_batch_report_attempts`. Incremental SQL remains local and untracked.
+
+To send the final summary for an existing batch, replace `BATCH_ID` with the
+identifier printed by that batch:
 
 ```bash
 docker run --rm \
   --env-file .env \
   --entrypoint ./worker/was-mailer-start.sh \
   was-reporting \
-  --assignee-digests
+  --assignee-digests --batch-id BATCH_ID
 ```
 
-Dry run assignee digests for one pull date:
+Preview a batch summary without sending:
 
 ```bash
 docker run --rm \
@@ -1282,10 +1296,19 @@ docker run --rm \
   --entrypoint ./worker/was-mailer-start.sh \
   was-reporting \
   --assignee-digests \
-  --data-pull-date "2026-08-26" \
+  --batch-id BATCH_ID \
   --test-recipients "operator@example.gov" \
   --dry-run
 ```
+
+### Temporary Sensitive-Findings Suspension
+
+SSN and credit-card findings requests are temporarily commented out in
+`write_sensitive_data_attachment`. Attachment 7 remains header-only, and logs
+explicitly identify the data as unavailable, not an absence of findings.
+The TODO records the operator-reported Qualys fix date of October 9, 2026.
+Re-enabling requires validation and explicit approval; there is no automatic
+date-based switch. Critical/urgent vulnerability-age queries remain active.
 
 ### Manage Special Cases
 

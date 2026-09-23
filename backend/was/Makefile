@@ -87,12 +87,31 @@ recent-scan-batch:
 	mkdir -p $(OUTPUT_DIR)
 	@case "$(BATCH_WORKERS)" in ''|*[!0-9]*) echo 'BATCH_WORKERS must be an integer from 1 through 30.' >&2; exit 2 ;; esac
 	@test "$(BATCH_WORKERS)" -ge 1 -a "$(BATCH_WORKERS)" -le 30 || (echo 'BATCH_WORKERS must be from 1 through 30.' >&2; exit 2)
-	@echo 'Phase 1/5: Refreshing the daily tracker.'
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker --lookback-days "$(TRACKER_LOOKBACK_DAYS)"
-	@echo 'Phase 2/5: Calculating the report workload before generation.'
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --skip-tracker-refresh --preflight-only --days-back "$(BATCH_DAYS_BACK)"
-	@echo 'Phase 3/5: Generating reports with $(BATCH_WORKERS) parallel workers.'
 	@set -u; \
+	batch_id=$$(docker run --rm --entrypoint python $(IMAGE) -c 'import uuid; print(uuid.uuid4())') || exit 1; \
+	test -n "$$batch_id" || exit 1; \
+	echo "WAS analyst batch ID: $$batch_id"; \
+	send_summary() { \
+		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+			-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
+			--entrypoint python $(IMAGE) -m was_reports.reporting.analyst_summaries \
+			--phase "$$1" --batch-id "$$batch_id" --days-back "$(BATCH_DAYS_BACK)" \
+			$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)"); \
+	}; \
+	echo 'Phase 1/5: Refreshing the daily tracker.'; \
+	if ! docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
+		$(IMAGE) was-update-tracker --lookback-days "$(TRACKER_LOOKBACK_DAYS)"; then \
+		send_summary final || true; exit 1; \
+	fi; \
+	echo 'Phase 2/5: Calculating workload and sending one tracker summary.'; \
+	if ! docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
+		$(IMAGE) --recent-scans --skip-tracker-refresh --preflight-only --days-back "$(BATCH_DAYS_BACK)"; then \
+		send_summary final || true; exit 1; \
+	fi; \
+	send_summary tracker || exit 1; \
+	echo 'Phase 3/5: Generating reports with $(BATCH_WORKERS) parallel workers.'; \
 	worker_pids=''; \
 	stop_workers() { \
 		if [ -n "$$worker_pids" ]; then kill $$worker_pids 2>/dev/null || true; fi; \
@@ -102,17 +121,11 @@ recent-scan-batch:
 	while [ "$$worker_index" -lt "$(BATCH_WORKERS)" ]; do \
 		echo "Starting WAS report container $$((worker_index + 1)) of $(BATCH_WORKERS)."; \
 		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-			-v $(OUTPUT_DIR):/output \
-			$(IMAGE) \
-			--recent-scans \
-			--skip-tracker-refresh \
-			--worker-count "$(BATCH_WORKERS)" \
-			--worker-index "$$worker_index" \
-			--create-missing-password \
-			--continue-on-error \
-			$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
-			--send-email \
-			$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") \
+			-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
+			$(IMAGE) --recent-scans --skip-tracker-refresh \
+			--worker-count "$(BATCH_WORKERS)" --worker-index "$$worker_index" \
+			--create-missing-password --continue-on-error --days-back "$(BATCH_DAYS_BACK)" \
+			--send-email $(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") \
 			--skip-ready-email-retry & \
 		worker_pids="$$worker_pids $$!"; \
 		worker_index=$$((worker_index + 1)); \
@@ -125,19 +138,13 @@ recent-scan-batch:
 	echo 'Phase 4/5: Report workers finished. Delivering completed reports once.'; \
 	mailer_status=0; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-		-v $(OUTPUT_DIR):/output \
-		--entrypoint was-mailer \
-		$(IMAGE) --all-ready --include-previous-failures \
-		$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
+		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
+		--entrypoint was-mailer $(IMAGE) --all-ready --include-previous-failures \
+		--days-back "$(BATCH_DAYS_BACK)" \
 		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || mailer_status=$$?; \
-	echo 'Phase 5/5: Report delivery finished. Sending assignee digests once.'; \
+	echo 'Phase 5/5: Sending one combined analyst batch summary.'; \
 	digest_status=0; \
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-		-v $(OUTPUT_DIR):/output \
-		--entrypoint was-mailer \
-		$(IMAGE) --assignee-digests --include-previous-failures \
-		$(if $(strip $(BATCH_DAYS_BACK)),--days-back "$(BATCH_DAYS_BACK)") \
-		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || digest_status=$$?; \
+	send_summary final || digest_status=$$?; \
 	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ] || [ "$$digest_status" -ne 0 ]; then \
 		echo 'Parallel WAS batch completed with one or more failures. Review local-output/logs.' >&2; \
 		exit 1; \
@@ -244,5 +251,6 @@ update-tracker-delete-apps:
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-update-tracker --delete-apps
 
 assignee-digests:
+	@test -n "$(BATCH_ID)" || (echo 'BATCH_ID is required for a combined batch summary.' >&2; exit 1)
 	mkdir -p $(OUTPUT_DIR)
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint ./worker/was-mailer-start.sh $(IMAGE) --assignee-digests --dry-run
+	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint python $(IMAGE) -m was_reports.reporting.analyst_summaries --phase final --batch-id "$(BATCH_ID)" --dry-run

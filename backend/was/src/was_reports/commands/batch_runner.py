@@ -6,15 +6,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
 import logging
+import os
 from pathlib import Path
 import subprocess  # nosec B404
 import sys
+from time import monotonic
 from tempfile import TemporaryDirectory, gettempdir
 from typing import List, Optional
+from uuid import uuid4
 
 # Third-Party Libraries
 from was_mailer.email_reports import (
-    send_ready_assignee_digests,
     send_ready_report_emails,
     send_report_run_email,
 )
@@ -382,6 +384,7 @@ def run_recent_scan_reports(
     worker_index: int | None = None,
     retry_ready_emails: bool = True,
     days_back: int | None = None,
+    analyst_batch_id: str | None = None,
 ) -> BatchExecutionSummary:
     """Generate and deliver reports for recent tracker rows with delivery gaps."""
     candidates = list_ready_report_candidates_from_db(
@@ -401,6 +404,19 @@ def run_recent_scan_reports(
     generated_count = 0
     sent_count = 0
     failed_count = 0
+    analyst_batch_id = analyst_batch_id or os.environ.get("WAS_ANALYST_BATCH_ID")
+    if send_assignee_digests and not dry_run_email:
+        analyst_batch_id = analyst_batch_id or str(uuid4())
+    if analyst_batch_id and not dry_run_email:
+        from was_reports.reporting import analyst_summaries
+
+        analyst_summaries.start_batch(analyst_batch_id)
+        if send_assignee_digests:
+            analyst_summaries.send_tracker_summary(
+                analyst_batch_id, candidate_ids=[candidate.id for candidate in candidates],
+                source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                override_recipients=test_recipients,
+            )
 
     if send_email and not include_manual and retry_ready_emails:
         raise_if_operation_cancelled()
@@ -412,187 +428,219 @@ def run_recent_scan_reports(
             days_back=days_back,
         )
 
-    for candidate_index, candidate in enumerate(candidates, start=1):
-        raise_if_operation_cancelled()
-        log_candidate_progress(
-            LOGGER,
-            candidate_index=candidate_index,
-            candidate_count=len(candidates),
-            stakeholder_tag=candidate.tag,
-        )
-        if candidate.report_run_status == "completed":
-            if candidate.report_run_id is None:
-                raise RuntimeError("Completed manual report run has no run id.")
+    try:
+        for candidate_index, candidate in enumerate(candidates, start=1):
+            attempt_started = None
+            generation_duration = 0.0
+            attempt_error = None
+            attempted = False
+            attempt_report_run_id = candidate.report_run_id
+            before_generated, before_sent = generated_count, sent_count
             try:
-                message_id = send_report_run_email(
-                    report_run_id=candidate.report_run_id,
-                    source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
-                    override_recipients=test_recipients,
-                    dry_run=dry_run_email,
-                    include_previous_failure=True,
+                raise_if_operation_cancelled()
+                log_candidate_progress(
+                    LOGGER,
+                    candidate_index=candidate_index,
+                    candidate_count=len(candidates),
+                    stakeholder_tag=candidate.tag,
                 )
-                if message_id or dry_run_email:
-                    sent_count += 1
-            except OperationCancelledError:
-                raise
-            except Exception as error:
-                failed_count += 1
-                LOGGER.error(
-                    "Manual WAS report email retry failed for tracker row %s: %s",
-                    candidate.id,
-                    exception_details(error),
+                if candidate.report_run_status == "completed":
+                    attempted = True
+                    if candidate.report_run_id is None:
+                        raise RuntimeError("Completed manual report run has no run id.")
+                    try:
+                        message_id = send_report_run_email(
+                            report_run_id=candidate.report_run_id,
+                            source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                            override_recipients=test_recipients,
+                            dry_run=dry_run_email,
+                            include_previous_failure=True,
+                        )
+                        if message_id or dry_run_email:
+                            sent_count += 1
+                    except OperationCancelledError:
+                        raise
+                    except Exception as error:
+                        attempt_error = type(error).__name__
+                        failed_count += 1
+                        LOGGER.error(
+                            "Manual WAS report email retry failed for tracker row %s: %s",
+                            candidate.id,
+                            exception_details(error),
+                        )
+                        if not continue_on_error:
+                            raise
+                    continue
+                report_run = create_report_run_for_tracker(
+                    stakeholder_tag=candidate.tag,
+                    source_tracker_id=candidate.id,
+                    enforce_automated_eligibility=not include_manual,
+                    days_back=days_back,
                 )
-                if not continue_on_error:
-                    raise
-            continue
-        report_run = create_report_run_for_tracker(
-            stakeholder_tag=candidate.tag,
-            source_tracker_id=candidate.id,
-            enforce_automated_eligibility=not include_manual,
-            days_back=days_back,
-        )
-        if report_run is None and include_manual:
-            report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
-        if report_run is None:
-            LOGGER.info(
-                "Skipping tracker row %s because it was claimed or is no longer eligible.",
-                candidate.id,
-            )
-            continue
+                if report_run is None and include_manual:
+                    report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
+                if report_run is None:
+                    LOGGER.info(
+                        "Skipping tracker row %s because it was claimed or is no longer eligible.",
+                        candidate.id,
+                    )
+                    continue
 
-        if candidate.template in NO_REPORT_TEMPLATES:
-            try:
-                complete_report_run_by_id(
-                    report_run.id,
-                    artifact_type="notification",
-                    generation_token=report_run.generation_token,
-                )
-                LOGGER.info(
-                    "Tracker row %s requires a %s notification without a PDF.",
-                    candidate.id,
-                    candidate.template,
-                )
+                attempted = True
+                attempt_report_run_id = report_run.id
+                attempt_started = monotonic()
+                if candidate.template in NO_REPORT_TEMPLATES:
+                    try:
+                        complete_report_run_by_id(
+                            report_run.id,
+                            artifact_type="notification",
+                            generation_token=report_run.generation_token,
+                        )
+                        generation_duration = monotonic() - attempt_started
+                        attempt_started = None
+                        LOGGER.info(
+                            "Tracker row %s requires a %s notification without a PDF.",
+                            candidate.id,
+                            candidate.template,
+                        )
+                        if send_email:
+                            raise_if_operation_cancelled()
+                            message_id = send_report_run_email(
+                                report_run_id=report_run.id,
+                                source_email=(source_email or require_env("WAS_EMAIL_SOURCE")),
+                                override_recipients=test_recipients,
+                                dry_run=dry_run_email,
+                            )
+                            if message_id or dry_run_email:
+                                sent_count += 1
+                    except OperationCancelledError:
+                        raise
+                    except Exception as error:
+                        attempt_error = type(error).__name__
+                        failed_count += 1
+                        LOGGER.error(
+                            "Notification completion or delivery is uncertain for run %s: %s",
+                            report_run.id,
+                            exception_details(error),
+                        )
+                        LOGGER.error(
+                            "WAS no-report notification failed for tracker row %s: %s",
+                            candidate.id,
+                            exception_details(error),
+                        )
+                        if not continue_on_error:
+                            raise
+                    continue
+
+                completion_attempted = False
+                try:
+                    with operation_heartbeat(
+                        heartbeat=partial(
+                            touch_report_run_by_id,
+                            report_run.id,
+                            generation_token=report_run.generation_token,
+                        ),
+                        operation_name="report run {} generation".format(report_run.id),
+                    ):
+                        output_reference = generate_report_output(
+                            report_run_id=report_run.id,
+                            generation_token=report_run.generation_token,
+                            stakeholder_tag=candidate.tag,
+                            resource_root=resource_root,
+                            python_executable=python_executable,
+                            create_missing_password=create_missing_password,
+                            output_directory=output_directory,
+                            storage_mode=resolved_storage_mode,
+                            staging_directory=staging_directory,
+                            tag_id=candidate.tag_id,
+                            organization_name=candidate.organization_name,
+                        )
+                    completion_attempted = True
+                    complete_report_run_by_id(
+                        report_run.id,
+                        generation_token=report_run.generation_token,
+                        output_path=output_reference,
+                        artifact_type="pdf",
+                    )
+                    generated_count += 1
+                    generation_duration = monotonic() - attempt_started
+                    attempt_started = None
+                except OperationCancelledError as exception:
+                    record_generation_failure(
+                        report_run,
+                        summarize_report_failure(exception),
+                        exception,
+                    )
+                    raise
+                except Exception as exception:
+                    attempt_error = type(exception).__name__
+                    failed_count += 1
+                    failure_summary = summarize_report_failure(exception)
+                    if not completion_attempted:
+                        record_generation_failure(report_run, failure_summary, exception)
+                    else:
+                        LOGGER.error(
+                            "Report completion is uncertain for run %s; retaining artifacts: "
+                            "%s",
+                            report_run.id,
+                            exception_details(exception),
+                        )
+                    LOGGER.error(
+                        "WAS report generation failed for tracker row %s and tag %s: %s",
+                        candidate.id,
+                        candidate.tag,
+                        exception_details(exception),
+                    )
+                    if not continue_on_error:
+                        raise
+                    continue
+
                 if send_email:
                     raise_if_operation_cancelled()
-                    message_id = send_report_run_email(
-                        report_run_id=report_run.id,
-                        source_email=(source_email or require_env("WAS_EMAIL_SOURCE")),
-                        override_recipients=test_recipients,
-                        dry_run=dry_run_email,
+                    try:
+                        message_id = send_report_run_email(
+                            report_run_id=report_run.id,
+                            source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                            override_recipients=test_recipients,
+                            dry_run=dry_run_email,
+                        )
+                        if message_id or dry_run_email:
+                            sent_count += 1
+                    except OperationCancelledError:
+                        raise
+                    except Exception as error:
+                        attempt_error = type(error).__name__
+                        failed_count += 1
+                        LOGGER.error(
+                            "WAS report email failed for tracker row %s and run id %s: %s",
+                            candidate.id,
+                            report_run.id,
+                            exception_details(error),
+                        )
+                        if not continue_on_error:
+                            raise
+
+            finally:
+                if analyst_batch_id and attempted and not dry_run_email:
+                    active_error = sys.exc_info()[1]
+                    analyst_summaries.record_report_attempt(
+                        analyst_batch_id, candidate.id,
+                        duration_seconds=(monotonic() - attempt_started
+                                          if attempt_started is not None else generation_duration),
+                        generated=generated_count > before_generated,
+                        sent=sent_count > before_sent,
+                        error=attempt_error or (type(active_error).__name__ if active_error else None),
+                        report_run_id=attempt_report_run_id,
                     )
-                    if message_id or dry_run_email:
-                        sent_count += 1
-            except OperationCancelledError:
-                raise
-            except Exception as error:
-                failed_count += 1
-                LOGGER.error(
-                    "Notification completion or delivery is uncertain for run %s: %s",
-                    report_run.id,
-                    exception_details(error),
-                )
-                LOGGER.error(
-                    "WAS no-report notification failed for tracker row %s: %s",
-                    candidate.id,
-                    exception_details(error),
-                )
-                if not continue_on_error:
-                    raise
-            continue
 
-        completion_attempted = False
-        try:
-            with operation_heartbeat(
-                heartbeat=partial(
-                    touch_report_run_by_id,
-                    report_run.id,
-                    generation_token=report_run.generation_token,
-                ),
-                operation_name="report run {} generation".format(report_run.id),
-            ):
-                output_reference = generate_report_output(
-                    report_run_id=report_run.id,
-                    generation_token=report_run.generation_token,
-                    stakeholder_tag=candidate.tag,
-                    resource_root=resource_root,
-                    python_executable=python_executable,
-                    create_missing_password=create_missing_password,
-                    output_directory=output_directory,
-                    storage_mode=resolved_storage_mode,
-                    staging_directory=staging_directory,
-                    tag_id=candidate.tag_id,
-                    organization_name=candidate.organization_name,
-                )
-            completion_attempted = True
-            complete_report_run_by_id(
-                report_run.id,
-                generation_token=report_run.generation_token,
-                output_path=output_reference,
-                artifact_type="pdf",
+    finally:
+        if send_assignee_digests and not dry_run_email:
+            LOGGER.info("Phase 5/5: Sending combined analyst batch summary.")
+            analyst_summaries.send_batch_summary(
+                analyst_batch_id,
+                source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                override_recipients=test_recipients,
             )
-            generated_count += 1
-        except OperationCancelledError as exception:
-            record_generation_failure(
-                report_run,
-                summarize_report_failure(exception),
-                exception,
-            )
-            raise
-        except Exception as exception:
-            failed_count += 1
-            failure_summary = summarize_report_failure(exception)
-            if not completion_attempted:
-                record_generation_failure(report_run, failure_summary, exception)
-            else:
-                LOGGER.error(
-                    "Report completion is uncertain for run %s; retaining artifacts: "
-                    "%s",
-                    report_run.id,
-                    exception_details(exception),
-                )
-            LOGGER.error(
-                "WAS report generation failed for tracker row %s and tag %s: %s",
-                candidate.id,
-                candidate.tag,
-                exception_details(exception),
-            )
-            if not continue_on_error:
-                raise
-            continue
-
-        if send_email:
-            raise_if_operation_cancelled()
-            try:
-                message_id = send_report_run_email(
-                    report_run_id=report_run.id,
-                    source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
-                    override_recipients=test_recipients,
-                    dry_run=dry_run_email,
-                )
-                if message_id or dry_run_email:
-                    sent_count += 1
-            except OperationCancelledError:
-                raise
-            except Exception as error:
-                failed_count += 1
-                LOGGER.error(
-                    "WAS report email failed for tracker row %s and run id %s: %s",
-                    candidate.id,
-                    report_run.id,
-                    exception_details(error),
-                )
-                if not continue_on_error:
-                    raise
-
-    if send_assignee_digests:
-        LOGGER.info("Phase 5/5: Sending ready assignee digests.")
-        raise_if_operation_cancelled()
-        send_ready_assignee_digests(
-            source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
-            override_recipients=test_recipients,
-            dry_run=dry_run_email,
-            days_back=days_back,
-        )
 
     summary = BatchExecutionSummary(
         candidates=len(candidates),
@@ -617,6 +665,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         description="Generate WAS reports for stakeholders whose schedule is due."
+    )
+    parser.add_argument(
+        "--analyst-batch-id", default=os.environ.get("WAS_ANALYST_BATCH_ID"),
+        help="Shared analyst-summary identity for all stages of one batch.",
     )
     parser.add_argument(
         "--resource-root",
@@ -814,12 +866,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not args.preflight_only:
             LOGGER.info("Recovering interrupted report operations before batch work.")
             recover_stale_report_operations_in_db()
+        analyst_batch_id = args.analyst_batch_id
+        if args.send_assignee_digests and not args.dry_run_email and not args.preflight_only:
+            analyst_batch_id = analyst_batch_id or str(uuid4())
         if not args.skip_tracker_refresh and not args.preflight_only:
             LOGGER.info("Updating the WAS daily report tracker.")
-            run_update_tracker(
-                delete_apps=False,
-                stakeholder_tag=stakeholder_tag,
-            )
+            tracker_options = {}
+            if args.dry_run_email:
+                tracker_options["summary_enabled"] = False
+            if analyst_batch_id and not args.dry_run_email:
+                tracker_options["analyst_batch_id"] = analyst_batch_id
+            try:
+                run_update_tracker(
+                    delete_apps=False,
+                    stakeholder_tag=stakeholder_tag,
+                    **tracker_options,
+                )
+            except Exception:
+                if args.send_assignee_digests and analyst_batch_id and not args.dry_run_email:
+                    from was_reports.reporting import analyst_summaries
+
+                    analyst_summaries.send_batch_summary(
+                        analyst_batch_id,
+                        source_email=args.source_email or require_env("WAS_EMAIL_SOURCE"),
+                        override_recipients=test_recipients,
+                    )
+                raise
         else:
             LOGGER.info("Using existing WAS daily report tracker rows.")
         if args.preflight_only:
@@ -841,6 +913,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "generation, or email delivery."
             )
             return 0
+        summary_options = {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
         summary = run_recent_scan_reports(
             resource_root=args.resource_root,
             python_executable=args.python_executable,
@@ -861,6 +934,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             worker_index=args.worker_index,
             retry_ready_emails=not args.skip_ready_email_retry,
             days_back=resolved_days_back,
+            **summary_options,
         )
         return 1 if summary.failed else 0
 

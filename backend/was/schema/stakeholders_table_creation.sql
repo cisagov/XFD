@@ -208,3 +208,30 @@ ALTER TABLE was_report_runs
 CREATE UNIQUE INDEX was_report_runs_source_tracker_id_uidx
     ON was_report_runs (source_tracker_id)
     WHERE source_tracker_id IS NOT NULL;
+
+CREATE TABLE was_batch_runs (
+    batch_id TEXT PRIMARY KEY,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tracker_duration_seconds DOUBLE PRECISION,
+    tracker_rows_updated BIGINT,
+    tracker_error TEXT,
+    tracker_summary_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (tracker_summary_status IN ('pending', 'sending', 'sent', 'held')),
+    tracker_summary_message_id TEXT,
+    final_summary_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (final_summary_status IN ('pending', 'sending', 'sent', 'held')),
+    final_summary_message_id TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE was_batch_report_attempts (
+    batch_id TEXT NOT NULL REFERENCES was_batch_runs(batch_id),
+    tracker_id BIGINT NOT NULL REFERENCES was_daily_report_tracker(id),
+    report_run_id BIGINT,
+    duration_seconds DOUBLE PRECISION NOT NULL CHECK (duration_seconds >= 0),
+    generated BOOLEAN NOT NULL,
+    sent BOOLEAN NOT NULL,
+    error TEXT,
+    attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (batch_id, tracker_id)
+);

@@ -867,12 +867,8 @@ class WasMailerTests(unittest.TestCase):
                 "--test-recipients",
                 "test@example.gov",
                 "--dry-run",
-                "--data-pull-date",
-                "2026-08-26",
-                "--limit",
-                "5",
-                "--days-back",
-                "30",
+                "--batch-id",
+                "batch-test",
             ]
         )
 
@@ -882,10 +878,11 @@ class WasMailerTests(unittest.TestCase):
             source_email="sender@example.gov",
             override_recipients="test@example.gov",
             dry_run=True,
-            data_pull_date=date(2026, 8, 26),
-            limit=5,
+            data_pull_date=None,
+            limit=None,
             include_previous_failures=False,
-            days_back=30,
+            days_back=None,
+            batch_id="batch-test",
         )
 
     @patch("was_mailer.email_reports.approved_analyst_recipients")
@@ -1143,20 +1140,39 @@ class DeliveryPolicyTests(unittest.TestCase):
             )
         self.assertFalse(finish.call_args.kwargs["uncertain"])
 
-    @patch("was_mailer.email_reports.list_ready_assignee_digests_from_db")
+    @patch("was_reports.reporting.analyst_summaries.send_batch_summary")
     @patch("was_mailer.email_reports.send_assignee_digest_email")
-    def test_digest_batch_continues_and_retries_are_explicit(self, send, listing):
-        """One failed item does not prevent delivery to the next assignee."""
-        listing.return_value = [self.digest(), self.digest()]
-        send.side_effect = [RuntimeError(), "message"]
+    def test_digest_batch_sends_one_shared_message(self, send, summary):
+        """The compatibility entrypoint never fans out individual emails."""
+        summary.return_value = "message"
         self.assertEqual(
             email_reports.send_ready_assignee_digests(
-                "sender@example.gov", include_previous_failures=True
+                "sender@example.gov", batch_id="batch-test"
             ),
             1,
         )
-        self.assertTrue(listing.call_args.kwargs["include_previous_failures"])
-        self.assertEqual(send.call_count, 2)
+        summary.assert_called_once_with(
+            "batch-test", "sender@example.gov", override_recipients=None, dry_run=False
+        )
+        send.assert_not_called()
+
+    @patch.dict(os.environ, {"WAS_ANALYST_BATCH_ID": "batch-test"})
+    @patch("was_reports.reporting.analyst_summaries.record_report_attempt")
+    @patch("was_mailer.email_reports.list_report_runs_ready_for_email_from_db")
+    @patch("was_mailer.email_reports.send_report_run_email")
+    def test_delivery_retry_is_included_in_shared_batch(self, send, listing, record):
+        """Include successful and failed delivery-only work without generation time."""
+        listing.return_value = [
+            SimpleNamespace(id=1, source_tracker_id=11),
+            SimpleNamespace(id=2, source_tracker_id=12),
+        ]
+        send.side_effect = [RuntimeError("private message"), "message"]
+        self.assertEqual(email_reports.send_ready_report_emails("sender@example.gov"), 1)
+        self.assertEqual(record.call_count, 2)
+        self.assertEqual(record.call_args_list[0].kwargs["error"], "RuntimeError")
+        self.assertFalse(record.call_args_list[0].kwargs["sent"])
+        self.assertTrue(record.call_args_list[1].kwargs["sent"])
+        self.assertEqual(record.call_args_list[1].kwargs["duration_seconds"], 0.0)
 
     @patch("was_mailer.email_reports.list_report_runs_ready_for_email_from_db")
     @patch("was_mailer.email_reports.send_report_run_email")
