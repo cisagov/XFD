@@ -653,7 +653,6 @@ class Cyber_Six:
         asset_alerts["Title"] = asset_alerts["Title"].str[:200]
         return asset_alerts
 
-
     def dark_web_bad_actors(self):
         """Get dark web bad actors."""
         dark_web_bad_actors = query_darkweb(
@@ -1146,7 +1145,6 @@ class Flare:
         flare_aliases = {}
         flare_domains = {}
         flare_ips = {}
-        flare_execs = {}
 
         if flare_key and flare_tenant_id:
             flare_api_auth = HTTPBasicAuth("", flare_key)
@@ -1206,7 +1204,7 @@ class Flare:
             event_idents_dict = {}
             for _, row in event_idents_df.iterrows():
                 event_idents_dict.update(row["related_identifiers_dict"])
-            group_idents_dict = flare_aliases | flare_domains | flare_ips 
+            group_idents_dict = flare_aliases | flare_domains | flare_ips
             extra_ident_keys = list(event_idents_dict.keys() - group_idents_dict.keys())
             flare_extra_idents = {
                 key: event_idents_dict[key]

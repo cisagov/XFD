@@ -503,6 +503,7 @@ class IdentifierFormattingTests(unittest.TestCase):
                 "type": "domain",
             }
         )
+
     @patch("{}.create_flare_identifer".format(MODULE))
     def test_create_ip_ident_builds_payload(self, mock_create):
         """An IP address should receive the expected Flare payload."""
@@ -699,7 +700,7 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             123,
         )
 
-        self.assertEqual(mocks["delete"].call_count, 4)
+        self.assertEqual(mocks["delete"].call_count, 3)
         deleted_values = {
             delete_call.args[0][0] for delete_call in mocks["delete"].call_args_list
         }
@@ -708,7 +709,6 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             {
                 "old agency",
                 "old.example.gov",
-                "old person",
                 "192.0.2.2",
             },
         )

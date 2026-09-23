@@ -441,7 +441,6 @@ def populate_sample_data():
                 },
             )
 
-
     # Create domain alert sample data
     org_inst = Organizations.objects.get(cyhy_db_name="DHS")
     root_inst = RootDomains.objects.get(
