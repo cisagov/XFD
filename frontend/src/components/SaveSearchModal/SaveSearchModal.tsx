@@ -22,6 +22,10 @@ interface SaveSearchModalProps {
   initialFilters: ContextType['filters'];
 }
 
+type SavedSearchResponse = {
+  result: SavedSearch[];
+};
+
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
     searchTerm,
@@ -71,7 +75,9 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       } else {
         await apiPost(ENDPOINTS.SAVED_SEARCHES, body);
       }
-      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
+      const updatedSearches = await apiGet<SavedSearchResponse>(
+        ENDPOINTS.SAVED_SEARCHES
+      ); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
