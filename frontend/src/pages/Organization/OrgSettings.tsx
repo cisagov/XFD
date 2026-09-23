@@ -25,6 +25,7 @@ import {
 } from 'types';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ListInput from './ListInput';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -43,6 +44,11 @@ type OrgSettingsProps = {
   organization: OrgSettingsType;
   setOrganization: Function;
   tags: AutocompleteType[];
+};
+
+type CheckDomainVerificationResponse = {
+  success: boolean;
+  organization?: OrganizationType;
 };
 
 export const OrgSettings: React.FC<OrgSettingsProps> = ({
@@ -91,8 +97,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
 
   const checkDomainVerification = async (domain: string) => {
     try {
-      const resp = await apiPost(
-        `/organizations/${organization.id}/checkDomainVerification`,
+      const resp = await apiPost<CheckDomainVerificationResponse>(
+        ENDPOINTS.ORGANIZATIONS_CHECK_DOMAIN_VERIFICATION.replace(
+          '{organization_id}',
+          organization.id
+        ),
         { body: { domain } }
       );
       if (resp.success && resp.organization) {
