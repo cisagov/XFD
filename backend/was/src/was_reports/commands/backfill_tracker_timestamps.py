@@ -75,8 +75,10 @@ def search_matching_scans(client, since: date, until: date,
         request = E.ServiceRequest(
             E.preferences(E.limitResults("1000"), E.startFromOffset(str(offset))),
             E.filters(
-                E.Criteria((lower_bound - timedelta(seconds=1)).isoformat(), field="launchedDate", operator="GREATER"),
-                E.Criteria(upper_bound.isoformat(), field="launchedDate", operator="LESSER"),
+                E.Criteria((lower_bound - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                           field="launchedDate", operator="GREATER"),
+                E.Criteria(upper_bound.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                           field="launchedDate", operator="LESSER"),
                 E.Criteria("VULNERABILITY", field="type", operator="EQUALS"),
             ),
         )

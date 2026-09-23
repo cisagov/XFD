@@ -95,3 +95,31 @@ class BackfillTests(unittest.TestCase):
         client.request.return_value = "<ServiceResponse><responseCode>FAILURE</responseCode></ServiceResponse>"
         with self.assertRaises(RuntimeError):
             backfill.search_matching_scans(client, date(2026, 9, 1), date(2026, 9, 1), set())
+
+    def test_search_window_uses_utc_z_and_eastern_dst_boundaries(self):
+        """Serialize API-compatible UTC bounds while retaining Eastern calendar days."""
+        windows = (
+            (date(2026, 8, 25), date(2026, 9, 23),
+             "2026-08-25T03:59:59Z", "2026-09-24T04:00:00Z"),
+            (date(2026, 1, 10), date(2026, 1, 11),
+             "2026-01-10T04:59:59Z", "2026-01-12T05:00:00Z"),
+            (date(2026, 3, 8), date(2026, 3, 8),
+             "2026-03-08T04:59:59Z", "2026-03-09T04:00:00Z"),
+            (date(2026, 11, 1), date(2026, 11, 1),
+             "2026-11-01T03:59:59Z", "2026-11-02T05:00:00Z"),
+        )
+        for since, until, expected_lower, expected_upper in windows:
+            with self.subTest(since=since, until=until):
+                client = MagicMock()
+                client.request.return_value = (
+                    "<ServiceResponse><responseCode>SUCCESS</responseCode>"
+                    "<count>0</count><data/></ServiceResponse>"
+                )
+                backfill.search_matching_scans(client, since, until, set())
+                payload = etree.fromstring(client.request.call_args.args[0].payload.encode())
+                bounds = {
+                    criterion.get("operator"): criterion.text
+                    for criterion in payload.findall("./filters/Criteria")
+                    if criterion.get("field") == "launchedDate"
+                }
+                self.assertEqual(bounds, {"GREATER": expected_lower, "LESSER": expected_upper})
