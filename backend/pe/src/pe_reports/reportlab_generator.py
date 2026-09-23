@@ -378,8 +378,48 @@ def report_gen(data_dict, soc_med_included=False):
         """Build static elements of the cover page."""
         canvas.saveState()
         canvas.drawImage(BASE_DIR + "/assets/Cover.png", 0, 0, width=None, height=None)
+
+        # Main title
         canvas.setFont("Franklin_Gothic_Medium_Regular", 32)
         canvas.drawString(50, 660, "Posture & Exposure Report")
+
+        # Alert text and badge
+        text_content = (
+            "<font name='Franklin_Gothic_Demi_Regular'>Notice:</font> "
+            "The Executive Alerts section will be removed from this report at the start of FY27 (October 1, 2026). "
+            "Your visibility into external exposures remains unchanged, and no action is required. "
+            "For questions, contact <a href='vulnerability@cisa.dhs.gov'><font color='#7ab9d5'><u>vulnerability@cisa.dhs.gov</u></font></a>."
+        )
+
+        badge_style = ParagraphStyle(
+            name="BadgeStyle",
+            fontName="Franklin_Gothic_Medium_Regular",
+            fontSize=10,
+            leading=12,
+            textColor="white",
+            alignment=0,
+        )
+
+        p = Paragraph(text_content, badge_style)
+
+        # Alert box layout calculations
+        right_margin = PAGE_WIDTH - 20
+        top_margin = PAGE_HEIGHT - 20
+        max_box_width = 300
+        p_width, p_height = p.wrap(max_box_width, PAGE_HEIGHT)
+        padding = 8
+        box_width = p_width + (padding * 2)
+        box_height = p_height + (padding * 2)
+        box_x = right_margin - box_width
+        box_y = top_margin - box_height
+
+        dhs_red = HexColor("#C41230")
+        canvas.setFillColor(dhs_red)
+        canvas.setStrokeColor(dhs_red)
+        canvas.rect(box_x, box_y, box_width, box_height, stroke=1, fill=1)
+
+        p.drawOn(canvas, box_x + padding, box_y + padding)
+
         canvas.restoreState()
 
     def summaryPage(canvas, doc):
