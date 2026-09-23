@@ -12,7 +12,6 @@ from home.models import (
     Cidrs,
     DataSource,
     DomainAlerts,
-    Executives,
     FlareEvents,
     FlareEventTypes,
     Ips,
@@ -442,43 +441,6 @@ def populate_sample_data():
                 },
             )
 
-    # Create executives
-    exec_list = [
-        {
-            "org_abbrv": "DHS_CISA",
-            "org_uid": org_objs.get("DHS_CISA"),
-            "prefix": "Mr.",
-            "first_name": "John",
-            "middle_initial": "A.",
-            "last_name": "Smith",
-            "suffix": "ii",
-            "last_modified": today,
-        },
-        {
-            "org_abbrv": "DHS",
-            "org_uid": org_objs.get("DHS"),
-            "prefix": "Ms.",
-            "first_name": "Jane",
-            "middle_initial": "B.",
-            "last_name": "Doe",
-            "suffix": "iii",
-            "last_modified": today,
-        },
-    ]
-    for exec in exec_list:
-        exec_obj, created = Executives.objects.update_or_create(
-            organizations_uid=exec.get("org_uid"),
-            first_name=exec.get("first_name"),
-            last_name=exec.get("last_name"),
-            defaults={
-                "executives_uid": uuid.uuid4,
-                "prefix": exec.get("prefix"),
-                "middle_initial": exec.get("middle_initial"),
-                "suffix": exec.get("suffix"),
-                "last_modified": exec.get("last_modified"),
-                "sixgill_id": "",
-            },
-        )
 
     # Create domain alert sample data
     org_inst = Organizations.objects.get(cyhy_db_name="DHS")
@@ -524,7 +486,6 @@ def populate_sample_data():
             "threat_actor_count": 0,
             "dark_web_alerts_count": 0,
             "dark_web_mentions_count": 0,
-            "dark_web_executive_alerts_count": 0,
             "pe_number_score": "NA",
             "pe_letter_grade": "NA",
             "pe_percent_score": 0.5,

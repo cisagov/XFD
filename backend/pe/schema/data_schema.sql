@@ -1718,7 +1718,6 @@ CREATE TABLE public.report_summary_stats (
 	threat_actor_count int4 NULL,
 	dark_web_alerts_count int4 NULL,
 	dark_web_mentions_count int4 NULL,
-	dark_web_executive_alerts_count int4 NULL,
 	dark_web_asset_alerts_count int4 NULL,
 	pe_number_score text NULL,
 	pe_letter_grade text NULL,
@@ -2538,27 +2537,6 @@ CREATE TABLE public.domain_permutations (
 );
 
 
--- public.executives definition
-
--- Drop table
-
--- DROP TABLE public.executives;
-
-CREATE TABLE public.executives (
-	executives_uid uuid DEFAULT uuid_generate_v1() NOT NULL,
-	organizations_uid uuid NOT NULL,
-	prefix text NULL,
-	first_name text NOT NULL,
-	middle_initial text NULL,
-	last_name text NOT NULL,
-	suffix text NULL,
-	last_modified date NOT NULL,
-	sixgill_id text NULL,
-	CONSTRAINT executives_pkey PRIMARY KEY (executives_uid),
-	CONSTRAINT executives_organizations_uid_fkey FOREIGN KEY (organizations_uid) REFERENCES public.organizations(organizations_uid)
-);
-
-
 -- public.flare_events definition
 
 -- Drop table
@@ -3175,7 +3153,7 @@ AS SELECT organizations_uid,
     title AS "Title",
     count(*) AS "Events"
    FROM alerts a
-  WHERE alert_name !~~ '%executive%'::text AND site IS NOT NULL AND site <> 'NaN'::text
+  WHERE site IS NOT NULL AND site <> 'NaN'::text
   GROUP BY site, title, organizations_uid
   ORDER BY (count(*)) DESC;
 
@@ -3189,7 +3167,7 @@ AS SELECT organizations_uid,
     title AS "Title",
     count(*) AS "Events"
    FROM alerts a
-  WHERE alert_name ~~ '%executive%'::text AND site IS NOT NULL AND site <> 'NaN'::text
+  WHERE site IS NOT NULL AND site <> 'NaN'::text
   GROUP BY site, title, organizations_uid
   ORDER BY (count(*)) DESC;
 

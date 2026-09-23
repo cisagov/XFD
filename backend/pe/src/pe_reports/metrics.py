@@ -585,16 +585,6 @@ class Cyber_Six:
         if len(dark_web_forum) > 0:
             name.append("DARK WEB FORUM")
             value.append(len(dark_web_forum))
-
-        alerts_exec = query_darkweb(
-            self.org_uid,
-            self.start_date,
-            self.end_date,
-            "vw_darkweb_execalerts",
-        )
-        if len(alerts_exec) > 0:
-            name.append("EXECUTIVES")
-            value.append(len(alerts_exec))
         if name:
             circle_df = pd.DataFrame({"Name": name, "Value": value})
             return circle_df
@@ -663,25 +653,6 @@ class Cyber_Six:
         asset_alerts["Title"] = asset_alerts["Title"].str[:200]
         return asset_alerts
 
-    def alerts_exec(self):
-        """Get top executive alerts."""
-        alerts_exec = query_darkweb(
-            self.org_uid,
-            self.start_date,
-            self.end_date,
-            "vw_darkweb_execalerts",
-        )
-        alerts_exec = alerts_exec.drop(
-            columns=["organizations_uid", "date"],
-            errors="ignore",
-        )
-        if not self.soc_med_included:
-            alerts_exec = alerts_exec[~alerts_exec["Site"].isin(self.soc_med_platforms)]
-        alerts_exec.sort_values(
-            by=["Events", "Title"], ascending=[False, True], inplace=True
-        )
-        alerts_exec["Title"] = alerts_exec["Title"].str[:200]
-        return alerts_exec
 
     def dark_web_bad_actors(self):
         """Get dark web bad actors."""
@@ -900,14 +871,12 @@ class Flare:
             self.flare_alias_dict,
             self.flare_domain_dict,
             self.flare_ip_dict,
-            self.flare_exec_dict,
             self.flare_extra_ident_dict,
         ] = self.get_flare_identifier_dicts(self.org_abbrv)
         self.flare_all_asset_dict = (
             self.flare_alias_dict
             | self.flare_domain_dict
             | self.flare_ip_dict
-            | self.flare_exec_dict
             | self.flare_extra_ident_dict
         )
         # Aggregate all Flare "mention" events (both social media and dark web)
@@ -926,15 +895,6 @@ class Flare:
         ]
         mentions = mentions.reset_index(drop=True)
         self.mentions = mentions
-        # Aggregate all Flare "executive alert" events (any events involving executive identifiers)
-        self.flare_exec_ids = list(self.flare_exec_dict.keys())
-        exec_events = self.all_events[
-            self.all_events["related_identifiers"].apply(
-                lambda x: any(item in x for item in self.flare_exec_ids)
-            )
-        ]
-        exec_events = exec_events.reset_index(drop=True)
-        self.exec_events = exec_events
         # Aggregate all Flare "asset alert" events (any events involving domain/ip identifiers)
         domain_ids = list(self.flare_domain_dict.keys())
         ip_ids = list(self.flare_ip_dict.keys())
@@ -947,7 +907,7 @@ class Flare:
         asset_events = asset_events.reset_index(drop=True)
         self.asset_events = asset_events
         # Aggregate all Flare "alert" events
-        # alert type events + executive alert events + asset alert events
+        # alert type events + asset alert events
         self.alert_event_types = [
             "bot",
             "bucket",
@@ -960,7 +920,7 @@ class Flare:
         alerts = self.all_events.loc[
             self.all_events["event_type"].isin(self.alert_event_types)
         ]
-        alerts = pd.concat([alerts, self.exec_events, self.asset_events], axis=0)
+        alerts = pd.concat([alerts, self.asset_events], axis=0)
         dedupe_cols = [
             item
             for item in alerts.columns.tolist()
@@ -1218,10 +1178,6 @@ class Flare:
                                 flare_ips[str(ident.get("id"))] = str(
                                     ident.get("value")
                                 )
-                            elif ident.get("type") == "identity":
-                                flare_execs[str(ident.get("id"))] = str(
-                                    ident.get("value")
-                                )
             else:
                 LOGGER.warning(
                     "Flare API token unavailable for %s; "
@@ -1250,7 +1206,7 @@ class Flare:
             event_idents_dict = {}
             for _, row in event_idents_df.iterrows():
                 event_idents_dict.update(row["related_identifiers_dict"])
-            group_idents_dict = flare_aliases | flare_domains | flare_ips | flare_execs
+            group_idents_dict = flare_aliases | flare_domains | flare_ips 
             extra_ident_keys = list(event_idents_dict.keys() - group_idents_dict.keys())
             flare_extra_idents = {
                 key: event_idents_dict[key]
@@ -1262,7 +1218,6 @@ class Flare:
             flare_aliases,
             flare_domains,
             flare_ips,
-            flare_execs,
             flare_extra_idents,
         ]
 
@@ -1430,33 +1385,6 @@ class Flare:
             ]
         alerts_asset["Title"] = alerts_asset["Title"].str[:200]
         return alerts_asset
-
-    def dark_web_alerts_exec(self):
-        """Get dark web events involving executive identifiers."""
-        # Identify events that involve executive leadership identifiers
-        exec_ids = self.flare_exec_ids
-        alerts_exec = self.exec_events
-        # Catch scenario where there are no executive alerts
-        if alerts_exec.empty:
-            return pd.DataFrame(columns=["Site", "Title", "Executive"])
-        alerts_exec = alerts_exec.explode("related_identifiers").reset_index(drop=True)
-        alerts_exec = alerts_exec[
-            alerts_exec["related_identifiers"].isin(exec_ids)
-        ].reset_index(drop=True)
-        alerts_exec = alerts_exec[["source", "title", "related_identifiers"]].rename(
-            columns={
-                "source": "Site",
-                "title": "Title",
-                "related_identifiers": "Executive",
-            }
-        )
-        # Replace executive IDs with actual names
-        alerts_exec["Executive"] = alerts_exec["Executive"].replace(
-            self.flare_exec_dict
-        )
-        alerts_exec.sort_values(by=["Executive"], ascending=True, inplace=True)
-        alerts_exec["Title"] = alerts_exec["Title"].str[:200]
-        return alerts_exec
 
     def dark_web_threat_actors(self):
         """Get the most active threat actors for the specified organization and report period."""
@@ -1666,15 +1594,6 @@ class Flare:
                 {
                     "Name": "DARK WEB FORUM",
                     "Value": len(dark_web_forum),
-                }
-            )
-        # Get count of executive alerts
-        alerts_exec = self.exec_events
-        if len(alerts_exec) > 0:
-            count_dicts.append(
-                {
-                    "Name": "EXECUTIVES",
-                    "Value": len(alerts_exec),
                 }
             )
         # Return results

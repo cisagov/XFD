@@ -28,7 +28,6 @@ from home.models import (
     VwBreachcompBreachdetails,
     VwBreachcompCredsbydate,
     VwDarkwebAssetalerts,
-    VwDarkwebExecalerts,
     VwDarkwebInviteonlymarkets,
     VwDarkwebMentionsbydate,
     VwDarkwebMostactposts,
@@ -556,19 +555,6 @@ def darkweb_data(data: schemas.DarkWebDataInput, tokens: str = Depends(verify_ap
                 )
                 row["date"] = convert_date_to_string(row["date"])
             return mostactposts
-        elif data.table == "vw_darkweb_execalerts":
-            execalerts = list(
-                VwDarkwebExecalerts.objects.filter(
-                    organizations_uid=data.org_uid, date__range=(sdate, edate)
-                ).values()
-            )
-            # Make fields serializable
-            for row in execalerts:
-                row["organizations_uid"] = convert_uuid_to_string(
-                    row["organizations_uid"]
-                )
-                row["date"] = convert_date_to_string(row["date"])
-            return execalerts
         elif data.table == "vw_darkweb_assetalerts":
             assetalerts = list(
                 VwDarkwebAssetalerts.objects.filter(
@@ -696,7 +682,6 @@ def rss_insert(data: schemas.RSSInsertInput, tokens: str = Depends(verify_api_ke
                 threat_actor_count=data.threat_actor_count,
                 dark_web_alerts_count=data.dark_web_alerts_count,
                 dark_web_mentions_count=data.dark_web_mentions_count,
-                dark_web_executive_alerts_count=data.dark_web_executive_alerts_count,
                 dark_web_asset_alerts_count=data.dark_web_asset_alerts_count,
                 pe_number_score=data.pe_number_score,
                 pe_letter_grade=data.pe_letter_grade,
@@ -728,7 +713,6 @@ def rss_insert(data: schemas.RSSInsertInput, tokens: str = Depends(verify_api_ke
                 threat_actor_count=data.threat_actor_count,
                 dark_web_alerts_count=data.dark_web_alerts_count,
                 dark_web_mentions_count=data.dark_web_mentions_count,
-                dark_web_executive_alerts_count=data.dark_web_executive_alerts_count,
                 dark_web_asset_alerts_count=data.dark_web_asset_alerts_count,
                 pe_number_score=data.pe_number_score,
                 pe_letter_grade=data.pe_letter_grade,

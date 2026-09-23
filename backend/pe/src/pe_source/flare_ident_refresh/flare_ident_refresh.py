@@ -11,7 +11,6 @@ import aioping
 import pandas as pd
 from pe_source.data.db_query_source import (
     get_current_ips_by_org,
-    get_execs_by_org_uid,
     get_orgs,
     org_root_domains,
 )
@@ -228,23 +227,6 @@ def get_resp_ips_by_org_abbrv(org_abbrv):
     return resp_ip_df
 
 
-def format_exec_data(exec_list):
-    """Perform additional formatting for executive data for Flare registration."""
-    formatted_list = []
-    # Iterate over each executive in list
-    for exec in exec_list:
-        # Split into first and last names
-        name_parts = exec.split()
-        # Parse first/last name
-        name_dict = {
-            "first_name": string.capwords(name_parts[0].replace("-", " ")),
-            "last_name": string.capwords(name_parts[1].replace("-", " ")),
-        }
-        formatted_list.append(name_dict)
-    # Return formatted executive list
-    return formatted_list
-
-
 def create_flare_identifer(payload):
     """Create an identifier within Flare given the specified payload."""
     flare_token = get_flare_token()
@@ -298,27 +280,6 @@ def create_domain_ident(domain_list, ident_group_id):
             "type": "domain",
         }
         # Add domain to flare
-        create_flare_identifer(payload)
-
-
-def create_exec_ident(exec_list, ident_group_id):
-    """Create a new executive Flare identifier and add it to the specified group."""
-    # Iterate over each executive
-    for exec in exec_list:
-        first_name = exec.get("first_name")
-        last_name = exec.get("last_name")
-        payload = {
-            "assets_group_id": ident_group_id,
-            "data": {
-                "first_name": first_name,
-                "last_name": last_name,
-                "is_strict": True,
-            },
-            "name": f"{first_name} {last_name}",
-            "search_types": ["illicit_networks", "open_web"],
-            "type": "name",
-        }
-        # Add executive to flare
         create_flare_identifer(payload)
 
 
@@ -412,7 +373,6 @@ def run_flare_ident_refresh(orgs_list):
             org_name = org["name"]
             roots_resp = org_root_domains(org_uid)
             roots_df = pd.DataFrame(roots_resp)
-            execs_df = get_execs_by_org_uid(org_uid)
             ips_df = get_resp_ips_by_org_abbrv(org_abbrv)
             # Retrieve org's current identifiers in Flare
             LOGGER.info(f"Retrieving current flare identifiers for {org_abbrv}")
@@ -437,34 +397,6 @@ def run_flare_ident_refresh(orgs_list):
             flare_roots = {item.lower().strip() for item in flare_roots}
             roots_create = list(pe_roots - flare_roots)
             roots_delete = list(flare_roots - pe_roots)
-            # Keep track of multi-part hyphenated first/last executive names
-            hyph_dict = {}
-            for idx, exec in execs_df.iterrows():
-                if ("-" in exec["first_name"]) or ("-" in exec["last_name"]):
-                    name_hyphen = exec["first_name"] + " " + exec["last_name"]
-                    name_no_hyphen = (
-                        exec["first_name"].replace("-", " ")
-                        + " "
-                        + exec["last_name"].replace("-", " ")
-                    )
-                    hyph_dict[name_no_hyphen.lower()] = name_hyphen.lower()
-            # Calculating which executive names to create/delete
-            execs_df["full_name"] = (
-                execs_df["first_name"].replace("-", " ", regex=True)
-                + " "
-                + execs_df["last_name"].replace("-", " ", regex=True)
-            ).str.strip()
-            pe_execs = execs_df["full_name"].to_list()
-            pe_execs = {item.lower().strip() for item in pe_execs}
-            flare_execs = group_idents_df[group_idents_df["type"] == "name"][
-                "value"
-            ].to_list()
-            flare_execs = {item.lower().strip() for item in flare_execs}
-            execs_create = list(pe_execs - flare_execs)
-            execs_delete = list(flare_execs - pe_execs)
-            # Replace hyphens for Flare API formatting
-            execs_create = [hyph_dict.get(item, item) for item in execs_create]
-            execs_delete = [hyph_dict.get(item, item) for item in execs_delete]
             # Calculating which IPs to create/delete
             pe_ips = ips_df["ip"].to_list()
             pe_ips = {item.lower().strip() for item in pe_ips}
@@ -485,10 +417,6 @@ def run_flare_ident_refresh(orgs_list):
             LOGGER.info(f"flare_roots: {flare_roots}")
             LOGGER.info(f"roots to create: {roots_create}")
             LOGGER.info(f"roots to delete: {roots_delete}\n")
-            LOGGER.info(f"pe_execs: {pe_execs}")
-            LOGGER.info(f"flare_execs: {flare_execs}")
-            LOGGER.info(f"execs to create: {execs_create}")
-            LOGGER.info(f"execs to delete: {execs_delete}\n")
             LOGGER.info(f"pe_ips (responsive): {pe_ips}")
             LOGGER.info(f"flare_ips: {flare_ips}")
             LOGGER.info(f"ips to create: {ips_create}")
@@ -502,10 +430,6 @@ def run_flare_ident_refresh(orgs_list):
                 create_keyword_ident(keywords_create, ident_group_info.get("id"))
             if len(roots_create) > 0:
                 create_domain_ident(roots_create, ident_group_info.get("id"))
-            if len(execs_create) > 0:
-                # Extra formatting for executive data
-                execs_create = format_exec_data(execs_create)
-                create_exec_ident(execs_create, ident_group_info.get("id"))
             if len(ips_create) > 0:
                 create_ip_ident(ips_create, ident_group_info.get("id"))
 
@@ -517,8 +441,6 @@ def run_flare_ident_refresh(orgs_list):
                 delete_ident_list(keywords_delete, group_idents_df)
             if len(roots_delete) > 0:
                 delete_ident_list(roots_delete, group_idents_df)
-            if len(execs_delete) > 0:
-                delete_ident_list(execs_delete, group_idents_df)
             if len(ips_delete) > 0:
                 delete_ident_list(ips_delete, group_idents_df)
 

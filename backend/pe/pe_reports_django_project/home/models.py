@@ -774,28 +774,6 @@ class DotgovDomains(models.Model):
         db_table = "dotgov_domains"
 
 
-class Executives(models.Model):
-    """Define Executives model."""
-
-    executives_uid = models.UUIDField(primary_key=True)
-    organizations_uid = models.ForeignKey(
-        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
-    )
-    prefix = models.TextField(blank=True, null=True)
-    first_name = models.TextField(blank=True, null=True)
-    middle_initial = models.TextField(blank=True, null=True)
-    last_name = models.TextField(blank=True, null=True)
-    suffix = models.TextField(blank=True, null=True)
-    last_modified = models.DateField(blank=True, null=True)
-    sixgill_id = models.TextField(blank=True, null=True)
-
-    class Meta:
-        """Set Executives model metadata."""
-
-        managed = False
-        db_table = "executives"
-
-
 class Ips(models.Model):
     """Define Ips model."""
 
@@ -1096,7 +1074,6 @@ class ReportSummaryStats(models.Model):
     threat_actor_count = models.IntegerField(blank=True, null=True)
     dark_web_alerts_count = models.IntegerField(blank=True, null=True)
     dark_web_mentions_count = models.IntegerField(blank=True, null=True)
-    dark_web_executive_alerts_count = models.IntegerField(blank=True, null=True)
     dark_web_asset_alerts_count = models.IntegerField(blank=True, null=True)
     pe_number_score = models.TextField(blank=True, null=True)
     pe_letter_grade = models.TextField(blank=True, null=True)
@@ -1709,28 +1686,6 @@ class VwDarkwebAssetalerts(models.Model):
 
         managed = False  # Created from a view. Don't remove.
         db_table = "vw_darkweb_assetalerts"
-
-
-class VwDarkwebExecalerts(models.Model):
-    """Define VwDarkwebExecalerts model."""
-
-    organizations_uid = models.UUIDField(primary_key=True)
-    date = models.DateField(blank=True, null=True)
-    site = models.TextField(
-        db_column="Site", blank=True, null=True
-    )  # Field name made lowercase.
-    title = models.TextField(
-        db_column="Title", blank=True, null=True
-    )  # Field name made lowercase.
-    events = models.BigIntegerField(
-        db_column="Events", blank=True, null=True
-    )  # Field name made lowercase.
-
-    class Meta:
-        """Set VwDarkwebExecalerts model metadata."""
-
-        managed = False  # Created from a view. Don't remove.
-        db_table = "vw_darkweb_execalerts"
 
 
 class VwDarkwebThreatactors(models.Model):
