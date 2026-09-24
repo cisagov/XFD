@@ -47,15 +47,15 @@ const LoginButton = () => {
   );
 };
 
-type Notifications = [];
-
 export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   const { apiGet } = useAuthContext();
   const [notification, setNotification] =
     React.useState<MaintenanceNotification | null>(null);
   const fetchNotifications = React.useCallback(async () => {
     try {
-      const rows = await apiGet<Notifications>(ENDPOINTS.NOTIFICATIONS);
+      const rows = await apiGet<MaintenanceNotification[]>(
+        ENDPOINTS.NOTIFICATIONS
+      );
       // Updated maintenance window banner check
       const now = new Date();
       const activeRow = rows.find((row: MaintenanceNotification) => {
