@@ -18,11 +18,7 @@ import Place from '@mui/icons-material/Place';
 import Public from '@mui/icons-material/Public';
 import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
-import {
-  PendingDomain,
-  Organization as OrganizationType,
-  OrganizationTag
-} from 'types';
+import { Organization as OrganizationType, OrganizationTag } from 'types';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ListInput from './ListInput';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -31,17 +27,8 @@ interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
 }
 
-interface OrgSettingsType extends Partial<OrganizationType> {
-  id: any;
-  granular_scans: any;
-  root_domains: string[];
-  ip_blocks: string[];
-  tags: OrganizationTag[];
-  pending_domains: PendingDomain[];
-}
-
 type OrgSettingsProps = {
-  organization: OrgSettingsType;
+  organization: OrganizationType;
   setOrganization: Function;
   tags: AutocompleteType[];
 };
@@ -153,7 +140,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
       setIsSaveDisabled(false);
       setLocalTags(localTags);
     } else if (dialog.type && inputValue) {
-      const key = dialog.type as keyof OrgSettingsType;
+      const key = dialog.type as keyof OrganizationType;
       const updated = [
         ...(organization[key] as string[]),
         ...inputValue.split(',').map((e) => e.trim())
@@ -204,7 +191,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           </>
         );
       case 'root_domains':
-        if (dialog.stage === 1) {
+        if (dialog.stage === 1 && organization.pending_domains) {
           return (
             <>
               <DialogContentText>
@@ -213,11 +200,14 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               </DialogContentText>
               <TextField
                 fullWidth
-                value={
-                  organization.pending_domains.find(
-                    (d) => d.name === inputValue
-                  )?.token || ''
-                }
+                value={(() => {
+                  const found = organization?.pending_domains?.find((d) =>
+                    typeof d === 'string'
+                      ? d === inputValue
+                      : d?.name === inputValue
+                  );
+                  return found && typeof found === 'object' ? found.token : '';
+                })()}
                 onFocus={(e) => e.target.select()}
               />
               {dialog.domainVerificationStatusMessage && (
