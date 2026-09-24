@@ -19,6 +19,7 @@ from xml.etree import ElementTree
 # Third-Party Libraries
 import requests
 from was_reports.utils.env import getenv
+from was_reports.utils.capacity_telemetry import emit_metric
 from was_reports.utils.logging_config import exception_details
 from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
@@ -475,12 +476,38 @@ class QualysClient:
         raise_if_operation_cancelled()
         started = time.monotonic()
         LOGGER.info("Requesting Qualys %s.", qualys_request.endpoint)
+        attempt_number = 0
+
+        def perform_request() -> str:
+            """Measure each HTTP attempt without recording payloads or credentials."""
+            nonlocal attempt_number
+            attempt_number += 1
+            attempt_started = time.monotonic()
+            outcome = "success"
+            http_status = None
+            try:
+                return self._request_once(qualys_request)
+            except Exception as error:
+                outcome = type(error).__name__
+                response = getattr(error, "response", None)
+                http_status = getattr(response, "status_code", None)
+                raise
+            finally:
+                emit_metric(
+                    "qualys_attempt",
+                    endpoint=urlsplit(qualys_request.endpoint).path,
+                    attempt_number=attempt_number,
+                    duration_seconds=time.monotonic() - attempt_started,
+                    outcome=outcome,
+                    http_status=http_status,
+                )
+
         try:
             if not is_retry_safe(qualys_request):
-                result = self._request_once(qualys_request)
+                result = perform_request()
             else:
                 result = execute_retryable_operation(
-                    operation=lambda: self._request_once(qualys_request),
+                    operation=perform_request,
                     operation_name=qualys_request.endpoint,
                     policy=self._retry_policy,
                     sleep_function=self._sleep_function,

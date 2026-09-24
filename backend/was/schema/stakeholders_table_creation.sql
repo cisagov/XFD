@@ -240,6 +240,11 @@ CREATE UNIQUE INDEX was_report_runs_source_tracker_id_uidx
 CREATE TABLE was_batch_runs (
     batch_id TEXT PRIMARY KEY,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    worker_count INTEGER NOT NULL DEFAULT 1 CHECK (worker_count > 0),
+    run_mode TEXT NOT NULL DEFAULT 'production' CHECK (run_mode IN ('production', 'capacity')),
+    workload_label VARCHAR(200),
+    outcome TEXT CHECK (outcome IN ('completed', 'failed')),
     tracker_duration_seconds DOUBLE PRECISION,
     tracker_rows_updated BIGINT,
     tracker_error TEXT,
@@ -261,6 +266,9 @@ CREATE TABLE was_batch_report_attempts (
     sent BOOLEAN NOT NULL,
     error TEXT,
     attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    delivery_duration_seconds DOUBLE PRECISION CHECK (delivery_duration_seconds >= 0),
+    artifact_type TEXT CHECK (artifact_type IN ('pdf', 'notification')),
+    sent_recorded_at TIMESTAMPTZ,
     PRIMARY KEY (batch_id, tracker_id)
 );
 

@@ -8,6 +8,7 @@ from functools import partial
 import logging
 from pathlib import Path
 import sys
+from time import monotonic
 from typing import List, Optional
 from uuid import uuid4
 
@@ -308,6 +309,7 @@ def send_ready_report_emails(
     include_previous_failures: bool = False,
     stakeholder_tag: Optional[str] = None,
     days_back: Optional[int] = None,
+    analyst_batch_id: Optional[str] = None,
 ) -> int:
     """Send all completed WAS report runs that are ready for email delivery."""
     report_runs = list_report_runs_ready_for_email_from_db(
@@ -321,6 +323,7 @@ def send_ready_report_emails(
     for report_run in report_runs:
         message_id = None
         delivery_error = None
+        delivery_started = monotonic()
         try:
             message_id = send_report_run_email(
                 report_run_id=report_run.id,
@@ -338,7 +341,7 @@ def send_ready_report_emails(
             )
             continue
         finally:
-            batch_id = getenv("WAS_ANALYST_BATCH_ID")
+            batch_id = analyst_batch_id or getenv("WAS_ANALYST_BATCH_ID")
             tracker_id = getattr(report_run, "source_tracker_id", None)
             if batch_id and tracker_id is not None and not dry_run:
                 from was_reports.reporting.analyst_summaries import record_report_attempt
@@ -347,6 +350,8 @@ def send_ready_report_emails(
                     batch_id, tracker_id, duration_seconds=0.0,
                     generated=False, sent=bool(message_id), error=delivery_error,
                     report_run_id=report_run.id,
+                    delivery_duration_seconds=monotonic() - delivery_started,
+                    artifact_type=getattr(report_run, "artifact_type", None),
                 )
         if message_id or dry_run:
             sent_count += 1

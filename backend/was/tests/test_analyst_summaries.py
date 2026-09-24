@@ -151,7 +151,7 @@ class AnalystSummaryTests(unittest.TestCase):
         self, execute, rows, deliver
     ):
         """Ordinary report details stay in the CSV, not the final email body."""
-        execute.side_effect = [[(90, 10, None)], [(12, True, True, None)]]
+        execute.side_effect = [[(90, 10, None, 2, "capacity", "fixture", "finished", "completed")], [(12, True, True, None, "pdf", 2)]]
         rows.return_value = [
             {"id": 1, "tag": "ORDINARY", "open_manual": False},
             {
@@ -168,6 +168,61 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertIn("Analyst: tracker 2; tag MANUAL", body)
         self.assertIn("sent: 1; unsent: 0", body)
         self.assertEqual(len(deliver.call_args.args[5]), 2)
+
+    @patch.object(summaries, "_execute")
+    def test_batch_context_and_completion_are_insert_once(self, execute):
+        """Workers cannot reset the coordinator context or completion clock."""
+        summaries.start_batch("batch", 4, "capacity", "same-workload")
+        self.assertEqual(execute.call_args.args[1], ("batch", 4, "capacity", "same-workload"))
+        self.assertIn("ON CONFLICT (batch_id) DO NOTHING", execute.call_args.args[0])
+        summaries.finish_batch("batch", "failed")
+        self.assertIn("finished_at IS NULL", execute.call_args.args[0])
+        self.assertEqual(execute.call_args.args[1], ("failed", "batch"))
+        with self.assertRaises(ValueError):
+            summaries.start_batch("batch", 0)
+
+    @patch.object(summaries, "_execute")
+    def test_delivery_acceptance_is_persisted_with_first_timestamp(self, execute):
+        """Delivery recording persists acceptance and retains its first time."""
+        summaries.record_report_attempt("batch", 1, 0, sent=True,
+                                        delivery_duration_seconds=2.5, artifact_type="pdf")
+        query, parameters = execute.call_args.args
+        self.assertIn("sent_recorded_at=COALESCE", query)
+        self.assertEqual(parameters[-3:], (2.5, "pdf", True))
+        with self.assertRaises(ValueError):
+            summaries.record_report_attempt("batch", 1, 0, delivery_duration_seconds=-1)
+
+    @patch.object(summaries, "_deliver", return_value=True)
+    @patch.object(summaries, "_tracker_rows", return_value=[])
+    @patch.object(summaries, "_execute")
+    def test_capacity_metrics_exclude_zero_timings_and_tracker_sent_dates(self, execute, rows, deliver):
+        """Stable batch wall time and explicit attempts determine throughput."""
+        execute.side_effect = [
+            [(120, 10, None, 4, "capacity", "fixture", "finished", "completed")],
+            [(10, True, True, None, "pdf", 2),
+             (30, False, False, "Error", "pdf", None),
+             (0.1, False, True, None, "notification", 1)],
+        ]
+        summaries.send_batch_summary("batch", "from@example.gov")
+        body = deliver.call_args.args[4]
+        self.assertIn("PDF generation median: 20.0; p95 (nearest rank): 30.0", body)
+        self.assertIn("Average PDF generation time (timed PDF attempts): 20.00 seconds", body)
+        self.assertIn("Sum of recorded per-report artifact preparation durations: 40.10 seconds", body)
+        self.assertIn("Accepted deliveries per minute: 1.00", body)
+        self.assertIn("Accepted deliveries per hour: 60.00", body)
+        self.assertIn("PDFs generated: 1; notifications generated: 1", body)
+        self.assertIn("sent: 2; unsent: 1", body)
+        self.assertNotIn("report_sent_date", execute.call_args_list[1].args[0])
+        self.assertIn("COALESCE(finished_at,now())", execute.call_args_list[0].args[0])
+
+    @patch.object(summaries, "send_batch_summary")
+    @patch.object(summaries, "finish_batch")
+    def test_final_cli_preserves_failed_coordinator_outcome(self, finish, summary):
+        """Failed worker phases cannot become completed through final reporting."""
+        summaries.main(["--phase", "final", "--batch-id", "batch",
+                        "--source-email", "from@example.gov", "--outcome", "failed"])
+        finish.assert_called_once_with("batch", "failed")
+        summary.assert_called_once()
 
     @patch.object(summaries, "_execute", return_value=[])
     def test_manual_query_includes_unassigned_and_open_historical_rows(self, execute):

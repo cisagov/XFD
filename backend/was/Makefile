@@ -25,6 +25,9 @@ REPLAY_ID ?=
 REPORT_RUN_IDS ?=
 MANUAL_TRACKER_IDS ?=
 APPLY ?= 0
+CAPACITY_RUN_ID ?=
+CAPACITY_WORKLOAD_LABEL ?=
+CAPACITY_EXPECTED_CANDIDATES ?= 600
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
 INPUT_XLSX ?=
@@ -75,6 +78,30 @@ stakeholders-help:
 
 .PHONY: recent-scan-batch-preflight recent-scan-batch-preflight-local
 
+.PHONY: capacity-test capacity-database-reset
+
+capacity-database-reset:
+	@set -- --output-directory /output/capacity-database-resets; \
+	case "$(APPLY)" in 0) ;; 1) mkdir -p "$(OUTPUT_DIR)"; set -- "$$@" --apply ;; \
+	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" \
+	  $(if $(filter 1,$(APPLY)),-v "$(OUTPUT_DIR):/output") \
+	  --entrypoint python $(IMAGE) \
+	  -m was_reports.commands.capacity_database_reset "$$@"
+
+capacity-test:
+	@test -n "$(CAPACITY_RUN_ID)" -a -n "$(CAPACITY_WORKLOAD_LABEL)" || (echo 'Set CAPACITY_RUN_ID to a new UUID and CAPACITY_WORKLOAD_LABEL to the clone baseline.' >&2; exit 2)
+	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to approved test recipients.' >&2; exit 2)
+	@set -- --run-id "$(CAPACITY_RUN_ID)" --workload-label "$(CAPACITY_WORKLOAD_LABEL)" \
+	  --workers "$(BATCH_WORKERS)" --expected-candidates "$(CAPACITY_EXPECTED_CANDIDATES)" \
+	  --days-back "$(BATCH_DAYS_BACK)" --lookback-days "$(TRACKER_LOOKBACK_DAYS)" \
+	  --test-recipients "$(TEST_RECIPIENTS)"; \
+	case "$(APPLY)" in 0) ;; 1) mkdir -p "$(OUTPUT_DIR)"; set -- "$$@" --apply ;; \
+	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" \
+	  -v "$(OUTPUT_DIR):/output" --entrypoint python $(IMAGE) \
+	  -m was_reports.commands.capacity_test "$$@"
+
 .PHONY: report-alignment-diagnostic-local
 
 report-alignment-diagnostic-local:
@@ -97,24 +124,27 @@ recent-scan-batch:
 	echo "WAS analyst batch ID: $$batch_id"; \
 	send_summary() { \
 		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+			-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
 			-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
 			--entrypoint python $(IMAGE) -m was_reports.reporting.analyst_summaries \
-			--phase "$$1" --batch-id "$$batch_id" --days-back "$(BATCH_DAYS_BACK)" \
+			--phase "$$1" --outcome "$${2:-completed}" --batch-id "$$batch_id" --days-back "$(BATCH_DAYS_BACK)" \
 			$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)"); \
 	}; \
 	echo 'Phase 1/5: Refreshing the daily tracker.'; \
 	if ! docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
 		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
 		$(IMAGE) was-update-tracker --lookback-days "$(TRACKER_LOOKBACK_DAYS)"; then \
-		send_summary final || true; exit 1; \
+		send_summary final failed || true; exit 1; \
 	fi; \
 	echo 'Phase 2/5: Calculating workload and sending one tracker summary.'; \
 	if ! docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
 		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
 		$(IMAGE) --recent-scans --skip-tracker-refresh --preflight-only --days-back "$(BATCH_DAYS_BACK)"; then \
-		send_summary final || true; exit 1; \
+		send_summary final failed || true; exit 1; \
 	fi; \
-	send_summary tracker || exit 1; \
+	send_summary tracker || { send_summary final failed || true; exit 1; }; \
 	echo 'Phase 3/5: Generating reports with $(BATCH_WORKERS) parallel workers.'; \
 	worker_pids=''; \
 	stop_workers() { \
@@ -125,6 +155,7 @@ recent-scan-batch:
 	while [ "$$worker_index" -lt "$(BATCH_WORKERS)" ]; do \
 		echo "Starting WAS report container $$((worker_index + 1)) of $(BATCH_WORKERS)."; \
 		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+			-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
 			-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
 			$(IMAGE) --recent-scans --skip-tracker-refresh \
 			--worker-count "$(BATCH_WORKERS)" --worker-index "$$worker_index" \
@@ -142,13 +173,16 @@ recent-scan-batch:
 	echo 'Phase 4/5: Report workers finished. Delivering completed reports once.'; \
 	mailer_status=0; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
+		-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
 		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
 		--entrypoint was-mailer $(IMAGE) --all-ready --include-previous-failures \
 		--days-back "$(BATCH_DAYS_BACK)" \
 		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || mailer_status=$$?; \
 	echo 'Phase 5/5: Sending one combined analyst batch summary.'; \
 	digest_status=0; \
-	send_summary final || digest_status=$$?; \
+	batch_outcome=completed; \
+	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ]; then batch_outcome=failed; fi; \
+	send_summary final "$$batch_outcome" || digest_status=$$?; \
 	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ] || [ "$$digest_status" -ne 0 ]; then \
 		echo 'Parallel WAS batch completed with one or more failures. Review local-output/logs.' >&2; \
 		exit 1; \

@@ -7,6 +7,7 @@ from html.parser import HTMLParser
 import io
 import logging
 import math
+import statistics
 
 from was_mailer.message import approved_analyst_recipients
 from was_mailer.ses_client import create_ses_client
@@ -18,6 +19,7 @@ from was_reports.data.daily_report_tracker import (
 )
 from was_reports.reporting.report_transformer import spreadsheet_safe_field
 from was_reports.utils.database import connect
+from was_reports.utils.capacity_telemetry import emit_metric
 from was_reports.utils.env import getenv
 
 LOGGER = logging.getLogger(__name__)
@@ -63,14 +65,32 @@ def _duration(value):
     return result
 
 
-def start_batch(batch_id):
+def start_batch(batch_id, worker_count=None, run_mode=None, workload_label=None):
     """Create the shared batch context once without resetting phase claims."""
     if not batch_id or len(batch_id) > 200:
         raise ValueError("A batch ID of at most 200 characters is required.")
+    worker_count = int(worker_count if worker_count is not None else getenv("WAS_REPORT_WORKERS", "1"))
+    run_mode = run_mode or getenv("WAS_RUN_MODE", "production")
+    workload_label = workload_label if workload_label is not None else getenv("WAS_WORKLOAD_LABEL")
+    if worker_count < 1 or run_mode not in {"production", "capacity"}:
+        raise ValueError("Positive worker count and production/capacity run mode required.")
+    if workload_label is not None and len(workload_label) > 200:
+        raise ValueError("Workload label must be at most 200 characters.")
     _execute(
-        "INSERT INTO was_batch_runs (batch_id) VALUES (%s) "
+        "INSERT INTO was_batch_runs (batch_id, worker_count, run_mode, workload_label) VALUES (%s,%s,%s,%s) "
         "ON CONFLICT (batch_id) DO NOTHING",
-        (batch_id,),
+        (batch_id, worker_count, run_mode, workload_label),
+    )
+
+
+def finish_batch(batch_id, outcome="completed"):
+    """Freeze coordinator completion once, independently of summary delivery."""
+    if outcome not in {"completed", "failed"}:
+        raise ValueError("Batch outcome must be completed or failed.")
+    _execute(
+        "UPDATE was_batch_runs SET finished_at=now(), outcome=%s, updated_at=now() "
+        "WHERE batch_id=%s AND finished_at IS NULL",
+        (outcome, batch_id),
     )
 
 
@@ -92,12 +112,20 @@ def record_report_attempt(
     sent=False,
     error=None,
     report_run_id=None,
+    delivery_duration_seconds=None,
+    artifact_type=None,
 ):
     """Persist one tracker outcome, idempotently replacing repeated recording."""
+    if artifact_type not in {None, "pdf", "notification"}:
+        raise ValueError("Artifact type must be pdf or notification.")
+    delivery_duration = (
+        None if delivery_duration_seconds is None else _duration(delivery_duration_seconds)
+    )
     _execute(
         """INSERT INTO was_batch_report_attempts
         (batch_id, tracker_id, duration_seconds, generated, sent, error,
-         report_run_id) VALUES (%s,%s,%s,%s,%s,%s,%s)
+         report_run_id, delivery_duration_seconds, artifact_type, sent_recorded_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,CASE WHEN %s THEN now() ELSE NULL END)
         ON CONFLICT (batch_id, tracker_id) DO UPDATE SET
         duration_seconds=GREATEST(was_batch_report_attempts.duration_seconds,
                                  EXCLUDED.duration_seconds),
@@ -105,7 +133,12 @@ def record_report_attempt(
         sent=was_batch_report_attempts.sent OR EXCLUDED.sent,
         error=COALESCE(was_batch_report_attempts.error, EXCLUDED.error),
         report_run_id=COALESCE(EXCLUDED.report_run_id,
-                              was_batch_report_attempts.report_run_id)""",
+                              was_batch_report_attempts.report_run_id),
+        delivery_duration_seconds=GREATEST(was_batch_report_attempts.delivery_duration_seconds,
+                                          EXCLUDED.delivery_duration_seconds),
+        artifact_type=COALESCE(EXCLUDED.artifact_type,was_batch_report_attempts.artifact_type),
+        sent_recorded_at=COALESCE(was_batch_report_attempts.sent_recorded_at,
+                                 EXCLUDED.sent_recorded_at)""",
         (
             batch_id,
             tracker_id,
@@ -114,7 +147,21 @@ def record_report_attempt(
             bool(sent),
             _safe_error(error),
             report_run_id,
+            delivery_duration,
+            artifact_type,
+            bool(sent),
         ),
+    )
+    emit_metric(
+        "report_attempt",
+        tracker_id=tracker_id,
+        report_run_id=report_run_id,
+        generation_duration_seconds=_duration(duration_seconds),
+        delivery_duration_seconds=delivery_duration,
+        generated=bool(generated),
+        sent=bool(sent),
+        artifact_type=artifact_type,
+        error=_safe_error(error),
     )
 
 
@@ -370,8 +417,9 @@ def send_tracker_summary(
 def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run=False):
     """Send one aggregate outcome and only unresolved manual items in the body."""
     batch = _execute(
-        "SELECT EXTRACT(EPOCH FROM (now()-started_at)), tracker_duration_seconds, "
-        "tracker_error FROM was_batch_runs WHERE batch_id=%s",
+        "SELECT EXTRACT(EPOCH FROM (COALESCE(finished_at,now())-started_at)), tracker_duration_seconds, "
+        "tracker_error, worker_count, run_mode, workload_label, finished_at, outcome "
+        "FROM was_batch_runs WHERE batch_id=%s",
         (batch_id,),
         True,
     )
@@ -379,22 +427,34 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
         raise ValueError("Unknown analyst batch ID.")
     attempts = _execute(
         """SELECT attempts.duration_seconds, attempts.generated,
-        (attempts.sent OR tracker.report_sent_date IS NOT NULL), attempts.error
+        attempts.sent, attempts.error,
+        COALESCE(attempts.artifact_type, runs.artifact_type),
+        attempts.delivery_duration_seconds
         FROM was_batch_report_attempts attempts
-        JOIN was_daily_report_tracker tracker ON tracker.id=attempts.tracker_id
+        LEFT JOIN was_report_runs runs ON runs.id=attempts.report_run_id
         WHERE attempts.batch_id=%s""",
         (batch_id,),
         True,
     )
-    elapsed, tracker_duration, tracker_error = batch[0]
+    elapsed, tracker_duration, tracker_error, workers, mode, workload, finished, outcome = batch[0]
     total = sum(float(row[0]) for row in attempts)
     sent = sum(bool(row[2]) for row in attempts)
-    timed_attempts = sum(float(row[0]) > 0 for row in attempts)
+    durations = sorted(
+        float(row[0]) for row in attempts if row[4] == "pdf" and float(row[0]) > 0
+    )
+    median = statistics.median(durations) if durations else None
+    percentile95 = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
+    pdfs = sum(bool(row[1]) and row[4] == "pdf" for row in attempts)
+    notifications = sum((bool(row[1]) or bool(row[2])) and row[4] == "notification" for row in attempts)
     error_codes = {_safe_error(row[3]) for row in attempts if row[3]}
     if tracker_error:
         error_codes.add(_safe_error(tracker_error))
     lines = [
         "WAS batch: {}".format(batch_id),
+        "Run mode: {}; workers: {}; workload: {}; outcome: {}".format(
+            mode, workers, workload or "Not supplied", outcome or "running"
+        ),
+        "Completion time: {}".format(finished or "Not finished; wall time is provisional"),
         "Elapsed wall time: {:.2f} seconds".format(float(elapsed)),
         "Tracker time: {} seconds".format(tracker_duration),
         "Attempted: {}; generated: {}; attempts with errors: {}; sent: {}; unsent: {}".format(
@@ -404,10 +464,24 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
             sent,
             len(attempts) - sent,
         ),
-        "Total generation time: {:.2f} seconds".format(total),
-        "Average generation time (timed attempts): {}".format(
-            "{:.2f} seconds".format(total / timed_attempts)
-            if timed_attempts
+        "Sum of recorded per-report artifact preparation durations: {:.2f} seconds".format(total),
+        "PDFs generated: {}; notifications generated: {}".format(pdfs, notifications),
+        "PDF generation median: {}; p95 (nearest rank): {} seconds".format(median, percentile95),
+        "PDF timing statistics include positive-duration PDF attempts, including failed attempts.",
+        "Accepted deliveries per minute: {}".format(
+            "{:.2f}".format(sent * 60 / float(elapsed)) if finished and float(elapsed) > 0 else "Not available"
+        ),
+        "Accepted deliveries per hour: {}".format(
+            "{:.2f}".format(sent * 3600 / float(elapsed)) if finished and float(elapsed) > 0 else "Not available"
+        ),
+        "Sum of recorded per-report delivery durations: {:.2f} seconds".format(
+            sum(float(row[5]) for row in attempts if row[5] is not None)
+        ),
+        "Sent counts use this batch's recorded SES acceptance, not recipient delivery.",
+        "Duration aggregates retain the longest observation per report on retries; they are not wall time or total retry cost.",
+        "Average PDF generation time (timed PDF attempts): {}".format(
+            "{:.2f} seconds".format(sum(durations) / len(durations))
+            if durations
             else "Not available"
         ),
         "Errors: {}".format(", ".join(sorted(error_codes)) or "none"),
@@ -451,6 +525,8 @@ def main(argv=None):
     parser.add_argument("--days-back", default="7")
     parser.add_argument("--test-recipients")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--outcome", choices=("completed", "failed"),
+                        default=getenv("WAS_BATCH_OUTCOME", "completed"))
     arguments = parser.parse_args(argv)
     if not arguments.batch_id or not arguments.source_email:
         parser.error("--batch-id and --source-email are required.")
@@ -467,6 +543,8 @@ def main(argv=None):
             arguments.dry_run,
         )
     else:
+        if not arguments.dry_run:
+            finish_batch(arguments.batch_id, arguments.outcome)
         send_batch_summary(
             arguments.batch_id,
             arguments.source_email,

@@ -423,28 +423,31 @@ def run_recent_scan_reports(
     if analyst_batch_id and not dry_run_email:
         from was_reports.reporting import analyst_summaries
 
-        analyst_summaries.start_batch(analyst_batch_id)
-        if send_assignee_digests:
+        analyst_summaries.start_batch(analyst_batch_id, worker_count=worker_count)
+
+    try:
+        if analyst_batch_id and send_assignee_digests and not dry_run_email:
             analyst_summaries.send_tracker_summary(
                 analyst_batch_id, candidate_ids=[candidate.id for candidate in candidates],
                 source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
                 override_recipients=test_recipients,
             )
-
-    if send_email and not include_manual and retry_ready_emails:
-        raise_if_operation_cancelled()
-        sent_count += send_ready_report_emails(
-            source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
-            override_recipients=test_recipients,
-            dry_run=dry_run_email,
-            stakeholder_tag=stakeholder_tag,
-            days_back=days_back,
-        )
-
-    try:
+        if send_email and not include_manual and retry_ready_emails:
+            raise_if_operation_cancelled()
+            retry_options = {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+            sent_count += send_ready_report_emails(
+                source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                override_recipients=test_recipients,
+                dry_run=dry_run_email,
+                stakeholder_tag=stakeholder_tag,
+                days_back=days_back,
+                **retry_options,
+            )
         for candidate_index, candidate in enumerate(candidates, start=1):
             attempt_started = None
+            delivery_started = None
             generation_duration = 0.0
+            notification_completed = False
             attempt_error = None
             attempted = False
             attempt_report_run_id = candidate.report_run_id
@@ -462,6 +465,7 @@ def run_recent_scan_reports(
                     if candidate.report_run_id is None:
                         raise RuntimeError("Completed manual report run has no run id.")
                     try:
+                        delivery_started = monotonic()
                         message_id = send_report_run_email(
                             report_run_id=candidate.report_run_id,
                             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
@@ -509,6 +513,7 @@ def run_recent_scan_reports(
                             artifact_type="notification",
                             generation_token=report_run.generation_token,
                         )
+                        notification_completed = True
                         generation_duration = monotonic() - attempt_started
                         attempt_started = None
                         LOGGER.info(
@@ -518,6 +523,7 @@ def run_recent_scan_reports(
                         )
                         if send_email:
                             raise_if_operation_cancelled()
+                            delivery_started = monotonic()
                             message_id = send_report_run_email(
                                 report_run_id=report_run.id,
                                 source_email=(source_email or require_env("WAS_EMAIL_SOURCE")),
@@ -611,6 +617,7 @@ def run_recent_scan_reports(
                 if send_email:
                     raise_if_operation_cancelled()
                     try:
+                        delivery_started = monotonic()
                         message_id = send_report_run_email(
                             report_run_id=report_run.id,
                             source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
@@ -640,13 +647,22 @@ def run_recent_scan_reports(
                         analyst_batch_id, candidate.id,
                         duration_seconds=(monotonic() - attempt_started
                                           if attempt_started is not None else generation_duration),
-                        generated=generated_count > before_generated,
+                        generated=notification_completed or generated_count > before_generated,
                         sent=sent_count > before_sent,
                         error=attempt_error or (type(active_error).__name__ if active_error else None),
                         report_run_id=attempt_report_run_id,
+                        delivery_duration_seconds=(monotonic() - delivery_started
+                                                   if delivery_started is not None else None),
+                        artifact_type=("notification" if candidate.template in NO_REPORT_TEMPLATES
+                                       else "pdf"),
                     )
 
     finally:
+        if analyst_batch_id and not dry_run_email and worker_index is None:
+            analyst_summaries.finish_batch(
+                analyst_batch_id,
+                outcome="failed" if failed_count or sys.exc_info()[1] else "completed",
+            )
         if send_assignee_digests and not dry_run_email:
             LOGGER.info("Phase 5/5: Sending combined analyst batch summary.")
             analyst_summaries.send_batch_summary(
@@ -899,6 +915,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if args.send_assignee_digests and analyst_batch_id and not args.dry_run_email:
                     from was_reports.reporting import analyst_summaries
 
+                    analyst_summaries.finish_batch(analyst_batch_id, outcome="failed")
                     analyst_summaries.send_batch_summary(
                         analyst_batch_id,
                         source_email=args.source_email or require_env("WAS_EMAIL_SOURCE"),

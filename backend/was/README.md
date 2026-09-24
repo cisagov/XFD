@@ -1,5 +1,14 @@
 # WAS Reporting
 
+For isolated load testing and production timing metrics, see
+[Capacity testing](docs/capacity-testing.md). The target is 600 report outcomes
+within eight hours through persisted SES acceptance, with no operational tracker
+updates during the isolated test. Keep capacity database settings as
+`TEST_WAS_DB_*` alongside normal `WAS_DB_*` settings in the private `dev.env`
+copied to `.env` on EC2. The capacity launcher selects the test database;
+normal commands retain their ordinary database settings. See the guide for all
+seven required test settings and isolation prerequisites.
+
 For non-enrolled Qualys tags, see [Standalone reports](docs/standalone-reports.md)
 for the separate menu path, saved delivery address, and comprehensive schema
 reference. The operator has confirmed the standalone database changes are complete.

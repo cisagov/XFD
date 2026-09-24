@@ -8,6 +8,7 @@ RUN apt-get update \
     fontconfig \
     jq \
     libpq5 \
+    postgresql-client \
     qpdf \
     texlive-fonts-recommended \
     texlive-latex-extra \
