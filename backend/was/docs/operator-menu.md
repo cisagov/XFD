@@ -60,5 +60,7 @@ values. Enter keeps them; `CLEAR` removes a value. Add shows the known CI type,
 testing sector, subtype, and frequency options. State remains a direct entry with
 the INTERNATIONAL guidance. These suggestions do not introduce new enum validation.
 
-These menu/tracker changes require no additional schema migration. The separate
-standalone-report feature still requires its documented schema upgrade.
+These menu/tracker changes require no additional schema migration. The operator
+has confirmed the standalone-report database changes are complete. This workflow
+assumes the schema described in [standalone reports](standalone-reports.md#database-schema-and-deployment),
+with `schema/stakeholders_table_creation.sql` as the comprehensive reference.

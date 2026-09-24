@@ -493,7 +493,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             override_recipients=args.test_recipients,
             dry_run=args.dry_run,
             include_previous_failure=args.include_previous_failures,
-            allow_held=True,
+            # Standalone holds represent uncertain delivery, not archive-only runs.
+            # Preserve the existing explicit retry policy for other purposes.
+            allow_held=args.delivery_purpose != "standalone",
             delivery_purpose=args.delivery_purpose,
         )
     return 0

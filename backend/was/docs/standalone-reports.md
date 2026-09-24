@@ -42,14 +42,34 @@ new generation. Existing stakeholder reports and automatic batch rules are uncha
 
 To deliver an already completed archive-only run without regenerating it, review
 the run and use `was-mailer --report-run-id <ID> --delivery-purpose standalone`.
-It uses the saved recipient and does not accept `--test-recipients`. Held uncertain
-deliveries remain blocked pending reconciliation; do not blindly regenerate them.
+It uses the saved recipient and does not accept `--test-recipients`. Archive-only
+runs with pending delivery remain eligible. Held uncertain deliveries remain
+blocked, including when `--include-previous-failures` is supplied. Verify the SES
+outcome and reconcile the run before any further delivery attempt; the ordinary
+standalone mail command does not override a hold. Do not blindly regenerate them.
 
-## Deployment
+## Database schema and deployment
 
-The comprehensive schema is `schema/stakeholders_table_creation.sql`. Existing
-databases require the local-only `schema/updates/standalone_report_targets.sql`
-transaction before the new application is used. The incremental file remains
-ignored by Git. Stop report work during the upgrade, apply the entire transaction,
-then rebuild the image. Do not run the creation script against an existing database.
-No migration is applied automatically by the application.
+The operator confirmed the database modifications are complete on September 24,
+2026. This workflow assumes that updated schema is already installed; there is no
+outstanding migration step for the confirmed database.
+
+The authoritative, comprehensive definition is
+[`schema/stakeholders_table_creation.sql`](../schema/stakeholders_table_creation.sql).
+It includes:
+
+- `was_standalone_report_targets`, with a unique Qualys tag ID and tag name,
+  stored report password, delivery email, and timestamps.
+- A nullable `was_report_runs.stakeholder_tag` and the new
+  `standalone_target_id` foreign key.
+- The `standalone` delivery purpose and target constraints separating standalone
+  runs from stakeholder runs and preventing standalone tracker links.
+- A unique active-standalone index preventing simultaneous running or sending
+  operations for the same standalone target.
+
+After the schema changes, deploy the matching application code and rebuild the
+image. Do not rerun the full creation script against an existing database. Other
+environments must be checked against the comprehensive schema before deployment;
+the operator's confirmation does not establish their migration status.
+Incremental SQL remains local and ignored, not a required repository artifact.
+The application does not apply migrations automatically.

@@ -1,7 +1,8 @@
 # WAS Reporting
 
 For non-enrolled Qualys tags, see [Standalone reports](docs/standalone-reports.md)
-for the separate menu path, saved delivery address, and required schema upgrade.
+for the separate menu path, saved delivery address, and comprehensive schema
+reference. The operator has confirmed the standalone database changes are complete.
 
 WAS Reporting generates Web Application Scanning PDF reports from Qualys data.
 The production implementation runs from `src/was_reports` and
@@ -1843,7 +1844,9 @@ configured. The updated container enables unbuffered output and a writable
 Matplotlib cache. Persisted `delivery_purpose=analyst` enforces analyst-only
 recipients in the direct mailer as well as the menu. The internal `allow_held`
 claim option changes eligibility only; it does not override the stored purpose or select a different
-customer template. Apply the schema upgrade linked above before deployment.
+customer template. The operator-confirmed database changes are complete; deploy
+against the comprehensive schema documented above. Verify schema readiness
+separately for any other environment.
 
 Follow `docs/live_qualys_equivalence_runbook.md` for S3, database, inbox, and
 failure verification. Do not declare the live test passed solely because a

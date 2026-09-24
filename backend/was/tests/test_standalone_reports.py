@@ -9,6 +9,7 @@ from was_reports.commands import standalone_cli
 from was_reports.data import standalone_targets
 from was_reports.data.report_runs import ActiveReportOperationError
 from was_mailer.message import recipient_addresses
+from was_mailer import email_reports
 from was_reports.qualys.report_data import parse_tag_details
 
 
@@ -171,6 +172,76 @@ class StandaloneCommandTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             standalone_cli.run_standalone(self.args)
         self.services["create_standalone_request"].assert_not_called()
+
+
+class StandaloneEmailRetryTests(unittest.TestCase):
+    """Explicit standalone retries must preserve uncertain-delivery holds."""
+
+    def test_standalone_claim_excludes_held_even_with_failed_retries(self):
+        """Exercise CLI through the atomic claim without contacting DB or SES."""
+        for include_previous_failures in (False, True):
+            with self.subTest(include_previous_failures=include_previous_failures):
+                connection = MagicMock()
+                cursor = connection.cursor.return_value.__enter__.return_value
+                # PostgreSQL returns no row when a held run fails the predicate.
+                cursor.fetchone.return_value = None
+                arguments = [
+                    "--report-run-id", "9",
+                    "--source-email", "sender@example.gov",
+                    "--delivery-purpose", "standalone",
+                ]
+                if include_previous_failures:
+                    arguments.append("--include-previous-failures")
+                with ExitStack() as stack:
+                    stack.enter_context(patch.object(email_reports, "configure_logging"))
+                    stack.enter_context(patch.object(
+                        email_reports, "recover_stale_report_operations_in_db"
+                    ))
+                    stack.enter_context(patch(
+                        "was_reports.utils.database.connect", return_value=connection
+                    ))
+                    stack.enter_context(patch("was_reports.utils.database.close"))
+                    create_client = stack.enter_context(patch.object(
+                        email_reports, "create_ses_client"
+                    ))
+                    send_message = stack.enter_context(patch.object(
+                        email_reports, "send_message"
+                    ))
+                    with self.assertRaisesRegex(RuntimeError, "not available"):
+                        email_reports.main(arguments)
+                    create_client.assert_not_called()
+                    send_message.assert_not_called()
+                cursor.execute.assert_called_once()
+                statement, parameters = cursor.execute.call_args.args
+                self.assertIn("COALESCE(email_status, %s) = ANY(%s)", statement)
+                self.assertIn("AND delivery_purpose = %s", statement)
+                expected_statuses = ["pending"]
+                if include_previous_failures:
+                    expected_statuses.append("failed")
+                self.assertEqual(parameters[-2], expected_statuses)
+                self.assertEqual(parameters[-1], "standalone")
+                connection.commit.assert_called_once()
+
+    def test_other_explicit_delivery_purposes_keep_held_retry_policy(self):
+        """Retain customer and analyst explicit held-run retry behavior."""
+        for delivery_purpose in ("customer", "analyst"):
+            with self.subTest(delivery_purpose=delivery_purpose), ExitStack() as stack:
+                stack.enter_context(patch.object(email_reports, "configure_logging"))
+                stack.enter_context(patch.object(
+                    email_reports, "recover_stale_report_operations_in_db"
+                ))
+                send_report = stack.enter_context(patch.object(
+                    email_reports, "send_report_run_email"
+                ))
+                self.assertEqual(email_reports.main([
+                    "--report-run-id", "9",
+                    "--source-email", "sender@example.gov",
+                    "--delivery-purpose", delivery_purpose,
+                ]), 0)
+                self.assertTrue(send_report.call_args.kwargs["allow_held"])
+                self.assertEqual(
+                    send_report.call_args.kwargs["delivery_purpose"], delivery_purpose
+                )
 
 
 class StandaloneBoundaryTests(unittest.TestCase):
