@@ -142,6 +142,13 @@ After building the updated image, from `backend/was`, run read-only isolation an
 recipient checks first. Replace the example baseline label with the actual
 snapshot identifier:
 
+The capacity Make commands now run the coordinator on the host and launch each
+report worker in a separate Docker container. Set up the project's Python
+environment with `make install` first, or point `PYTHON` at an existing environment
+with the WAS requirements installed. Docker must be available to that user.
+`ENV_FILE` selects the configuration file and `OUTPUT_DIR` selects the shared
+host output directory. No Docker socket is mounted into a container.
+
 ```bash
 make capacity-start \
   CAPACITY_WORKLOAD_LABEL="approved-baseline-2026-09-24" \
@@ -173,6 +180,8 @@ Alternatively, start a new parallel trial with `make menu`, then choose
 enter the approved test recipients and workload label, and confirm the live
 test. The menu launches the same coordinator in a separate process, preserving
 test database isolation without changing the menu's database environment.
+Unlike the host Make commands, the menu uses worker processes in one container;
+use the host Make commands for the production-like multi-container layout.
 This option starts a new trial only; it does not restore or reset the clone.
 Use the commands below for continuation or an explicit start-over.
 
@@ -251,14 +260,16 @@ timestamps are not valid capacity benchmarks.
 
 Endpoint events record individual Qualys attempt latency, attempt number, outcome
 class, and HTTP status when available, without request payloads or credentials.
-Resource samples describe the launcher container's cgroup-v2 CPU total and memory,
-including its worker subprocesses, plus shared output-filesystem space. They are
-not host-wide EC2 metrics. Unsupported measurements are null, not zero. Optional
+For the process backend, resource samples describe the launcher's cgroup-v2 CPU
+and memory plus shared output-filesystem space. With host-coordinated Docker
+workers, these samples are not an aggregate of worker-container resource usage.
+Use host monitoring and Docker statistics for that comparison. Unsupported
+measurements are null, not zero. Optional
 telemetry write failures are logged and mean the diagnostic evidence is incomplete.
 Use host monitoring separately if the capacity plan requires host-wide contention
 or metrics unavailable in the container.
 
-The production Make workflow uses multiple containers; the capacity launcher uses
-multiple processes in one container. Keep resource limits comparable and disclose
-this topology difference. Confirm final production throughput with operational
+The capacity Make workflow now uses separate worker containers like production.
+The menu retains the single-container process backend. Keep resource limits
+comparable and record the selected backend. Confirm final production throughput with operational
 summaries; small daily batches do not establish maximum sustained capacity.

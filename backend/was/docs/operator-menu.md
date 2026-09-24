@@ -22,6 +22,9 @@ inventory CLI remains available for explicit use.
    Customer POC addresses are not used. The coordinator automatically creates
    the run ID and uses the refreshed eligible count. This does not reset the
    test database; continuation and start-over remain separate Make commands.
+   Menu workers are separate processes in one container. To use separate worker
+   containers, run `make capacity-start` on the host with the project Python
+   environment configured.
 
 ## Report tracker
 

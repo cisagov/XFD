@@ -28,6 +28,8 @@ Operators need Git, Make, a running Docker engine, and approved repository
 access. Python and a uv environment are not required on the host for container
 commands. The EC2 instance also needs database and Qualys connectivity, S3
 permissions, and permission to assume the configured SES sending role.
+The multi-container capacity Make commands are an exception: their host-side
+coordinator requires the project's Python environment and installed requirements.
 
 ### First Checkout And Build
 
@@ -757,6 +759,12 @@ workload label, then asks for confirmation. It invokes the same capacity
 coordinator as `make capacity-start`, using `TEST_WAS_DB_*` and real Qualys,
 S3, and SES operations. It does not reset the test database or use customer
 POC addresses. Continue and start-over remain separate Make commands.
+The menu uses multiple processes inside its single container. For separate
+worker containers matching the regular batch layout, use `make capacity-start`
+on the host instead. That command requires the project Python environment
+(`make install`, or set `PYTHON` to an already configured interpreter), Docker,
+and the rebuilt image. It runs the coordinator on the host and each worker in
+its own container, without mounting the Docker socket into a container.
 
 Quit and Back to main menu are always option `0`, displayed first. Enter `b`
 at a submenu selection as an alternate way to return to the main menu.

@@ -61,6 +61,10 @@ def parse_args(argv=None):
     parser.add_argument("--workload-label", default="capacity-current-workload")
     parser.add_argument("--test-recipients", required=True)
     parser.add_argument("--workers", type=int, default=30)
+    parser.add_argument("--worker-backend", choices=("process", "docker"), default="process")
+    parser.add_argument("--worker-image", default="was-reporting")
+    parser.add_argument("--output-root", type=Path, default=Path("/output"))
+    parser.add_argument("--env-file", type=Path)
     parser.add_argument("--expected-candidates", type=expected_candidates, default=None)
     continuation = parser.add_mutually_exclusive_group()
     continuation.add_argument("--continue-latest", action="store_true")
@@ -159,7 +163,9 @@ def guard_database(arguments):
             if cursor.fetchone()[0]:
                 raise ValueError("Run ID already exists; restore the baseline for a new trial.")
             continuing = arguments.continue_latest or arguments.continue_run is not None
-            allowed_ids = load_continuation(cursor, arguments) if continuing else []
+            allowed_ids = load_continuation(
+                cursor, arguments, arguments.output_root / "capacity"
+            ) if continuing else []
             cursor.execute(
                 "SELECT EXISTS(SELECT 1 FROM was_report_runs WHERE status='running' "
                 "OR email_status='sending' OR (status='completed' "
@@ -178,6 +184,25 @@ def guard_database(arguments):
 def command(module, *arguments):
     """Build a subprocess command without shell expansion."""
     return [sys.executable, "-m", module, *arguments]
+
+
+def verify_worker_backend(arguments):
+    """Check Docker availability and the local image without pulling or writing."""
+    if arguments.worker_backend != "docker":
+        return
+    for check_command in (
+        ["docker", "version", "--format", "{{.Server.Version}}"],
+        ["docker", "image", "inspect", "--", arguments.worker_image],
+    ):
+        try:
+            subprocess.run(  # nosec B603 B607
+                check_command, check=True, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError(
+                "Docker worker preflight failed; verify the Docker daemon and build the local worker image."
+            ) from error
 
 
 def trial_counts(run_id):
@@ -303,7 +328,8 @@ def execute_trial(arguments, recipients, output_directory):
     workers = []
     succeeded = False
     started = monotonic()
-    result = {"run_id": arguments.run_id, "capacity_pass": False}
+    result = {"run_id": arguments.run_id, "capacity_pass": False,
+              "worker_backend": arguments.worker_backend}
     expected_count = None
     scope_environment = ("WAS_CAPACITY_TRACKER_IDS", "WAS_CAPACITY_CONTINUATION", "WAS_CAPACITY_PROGRESS")
     previous_scope = {name: os.environ.get(name) for name in scope_environment}
@@ -344,6 +370,7 @@ def execute_trial(arguments, recipients, output_directory):
                                               for candidate in candidates),
                 }
             expected_count = snapshot["candidate_count"]
+            snapshot["worker_backend"] = arguments.worker_backend
             result.update({"expected": expected_count, "continuation": continuing,
                            "root_run_id": snapshot.get("root_run_id", arguments.run_id),
                            "parent_run_id": snapshot.get("parent_run_id")})
@@ -363,18 +390,27 @@ def execute_trial(arguments, recipients, output_directory):
             run_phase(command(summary_module, "--phase", "tracker",
                               *summary_arguments), check=True, timeout=remaining())
             for worker_index in range(arguments.workers if expected_count else 0):
-                workers.append(subprocess.Popen(command(  # nosec B603
+                worker_command = command(
                     "was_reports.commands.batch_runner", "--recent-scans",
                     "--skip-tracker-refresh", "--worker-count", str(arguments.workers),
                     "--worker-index", str(worker_index), "--create-missing-password",
                     "--continue-on-error", "--days-back", days_back,
                     "--send-email", "--test-recipients", recipients,
                     "--skip-ready-email-retry", "--output-directory", str(output_directory)
-                ), start_new_session=True))
+                )
+                if arguments.worker_backend == "docker":
+                    from was_reports.utils.capacity_workers import launch_docker_worker
+
+                    workers.append(launch_docker_worker(
+                        worker_command, run_id=arguments.run_id, worker_index=worker_index,
+                        image=arguments.worker_image, output_directory=arguments.output_root.resolve(),
+                    ))
+                else:
+                    workers.append(subprocess.Popen(worker_command, start_new_session=True))  # nosec B603
             statuses = [worker.wait(timeout=remaining()) for worker in workers]
             delivery = run_phase(
-                ["was-mailer", "--all-ready", "--include-previous-failures",
-                 "--days-back", days_back, "--test-recipients", recipients],
+                command("was_mailer.email_reports", "--all-ready", "--include-previous-failures",
+                        "--days-back", days_back, "--test-recipients", recipients),
                 check=False, timeout=remaining(),
             ) if expected_count else subprocess.CompletedProcess([], 0)
             trial_elapsed = monotonic() - started
@@ -401,9 +437,19 @@ def execute_trial(arguments, recipients, output_directory):
             result["execution_error"] = type(error).__name__
             raise
         finally:
+            cleanup_errors = []
             for worker in workers:
-                if worker.poll() is None:
-                    stop_process(worker)
+                try:
+                    if arguments.worker_backend == "docker":
+                        worker.stop()
+                    elif worker.poll() is None:
+                        stop_process(worker)
+                except Exception as error:
+                    cleanup_errors.append(type(error).__name__)
+            if cleanup_errors:
+                result["worker_cleanup_errors"] = cleanup_errors
+                workflow_clean = False
+                succeeded = False
             trial_elapsed = trial_elapsed if trial_elapsed is not None else monotonic() - started
             if expected_count:
                 try:
@@ -453,13 +499,16 @@ def execute_trial(arguments, recipients, output_directory):
 def main(argv=None):
     """Default to read-only isolation checks without Qualys calls or delivery."""
     arguments = parse_args(argv)
-    load_env_file()
+    if arguments.env_file is not None and not arguments.env_file.is_file():
+        raise ValueError("Specified environment file does not exist.")
+    load_env_file(arguments.env_file)
     with capacity_database_environment():
         return run_capacity(arguments)
 
 
 def run_capacity(arguments):
     """Run isolation checks and trial with the selected test environment."""
+    verify_worker_backend(arguments)
     connection = guard_database(arguments)
     previous_handler = signal.getsignal(signal.SIGTERM)
     try:
@@ -472,7 +521,7 @@ def run_capacity(arguments):
         require_env("WAS_REPORTS_BUCKET_NAME")
         if arguments.continuation_manifest:
             arguments.workload_label = "continuation of {}".format(arguments.continue_run)
-        output_directory = Path("/output/capacity") / arguments.run_id
+        output_directory = arguments.output_root.resolve() / "capacity" / arguments.run_id
         output_directory.mkdir(parents=True, exist_ok=False, mode=0o700)
         os.environ.update({
             "WAS_ANALYST_BATCH_ID": arguments.run_id,

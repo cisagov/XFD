@@ -23,6 +23,79 @@ class CapacityTestTests(unittest.TestCase):
         self.assertNotEqual(first.run_id, second.run_id)
         self.assertIsNone(first.expected_candidates)
         self.assertIsNone(second.expected_candidates)
+        self.assertEqual(first.worker_backend, "process")
+
+    def test_docker_options_use_explicit_host_paths(self):
+        """Host launch selects Docker without changing the menu's process default."""
+        arguments = capacity_test.parse_args([
+            "--test-recipients", "analyst@example.gov", "--worker-backend", "docker",
+            "--worker-image", "was-reporting:test", "--output-root", "/tmp/capacity",
+            "--env-file", "/tmp/capacity.env",
+        ])
+        self.assertEqual(arguments.worker_backend, "docker")
+        self.assertEqual(arguments.output_root, Path("/tmp/capacity"))
+        self.assertEqual(arguments.env_file, Path("/tmp/capacity.env"))
+
+    def test_docker_preflight_checks_daemon_and_local_image(self):
+        """Preview checks do not pull images or start containers."""
+        arguments = self.arguments()
+        arguments.worker_backend = "docker"
+        with patch.object(capacity_test.subprocess, "run") as run:
+            capacity_test.verify_worker_backend(arguments)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args_list[1].args[0],
+                         ["docker", "image", "inspect", "--", "was-reporting"])
+
+    def test_docker_preflight_failure_precedes_database_work(self):
+        """An unavailable daemon is rejected before even opening the clone."""
+        arguments = self.arguments()
+        arguments.worker_backend = "docker"
+        with patch.object(capacity_test.subprocess, "run", side_effect=OSError), patch.object(
+            capacity_test, "guard_database"
+        ) as guard, self.assertRaisesRegex(RuntimeError, "preflight failed"):
+            capacity_test.run_capacity(arguments)
+        guard.assert_not_called()
+
+    def test_docker_workers_are_cleaned_after_cli_exit(self):
+        """A finished Docker CLI does not imply its container needs no cleanup."""
+        result, status = self.execute_mock_trial(sent=1, backend="docker")
+        self.assertEqual(status, 0)
+        self.assertEqual(result["worker_backend"], "docker")
+
+    def test_multiple_docker_workers_finish_before_delivery(self):
+        """Distinct container partitions complete before the shared delivery retry."""
+        result, status = self.execute_mock_trial(sent=1, backend="docker", worker_count=2)
+        self.assertEqual(status, 0)
+        self.assertEqual(result["worker_exit_codes"], [0, 0])
+
+    def test_docker_workers_are_cleaned_after_delivery_timeout(self):
+        """A later phase timing out still cleans every launched worker container."""
+        result, status = self.execute_mock_trial(sent=1, backend="docker", delivery_error=True)
+        self.assertEqual(status, -1)
+        self.assertEqual(result["execution_error"], "TimeoutError")
+
+    def test_cleanup_failure_preserves_counts_and_summary(self):
+        """Cleanup failures are recorded without losing final diagnostic evidence."""
+        result, status = self.execute_mock_trial(sent=1, backend="docker", cleanup_error=True)
+        self.assertEqual(status, 1)
+        self.assertEqual(result["worker_cleanup_errors"], ["OSError"])
+        self.assertEqual(result["sent"], 1)
+        self.assertTrue(result["summary_succeeded"])
+
+    def test_explicit_environment_file_loaded_before_test_mapping(self):
+        """A host launcher may point at a nondefault environment file."""
+        with TemporaryDirectory() as directory:
+            environment_path = Path(directory) / "test.env"
+            environment_path.write_text("# Environment fixture\n", encoding="utf-8")
+            arguments = self.arguments()
+            arguments.env_file = environment_path
+            with patch.object(capacity_test, "parse_args", return_value=arguments), patch.object(
+                capacity_test, "load_env_file"
+            ) as loader, patch.object(
+                capacity_test, "capacity_database_environment", return_value=nullcontext()
+            ), patch.object(capacity_test, "run_capacity", return_value=0):
+                self.assertEqual(capacity_test.main([]), 0)
+                loader.assert_called_once_with(environment_path)
 
     def test_continuation_selection_validates_database_and_manifest(self):
         """Latest selection uses the database and checks saved tracker identity."""
@@ -67,7 +140,7 @@ class CapacityTestTests(unittest.TestCase):
         ) as phases, patch.object(capacity_test.subprocess, "Popen") as workers:
             self.assertEqual(capacity_test.execute_trial(arguments, "analyst@example.gov", Path(directory)), 0)
             workers.assert_not_called()
-            self.assertFalse(any(call.args[0][0] == "was-mailer" for call in phases.call_args_list))
+            self.assertFalse(any("was_mailer.email_reports" in call.args[0] for call in phases.call_args_list))
             result = json.loads(Path(directory, "result.json").read_text())
             self.assertFalse(result["capacity_pass"])
             self.assertTrue(result["workflow_completed"])
@@ -309,10 +382,12 @@ class CapacityTestTests(unittest.TestCase):
         stop.assert_called_once_with(popen.return_value)
 
     def execute_mock_trial(self, sent, worker_status=0, summary_status=0,
-                           tracker_ids=None, continuing=False, delivery_error=False):
+                           tracker_ids=None, continuing=False, delivery_error=False, backend="process",
+                           cleanup_error=False, worker_count=1):
         """Exercise real orchestration with bounded process and database mocks."""
         arguments = self.arguments(apply=True)
-        arguments.workers = 1
+        arguments.workers = worker_count
+        arguments.worker_backend = backend
         arguments.expected_candidates = 1
         if continuing:
             arguments.continuation_manifest = {
@@ -323,6 +398,8 @@ class CapacityTestTests(unittest.TestCase):
         worker = MagicMock()
         worker.wait.return_value = worker_status
         worker.poll.return_value = 0
+        if cleanup_error:
+            worker.stop.side_effect = OSError("Simulated cleanup failure")
         candidate = SimpleNamespace(id=1, tag="test", template="Standard")
         counts = {"attempted": 1, "pdfs_generated": 1,
                   "notifications_generated": 0, "sent": sent,
@@ -331,6 +408,16 @@ class CapacityTestTests(unittest.TestCase):
         phase_results.append(SimpleNamespace(returncode=summary_status))
         if delivery_error:
             phase_results[-2] = TimeoutError("Simulated delivery interruption")
+
+        def run_mock_phase(phase_command, **kwargs):
+            """Assert generation joins every worker before the delivery phase."""
+            if "was_mailer.email_reports" in phase_command:
+                self.assertEqual(worker.wait.call_count, worker_count)
+            value = phase_results.pop(0)
+            if isinstance(value, BaseException):
+                raise value
+            return value
+
         with TemporaryDirectory() as directory, patch(
             "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
         ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
@@ -339,10 +426,12 @@ class CapacityTestTests(unittest.TestCase):
                         return_value=[candidate]), patch.object(
             capacity_test, "trial_counts", return_value=counts
         ), patch.object(capacity_test, "continuation_status", return_value=counts), patch.object(
-            capacity_test, "run_phase", side_effect=phase_results
+            capacity_test, "run_phase", side_effect=run_mock_phase
         ) as phases, patch.object(
             capacity_test.subprocess, "Popen", return_value=worker
-        ) as workers:
+        ) as workers, patch(
+            "was_reports.utils.capacity_workers.launch_docker_worker", return_value=worker
+        ) as docker_workers:
             try:
                 status = capacity_test.execute_trial(
                     arguments, "analyst@example.gov", Path(directory))
@@ -350,7 +439,14 @@ class CapacityTestTests(unittest.TestCase):
                 if not delivery_error:
                     raise
                 status = -1
-            self.assertIn("--test-recipients", workers.call_args.args[0])
+            launcher = docker_workers if backend == "docker" else workers
+            self.assertIn("--test-recipients", launcher.call_args.args[0])
+            if backend == "docker":
+                workers.assert_not_called()
+                self.assertEqual(worker.stop.call_count, worker_count)
+                self.assertEqual([call.kwargs["worker_index"] for call in docker_workers.call_args_list],
+                                 list(range(worker_count)))
+                self.assertEqual(docker_workers.call_args.kwargs["output_directory"], arguments.output_root.resolve())
             if continuing:
                 self.assertFalse(any("was_reports.commands.update_tracker_cli" in call.args[0]
                                      for call in phases.call_args_list))

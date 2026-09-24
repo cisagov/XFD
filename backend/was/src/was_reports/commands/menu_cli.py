@@ -406,7 +406,7 @@ class WasOperatorMenu:
                     "Process an eligible manual tracker report",
                     "Generate an on-demand report to S3 (optional email)",
                     "Generate a standalone report for a Qualys tag NOT in the stakeholder database",
-                    "Run a parallel capacity load test (isolated test database)",
+                    "Run a parallel capacity load test (one container, multiple processes)",
                     "Back to main menu",
                 ],
             )
@@ -443,6 +443,10 @@ class WasOperatorMenu:
 
     def run_capacity_test(self) -> None:
         """Launch the existing parallel coordinator with explicit test recipients."""
+        self.output(
+            "This menu uses worker processes inside this container. For separate worker "
+            "containers matching the production batch, use make capacity-start on the host."
+        )
         self.output(
             "Capacity tests use the isolated TEST_WAS_DB database, not the production tracker. "
             "This performs real Qualys, S3, and SES operations. All reports and summaries "

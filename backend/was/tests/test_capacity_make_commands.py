@@ -27,6 +27,9 @@ class CapacityMakeCommandsTests(unittest.TestCase):
         self.assertIn('if [ -n "" ]; then set -- "$@" --run-id', plan)
         self.assertIn('case "0"', plan)
         self.assertNotIn("capacity_database_reset", plan)
+        self.assertIn('--worker-backend docker --worker-image "was-reporting"', plan)
+        self.assertIn('--env-file ".env" --output-root', plan)
+        self.assertNotIn('/var/run/docker.sock', plan)
 
     def test_continue_uses_saved_workload_not_reset(self):
         """Continuation must never reset the test database."""

@@ -120,9 +120,9 @@ capacity-test:
 	  *) echo 'CAPACITY_ACTION must be start or continue.' >&2; exit 2 ;; esac; \
 	case "$(APPLY)" in 0) ;; 1) mkdir -p "$(OUTPUT_DIR)"; set -- "$$@" --apply ;; \
 	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
-	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" \
-	  -v "$(OUTPUT_DIR):/output" --entrypoint python $(IMAGE) \
-	  -m was_reports.commands.capacity_test "$$@"
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.capacity_test \
+	  --worker-backend docker --worker-image "$(IMAGE)" \
+	  --env-file "$(ENV_FILE)" --output-root "$(OUTPUT_DIR)" "$$@"
 
 .PHONY: report-alignment-diagnostic-local
 
