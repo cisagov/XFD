@@ -118,7 +118,7 @@ const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
 type ApiInit = Omit<RequestInit, 'method' | 'body'> & {
   body?: unknown; // The request payload, will be JSON-stringified if provided
   showLoading?: boolean; // Whether to show a loading indicator during the request
-  includeResponse?: false; // Whether to include the full response object in the return value
+  includeResponse?: false; // Does not includethe full response object in the return value
   parseAs?: ParseAs; // The expected response type, used to parse the response accordingly
 };
 
@@ -126,19 +126,19 @@ type ApiInitWithResponse = Omit<ApiInit, 'includeResponse'> & {
   includeResponse: true; // Force inclusion of the full response object in the return value
 };
 
-type ApiResponse<T> = {
+export type ApiResponse<T> = {
   data: T;
   headers: Record<string, string>;
   response?: Response;
 };
 
 type ApiFn = {
-  <T = unknown>(path: string, init?: ApiInit): Promise<T>;
-
   <T = unknown>(
     path: string,
     init: ApiInitWithResponse
   ): Promise<ApiResponse<T>>;
+
+  <T = unknown>(path: string, init?: ApiInit): Promise<T>;
 };
 
 /**
