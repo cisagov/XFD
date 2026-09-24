@@ -6,7 +6,6 @@ from getpass import getpass
 import logging
 import select
 import signal
-import subprocess  # nosec B404
 import sys
 from threading import Event, Thread
 from typing import Callable
@@ -29,7 +28,6 @@ from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
     clear_operation_cancellation,
     request_operation_cancellation,
-    raise_if_operation_cancelled,
 )
 from was_reports.utils.passwords import (
     CUSTOMER_PASSWORD_REQUIREMENTS,
@@ -406,7 +404,6 @@ class WasOperatorMenu:
                     "Process an eligible manual tracker report",
                     "Generate an on-demand report to S3 (optional email)",
                     "Generate a standalone report for a Qualys tag NOT in the stakeholder database",
-                    "Run a parallel capacity load test (one container, multiple processes)",
                     "Back to main menu",
                 ],
             )
@@ -434,73 +431,10 @@ class WasOperatorMenu:
                 )
             elif selection == "5":
                 self.run_submenu_action("Report Generation", self.run_standalone_report)
-            elif selection == "6":
-                self.run_submenu_action("Report Generation", self.run_capacity_test)
             elif selection in {"0", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
-
-    def run_capacity_test(self) -> None:
-        """Launch the existing parallel coordinator with explicit test recipients."""
-        self.output(
-            "This menu uses worker processes inside this container. For separate worker "
-            "containers matching the production batch, use make capacity-start on the host."
-        )
-        self.output(
-            "Capacity tests use the isolated TEST_WAS_DB database, not the production tracker. "
-            "This performs real Qualys, S3, and SES operations. All reports and summaries "
-            "go only to the explicit test recipients, never customer POCs."
-        )
-        worker_value = self.input("Parallel workers [30; allowed 1-30]: ").strip() or "30"
-        try:
-            workers = int(worker_value)
-        except ValueError:
-            self.output("Workers must be a whole number from 1 through 30.")
-            return
-        if not 1 <= workers <= 30:
-            self.output("Workers must be a whole number from 1 through 30.")
-            return
-        recipients = self.prompt_required("Test assignee email address(es), comma/semicolon separated: ")
-        label = self.prompt_optional("Workload label [capacity-trial]: ") or "capacity-trial"
-        if not self.confirm(
-            "Start a NEW capacity test with {} workers and send all reports and summaries to {}?".format(
-                workers, recipients
-            )
-        ):
-            self.output("Operation cancelled.")
-            return
-        arguments = [
-            sys.executable, "-m", "was_reports.commands.capacity_test",
-            "--workers", str(workers), "--test-recipients", recipients,
-            "--workload-label", label, "--apply",
-        ]
-        self.execute(
-            "parallel capacity load test",
-            lambda: self.run_capacity_subprocess(arguments),
-            cancellable=True,
-        )
-        self.pause()
-
-    def run_capacity_subprocess(self, arguments: list[str]) -> int:
-        """Keep capacity environment and signal changes isolated from the menu."""
-        raise_if_operation_cancelled()
-        process = subprocess.Popen(  # nosec B603
-            arguments, stdin=subprocess.DEVNULL, start_new_session=True
-        )
-        try:
-            while True:
-                raise_if_operation_cancelled()
-                try:
-                    return process.wait(timeout=0.2)
-                except subprocess.TimeoutExpired:
-                    continue
-        except BaseException:
-            if process.poll() is None:
-                self.output("Stopping the capacity coordinator and waiting for worker cleanup...")
-                process.terminate()
-            process.wait()
-            raise
 
     def run_standalone_report(self) -> None:
         """Make the non-enrollment and explicit delivery boundary visible."""

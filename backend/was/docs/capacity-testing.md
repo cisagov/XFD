@@ -191,14 +191,9 @@ make capacity-start APPLY=1 BATCH_WORKERS=30 \
   TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
 ```
 
-Alternatively, start a new parallel trial with `make menu`, then choose
-**Report Generation > 6**. Select the worker count (default 30, maximum 30),
-enter the approved test recipients and workload label, and confirm the live
-test. The menu launches the same coordinator in a separate process, preserving
-test database isolation without changing the menu's database environment.
-Unlike the host Make commands, the menu uses worker processes in one container;
-use the host Make commands for the production-like multi-container layout.
-This option starts a new trial only; it does not restore or reset the clone.
+Capacity testing is not offered in `make menu`. Use the host Make commands
+to run separate worker containers matching the production batch layout.
+`capacity-start` starts a new trial without restoring or resetting the clone.
 Use the commands below for continuation or an explicit start-over.
 
 To continue the latest saved workload:
@@ -286,6 +281,6 @@ Use host monitoring separately if the capacity plan requires host-wide contentio
 or metrics unavailable in the container.
 
 The capacity Make workflow now uses separate worker containers like production.
-The menu retains the single-container process backend. Keep resource limits
+There is no capacity menu option. Keep resource limits
 comparable and record the selected backend. Confirm final production throughput with operational
 summaries; small daily batches do not establish maximum sustained capacity.

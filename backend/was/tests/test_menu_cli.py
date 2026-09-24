@@ -2,8 +2,6 @@
 
 # Standard Python Libraries
 from datetime import date
-import subprocess
-import sys
 import unittest
 from unittest.mock import Mock, patch
 
@@ -43,82 +41,37 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
 
-    def test_report_menu_routes_capacity_option(self) -> None:
-        """Expose the capacity test as report option six."""
+    def test_report_menu_rejects_removed_capacity_option(self) -> None:
+        """Reject option six without starting any operation or advertising capacity."""
         menu = self.build_menu(["6", "0"])
-        menu.run_capacity_test = Mock()
+        menu.run_submenu_action = Mock()
         menu.report_menu()
-        menu.run_capacity_test.assert_called_once_with()
+        menu.run_submenu_action.assert_not_called()
+        menu.output.assert_any_call("Invalid selection.")
+        self.assertFalse(any(
+            "capacity" in str(call.args[0]).lower()
+            for call in menu.output.call_args_list if call.args
+        ))
 
-    @patch("was_reports.commands.menu_cli.subprocess.Popen")
-    def test_capacity_defaults_launch_isolated_parallel_coordinator(self, launch) -> None:
-        """Default workers to thirty and require explicit delivery recipients."""
-        menu = self.build_menu(["", "analyst@example.gov", "", "y", ""])
-        launch.return_value.wait.return_value = 0
-        menu.run_capacity_test()
-        launch.assert_called_once_with(
-            [sys.executable, "-m", "was_reports.commands.capacity_test",
-             "--workers", "30", "--test-recipients", "analyst@example.gov",
-             "--workload-label", "capacity-trial", "--apply"],
-            stdin=subprocess.DEVNULL, start_new_session=True,
+    def test_report_menu_preserves_existing_actions(self) -> None:
+        """Keep production report choices one through five mapped to their actions."""
+        actions = (
+            ("1", "run_daily_batch"),
+            ("2", "run_automated_reports"),
+            ("3", "run_single_report"),
+            ("4", "run_on_demand_report"),
+            ("5", "run_standalone_report"),
         )
-
-    @patch("was_reports.commands.menu_cli.subprocess.Popen")
-    def test_capacity_custom_options_and_required_recipient(self, launch) -> None:
-        """Do not silently fall back to a customer or default recipient."""
-        menu = self.build_menu(["4", "", "one@example.gov;two@example.gov", "trial", "y", ""])
-        launch.return_value.wait.return_value = 0
-        menu.run_capacity_test()
-        arguments = launch.call_args.args[0]
-        self.assertEqual(arguments[arguments.index("--workers") + 1], "4")
-        self.assertEqual(arguments[arguments.index("--test-recipients") + 1],
-                         "one@example.gov;two@example.gov")
-        self.assertEqual(arguments[arguments.index("--workload-label") + 1], "trial")
-
-    @patch("was_reports.commands.menu_cli.subprocess.Popen")
-    def test_capacity_invalid_workers_never_launch(self, launch) -> None:
-        """Reject invalid concurrency before any services or processes run."""
-        for value in ("0", "31", "-1", "many", "1.5"):
-            with self.subTest(value=value):
-                self.build_menu([value]).run_capacity_test()
-        launch.assert_not_called()
-
-    @patch("was_reports.commands.menu_cli.batch_runner.main")
-    @patch("was_reports.commands.menu_cli.subprocess.Popen")
-    def test_capacity_coordinator_rejection_is_not_bypassed(self, launch, batch) -> None:
-        """Isolation or recipient rejection cannot fall back to a production batch."""
-        menu = self.build_menu(["30", "invalid@example.gov", "", "y", ""])
-        launch.return_value.wait.return_value = 1
-        menu.run_capacity_test()
-        batch.assert_not_called()
-        menu.output.assert_any_call("Operation exited with status 1.")
-
-    @patch("was_reports.commands.menu_cli.subprocess.Popen")
-    def test_capacity_declined_confirmation_never_launches(self, launch) -> None:
-        """An unconfirmed test does not mutate the isolated database either."""
-        self.build_menu(["30", "analyst@example.gov", "", "n"]).run_capacity_test()
-        launch.assert_not_called()
-
-    @patch("was_reports.commands.menu_cli.subprocess.Popen")
-    def test_capacity_cancel_terminates_coordinator_and_waits_for_cleanup(self, launch) -> None:
-        """Let the coordinator unwind its workers before returning to the menu."""
-        menu = self.build_menu([])
-        process = launch.return_value
-        process.poll.return_value = None
-
-        def wait_for_cancel(timeout=None):
-            """Request cancellation during the first timed wait."""
-            if timeout is not None:
-                request_operation_cancellation()
-                raise subprocess.TimeoutExpired("capacity", timeout)
-            return 130
-
-        process.wait.side_effect = wait_for_cancel
-        result = menu.execute("capacity", lambda: menu.run_capacity_subprocess(["python"]),
-                              cancellable=True)
-        self.assertEqual(result, 130)
-        process.terminate.assert_called_once_with()
-        self.assertEqual(process.wait.call_args.kwargs, {})
+        for selection, method_name in actions:
+            with self.subTest(selection=selection):
+                menu = self.build_menu([selection, "0"])
+                action = Mock()
+                setattr(menu, method_name, action)
+                menu.report_menu()
+                if selection == "3":
+                    action.assert_called_once_with(manual=True)
+                else:
+                    action.assert_called_once_with()
 
     def test_execute_returns_to_menu_after_safe_cancellation(self) -> None:
         """Handle cooperative cancellation without exiting the menu process."""

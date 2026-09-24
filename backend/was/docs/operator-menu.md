@@ -16,15 +16,10 @@ inventory CLI remains available for explicit use.
 3. Process an eligible manual tracker report.
 4. Generate an on-demand report to S3 (optional email), for enrolled stakeholders.
 5. Generate a standalone report for a Qualys tag NOT in the stakeholder database.
-6. Start an isolated parallel capacity load test: prompts for worker count
-   (1 through 30, default 30), test recipients, and workload label. Confirmation
-   starts real Qualys, S3, and SES operations against the configured test database.
-   Customer POC addresses are not used. The coordinator automatically creates
-   the run ID and uses the refreshed eligible count. This does not reset the
-   test database; continuation and start-over remain separate Make commands.
-   Menu workers are separate processes in one container. To use separate worker
-   containers, run `make capacity-start` on the host with the project Python
-   environment configured.
+
+Capacity testing is intentionally not in this menu. Use `make capacity-start`
+on the host for separate worker containers, with explicit test recipients.
+See [capacity testing](capacity-testing.md) for start, continue, and reset commands.
 
 ## Report tracker
 

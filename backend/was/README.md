@@ -754,15 +754,11 @@ values, typed confirmation before exporting report passwords, and confirmed
 display of a stakeholder report password. Files are written under the mounted
 `local-output` directory.
 
-For an isolated parallel load test, choose **Report Generation > 6**. The menu
-prompts for 1 through 30 workers (default 30), explicit test recipients, and a
-workload label, then asks for confirmation. It invokes the same capacity
-coordinator as `make capacity-start`, using `TEST_WAS_DB_*` and real Qualys,
-S3, and SES operations. It does not reset the test database or use customer
-POC addresses. Continue and start-over remain separate Make commands.
-The menu uses multiple processes inside its single container. For separate
-worker containers matching the regular batch layout, use `make capacity-start`
-on the host instead. That command requires the project Python environment
+Capacity testing is not available in the menu. Use `make capacity-start`
+on the host for separate worker containers, using `TEST_WAS_DB_*` and explicit
+test recipients. This does not reset the test database or use customer POC
+addresses. Continue and start-over remain separate Make commands.
+The capacity commands require the project Python environment
 (`make install`, or set `PYTHON` to an already configured interpreter), Docker,
 and the rebuilt image. It runs the coordinator on the host and each worker in
 its own container, without mounting the Docker socket into a container.
