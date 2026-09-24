@@ -31,6 +31,74 @@ from was_reports.tracker.qualys_scans import (
 class TrackerQualysScansTests(unittest.TestCase):
     """Validate tracker schedule parsing and matching."""
 
+    def test_schedule_payload_requests_one_thousand_results(self) -> None:
+        """Request the larger schedule page while preserving the supplied offset."""
+        payload = build_schedule_search_payload(datetime(2026, 9, 20), 1001)
+        root = etree.fromstring(payload.encode("utf-8"))
+
+        self.assertEqual(root.findtext("./preferences/limitResults"), "1000")
+        self.assertEqual(root.findtext("./preferences/startFromOffset"), "1001")
+
+    def test_schedule_pagination_advances_by_returned_count(self) -> None:
+        """Follow full and short pages without skipping or losing schedules."""
+        for first_page_count in (2, 1000):
+            with self.subTest(first_page_count=first_page_count):
+                client = Mock()
+                pages = []
+                for start, count, has_more in (
+                    (1, first_page_count, "true"),
+                    (first_page_count + 1, 1, "false"),
+                ):
+                    schedules = "".join(
+                        (
+                            "<WasScanSchedule><id>{}</id>"
+                            "<name>WAVS - TAG - Customer - Monthly</name>"
+                            "<lastScan><launchedDate>2026-09-03T00:00:00Z"
+                            "</launchedDate></lastScan>"
+                            "<nextLaunchDate>2026-10-03T00:00:00Z</nextLaunchDate>"
+                            "<target><tags><included><tagList><list><Tag><id>9</id>"
+                            "</Tag></list></tagList></included></tags></target>"
+                            "</WasScanSchedule>"
+                        ).format(schedule_id)
+                        for schedule_id in range(start, start + count)
+                    )
+                    pages.append(
+                        (
+                            "<ServiceResponse><count>{}</count>"
+                            "<hasMoreRecords>{}</hasMoreRecords>"
+                            "<data>{}</data></ServiceResponse>"
+                        ).format(count, has_more, schedules)
+                    )
+                client.request.side_effect = pages
+
+                candidates = search_schedules(client, datetime(2026, 9, 1), set())
+
+                self.assertEqual(len(candidates), first_page_count + 1)
+                self.assertEqual(client.request.call_count, 2)
+                offsets = []
+                for request_call in client.request.call_args_list:
+                    root = etree.fromstring(request_call.args[0].payload.encode("utf-8"))
+                    self.assertEqual(root.findtext("./preferences/limitResults"), "1000")
+                    offsets.append(root.findtext("./preferences/startFromOffset"))
+                self.assertEqual(offsets, ["1", str(first_page_count + 1)])
+
+    def test_schedule_pagination_rejects_zero_count_with_more_records(self) -> None:
+        """Stop a nonadvancing response before repeatedly requesting the same page."""
+        client = Mock()
+        client.request.return_value = (
+            "<ServiceResponse><count>0</count><hasMoreRecords>true"
+            "</hasMoreRecords><data></data></ServiceResponse>"
+        )
+
+        with self.assertRaises(RuntimeError) as raised:
+            search_schedules(client, datetime(2026, 9, 1), set())
+
+        self.assertEqual(
+            str(raised.exception),
+            "Qualys schedule pagination did not advance from offset 1.",
+        )
+        client.request.assert_called_once()
+
     def test_schedule_payload_excludes_running_last_scan(self) -> None:
         """Ask Qualys to omit schedules whose last scan is still running."""
         payload = build_schedule_search_payload(datetime(2026, 9, 20), 1)

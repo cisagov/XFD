@@ -29,7 +29,7 @@ from was_reports.tracker.models import (
 from was_reports.utils.database import close, connect
 
 LOGGER = logging.getLogger(__name__)
-SCHEDULE_RESULTS_LIMIT = 50
+SCHEDULE_RESULTS_LIMIT = 1000
 SCAN_RESULTS_LIMIT = 1000
 DEFAULT_TRACKER_LOOKBACK_DAYS = 3
 
