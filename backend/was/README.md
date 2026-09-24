@@ -578,6 +578,13 @@ docker exec -it WAS_CONTAINER_NAME \
 ```
 
 The password remains the stakeholder password until a change request updates it.
+Automated report encryption accepts existing passwords containing commas,
+hyphens, and literal spaces, including leading and trailing spaces, without
+trimming or replacing them. New password creation rules remain unchanged.
+Missing passwords and unsupported control characters remain separate errors.
+This compatibility does not clear historical MANUAL notes: older generic
+`ValueError` failures require cause verification before retrying, and sent or
+held deliveries must not be reset merely because a password now validates.
 The production pipeline uses the password in-process. The report comparator
 reads its password from `WAS_REPORT_COMPARISON_PASSWORD`, so the value does not
 need to appear in process arguments.

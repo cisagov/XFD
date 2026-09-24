@@ -52,6 +52,24 @@ class PdfSecurityTests(unittest.TestCase):
                     with Pdf.open(pdf_path, password=report_password) as pdf:
                         self.assertEqual(len(pdf.pages), 1)
 
+    def test_encrypt_pdf_preserves_existing_password_spaces(self) -> None:
+        """Round-trip literal spaces and reject trimmed or altered passwords."""
+        for report_password in (
+            " Legacy,Password123!", "Legacy-Password123! ",
+            " Legacy, Password-123! ",
+        ):
+            with self.subTest(report_password=report_password):
+                with tempfile.TemporaryDirectory() as directory:
+                    pdf_path = Path(directory) / "report.pdf"
+                    self.create_pdf(pdf_path)
+                    pdf_security.encrypt_pdf_in_place(pdf_path, report_password)
+                    with Pdf.open(pdf_path, password=report_password) as pdf:
+                        self.assertEqual(len(pdf.pages), 1)
+                    with self.assertRaises(PasswordError):
+                        Pdf.open(pdf_path, password=report_password.strip())
+                    with self.assertRaises(PasswordError):
+                        Pdf.open(pdf_path, password=report_password.replace(" ", ""))
+
     def test_encryption_failure_preserves_original_pdf(self) -> None:
         """Leave the unencrypted source intact when encrypted save fails."""
         with tempfile.TemporaryDirectory() as directory:

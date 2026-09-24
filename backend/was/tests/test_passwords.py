@@ -27,7 +27,9 @@ class PasswordTests(unittest.TestCase):
 
     def test_validate_report_password_rejects_banned_characters(self) -> None:
         """Reject commas and hyphens in newly entered passwords."""
-        for report_password in ("Bad,Password123!", "Bad-Password123!"):
+        for report_password in (
+            "Bad,Password123!", "Bad-Password123!", " BadPassword123! ",
+        ):
             with self.subTest(report_password=report_password):
                 with self.assertRaises(ValueError):
                     passwords.validate_report_password(report_password)
@@ -37,12 +39,30 @@ class PasswordTests(unittest.TestCase):
         passwords.validate_existing_report_password("Legacy,Password123!")
         passwords.validate_existing_report_password("Legacy-Password123!")
 
-    def test_existing_password_still_rejects_whitespace(self) -> None:
-        """Keep the compatibility exception limited to comma and hyphen."""
-        for report_password in ("", "Legacy Password123!"):
+    def test_existing_password_accepts_literal_spaces(self) -> None:
+        """Allow intentional spaces at either edge and within existing passwords."""
+        for report_password in (
+            " LegacyPassword123!", "LegacyPassword123! ", "Legacy Password123!",
+        ):
+            with self.subTest(report_password=report_password):
+                passwords.validate_existing_report_password(report_password)
+
+    def test_existing_password_rejects_empty_controls_and_non_ascii(self) -> None:
+        """Do not broaden compatibility to control characters or other encodings."""
+        for report_password in (
+            "", "Legacy\tPassword123!", "Legacy\nPassword123!",
+            "Legacy\rPassword123!", "Legacy\x00Password123!",
+            "Legacy\x7fPassword123!", "Legacy\u00a0Password123!",
+        ):
             with self.subTest(report_password=report_password):
                 with self.assertRaises(ValueError):
                     passwords.validate_existing_report_password(report_password)
+
+    def test_validation_error_does_not_disclose_password_character(self) -> None:
+        """Keep rejected password characters out of errors and downstream logs."""
+        with self.assertRaisesRegex(ValueError, "unsupported character") as error:
+            passwords.validate_existing_report_password("Legacy\u00e9Password123!")
+        self.assertNotIn("\u00e9", str(error.exception))
 
     def test_validate_report_password_accepts_apostrophe(self) -> None:
         """Accept an apostrophe in an existing stakeholder report password."""
@@ -61,6 +81,9 @@ class PasswordTests(unittest.TestCase):
             "lowercasepassword1!",
             "PasswordWithoutNumber!",
             "PasswordWithoutSpecial1",
+            " CustomerPassword123! ",
+            "Customer,Password123!",
+            "Customer-Password123!",
         )
         for report_password in invalid_passwords:
             with self.subTest(report_password=report_password):

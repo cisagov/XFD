@@ -20,7 +20,7 @@ PASSWORD_CHARACTER_SET = "".join(
     for character in string.ascii_letters + string.digits + string.punctuation
     if character not in BANNED_PASSWORD_CHARACTERS
 )
-EXISTING_PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET + ",-"
+EXISTING_PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET + ",- "
 
 
 def password_length_from_environment() -> int:
@@ -50,7 +50,7 @@ def _validate_password_characters(value: str, allowed_characters: str) -> None:
     for character in value:
         if character not in allowed_characters:
             raise ValueError(
-                "Character '{}' is not allowed in report_password.".format(character)
+                "report_password contains an unsupported character."
             )
 
 
@@ -60,7 +60,7 @@ def validate_report_password(value: str) -> None:
 
 
 def validate_existing_report_password(value: str) -> None:
-    """Allow legacy comma and hyphen characters when encrypting reports."""
+    """Accept existing printable ASCII passwords without stripping literal spaces."""
     _validate_password_characters(value, EXISTING_PASSWORD_CHARACTER_SET)
 
 
