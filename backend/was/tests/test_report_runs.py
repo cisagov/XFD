@@ -635,6 +635,7 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 42,
                 report_runs.FAILED,
+                False,
             ),
         )
         self.assertIn("error_message = NULL", conn.cursor_instance.query)

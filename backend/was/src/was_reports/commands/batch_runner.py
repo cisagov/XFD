@@ -51,6 +51,7 @@ from was_reports.storage.s3_reports import (
     upload_report,
 )
 from was_reports.utils.env import getenv, require_env
+from was_reports.utils.capacity_scope import capacity_tracker_ids
 from was_reports.utils.logging_config import configure_logging, exception_details
 from was_reports.utils.operation_lease import (
     OperationLeaseLostError,
@@ -400,6 +401,7 @@ def run_recent_scan_reports(
     analyst_batch_id: str | None = None,
 ) -> BatchExecutionSummary:
     """Generate and deliver reports for recent tracker rows with delivery gaps."""
+    tracker_scope = capacity_tracker_ids()
     candidates = list_ready_report_candidates_from_db(
         stakeholder_tag=stakeholder_tag,
         limit=limit,
@@ -408,6 +410,29 @@ def run_recent_scan_reports(
         worker_index=worker_index,
         days_back=days_back,
     )
+    if tracker_scope is not None:
+        candidates = [
+            candidate for candidate in candidates if candidate.id in tracker_scope
+        ]
+    capacity_continuation = (
+        tracker_scope is not None
+        and os.environ.get("WAS_CAPACITY_CONTINUATION") == "1"
+    )
+    if capacity_continuation:
+        candidate_ids = {candidate.id for candidate in candidates}
+        manual_candidates = list_ready_report_candidates_from_db(
+            stakeholder_tag=stakeholder_tag,
+            include_manual=True,
+            worker_count=worker_count,
+            worker_index=worker_index,
+            days_back=days_back,
+        )
+        candidates.extend(
+            candidate for candidate in manual_candidates
+            if candidate.id in tracker_scope
+            and candidate.id not in candidate_ids
+            and candidate.report_run_status == "failed"
+        )
     log_preflight_summary(
         LOGGER,
         summarize_candidates(candidates),
@@ -488,13 +513,18 @@ def run_recent_scan_reports(
                         if not continue_on_error:
                             raise
                     continue
-                report_run = create_report_run_for_tracker(
-                    stakeholder_tag=candidate.tag,
-                    source_tracker_id=candidate.id,
-                    enforce_automated_eligibility=not include_manual,
-                    days_back=days_back,
-                )
-                if report_run is None and include_manual:
+                if capacity_continuation and candidate.report_run_status == "failed":
+                    report_run = retry_failed_report_run_for_tracker_by_id(
+                        candidate.id, safe_only=True,
+                    )
+                else:
+                    report_run = create_report_run_for_tracker(
+                        stakeholder_tag=candidate.tag,
+                        source_tracker_id=candidate.id,
+                        enforce_automated_eligibility=not include_manual,
+                        days_back=days_back,
+                    )
+                if report_run is None and include_manual and not capacity_continuation:
                     report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
                 if report_run is None:
                     LOGGER.info(
@@ -892,7 +922,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.worker_index + 1,
                 args.worker_count,
             )
-        if not args.preflight_only:
+        if not args.preflight_only and capacity_tracker_ids() is None:
             LOGGER.info("Recovering interrupted report operations before batch work.")
             recover_stale_report_operations_in_db()
         analyst_batch_id = args.analyst_batch_id

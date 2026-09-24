@@ -5,6 +5,7 @@ import csv
 from email.message import EmailMessage
 from html.parser import HTMLParser
 import io
+import json
 import logging
 import math
 import statistics
@@ -20,6 +21,7 @@ from was_reports.data.daily_report_tracker import (
 from was_reports.reporting.report_transformer import spreadsheet_safe_field
 from was_reports.utils.database import connect
 from was_reports.utils.capacity_telemetry import emit_metric
+from was_reports.utils.capacity_scope import capacity_tracker_ids
 from was_reports.utils.env import getenv
 
 LOGGER = logging.getLogger(__name__)
@@ -437,6 +439,7 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
         True,
     )
     elapsed, tracker_duration, tracker_error, workers, mode, workload, finished, outcome = batch[0]
+    continuation = mode == "capacity" and str(workload or "").startswith("continuation of ")
     total = sum(float(row[0]) for row in attempts)
     sent = sum(bool(row[2]) for row in attempts)
     durations = sorted(
@@ -469,15 +472,19 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
         "PDF generation median: {}; p95 (nearest rank): {} seconds".format(median, percentile95),
         "PDF timing statistics include positive-duration PDF attempts, including failed attempts.",
         "Accepted deliveries per minute: {}".format(
-            "{:.2f}".format(sent * 60 / float(elapsed)) if finished and float(elapsed) > 0 else "Not available"
+            "{:.2f}".format(sent * 60 / float(elapsed))
+            if finished and float(elapsed) > 0 and not continuation else "Not available"
         ),
         "Accepted deliveries per hour: {}".format(
-            "{:.2f}".format(sent * 3600 / float(elapsed)) if finished and float(elapsed) > 0 else "Not available"
+            "{:.2f}".format(sent * 3600 / float(elapsed))
+            if finished and float(elapsed) > 0 and not continuation else "Not available"
         ),
         "Sum of recorded per-report delivery durations: {:.2f} seconds".format(
             sum(float(row[5]) for row in attempts if row[5] is not None)
         ),
-        "Sent counts use this batch's recorded SES acceptance, not recipient delivery.",
+        ("Sent totals include prior attempts' persisted SES acceptance; they are not new sends."
+         if continuation else
+         "Sent counts use this batch's recorded SES acceptance, not recipient delivery."),
         "Duration aggregates retain the longest observation per report on retries; they are not wall time or total retry cost.",
         "Average PDF generation time (timed PDF attempts): {}".format(
             "{:.2f} seconds".format(sum(durations) / len(durations))
@@ -488,6 +495,22 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
         "",
         "Open manual work:",
     ]
+    if continuation:
+        lines.insert(2, "CONTINUATION: workload totals include previous completions. "
+                     "Generated totals mean artifacts available across attempts. "
+                     "This is not a fresh throughput or 600-report capacity benchmark.")
+    if mode == "capacity":
+        try:
+            progress = json.loads(getenv("WAS_CAPACITY_PROGRESS", "{}"))
+            keys = ("total", "completed", "failed", "remaining", "blocked")
+            if isinstance(progress, dict) and all(
+                type(progress.get(key)) is int and progress[key] >= 0 for key in keys
+            ):
+                lines.insert(2, "Workload status: " + "; ".join(
+                    "{}={}".format(key, progress[key]) for key in keys
+                ))
+        except (TypeError, ValueError):
+            LOGGER.warning("Capacity progress summary metadata is invalid; omitted.")
     rows = _tracker_rows(batch_id=batch_id)
     manuals = [row for row in rows if row["open_manual"]]
     for row in manuals:
@@ -535,6 +558,9 @@ def main(argv=None):
             None if arguments.days_back.lower() == "all" else int(arguments.days_back)
         )
         candidates = list_ready_report_candidates_from_db(days_back=days)
+        tracker_scope = capacity_tracker_ids()
+        if tracker_scope is not None:
+            candidates = [row for row in candidates if row.id in tracker_scope]
         send_tracker_summary(
             arguments.batch_id,
             [row.id for row in candidates],

@@ -38,6 +38,7 @@ from was_reports.data.report_runs import (
 )
 from was_reports.storage.s3_reports import materialize_report
 from was_reports.utils.env import getenv, require_env
+from was_reports.utils.capacity_scope import capacity_tracker_ids
 from was_reports.utils.logging_config import configure_logging, exception_details
 from was_reports.utils.operation_lease import (
     check_operation_ownership,
@@ -312,12 +313,19 @@ def send_ready_report_emails(
     analyst_batch_id: Optional[str] = None,
 ) -> int:
     """Send all completed WAS report runs that are ready for email delivery."""
+    tracker_scope = capacity_tracker_ids()
     report_runs = list_report_runs_ready_for_email_from_db(
         limit=limit,
         include_previous_failures=include_previous_failures,
         stakeholder_tag=stakeholder_tag,
         days_back=days_back,
     )
+    if tracker_scope is not None:
+        report_runs = [
+            report_run for report_run in report_runs
+            if report_run.source_tracker_id in tracker_scope
+            and getattr(report_run, "delivery_purpose", "customer") == "customer"
+        ]
     sent_count = 0
 
     for report_run in report_runs:
@@ -466,7 +474,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     resolved_days_back = (
         None if args.days_back == ALL_DAYS_BACK else args.days_back
     )
-    recover_stale_report_operations_in_db()
+    if capacity_tracker_ids() is None:
+        recover_stale_report_operations_in_db()
     source_email = args.source_email
     if not source_email:
         source_email = require_environment_variable("WAS_EMAIL_SOURCE")

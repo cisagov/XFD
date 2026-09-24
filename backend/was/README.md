@@ -8,6 +8,9 @@ updates during the isolated test. Keep capacity database settings as
 copied to `.env` on EC2. The capacity launcher selects the test database;
 normal commands retain their ordinary database settings. See the guide for all
 seven required test settings and isolation prerequisites.
+Use `make capacity-start`, `make capacity-continue`, or the explicitly destructive
+`make capacity-start-over`, with `TEST_RECIPIENTS` and `APPLY=1` to execute.
+Counts and new run IDs are automatic by default; omitting `APPLY=1` previews only.
 
 For non-enrolled Qualys tags, see [Standalone reports](docs/standalone-reports.md)
 for the separate menu path, saved delivery address, and comprehensive schema

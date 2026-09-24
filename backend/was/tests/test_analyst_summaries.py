@@ -169,6 +169,23 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertIn("sent: 1; unsent: 0", body)
         self.assertEqual(len(deliver.call_args.args[5]), 2)
 
+    @patch.object(summaries, "getenv", return_value='{"total": 2, "completed": 1, "failed": 1, "remaining": 1, "blocked": 1}')
+    @patch.object(summaries, "_deliver", return_value=True)
+    @patch.object(summaries, "_tracker_rows", return_value=[])
+    @patch.object(summaries, "_execute")
+    def test_continuation_does_not_claim_fresh_throughput(self, execute, rows, deliver, getenv):
+        """Previously accepted sends must not inflate a continuation's throughput."""
+        execute.side_effect = [
+            [(90, None, None, 2, "capacity", "continuation of previous", "finished", "failed")],
+            [(0, True, True, None, "pdf", None)],
+        ]
+        summaries.send_batch_summary("batch", "from@example.gov")
+        body = deliver.call_args.args[4]
+        self.assertIn("CONTINUATION", body)
+        self.assertIn("Accepted deliveries per hour: Not available", body)
+        self.assertIn("they are not new sends", body)
+        self.assertIn("total=2; completed=1; failed=1; remaining=1; blocked=1", body)
+
     @patch.object(summaries, "_execute")
     def test_batch_context_and_completion_are_insert_once(self, execute):
         """Workers cannot reset the coordinator context or completion clock."""

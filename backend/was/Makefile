@@ -26,8 +26,10 @@ REPORT_RUN_IDS ?=
 MANUAL_TRACKER_IDS ?=
 APPLY ?= 0
 CAPACITY_RUN_ID ?=
-CAPACITY_WORKLOAD_LABEL ?=
-CAPACITY_EXPECTED_CANDIDATES ?= 600
+CAPACITY_WORKLOAD_LABEL ?= capacity-trial
+CAPACITY_EXPECTED_CANDIDATES ?= auto
+CAPACITY_ACTION ?= start
+CAPACITY_CONTINUE_RUN_ID ?=
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
 INPUT_XLSX ?=
@@ -78,7 +80,22 @@ stakeholders-help:
 
 .PHONY: recent-scan-batch-preflight recent-scan-batch-preflight-local
 
-.PHONY: capacity-test capacity-database-reset
+.PHONY: capacity-test capacity-start capacity-continue capacity-start-over capacity-database-reset
+
+capacity-start:
+	$(MAKE) capacity-test CAPACITY_ACTION=start
+
+capacity-continue:
+	$(MAKE) capacity-test CAPACITY_ACTION=continue
+
+capacity-start-over:
+	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to approved test recipients.' >&2; exit 2)
+	$(MAKE) capacity-database-reset APPLY="$(APPLY)"
+	@if [ "$(APPLY)" = 1 ]; then \
+	  $(MAKE) capacity-test CAPACITY_ACTION=start CAPACITY_RUN_ID=; \
+	else \
+	  echo 'Preview only. APPLY=1 replaces test data, clears history, then starts a new load test and sends test emails.'; \
+	fi
 
 capacity-database-reset:
 	@set -- --output-directory /output/capacity-database-resets; \
@@ -90,12 +107,17 @@ capacity-database-reset:
 	  -m was_reports.commands.capacity_database_reset "$$@"
 
 capacity-test:
-	@test -n "$(CAPACITY_RUN_ID)" -a -n "$(CAPACITY_WORKLOAD_LABEL)" || (echo 'Set CAPACITY_RUN_ID to a new UUID and CAPACITY_WORKLOAD_LABEL to the clone baseline.' >&2; exit 2)
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to approved test recipients.' >&2; exit 2)
-	@set -- --run-id "$(CAPACITY_RUN_ID)" --workload-label "$(CAPACITY_WORKLOAD_LABEL)" \
+	@set -- --workload-label "$(CAPACITY_WORKLOAD_LABEL)" \
 	  --workers "$(BATCH_WORKERS)" --expected-candidates "$(CAPACITY_EXPECTED_CANDIDATES)" \
 	  --days-back "$(BATCH_DAYS_BACK)" --lookback-days "$(TRACKER_LOOKBACK_DAYS)" \
 	  --test-recipients "$(TEST_RECIPIENTS)"; \
+	if [ -n "$(CAPACITY_RUN_ID)" ]; then set -- "$$@" --run-id "$(CAPACITY_RUN_ID)"; fi; \
+	case "$(CAPACITY_ACTION)" in start) ;; \
+	  continue) if [ -n "$(CAPACITY_CONTINUE_RUN_ID)" ]; then \
+	    set -- "$$@" --continue-run "$(CAPACITY_CONTINUE_RUN_ID)"; \
+	    else set -- "$$@" --continue-latest; fi ;; \
+	  *) echo 'CAPACITY_ACTION must be start or continue.' >&2; exit 2 ;; esac; \
 	case "$(APPLY)" in 0) ;; 1) mkdir -p "$(OUTPUT_DIR)"; set -- "$$@" --apply ;; \
 	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" \

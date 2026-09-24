@@ -973,6 +973,7 @@ def _lock_eligible_automated_tracker(
 def retry_failed_report_run_for_tracker(
     source_tracker_id: int,
     conn: connection,
+    safe_only: bool = False,
 ) -> ReportRun | None:
     """Atomically reclaim one failed tracker report run for generation."""
     generation_token = str(uuid4())
@@ -995,6 +996,16 @@ def retry_failed_report_run_for_tracker(
                 WHERE source_tracker_id = %s
                   AND status = %s
                   AND delivery_purpose = 'customer'
+                  AND (
+                      NOT %s OR (
+                          emailed_at IS NULL
+                          AND COALESCE(email_status, 'pending') IN ('pending', 'failed')
+                          AND POSITION('QualysReportCreationUncertainError'
+                              IN COALESCE(error_message, '')) = 0
+                          AND POSITION('creation outcome is uncertain'
+                              IN COALESCE(error_message, '')) = 0
+                      )
+                  )
                 RETURNING id, stakeholder_tag, status
                 """,
                 (
@@ -1003,6 +1014,7 @@ def retry_failed_report_run_for_tracker(
                     EMAIL_PENDING,
                     source_tracker_id,
                     FAILED,
+                    safe_only,
                 ),
             )
             row = cursor.fetchone()
@@ -1023,6 +1035,7 @@ def retry_failed_report_run_for_tracker(
 
 def retry_failed_report_run_for_tracker_by_id(
     source_tracker_id: int,
+    safe_only: bool = False,
 ) -> ReportRun | None:
     """Reclaim one failed tracker report run using a managed connection."""
     # Third-Party Libraries
@@ -1033,6 +1046,7 @@ def retry_failed_report_run_for_tracker_by_id(
         return retry_failed_report_run_for_tracker(
             source_tracker_id=source_tracker_id,
             conn=conn,
+            safe_only=safe_only,
         )
     finally:
         close(conn)

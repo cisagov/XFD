@@ -143,26 +143,70 @@ recipient checks first. Replace the example baseline label with the actual
 snapshot identifier:
 
 ```bash
-CAPACITY_RUN_ID="$(uuidgen)"
-echo "Save capacity run ID: $CAPACITY_RUN_ID"
-
-make capacity-test \
-  CAPACITY_RUN_ID="$CAPACITY_RUN_ID" \
+make capacity-start \
   CAPACITY_WORKLOAD_LABEL="approved-baseline-2026-09-24" \
-  CAPACITY_EXPECTED_CANDIDATES=600 BATCH_WORKERS=5 \
-  TEST_RECIPIENTS="zachary.cogswell@associates.cisa.dhs.gov"
+  BATCH_WORKERS=30 \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
 ```
 
 Without `APPLY=1`, the command does not call Qualys, refresh tables, generate
 reports, or send email. This checks isolation, not the post-refresh workload count.
 
-After reviewing the environment and approving the load, repeat that same command
-with `APPLY=1`. The applied trial refreshes the test tracker, saves the candidate
-manifest, and refuses generation if the resulting count differs from the
-explicit expected count. It then runs the normal worker partitions, delivery
-retry phase, and summaries. The test tracker is allowed to change; the operational
-tracker is not used. Already-used trial IDs are rejected, not silently resumed.
-Inspect failures before planning another trial.
+The default expected count is now `auto`. A start refreshes the tracker, records
+the actual eligible workload, and continues without stopping for a count change.
+An explicit numeric `CAPACITY_EXPECTED_CANDIDATES` retains the optional strict
+count check, for example when demonstrating exactly 600 outcomes. The saved
+manifest limits generation and delivery retries to that workload. A new UUID is
+generated and printed automatically unless one is supplied explicitly.
+
+For a normal parallel trial, use the following command. Remove `APPLY=1` for a
+read-only preview. All report and tracker/final summary emails use the explicit
+recipient override, not customer POCs or the assignees on individual tracker rows.
+
+```bash
+make capacity-start APPLY=1 BATCH_WORKERS=30 \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
+```
+
+To continue the latest capacity workload in this test database:
+
+```bash
+make capacity-continue APPLY=1 BATCH_WORKERS=30 \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
+```
+
+Optionally supply `CAPACITY_CONTINUE_RUN_ID=<previous-run-UUID>` to choose a
+specific workload. Continuation creates a new attempt UUID and summary, preserves
+earlier evidence, and does not refresh or broaden the original workload. It skips
+accepted emails, reuses completed reports awaiting safe delivery, and retries
+safe failed generation. Held/sending deliveries, active generation, and uncertain
+Qualys creation outcomes are not blindly retried. Reconcile unsafe states before
+continuing; they are not a reason to remove duplicate-delivery protections.
+The saved manifest and matching batch record must still exist. After a database
+reset, old disk manifests cannot be used to resume deleted batch records.
+If a run failed before saving a manifest, use a new start rather than continuation.
+
+Continuation summaries explicitly include prior completions and do not present
+them as fresh throughput. A recovered workload can finish successfully, but a
+continuation is not a new 600-in-eight-hours benchmark. Normal start runs retain
+the complete refresh-to-SES measurement. Zero candidates means no report work,
+not a passed capacity benchmark.
+
+To discard the current test state and run a fresh trial in one explicit command:
+
+```bash
+make capacity-start-over APPLY=1 BATCH_WORKERS=30 \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
+```
+
+This backs up and replaces the test database using `capacity-database-reset`,
+then starts a new trial only if reset succeeded. It is destructive to test state
+and sends real test emails. It does not undo previous SES or Qualys operations.
+Without `APPLY=1`, start-over performs reset prerequisite checks and prints the
+plan without restoring or starting a workload. The reset preserves source sent
+dates and copies source assignees, so verify the chosen recipient is present in
+the source data. Do not run normal batches or manual edits against the clone
+while any capacity operation is active.
 
 Use a representative mix of target sizes. Start with a small expected cohort and
 one worker, then compare 5, 10, 20, and 30 workers on matching approved baselines.

@@ -15,6 +15,114 @@ from was_reports.commands import capacity_test
 class CapacityTestTests(unittest.TestCase):
     """Verify unsafe identities and previews cannot start report work."""
 
+    def test_start_defaults_to_new_identity_and_auto_count(self):
+        """A normal start needs no hand-crafted run ID or workload count."""
+        first = capacity_test.parse_args(["--test-recipients", "analyst@example.gov"])
+        second = capacity_test.parse_args(["--test-recipients", "analyst@example.gov",
+                                           "--expected-candidates", "auto"])
+        self.assertNotEqual(first.run_id, second.run_id)
+        self.assertIsNone(first.expected_candidates)
+        self.assertIsNone(second.expected_candidates)
+
+    def test_continuation_selection_validates_database_and_manifest(self):
+        """Latest selection uses the database and checks saved tracker identity."""
+        arguments = self.arguments()
+        arguments.continue_latest = True
+        parent_id = "ccce3a43-cd47-4a26-99e9-cadcc1094266"
+        cursor = MagicMock()
+        cursor.fetchone.return_value = (parent_id,)
+        cursor.fetchall.return_value = [(1, "test")]
+        with TemporaryDirectory() as directory:
+            manifest_directory = Path(directory) / parent_id
+            manifest_directory.mkdir()
+            manifest_directory.joinpath("workload.json").write_text(json.dumps({
+                "run_id": parent_id, "candidate_count": 1, "candidate_ids": [1],
+                "candidates": [{"tracker_id": 1, "tag": "test", "template": "Standard"}],
+            }))
+            self.assertEqual(capacity_test.load_continuation(cursor, arguments, Path(directory)), [1])
+            self.assertIn("ORDER BY started_at", cursor.execute.call_args_list[0].args[0])
+            self.assertEqual(arguments.continuation_manifest["parent_run_id"], parent_id)
+            cursor.fetchall.return_value = [(1, "other")]
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                capacity_test.load_continuation(cursor, arguments, Path(directory))
+
+    def test_continuation_rejects_missing_manifest(self):
+        """A trial interrupted before selection cannot be continued blindly."""
+        arguments = self.arguments()
+        arguments.continue_latest = True
+        cursor = MagicMock()
+        cursor.fetchone.return_value = ("ccce3a43-cd47-4a26-99e9-cadcc1094266",)
+        with TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, "no workload manifest"):
+            capacity_test.load_continuation(cursor, arguments, Path(directory))
+
+    def test_empty_auto_workload_is_successful_noop(self):
+        """An empty refreshed workload is not an aborted run or a capacity proof."""
+        arguments = self.arguments(apply=True)
+        with TemporaryDirectory() as directory, patch(
+            "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
+        ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
+            "was_reports.reporting.analyst_summaries.finish_batch"
+        ), patch.object(capacity_test, "list_ready_report_candidates_from_db", return_value=[]), patch.object(
+            capacity_test, "run_phase", return_value=SimpleNamespace(returncode=0)
+        ) as phases, patch.object(capacity_test.subprocess, "Popen") as workers:
+            self.assertEqual(capacity_test.execute_trial(arguments, "analyst@example.gov", Path(directory)), 0)
+            workers.assert_not_called()
+            self.assertFalse(any(call.args[0][0] == "was-mailer" for call in phases.call_args_list))
+            result = json.loads(Path(directory, "result.json").read_text())
+            self.assertFalse(result["capacity_pass"])
+            self.assertTrue(result["workflow_completed"])
+
+    def test_continuation_completes_without_new_capacity_proof(self):
+        """Cumulative inherited results can complete a continuation, never a benchmark."""
+        result, status = self.execute_mock_trial(sent=1, continuing=True)
+        self.assertEqual(status, 0)
+        self.assertFalse(result["capacity_pass"])
+        self.assertEqual(result["inherited_sent"], 1)
+
+    def test_partial_failure_still_reports_persisted_delivery_counts(self):
+        """An interrupted phase must retain successful sends already in the database."""
+        result, status = self.execute_mock_trial(sent=1, delivery_error=True)
+        self.assertEqual(status, -1)
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(result["remaining"], 0)
+        self.assertTrue(result["counts_available"])
+        self.assertEqual(result["execution_error"], "TimeoutError")
+
+    def test_continuation_counts_held_and_uncertain_as_blocked(self):
+        """Safe failed work is retryable, while uncertain sends/creates remain held."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [
+            (1, 11, "failed", "pending", None, None, "RenderFailure"),
+            (2, 12, "failed", "pending", None, None, "creation outcome is uncertain"),
+            (3, 13, "completed", "held", "pdf", None, None),
+            (4, 14, "completed", "sent", "notification", "original-time", None),
+        ]
+        with patch.object(capacity_test, "connect", return_value=connection), patch(
+            "was_reports.reporting.analyst_summaries.record_report_attempt"
+        ) as record:
+            counts = capacity_test.continuation_status([1, 2, 3, 4], "new-batch")
+        self.assertEqual(counts["blocked"], 2)
+        self.assertEqual(counts["remaining"], 3)
+        self.assertEqual(counts["sent"], 1)
+        self.assertEqual(record.call_args_list[0].kwargs["error"], None)
+        self.assertIn("sent_recorded_at=runs.emailed_at", cursor.execute.call_args.args[0])
+
+    @patch.dict(os.environ, {"WAS_DB_NAME": "was_capacity_trial",
+                             "WAS_DB_USERNAME": "was_capacity_runner"})
+    def test_continue_guard_allows_only_manifest_pending_reports(self):
+        """Continuation's pending-report exception remains bounded to saved IDs."""
+        arguments = self.arguments()
+        arguments.continue_latest = True
+        connection = self.connection()
+        with patch.object(capacity_test, "connect", return_value=connection), patch.object(
+            capacity_test, "load_continuation", return_value=[1, 2]
+        ):
+            self.assertIs(capacity_test.guard_database(arguments), connection)
+        query = connection.cursor.return_value.__enter__.return_value.execute.call_args
+        self.assertIn("source_tracker_id,0)=ANY", query.args[0])
+        self.assertEqual(query.args[1], ([1, 2],))
+
     def test_test_settings_are_exclusive_and_restored(self):
         """Map all settings for child inheritance without changing normal settings."""
         suffixes = ("HOST", "NAME", "USERNAME", "PASSWORD", "PORT", "SSLMODE",
@@ -143,6 +251,7 @@ class CapacityTestTests(unittest.TestCase):
     def test_workload_mismatch_prevents_workers_and_marks_failed(self):
         """A refresh count mismatch must not generate or deliver customer reports."""
         arguments = self.arguments(apply=True)
+        arguments.expected_candidates = 600
         with TemporaryDirectory() as directory, patch(
             "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
         ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
@@ -200,34 +309,51 @@ class CapacityTestTests(unittest.TestCase):
         stop.assert_called_once_with(popen.return_value)
 
     def execute_mock_trial(self, sent, worker_status=0, summary_status=0,
-                           tracker_ids=None):
+                           tracker_ids=None, continuing=False, delivery_error=False):
         """Exercise real orchestration with bounded process and database mocks."""
         arguments = self.arguments(apply=True)
         arguments.workers = 1
         arguments.expected_candidates = 1
+        if continuing:
+            arguments.continuation_manifest = {
+                "run_id": "ccce3a43-cd47-4a26-99e9-cadcc1094266", "candidate_count": 1,
+                "candidate_ids": [1], "candidates": [{"tracker_id": 1, "tag": "test"}],
+                "parent_run_id": "ccce3a43-cd47-4a26-99e9-cadcc1094266",
+            }
         worker = MagicMock()
         worker.wait.return_value = worker_status
         worker.poll.return_value = 0
         candidate = SimpleNamespace(id=1, tag="test", template="Standard")
+        counts = {"attempted": 1, "pdfs_generated": 1,
+                  "notifications_generated": 0, "sent": sent,
+                  "tracker_ids": [1] if tracker_ids is None else tracker_ids}
+        phase_results = [SimpleNamespace(returncode=0)] * (2 if continuing else 3)
+        phase_results.append(SimpleNamespace(returncode=summary_status))
+        if delivery_error:
+            phase_results[-2] = TimeoutError("Simulated delivery interruption")
         with TemporaryDirectory() as directory, patch(
             "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
         ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
             "was_reports.reporting.analyst_summaries.finish_batch"
         ), patch.object(capacity_test, "list_ready_report_candidates_from_db",
                         return_value=[candidate]), patch.object(
-            capacity_test, "trial_counts", return_value={
-                "attempted": 1, "pdfs_generated": 1,
-                "notifications_generated": 0, "sent": sent,
-                "tracker_ids": [1] if tracker_ids is None else tracker_ids}
-        ), patch.object(capacity_test, "run_phase", side_effect=[
-            SimpleNamespace(returncode=0), SimpleNamespace(returncode=0),
-            SimpleNamespace(returncode=0), SimpleNamespace(returncode=summary_status)
-        ]), patch.object(
+            capacity_test, "trial_counts", return_value=counts
+        ), patch.object(capacity_test, "continuation_status", return_value=counts), patch.object(
+            capacity_test, "run_phase", side_effect=phase_results
+        ) as phases, patch.object(
             capacity_test.subprocess, "Popen", return_value=worker
         ) as workers:
-            status = capacity_test.execute_trial(
-                arguments, "analyst@example.gov", Path(directory))
+            try:
+                status = capacity_test.execute_trial(
+                    arguments, "analyst@example.gov", Path(directory))
+            except TimeoutError:
+                if not delivery_error:
+                    raise
+                status = -1
             self.assertIn("--test-recipients", workers.call_args.args[0])
+            if continuing:
+                self.assertFalse(any("was_reports.commands.update_tracker_cli" in call.args[0]
+                                     for call in phases.call_args_list))
             result = json.loads((Path(directory) / "result.json").read_text())
             return result, status
 
