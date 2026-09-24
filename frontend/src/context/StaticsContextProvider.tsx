@@ -10,11 +10,9 @@ interface StaticsContextProviderProps {
   children: React.ReactNode;
 }
 
-type RegionsResponse = [
-  {
-    region_id: string;
-  }
-];
+type RegionsResponse = {
+  region_id: string;
+}[];
 
 export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
   children
