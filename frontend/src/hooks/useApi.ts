@@ -311,6 +311,10 @@ export const useApi = (onError?: OnError) => {
               result = await response.text();
             } else if (parseAs === 'blob') {
               result = await response.blob();
+            } else if (parseAs === 'arrayBuffer') {
+              result = await response.arrayBuffer();
+            } else if (parseAs === 'formData') {
+              result = await response.formData();
             }
           } catch (error) {
             // Handle parsing errors if necessary
