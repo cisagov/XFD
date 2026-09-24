@@ -15,6 +15,8 @@ import psycopg2
 from psycopg2 import sql
 from was_reports.data import daily_report_tracker as tracker
 from was_reports.data import report_runs
+from was_reports.data import standalone_targets
+from was_reports.data import tracker_corrections
 from was_reports.tracker import update_service
 from was_reports.tracker.models import TrackerItem
 
@@ -49,6 +51,139 @@ class PostgresIntegrationTests(unittest.TestCase):
                 "VALUES ('TEST', 'TEST', 'TEST', 'TEST', 'DC')"
             )
         self.connection.commit()
+
+    def test_standalone_creation_reuses_target_and_password(self) -> None:
+        """Exercise the real standalone insert/reuse SQL in this isolated schema."""
+        with patch.object(
+            standalone_targets, "connect", return_value=self.connection
+        ), patch.object(standalone_targets, "close"), patch.object(
+            standalone_targets, "normalized_recipient", side_effect=lambda value: value
+        ):
+            first = standalone_targets.create_standalone_request(
+                "OTHER", 12345, "analyst@example.gov"
+            )
+            with self.assertRaises(report_runs.ActiveReportOperationError):
+                standalone_targets.create_standalone_request("OTHER", 12345, None)
+            report_runs.complete_report_run(
+                first.run.id,
+                self.connection,
+                output_path="s3://test/standalone.pdf",
+                artifact_type="pdf",
+                generation_token=first.run.generation_token,
+            )
+            second = standalone_targets.create_standalone_request("OTHER", 12345, None)
+        self.assertEqual(first.password, second.password)
+        self.assertEqual(first.delivery_email, second.delivery_email)
+        self.assertNotEqual(first.run.id, second.run.id)
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM was_standalone_report_targets")
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_standalone_claim_does_not_require_stakeholder(self) -> None:
+        """Standalone delivery resolves its target and cannot join the daily queue."""
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO was_standalone_report_targets "
+                "(qualys_tag_id, tag, report_password, delivery_email) "
+                "VALUES (999, 'NOT_ENROLLED', 'ExactPassword!', 'analyst@example.gov') RETURNING id"
+            )
+            target_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO was_report_runs (standalone_target_id, delivery_purpose, status, "
+                "artifact_type, output_path) VALUES (%s, 'standalone', 'completed', 'pdf', "
+                "'s3://test/report.pdf') RETURNING id",
+                (target_id,),
+            )
+            run_id = cursor.fetchone()[0]
+        self.connection.commit()
+        self.assertEqual(
+            report_runs.list_report_runs_ready_for_email(self.connection), []
+        )
+        self.assertIsNone(report_runs.claim_report_run_email(run_id, self.connection))
+        claimed = report_runs.claim_report_run_email(
+            run_id, self.connection, delivery_purpose="standalone"
+        )
+        self.assertEqual(claimed.stakeholder_tag, "NOT_ENROLLED")
+        self.assertEqual(claimed.report_password, "ExactPassword!")
+        self.assertEqual(claimed.distro_email, "analyst@example.gov")
+        report_runs.mark_report_run_emailed(
+            run_id,
+            "message",
+            self.connection,
+            email_claim_token=claimed.email_claim_token,
+        )
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM was_daily_report_tracker")
+            self.assertEqual(cursor.fetchone()[0], 0)
+            cursor.execute(
+                "SELECT COUNT(*) FROM was_stakeholders WHERE tag = 'NOT_ENROLLED'"
+            )
+            self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_customer_history_includes_descendants_and_terminates_cycles(self) -> None:
+        """All-history lookup follows parent links, not tag-name prefixes."""
+        with self.connection.cursor() as cursor:
+            for tag, parent in [
+                ("PARENT", None),
+                ("CHILD", "PARENT"),
+                ("GRAND", "CHILD"),
+                ("PARENT_OTHER", None),
+            ]:
+                cursor.execute(
+                    "INSERT INTO was_stakeholders (tag, parent_tag, ci_type, testing_sector, frequency, state) "
+                    "VALUES (%s, %s, 'TEST', 'TEST', 'TEST', 'DC')",
+                    (tag, parent),
+                )
+                cursor.execute(
+                    "INSERT INTO was_daily_report_tracker (tag, data_pull_date) VALUES (%s, '2000-01-01')",
+                    (tag,),
+                )
+            cursor.execute(
+                "UPDATE was_stakeholders SET parent_tag = 'GRAND' WHERE tag = 'PARENT'"
+            )
+        self.connection.commit()
+        rows = tracker.list_tracker_table_rows(
+            self.connection,
+            None,
+            limit=None,
+            stakeholder_tag="PARENT",
+            include_children=True,
+        )
+        self.assertEqual({row.tag for row in rows}, {"PARENT", "CHILD", "GRAND"})
+        rows = tracker.list_tracker_table_rows(
+            self.connection, None, limit=None, stakeholder_tag="PARENT"
+        )
+        self.assertEqual([row.tag for row in rows], ["PARENT"])
+
+    def test_tracker_correction_updates_only_unclaimed_rows(self) -> None:
+        """Real correction SQL preserves claim history and checks the inspected row."""
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO was_daily_report_tracker (tag, status, report_scan_notes) "
+                "VALUES ('TEST', 'Error', 'needs review') RETURNING id"
+            )
+            tracker_id = cursor.fetchone()[0]
+        self.connection.commit()
+        expected = tracker.get_tracker_record_by_id(tracker_id, self.connection)
+        with patch.object(
+            tracker_corrections, "connect", return_value=self.connection
+        ), patch.object(tracker_corrections, "close"):
+            tracker_corrections.correct_tracker_row(
+                tracker_id,
+                {"status": "Finished", "report_scan_notes": None},
+                expected=expected,
+            )
+            changed = tracker.get_tracker_record_by_id(tracker_id, self.connection)
+            self.assertEqual(changed["status"], "Finished")
+            self.assertIsNone(changed["report_scan_notes"])
+            report_runs.create_report_run(
+                "TEST", None, self.connection, source_tracker_id=tracker_id
+            )
+            expected = tracker.get_tracker_record_by_id(tracker_id, self.connection)
+            with self.assertRaisesRegex(ValueError, "report run already exists"):
+                tracker_corrections.correct_tracker_row(
+                    tracker_id, {"status": "Error"}, expected=expected
+                )
 
     def tearDown(self) -> None:
         """Remove only this test's uniquely named schema."""

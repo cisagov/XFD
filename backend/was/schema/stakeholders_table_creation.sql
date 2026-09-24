@@ -65,13 +65,27 @@ CREATE TABLE was_stakeholders (
     updated_at             TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Standalone targets are not enrolled stakeholders and never enter daily batches.
+CREATE TABLE was_standalone_report_targets (
+    id BIGSERIAL PRIMARY KEY,
+    qualys_tag_id BIGINT NOT NULL UNIQUE CHECK (qualys_tag_id > 0),
+    tag VARCHAR(128) NOT NULL UNIQUE CHECK (BTRIM(tag) <> '' AND tag !~ '[[:cntrl:]]'),
+    report_password TEXT NOT NULL CHECK (report_password <> ''),
+    delivery_email TEXT NOT NULL CHECK (BTRIM(delivery_email) <> ''
+        AND POSITION(CHR(10) IN delivery_email) = 0
+        AND POSITION(CHR(13) IN delivery_email) = 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE was_report_runs (
     id                     BIGSERIAL PRIMARY KEY,
-    stakeholder_tag        VARCHAR(128) NOT NULL REFERENCES was_stakeholders(tag),
+    stakeholder_tag        VARCHAR(128) REFERENCES was_stakeholders(tag),
+    standalone_target_id   BIGINT REFERENCES was_standalone_report_targets(id),
     status                 VARCHAR(32) NOT NULL,
     generation_token       TEXT,
     delivery_purpose       TEXT NOT NULL DEFAULT 'customer'
-                           CHECK (delivery_purpose IN ('customer', 'analyst')),
+                           CHECK (delivery_purpose IN ('customer', 'analyst', 'standalone')),
     scheduled_epoch        BIGINT,
     output_path            TEXT,
     artifact_type          VARCHAR(32),
@@ -91,11 +105,22 @@ CREATE TABLE was_report_runs (
     qualys_xml_report_status VARCHAR(32),
     qualys_xml_last_polled_at TIMESTAMPTZ,
     created_at             TIMESTAMPTZ DEFAULT NOW(),
-    updated_at             TIMESTAMPTZ DEFAULT NOW()
+    updated_at             TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT was_report_runs_target_check CHECK (
+        (stakeholder_tag IS NOT NULL AND standalone_target_id IS NULL
+         AND delivery_purpose IN ('customer', 'analyst')) OR
+        (stakeholder_tag IS NULL AND standalone_target_id IS NOT NULL
+         AND delivery_purpose = 'standalone' AND scheduled_epoch IS NULL)
+    )
 );
 
 CREATE INDEX was_report_runs_stakeholder_tag_idx
     ON was_report_runs (stakeholder_tag);
+
+CREATE UNIQUE INDEX was_report_runs_active_standalone_uidx
+    ON was_report_runs (standalone_target_id)
+    WHERE standalone_target_id IS NOT NULL
+      AND (status = 'running' OR email_status = 'sending');
 
 CREATE INDEX was_report_runs_status_idx
     ON was_report_runs (status);
@@ -204,6 +229,9 @@ CREATE INDEX was_special_cases_active_idx
 ALTER TABLE was_report_runs
     ADD COLUMN source_tracker_id BIGINT
     REFERENCES was_daily_report_tracker(id);
+
+ALTER TABLE was_report_runs ADD CONSTRAINT was_report_runs_standalone_tracker_check
+    CHECK (standalone_target_id IS NULL OR source_tracker_id IS NULL);
 
 CREATE UNIQUE INDEX was_report_runs_source_tracker_id_uidx
     ON was_report_runs (source_tracker_id)

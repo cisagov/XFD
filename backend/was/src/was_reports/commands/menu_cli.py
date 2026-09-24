@@ -16,8 +16,8 @@ from pyfiglet import Figlet
 # First-Party Libraries
 from was_reports.commands import (
     batch_runner,
-    inventory_cli,
     on_demand_cli,
+    standalone_cli,
     report_generator,
     stakeholders_cli,
     tracker_cli,
@@ -33,6 +33,8 @@ from was_reports.utils.passwords import (
     CUSTOMER_PASSWORD_REQUIREMENTS,
     validate_customer_provided_report_password,
 )
+
+from was_reports.utils.stakeholder_options import STAKEHOLDER_OPTIONS
 
 LOGGER = logging.getLogger(__name__)
 InputFunction = Callable[[str], str]
@@ -344,15 +346,20 @@ class WasOperatorMenu:
         options: list[str],
         show_banner: bool = False,
     ) -> None:
-        """Display one numbered menu."""
+        """Display navigation first as zero, preserving action numbering."""
         clear_terminal()
         if show_banner:
             self.print_banner()
         self.output("")
         self.output(title)
         self.output("=" * len(title))
-        for option_index, option_text in enumerate(options, start=1):
-            self.output("{}) {}".format(option_index, option_text))
+        navigation = {"Quit", "Back to main menu", "Cancel"}
+        for option in options:
+            if option in navigation:
+                self.output("0) {}".format(option))
+        actions = [option for option in options if option not in navigation]
+        for index, option in enumerate(actions, start=1):
+            self.output("{}) {}".format(index, option))
         self.output("")
 
     def print_banner(self) -> None:
@@ -367,25 +374,22 @@ class WasOperatorMenu:
                 "WAS Reporting Operations",
                 [
                     "Report generation",
-                    "Daily tracker",
+                    "Report tracker",
                     "Stakeholder management",
-                    "Qualys operations",
                     "Quit",
                 ],
                 show_banner=True,
             )
             selection = self.input("Please enter your selection: ").strip()
-            if selection == "1":
+            if selection == "0":
+                self.output("Exiting WAS reporting operations.")
+                return 0
+            elif selection == "1":
                 self.report_menu()
             elif selection == "2":
                 self.tracker_menu()
             elif selection == "3":
                 self.stakeholder_menu()
-            elif selection == "4":
-                self.qualys_menu()
-            elif selection == "5":
-                self.output("Exiting WAS reporting operations.")
-                return 0
             else:
                 self.output("Invalid selection.")
 
@@ -395,22 +399,25 @@ class WasOperatorMenu:
             self.print_menu(
                 "Report Generation",
                 [
-                    "Run the complete recent-scan batch",
-                    "Process eligible automatic tracker reports",
+                    "Run the complete recent scan batch",
+                    "Process eligible automated tracker reports",
                     "Process an eligible manual tracker report",
-                    "Generate a new on-demand report (S3, optional email)",
+                    "Generate an on-demand report to S3 (optional email)",
+                    "Generate a standalone report for a Qualys tag NOT in the stakeholder database",
                     "Back to main menu",
                 ],
             )
-            selection = self.input(
-                "Please enter your selection [b = main menu]: "
-            ).strip().lower()
+            selection = (
+                self.input("Please enter your selection [0/b = main menu]: ")
+                .strip()
+                .lower()
+            )
             if selection == "1":
                 self.run_submenu_action("Report Generation", self.run_daily_batch)
             elif selection == "2":
                 self.run_submenu_action(
                     "Report Generation",
-                    lambda: self.run_single_report(manual=False),
+                    self.run_automated_reports,
                 )
             elif selection == "3":
                 self.run_submenu_action(
@@ -422,10 +429,51 @@ class WasOperatorMenu:
                     "Report Generation",
                     self.run_on_demand_report,
                 )
-            elif selection in {"5", "b"}:
+            elif selection == "5":
+                self.run_submenu_action("Report Generation", self.run_standalone_report)
+            elif selection in {"0", "b"}:
                 return
             else:
                 self.output("Invalid selection.")
+
+    def run_standalone_report(self) -> None:
+        """Make the non-enrollment and explicit delivery boundary visible."""
+        self.output(
+            "Standalone targets do not enter the stakeholder database, daily tracker, or automatic batches."
+        )
+        tag = self.prompt_required(
+            "Exact Qualys tag name (not an enrolled stakeholder): "
+        )
+        email = self.prompt_optional(
+            "Delivery email(s), email-enabled analysts only [reuse saved; required for new target]: "
+        )
+        arguments = ["--tag", tag]
+        if email:
+            arguments.extend(["--delivery-email", email])
+        send = self.confirm("Email the report after archiving to S3?")
+        if send:
+            arguments.append("--send-email")
+        self.output(
+            "New targets receive a stored generated PDF password. Existing targets retain their exact password and delivery address."
+        )
+        if not self.confirm(
+            "Generate standalone report for {}, archive to S3, {}?".format(
+                tag,
+                (
+                    "email to " + (email or "the saved target address")
+                    if send
+                    else "no email"
+                ),
+            )
+        ):
+            self.output("Operation cancelled.")
+            return
+        self.execute(
+            "standalone report",
+            lambda: standalone_cli.main(arguments),
+            cancellable=True,
+        )
+        self.pause()
 
     def run_on_demand_report(self) -> None:
         """Confirm explicit recipients before delegating an on-demand request."""
@@ -469,9 +517,9 @@ class WasOperatorMenu:
             "--send-email",
             "--send-assignee-digests",
         ]
+        self.output("0) Cancel")
         self.output("1) Test batch using an email-enabled test recipient override")
         self.output("2) Production batch using customer email addresses")
-        self.output("3) Cancel")
         delivery_selection = self.input("Please select the delivery mode: ").strip()
         if delivery_selection not in {"1", "2"}:
             self.output("Operation cancelled.")
@@ -518,6 +566,117 @@ class WasOperatorMenu:
         )
         self.pause()
 
+    def require_existing_stakeholder(self, tag: str) -> dict[str, object] | None:
+        """Stop before collecting further inputs if the stakeholder is absent."""
+        record = self.load_and_display_stakeholder(tag)
+        if record is None:
+            self.pause()
+        return record
+
+    def run_automated_reports(self) -> None:
+        """Process all eligible automated tracker rows without tag filtering."""
+        days = self.prompt_optional("Scan window in days [7, or all]: ", default="7")
+        if not self.confirm(
+            "Generate and email ALL eligible automated tracker reports to customer contacts?"
+        ):
+            self.output("Operation cancelled.")
+            return
+        arguments = [
+            "--recent-scans",
+            "--skip-tracker-refresh",
+            "--days-back",
+            days,
+            "--create-missing-password",
+            "--send-email",
+            "--continue-on-error",
+        ]
+        self.execute(
+            "automated tracker reports",
+            lambda: batch_runner.main(arguments),
+            cancellable=True,
+        )
+        self.pause()
+
+    def view_customer_tracker(self) -> None:
+        """Show all history for a tag, optionally including descendant tags."""
+        tag = self.prompt_required("Customer tag: ")
+        arguments = ["show", "--tag", tag, "--all-dates", "--limit", "all"]
+        if self.confirm("Include child tags (all descendants)?"):
+            arguments.append("--include-children")
+        self.execute("customer tracker history", lambda: tracker_cli.main(arguments))
+        self.pause()
+
+    def update_tracker_row(self) -> None:
+        """Review supported corrections without resetting execution or sent state."""
+        from was_reports.data.tracker_corrections import (
+            EDITABLE_FIELDS,
+            TEMPLATES,
+            correct_tracker_row,
+        )
+
+        tracker_id = self.prompt_positive_integer("Tracker row ID: ")
+        inspected = {}
+
+        def load() -> int:
+            """Keep missing rows or database failures inside the menu boundary."""
+            try:
+                inspected["record"] = tracker_cli.get_tracker_record_by_id_from_db(
+                    tracker_id
+                )
+            except KeyError:
+                self.output("Tracker row {} was not found.".format(tracker_id))
+                return 1
+            return 0
+
+        if self.execute("tracker correction lookup", load, show_success=False):
+            self.pause()
+            return
+        record = inspected["record"]
+        tracker_cli.display_tracker_record(record, output=self.output)
+        self.output(
+            "Only unclaimed, unsent rows may be corrected. Identity, passwords and delivery history are protected."
+        )
+        self.output(
+            "Customer delivery addresses are maintained in Stakeholder Management, not tracker POC fields."
+        )
+        self.output("Editable fields: " + ", ".join(EDITABLE_FIELDS))
+        field = self.prompt_required("Field to correct [CANCEL]: ").strip().lower()
+        if field == "cancel":
+            return
+        if field not in EDITABLE_FIELDS:
+            self.output("That field is protected or unknown.")
+            return
+        if field == "status":
+            self.output("Options: Finished, Error, Processing")
+        elif field == "template":
+            self.output("Options: " + ", ".join(sorted(TEMPLATES)))
+        self.output(
+            "Enter keeps the current value; CLEAR removes nullable metadata; CANCEL stops."
+        )
+        value = self.prompt_prefilled_value(field, record.get(field))
+        if value == ("" if record.get(field) is None else str(record[field])):
+            self.output("No tracker changes were entered.")
+            return
+        if value.upper() == "CANCEL":
+            return
+        value = None if value.upper() == "CLEAR" else value
+        if not self.confirm(
+            "Apply this correction to tracker row {}?".format(tracker_id)
+        ):
+            return
+
+        def save() -> int:
+            """Explain guarded correction refusals without changing run history."""
+            try:
+                correct_tracker_row(tracker_id, {field: value}, expected=record)
+            except ValueError as error:
+                self.output(str(error))
+                return 1
+            return 0
+
+        self.execute("tracker correction", save)
+        self.pause()
+
     def run_single_report(self, manual: bool) -> None:
         """Generate and email one automatic or manual stakeholder report."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
@@ -555,40 +714,34 @@ class WasOperatorMenu:
         self.pause()
 
     def tracker_menu(self) -> None:
-        """Display daily tracker operations."""
+        """Display report tracker operations."""
+        actions = [
+            ("View tracker table", self.view_tracker),
+            ("View one tracker row", self.view_tracker_row),
+            ("View persisted report errors", self.view_errors),
+            ("Record a manual report sent date", self.record_manual_sent_date),
+            ("Export tracker CSV", self.export_tracker),
+            ("Import tracker rows from XLSX", self.import_tracker),
+            ("View all tracker entries for a customer tag", self.view_customer_tracker),
+            ("Correct a tracker row", self.update_tracker_row),
+            ("Refresh the report tracker from API", self.refresh_tracker),
+        ]
         while True:
             self.print_menu(
-                "Daily Tracker",
-                [
-                    "View tracker table",
-                    "View one tracker row",
-                    "View persisted report errors",
-                    "Record a manual report sent date",
-                    "Export tracker CSV",
-                    "Import new daily tracker rows from XLSX",
-                    "Back to main menu",
-                ],
+                "Report Tracker",
+                [label for label, _ in actions] + ["Back to main menu"],
             )
-            selection = self.input(
-                "Please enter your selection [b = main menu]: "
-            ).strip().lower()
-            if selection == "1":
-                self.run_submenu_action("Daily Tracker", self.view_tracker)
-            elif selection == "2":
-                self.run_submenu_action("Daily Tracker", self.view_tracker_row)
-            elif selection == "3":
-                self.run_submenu_action("Daily Tracker", self.view_errors)
-            elif selection == "4":
-                self.run_submenu_action(
-                    "Daily Tracker",
-                    self.record_manual_sent_date,
-                )
-            elif selection == "5":
-                self.run_submenu_action("Daily Tracker", self.export_tracker)
-            elif selection == "6":
-                self.run_submenu_action("Daily Tracker", self.import_tracker)
-            elif selection in {"7", "b"}:
+            selection = (
+                self.input("Please enter your selection [0/b = main menu]: ")
+                .strip()
+                .lower()
+            )
+            if selection in {"0", "b"}:
                 return
+            if selection.isdigit() and 1 <= int(selection) <= len(actions):
+                self.run_submenu_action(
+                    "Report Tracker", actions[int(selection) - 1][1]
+                )
             else:
                 self.output("Invalid selection.")
 
@@ -736,22 +889,46 @@ class WasOperatorMenu:
         self.pause()
 
     def export_tracker(self) -> None:
-        """Prompt for and export daily tracker rows to CSV."""
-        output_path = self.prompt_optional(
-            "Output path [/output/was-daily-tracker.csv]: ",
-            default="/output/was-daily-tracker.csv",
+        """Export locally, directly to S3, or to approved analysts."""
+        self.print_menu(
+            "Tracker Export Destination",
+            [
+                "Save to local output",
+                "Save directly to S3",
+                "Email to approved analysts",
+                "Cancel",
+            ],
         )
+        destination = self.input("Please enter your selection: ").strip().lower()
+        if destination in {"0", "b"}:
+            return
+        if destination not in {"1", "2", "3"}:
+            self.output("Invalid selection.")
+            return
+        arguments = ["export-csv"]
+        if destination == "1":
+            self.output(
+                "Local tracker CSV uses the legacy format and may contain report passwords. Handle it as sensitive."
+            )
+            path = self.prompt_optional(
+                "Output path [/output/was-daily-tracker.csv]: ",
+                default="/output/was-daily-tracker.csv",
+            )
+            arguments.extend(["--output", path])
+        elif destination == "2":
+            arguments.append("--s3")
+        else:
+            email = self.prompt_required("Email-enabled analyst address(es): ")
+            arguments.extend(["--email-assignee", email])
+        if destination != "1":
+            self.output("S3 and emailed tracker exports exclude report passwords.")
         days_back = self.prompt_nonnegative_integer("Days back [7]: ", default=7)
         assignee = self.prompt_optional("Assignee name [all]: ")
-        arguments = [
-            "export-csv",
-            "--days-back",
-            str(days_back),
-            "--output",
-            output_path,
-        ]
+        arguments.extend(["--days-back", str(days_back)])
         if assignee:
             arguments.extend(["--assignee", assignee])
+        if not self.confirm("Export the selected tracker rows to this destination?"):
+            return
         self.execute("tracker CSV export", lambda: tracker_cli.main(arguments))
         self.pause()
 
@@ -773,7 +950,7 @@ class WasOperatorMenu:
         )
         self.output(
             "Dates and legacy report-status markers will be converted during "
-            "the import. Existing and duplicate rows will be skipped. Imported "
+            "the import. Matching schedule/date rows will be overwritten. Imported "
             "history will not trigger reports or assignee emails."
         )
         if not self.confirm("Convert and import this daily tracker workbook?"):
@@ -787,73 +964,43 @@ class WasOperatorMenu:
         self.pause()
 
     def stakeholder_menu(self) -> None:
-        """Display stakeholder management operations."""
+        """Display stakeholder management in operator workflow order."""
+        actions = [
+            ("View a stakeholder row", self.view_stakeholder_row),
+            ("Update a stakeholder row", self.update_stakeholder_row),
+            (
+                "Update a stakeholder's point of contact information",
+                self.update_stakeholder_contacts,
+            ),
+            ("Add new stakeholder by CLI", self.add_stakeholder),
+            ("Import new stakeholders from CSV", self.import_stakeholders),
+            ("Export stakeholders to CSV", self.export_stakeholders),
+            (
+                "Retrieve a stakeholder report password",
+                self.retrieve_stakeholder_password,
+            ),
+            ("Rotate a stakeholder report password", self.rotate_stakeholder_password),
+            (
+                "Manually enter stakeholder report password",
+                self.set_customer_provided_password,
+            ),
+        ]
         while True:
             self.print_menu(
                 "Stakeholder Management",
-                [
-                    "Update POC names and email addresses",
-                    "View a stakeholder row",
-                    "Update a stakeholder row",
-                    "Export stakeholders",
-                    "Import new stakeholders from CSV",
-                    "Add one stakeholder",
-                    "Rotate a stakeholder report password",
-                    "Retrieve a stakeholder report password",
-                    "Add or replace a customer-provided report password",
-                    "Back to main menu",
-                ],
+                [label for label, _ in actions] + ["Back to main menu"],
             )
-            selection = self.input(
-                "Please enter your selection [b = main menu]: "
-            ).strip().lower()
-            if selection == "1":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.update_stakeholder_contacts,
-                )
-            elif selection == "2":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.view_stakeholder_row,
-                )
-            elif selection == "3":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.update_stakeholder_row,
-                )
-            elif selection == "4":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.export_stakeholders,
-                )
-            elif selection == "5":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.import_stakeholders,
-                )
-            elif selection == "6":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.add_stakeholder,
-                )
-            elif selection == "7":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.rotate_stakeholder_password,
-                )
-            elif selection == "8":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.retrieve_stakeholder_password,
-                )
-            elif selection == "9":
-                self.run_submenu_action(
-                    "Stakeholder Management",
-                    self.set_customer_provided_password,
-                )
-            elif selection in {"10", "b"}:
+            selection = (
+                self.input("Please enter your selection [0/b = main menu]: ")
+                .strip()
+                .lower()
+            )
+            if selection in {"0", "b"}:
                 return
+            if selection.isdigit() and 1 <= int(selection) <= len(actions):
+                self.run_submenu_action(
+                    "Stakeholder Management", actions[int(selection) - 1][1]
+                )
             else:
                 self.output("Invalid selection.")
 
@@ -866,9 +1013,15 @@ class WasOperatorMenu:
 
         def load_stakeholder() -> int:
             """Load and display the current stakeholder row."""
-            record = stakeholders_cli.get_stakeholder_record_by_tag(
-                stakeholder_tag
-            )
+            try:
+                record = stakeholders_cli.get_stakeholder_record_by_tag(stakeholder_tag)
+            except KeyError:
+                self.output(
+                    "Stakeholder tag {} was not found. No changes made.".format(
+                        stakeholder_tag
+                    )
+                )
+                return 1
             record_holder["record"] = record
             stakeholders_cli.display_stakeholder_record(
                 record,
@@ -1013,23 +1166,31 @@ class WasOperatorMenu:
                 )
             )
 
-    def prompt_contact_update(self, label: str) -> tuple[str | None, bool]:
-        """Prompt for a contact value, no change, or explicit clearing."""
-        value = self.input("{} [Enter keeps current, CLEAR removes]: ".format(label))
-        normalized_value = value.strip()
-        if not normalized_value:
+    def prompt_contact_update(
+        self, label: str, current_value: object = None
+    ) -> tuple[str | None, bool]:
+        """Prefill current contact data; require CLEAR to remove it."""
+        value = self.prompt_prefilled_value(label, current_value)
+        if value == ("" if current_value is None else str(current_value)):
             return None, False
-        if normalized_value.upper() == "CLEAR":
+        if value.upper() == "CLEAR":
             return None, True
-        return normalized_value, False
+        return value, False
 
     def update_stakeholder_contacts(self) -> None:
         """Collect and submit selected stakeholder contact updates."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
-        report_poc, clear_report_poc = self.prompt_contact_update("WAS report POC")
-        tech_email, clear_tech_email = self.prompt_contact_update("Technical POC email")
+        record = self.require_existing_stakeholder(stakeholder_tag)
+        if record is None:
+            return
+        report_poc, clear_report_poc = self.prompt_contact_update(
+            "WAS report POC", record.get("was_report_poc")
+        )
+        tech_email, clear_tech_email = self.prompt_contact_update(
+            "Technical POC email", record.get("tech_poc_email")
+        )
         distro_email, clear_distro_email = self.prompt_contact_update(
-            "Distribution email"
+            "Distribution email", record.get("distro_email")
         )
         arguments = ["update-contacts", "--tag", stakeholder_tag]
         field_options = [
@@ -1062,12 +1223,12 @@ class WasOperatorMenu:
             [
                 "Save to local output",
                 "Save directly to S3",
-                "Email to active assignee",
+                "Email to approved analysts",
                 "Cancel",
             ],
         )
         destination = self.input("Please enter your selection: ").strip()
-        if destination == "4":
+        if destination in {"0", "b"}:
             return
         if destination not in {"1", "2", "3"}:
             self.output("Invalid selection.")
@@ -1105,6 +1266,8 @@ class WasOperatorMenu:
     def rotate_stakeholder_password(self) -> None:
         """Generate and store a new stakeholder PDF report password."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        if self.require_existing_stakeholder(stakeholder_tag) is None:
+            return
         if not self.confirm(
             "Rotate the report password for {}?".format(stakeholder_tag)
         ):
@@ -1135,6 +1298,8 @@ class WasOperatorMenu:
     def retrieve_stakeholder_password(self) -> None:
         """Display one stored stakeholder report password after confirmation."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        if self.require_existing_stakeholder(stakeholder_tag) is None:
+            return
         if not self.confirm(
             "Display the report password for {}?".format(stakeholder_tag)
         ):
@@ -1172,6 +1337,8 @@ class WasOperatorMenu:
     def set_customer_provided_password(self) -> None:
         """Securely add or replace a customer-provided report password."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
+        if self.require_existing_stakeholder(stakeholder_tag) is None:
+            return
         self.output(
             "The password will be hidden and will not be written to application logs."
         )
@@ -1216,12 +1383,34 @@ class WasOperatorMenu:
             )
         self.pause()
 
+    def show_stakeholder_options(self, field: str) -> None:
+        """Display known enum options without changing legacy validation rules."""
+        choices = STAKEHOLDER_OPTIONS.get(field.replace("-", "_"), ())
+        if choices:
+            self.output("Options for {}: {}".format(field, ", ".join(choices)))
+
+    def new_stakeholder_tag_available(self, tag: str) -> bool:
+        """Reject an existing tag before collecting creation fields."""
+        def check() -> int:
+            """Treat a lookup failure differently from a confirmed missing tag."""
+            try:
+                stakeholders_cli.get_stakeholder_record_by_tag(tag)
+            except KeyError:
+                return 0
+            self.output("That stakeholder already exists. Use Update a stakeholder row.")
+            return 1
+
+        return self.execute("new stakeholder tag lookup", check, show_success=False) == 0
+
     def add_stakeholder(self) -> None:
         """Collect all operator-managed fields for one new stakeholder."""
+        tag = self.prompt_required("Stakeholder tag: ")
+        if not self.new_stakeholder_tag_available(tag):
+            return
         arguments = [
             "add",
             "--tag",
-            self.prompt_required("Stakeholder tag: "),
+            tag,
             "--customer-name",
             self.prompt_required("Customer name: "),
         ]
@@ -1236,6 +1425,7 @@ class WasOperatorMenu:
             ("ticket", "Ticket [blank]: "),
         )
         for option_name, prompt in optional_text_fields:
+            self.show_stakeholder_options(option_name)
             value = self.prompt_optional(prompt)
             if value:
                 arguments.extend(["--{}".format(option_name), value])
@@ -1246,6 +1436,7 @@ class WasOperatorMenu:
             ("frequency", "Report frequency: "),
         )
         for option_name, prompt in required_text_fields:
+            self.show_stakeholder_options(option_name)
             arguments.extend(
                 ["--{}".format(option_name), self.prompt_required(prompt)]
             )
@@ -1323,49 +1514,6 @@ class WasOperatorMenu:
         self.execute(
             "stakeholder CSV import",
             lambda: stakeholders_cli.main(arguments),
-        )
-        self.pause()
-
-    def qualys_menu(self) -> None:
-        """Display safe Qualys read and tracker-refresh operations."""
-        while True:
-            self.print_menu(
-                "Qualys Operations",
-                [
-                    "View stakeholder inventory",
-                    "Refresh the daily tracker",
-                    "Back to main menu",
-                ],
-            )
-            selection = self.input(
-                "Please enter your selection [b = main menu]: "
-            ).strip().lower()
-            if selection == "1":
-                self.run_submenu_action(
-                    "Qualys Operations",
-                    self.view_qualys_inventory,
-                )
-            elif selection == "2":
-                self.run_submenu_action(
-                    "Qualys Operations",
-                    self.refresh_tracker,
-                )
-            elif selection in {"3", "b"}:
-                return
-            else:
-                self.output("Invalid selection.")
-
-    def view_qualys_inventory(self) -> None:
-        """Display the long-running Qualys stakeholder inventory."""
-        self.output(
-            "WARNING: The full Qualys stakeholder inventory can take "
-            "a long time to finish. Leave this operation running until "
-            "the inventory or an error is displayed."
-        )
-        self.execute(
-            "Qualys inventory",
-            lambda: inventory_cli.main([]),
-            cancellable=True,
         )
         self.pause()
 

@@ -274,6 +274,7 @@ def main(
     argv: Optional[List[str]] = None,
     *,
     current_time: datetime | None = None,
+    password_override: str | None = None,
 ) -> int:
     """Run WAS report generation from CLI arguments."""
     configure_logging()
@@ -300,7 +301,9 @@ def main(
 
     report_password = resolve_report_password(
         stakeholder_tag=stakeholder_tag,
-        report_password=args.report_password,
+        report_password=(
+            password_override if password_override is not None else args.report_password
+        ),
         create_missing_password=args.create_missing_password,
     )
     production_options = {}

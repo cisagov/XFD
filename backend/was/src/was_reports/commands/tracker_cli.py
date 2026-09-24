@@ -5,6 +5,8 @@ import argparse
 from datetime import date
 import logging
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from email.message import EmailMessage
 import sys
 from typing import List, Optional
 
@@ -25,6 +27,12 @@ from was_reports.data.report_runs import (
 from was_reports.tracker.tracker_csv import write_tracker_csv
 from was_reports.tracker.tracker_import import import_tracker_workbook
 from was_reports.utils.logging_config import configure_logging, exception_details
+from was_mailer.message import approved_analyst_recipients
+from was_mailer.ses_client import create_ses_client
+from was_mailer.email_reports import send_message
+from was_reports.utils.env import require_env
+from was_reports.storage.tracker_exports import upload_tracker_export
+from was_reports.tracker.tracker_csv import write_safe_tracker_csv
 
 LOGGER = logging.getLogger(__name__)
 
@@ -145,9 +153,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         type=int,
         help="Maximum number of tracker rows to export.",
     )
-    export_command.add_argument(
+    export_destination = export_command.add_mutually_exclusive_group(required=True)
+    export_destination.add_argument(
+        "--s3", action="store_true", help="Upload a password-free CSV directly to S3."
+    )
+    export_destination.add_argument(
+        "--email-assignee", help="Email a password-free CSV to approved analysts."
+    )
+    export_destination.add_argument(
         "--output",
-        required=True,
         help="CSV output path.",
     )
 
@@ -155,11 +169,19 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "show",
         help="Display recent tracker rows from Postgres as a terminal table.",
     )
-    table_command.add_argument(
+    table_dates = table_command.add_mutually_exclusive_group()
+    table_dates.add_argument(
         "--days-back",
         type=nonnegative_integer,
         default=7,
         help="Include today and this many previous calendar days.",
+    )
+    table_dates.add_argument(
+        "--all-dates", action="store_true", help="Include all tracker history."
+    )
+    table_command.add_argument("--tag", help="Exact customer tag.")
+    table_command.add_argument(
+        "--include-children", action="store_true", help="Include all descendant tags."
     )
     table_command.add_argument(
         "--assignee",
@@ -263,6 +285,35 @@ def export_csv(args: argparse.Namespace) -> int:
         assignee_name=assignee_name,
         limit=args.limit,
     )
+    if args.s3 or args.email_assignee:
+        recipients = (
+            approved_analyst_recipients(args.email_assignee)
+            if args.email_assignee
+            else None
+        )
+        with TemporaryDirectory(prefix="was-tracker-export-") as directory:
+            path = Path(directory) / "was-report-tracker.csv"
+            write_safe_tracker_csv(rows, path)
+            if args.s3:
+                destination = upload_tracker_export(path)
+            else:
+                message = EmailMessage()
+                message["From"] = require_env("WAS_EMAIL_SOURCE")
+                message["To"] = ", ".join(recipients)
+                message["Subject"] = "WAS Report Tracker Export - Analyst Copy"
+                message.set_content(
+                    "The requested report tracker CSV is attached. Report passwords are excluded. Do not forward outside the approved WAS team."
+                )
+                message.add_attachment(
+                    path.read_bytes(),
+                    maintype="text",
+                    subtype="csv",
+                    filename=path.name,
+                )
+                message_id = send_message(create_ses_client(), message)
+                destination = "approved analysts; SES message ID: " + message_id
+        print("Exported {} tracker rows to {}.".format(len(rows), destination))
+        return 0
     write_tracker_csv(rows=rows, output_path=Path(args.output))
     sys.stdout.write("Exported {} tracker rows to {}.\n".format(len(rows), args.output))
     return 0
@@ -316,11 +367,20 @@ def format_tracker_table(rows: list[TrackerTableRow]) -> str:
 def show_table(args: argparse.Namespace) -> int:
     """Display current tracker rows directly from Postgres."""
     assignee_name = validated_assignee_name(args.assignee)
+    filters = {}
+    if args.include_children and not args.tag:
+        raise ValueError("--include-children requires --tag.")
+    if args.tag:
+        filters = {
+            "stakeholder_tag": args.tag,
+            "include_children": args.include_children,
+        }
     rows = list_tracker_table_rows_from_db(
-        days_back=args.days_back,
+        days_back=None if args.all_dates else args.days_back,
         assignee_name=assignee_name,
         report_status=args.report_status,
         limit=args.limit,
+        **filters,
     )
     sys.stdout.write("{}\n".format(format_tracker_table(rows)))
     sys.stdout.write("Displayed {} tracker rows.\n".format(len(rows)))

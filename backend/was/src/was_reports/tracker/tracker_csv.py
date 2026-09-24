@@ -76,3 +76,24 @@ def write_tracker_csv(
     """Write tracker rows to a CSV file."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(tracker_rows_to_csv_text(rows), encoding="utf-8")
+
+
+def write_safe_tracker_csv(
+    rows: List[DailyReportTrackerRow], output_path: Path
+) -> None:
+    """Write a formula-safe export without the legacy password column."""
+    from was_reports.reporting.report_transformer import spreadsheet_safe_field
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream)
+        indexes = [i for i, name in enumerate(CSV_HEADERS) if name != "Password"]
+        writer.writerow([CSV_HEADERS[i] for i in indexes])
+        for row in rows:
+            values = tracker_row_to_csv(row)
+            writer.writerow(
+                [
+                    spreadsheet_safe_field("" if values[i] is None else values[i])
+                    for i in indexes
+                ]
+            )

@@ -193,6 +193,7 @@ def generate_report_output(
     tag_id: int | None = None,
     organization_name: str | None = None,
     allow_tag_lookup: bool = False,
+    password_override: str | None = None,
 ) -> str:
     """Generate one report and return its durable output reference."""
     check_operation_ownership()
@@ -220,7 +221,14 @@ def generate_report_output(
                 allow_tag_lookup=allow_tag_lookup,
             )
             check_operation_ownership()
-            report_generator.main(report_arguments, current_time=current_time)
+            password_options = (
+                {}
+                if password_override is None
+                else {"password_override": password_override}
+            )
+            report_generator.main(
+                report_arguments, current_time=current_time, **password_options
+            )
             local_output_path = expected_pdf_output_path(
                 stakeholder_tag=stakeholder_tag,
                 output_directory=run_directory,
@@ -258,7 +266,12 @@ def generate_report_output(
         allow_tag_lookup=allow_tag_lookup,
     )
     check_operation_ownership()
-    report_generator.main(report_arguments, current_time=current_time)
+    password_options = (
+        {} if password_override is None else {"password_override": password_override}
+    )
+    report_generator.main(
+        report_arguments, current_time=current_time, **password_options
+    )
     return str(
         expected_pdf_output_path(
             stakeholder_tag=stakeholder_tag,

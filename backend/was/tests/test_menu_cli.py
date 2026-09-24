@@ -16,6 +16,15 @@ from was_reports.utils.operation_cancellation import (
 class WasOperatorMenuTests(unittest.TestCase):
     """Validate menu prompts and command delegation."""
 
+    def setUp(self) -> None:
+        """Keep existence checks isolated from application databases."""
+        patcher = patch(
+            "was_reports.commands.menu_cli.stakeholders_cli.get_stakeholder_record_by_tag",
+            return_value={"tag": "TAG1"},
+        )
+        self.lookup = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def build_menu(self, responses: list[str]) -> WasOperatorMenu:
         """Return a menu backed by deterministic test input."""
         return WasOperatorMenu(
@@ -26,7 +35,7 @@ class WasOperatorMenuTests(unittest.TestCase):
 
     def test_main_menu_quits(self) -> None:
         """Exit cleanly from the numbered main menu."""
-        menu = self.build_menu(["5"])
+        menu = self.build_menu(["0"])
 
         exit_code = menu.run()
 
@@ -99,7 +108,7 @@ class WasOperatorMenuTests(unittest.TestCase):
 
     def test_stakeholder_prompt_interrupt_returns_to_stakeholder_menu(self) -> None:
         """Keep Ctrl+C at an action prompt from terminating the CLI menu."""
-        menu = self.build_menu(["9", KeyboardInterrupt(), "10"])
+        menu = self.build_menu(["9", KeyboardInterrupt(), "0"])
 
         menu.stakeholder_menu()
 
@@ -107,9 +116,9 @@ class WasOperatorMenuTests(unittest.TestCase):
             "\nInput cancelled. Returning to Stakeholder Management."
         )
 
-    def test_report_menu_uses_five_or_b_to_return(self) -> None:
+    def test_report_menu_uses_zero_or_b_to_return(self) -> None:
         """Return to the main menu using either documented report-menu choice."""
-        for selection in ("5", "b"):
+        for selection in ("0", "b"):
             with self.subTest(selection=selection):
                 menu = self.build_menu([selection])
 
@@ -121,16 +130,40 @@ class WasOperatorMenuTests(unittest.TestCase):
                     if call.args
                 ]
                 self.assertIn(
-                    "4) Generate a new on-demand report (S3, optional email)",
+                    "4) Generate an on-demand report to S3 (optional email)",
                     displayed_options,
                 )
-                self.assertIn("5) Back to main menu", displayed_options)
+                self.assertIn("0) Back to main menu", displayed_options)
+
+    @patch("was_reports.commands.menu_cli.standalone_cli.main", return_value=0)
+    def test_standalone_menu_delegates_only_after_confirmation(self, command) -> None:
+        """Standalone delivery is explicit and never supplies a tracker ID."""
+        menu = self.build_menu(["OTHER_TAG", "analyst@example.gov", "y", "y"])
+        menu.execute = Mock(side_effect=lambda label, action, **kwargs: action())
+        menu.pause = Mock()
+        menu.run_standalone_report()
+        command.assert_called_once_with(
+            [
+                "--tag",
+                "OTHER_TAG",
+                "--delivery-email",
+                "analyst@example.gov",
+                "--send-email",
+            ]
+        )
+
+    @patch("was_reports.commands.menu_cli.standalone_cli.main")
+    def test_standalone_menu_cancel_does_not_run_command(self, command) -> None:
+        """Cancelling final confirmation performs no standalone operations."""
+        menu = self.build_menu(["OTHER_TAG", "analyst@example.gov", "y", "n"])
+        menu.run_standalone_report()
+        command.assert_not_called()
 
     @patch("was_reports.commands.menu_cli.Figlet")
     def test_main_menu_displays_figlet_banner(self, mock_figlet) -> None:
         """Display the application banner once when the menu starts."""
         mock_figlet.return_value.renderText.return_value = "WAS BANNER\n"
-        menu = self.build_menu(["5"])
+        menu = self.build_menu(["0"])
 
         menu.run()
 
@@ -464,28 +497,28 @@ class WasOperatorMenuTests(unittest.TestCase):
 
     def test_stakeholder_menu_lists_password_operations_before_back(self) -> None:
         """Expose separate row and password operations before Back."""
-        menu = self.build_menu(["10"])
+        menu = self.build_menu(["0"])
 
         menu.stakeholder_menu()
 
         displayed_options = [
             call.args[0] for call in menu.output.call_args_list if call.args
         ]
-        self.assertIn("2) View a stakeholder row", displayed_options)
-        self.assertIn("3) Update a stakeholder row", displayed_options)
+        self.assertIn("1) View a stakeholder row", displayed_options)
+        self.assertIn("2) Update a stakeholder row", displayed_options)
         self.assertIn(
-            "8) Retrieve a stakeholder report password",
+            "7) Retrieve a stakeholder report password",
             displayed_options,
         )
         self.assertIn(
-            "9) Add or replace a customer-provided report password",
+            "9) Manually enter stakeholder report password",
             displayed_options,
         )
-        self.assertIn("10) Back to main menu", displayed_options)
+        self.assertIn("0) Back to main menu", displayed_options)
 
     def test_stakeholder_menu_routes_view_and_update_actions(self) -> None:
         """Route read-only viewing separately from stakeholder updates."""
-        menu = self.build_menu(["2", "3", "10"])
+        menu = self.build_menu(["1", "2", "0"])
         menu.view_stakeholder_row = Mock()
         menu.update_stakeholder_row = Mock()
 
@@ -496,7 +529,7 @@ class WasOperatorMenuTests(unittest.TestCase):
 
     def test_stakeholder_menu_routes_password_retrieval(self) -> None:
         """Route stakeholder menu option eight to password retrieval."""
-        menu = self.build_menu(["8", "10"])
+        menu = self.build_menu(["7", "0"])
         menu.retrieve_stakeholder_password = Mock()
 
         menu.stakeholder_menu()
@@ -505,7 +538,7 @@ class WasOperatorMenuTests(unittest.TestCase):
 
     def test_stakeholder_menu_routes_customer_password_update(self) -> None:
         """Route stakeholder menu option nine to customer password storage."""
-        menu = self.build_menu(["9", "10"])
+        menu = self.build_menu(["9", "0"])
         menu.set_customer_provided_password = Mock()
 
         menu.stakeholder_menu()
@@ -596,26 +629,17 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
-    @patch("was_reports.commands.menu_cli.inventory_cli.main", return_value=0)
-    def test_inventory_displays_wait_message_before_qualys_call(
-        self,
-        mock_inventory_main,
-    ) -> None:
-        """Tell the operator that the Qualys inventory request is active."""
-        output = Mock()
-        menu = WasOperatorMenu(
-            input_function=Mock(side_effect=["1", "", "3"]),
-            output_function=output,
-        )
-
-        menu.qualys_menu()
-
-        mock_inventory_main.assert_called_once_with([])
-        output.assert_any_call(
-            "WARNING: The full Qualys stakeholder inventory can take "
-            "a long time to finish. Leave this operation running until "
-            "the inventory or an error is displayed."
-        )
+    def test_refresh_is_in_report_tracker_and_qualys_category_removed(self) -> None:
+        """Route API refresh from Report Tracker; remove the slow inventory menu."""
+        menu = self.build_menu(["9", "0"])
+        menu.refresh_tracker = Mock()
+        menu.tracker_menu()
+        menu.refresh_tracker.assert_called_once_with()
+        menu = self.build_menu(["0"])
+        menu.run()
+        text = "\n".join(str(call.args[0]) for call in menu.output.call_args_list)
+        self.assertNotIn("Qualys operations", text)
+        self.assertIn("2) Report tracker", text)
 
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
     def test_tracker_view_uses_default_row_limit(self, mock_tracker_main) -> None:

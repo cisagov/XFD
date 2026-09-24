@@ -1,5 +1,8 @@
 # WAS Reporting
 
+For non-enrolled Qualys tags, see [Standalone reports](docs/standalone-reports.md)
+for the separate menu path, saved delivery address, and required schema upgrade.
+
 WAS Reporting generates Web Application Scanning PDF reports from Qualys data.
 The production implementation runs from `src/was_reports` and
 `src/was_mailer`. Legacy source directories may be retained outside the
@@ -38,7 +41,7 @@ make menu
 ```
 
 For an approved standalone functional test, select **Report generation**, then
-**5, Generate a new on-demand report**. Enter the approved stakeholder tag and,
+**4, Generate an on-demand report to S3 (optional email)**. Enter the approved stakeholder tag and,
 if emailing, an address configured as an email-enabled functional-test
 recipient. Leave the tracker ID blank unless intentionally linking an existing
 test tracker row. This generates a PDF, archives it to S3, and optionally emails
@@ -566,9 +569,9 @@ The production pipeline uses the password in-process. The report comparator
 reads its password from `WAS_REPORT_COMPARISON_PASSWORD`, so the value does not
 need to appear in process arguments.
 
-In the interactive menu, Stakeholder Management option 7 rotates the password
+In the interactive menu, Stakeholder Management option 8 rotates the password
 and displays `Operation completed successfully. The new password is
-<new_password>`. Option 8 retrieves the currently stored password by exact
+<new_password>`. Option 7 retrieves the currently stored password by exact
 stakeholder tag after confirmation. Option 9 securely adds or replaces a
 customer-provided report password using hidden double-entry and explicit
 confirmation. Customer-provided passwords must contain at least 16 characters,
@@ -720,22 +723,24 @@ Launch the numbered WAS operator menu from `backend/was`:
 make menu
 ```
 
-The menu groups existing commands into Report Generation, Daily Tracker,
-Stakeholder Management, and Qualys Operations. It supports guided prompts,
+The menu groups existing commands into Report Generation, Report Tracker,
+and Stakeholder Management. API tracker refresh is in Report Tracker; the slow
+inventory operation is no longer a menu option. It supports guided prompts,
 confirmation before write or delivery operations, `CLEAR` for removing contact
 values, typed confirmation before exporting report passwords, and confirmed
 display of a stakeholder report password. Files are written under the mounted
 `local-output` directory.
 
-Enter `b` at any submenu selection to return directly to the main menu. Each
-submenu also retains a numbered Back to main menu option.
+Quit and Back to main menu are always option `0`, displayed first. Enter `b`
+at a submenu selection as an alternate way to return to the main menu.
+See [operator menu workflows](docs/operator-menu.md) for the updated options.
 
 Pressing `Ctrl+C` while answering an operation prompt, such as a stakeholder
 tag, recipient, password, date, or confirmation, cancels that input workflow
 and redraws the same submenu. Pressing `Ctrl+C` at a submenu selection or the
 main menu exits `was-menu`.
 
-While a long-running report, batch, tracker refresh, or Qualys inventory
+While a long-running report, batch, or tracker refresh
 operation is active, enter `b` and press Enter or press `Ctrl+C` to request
 cancellation. The operation stops at its next safe API, polling, lease, upload,
 or delivery boundary and then returns to the immediately previous menu. An
@@ -1404,7 +1409,7 @@ number of rows to display. Press Enter to use the 200-row default, enter a
 positive whole number for a custom limit, or enter `all` to display every row
 matching the selected filters.
 
-Use `Daily Tracker`, then `View one tracker row`, to inspect every safe field
+Use `Report Tracker`, then `View one tracker row`, to inspect every safe field
 for a tracker ID shown in the table. The compact field table truncates long
 values for readability and then repeatedly prompts for a field name whose
 complete value should be printed for copying. Report passwords and active
@@ -1478,8 +1483,8 @@ held from assignee digest delivery and excluded from report-generation
 eligibility. The complete import is committed atomically, and any conversion or
 database failure rolls it back.
 
-The same operation is available under `Daily Tracker`, then `Import new daily
-tracker rows from XLSX`. Before starting `make menu`, copy the workbook into
+The same operation is available under `Report Tracker`, then `Import tracker
+rows from XLSX`. Before starting `make menu`, copy the workbook into
 the EC2 checkout's `backend/was` directory. From a workstation using the WAS
 SSH tunnel, run:
 
@@ -1618,9 +1623,9 @@ docker run --rm \
 The command is read-only and prints stable tab-separated output with tag,
 description, and web application count columns.
 
-The full Qualys stakeholder inventory may take a long time to finish. The
-interactive menu displays a warning before starting it. Leave the operation
-running until the inventory or an error is displayed.
+The full Qualys stakeholder inventory may take a long time to finish. It is no
+longer offered in the interactive menu; use the Qualys web UI or invoke this
+read-only CLI explicitly when needed.
 
 ## Qualys Administration
 
@@ -1794,16 +1799,16 @@ proof of inbox delivery. Every supplied recipient must match an active,
 email-enabled address in `was_assignees`; customer contacts are rejected for
 on-demand delivery.
 
-In `make menu`, select **Report generation**, then **4, Generate a new
-on-demand report**. Enter the tag, choose whether to email, enter the explicit
-active-assignee addresses if sending, and confirm the displayed operation. Leave
-the tracker ID blank for a standalone run. Options 2 and 3 remain eligibility
+In `make menu`, select **Report generation**, then **4, Generate an on-demand
+report to S3 (optional email)**. Enter the enrolled stakeholder tag, choose whether
+to email, enter email-enabled analyst addresses if sending, and confirm the operation.
+Leave the tracker ID blank for an unlinked report run. Options 2 and 3 remain eligibility
 driven and are not force-generation commands.
 
 For a real, unsent tracker row belonging to this tag, add `TRACKER_ID=123` to
 the Make command or supply it at the menu prompt. Replace `123` with the actual
 tracker ID, not a report-run ID. The row must not already have a linked run.
-SES acceptance updates that row's sent date through the existing atomic mailer.
+Analyst delivery does not mark that tracker row as sent to the customer.
 Without an explicit tracker ID, only `was_report_runs` is updated; no scan
 records or scan dates are fabricated. An override recipient still marks an
 explicitly linked tracker row sent, so use a designated test row for testing.

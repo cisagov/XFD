@@ -68,6 +68,10 @@ def recipient_addresses(
     override_recipients: str | None = None,
 ) -> List[str]:
     """Return final recipients for a WAS report email."""
+    if report_run_email.delivery_purpose == "standalone":
+        if override_recipients is not None:
+            raise ValueError("Standalone delivery uses its saved target recipient.")
+        return approved_analyst_recipients(report_run_email.distro_email)
     if report_run_email.delivery_purpose not in {"customer", "analyst"}:
         raise ValueError("Unknown WAS report delivery purpose.")
     if report_run_email.delivery_purpose == "analyst":

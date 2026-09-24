@@ -115,7 +115,7 @@ def send_report_run_email(
             override_recipients=override_recipients,
         )
         analyst_delivery = (
-            report_run_email.delivery_purpose == "analyst"
+            report_run_email.delivery_purpose in {"analyst", "standalone"}
             and not preserve_customer_template
         )
         test_original_recipients = None
@@ -404,7 +404,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                         help="Batch identifier for the shared analyst summary.")
     parser.add_argument(
         "--delivery-purpose",
-        choices=("customer", "analyst"),
+        choices=("customer", "analyst", "standalone"),
         default="customer",
         help="Persisted purpose required when claiming an individual report.",
     )
@@ -452,6 +452,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Run the WAS mailer CLI."""
     configure_logging()
     args = parse_args(argv)
+    if args.delivery_purpose == "standalone" and args.report_run_id is None:
+        raise ValueError("Standalone delivery requires an explicit report run ID.")
     if isinstance(args.days_back, int) and args.days_back < 1:
         raise ValueError("Days back must be at least 1.")
     if args.report_run_id is not None and args.days_back is not None:

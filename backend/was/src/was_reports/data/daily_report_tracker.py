@@ -1045,14 +1045,18 @@ def get_tracker_record_by_id_from_db(tracker_id: int) -> dict[str, object]:
 
 def list_tracker_table_rows(
     conn: connection,
-    days_back: int,
+    days_back: int | None,
     assignee_name: str | None = None,
     report_status: str | None = None,
     limit: int | None = 200,
+    stakeholder_tag: str | None = None,
+    include_children: bool = False,
 ) -> list[TrackerTableRow]:
     """Return recent tracker rows without sensitive fields."""
-    if days_back < 0:
+    if days_back is not None and days_back < 0:
         raise ValueError("Days back must be zero or greater.")
+    if include_children and not stakeholder_tag:
+        raise ValueError("Child tag lookup requires a customer tag.")
     normalized_assignee = None
     if assignee_name is not None:
         normalized_assignee = assignee_name.strip()
@@ -1094,9 +1098,26 @@ def list_tracker_table_rows(
               ON assignees.id = tracker.assignee_id
             LEFT JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = tracker.tag
-            WHERE tracker.data_pull_date >= CURRENT_DATE - %s
+            WHERE 1 = 1
     """
-    parameters: list[object] = [days_back]
+    parameters: list[object] = []
+    if days_back is not None:
+        query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
+        parameters.append(days_back)
+    if stakeholder_tag:
+        query += " AND (tracker.tag = %s"
+        parameters.append(stakeholder_tag)
+        if include_children:
+            query += """ OR tracker.tag IN (
+                WITH RECURSIVE children(tag) AS (
+                    SELECT tag FROM was_stakeholders WHERE parent_tag = %s
+                    UNION
+                    SELECT child.tag FROM was_stakeholders child
+                    JOIN children parent ON child.parent_tag = parent.tag
+                ) SELECT tag FROM children
+            )"""
+            parameters.append(stakeholder_tag)
+        query += ")"
     if normalized_assignee is not None:
         query += """
               AND LOWER(BTRIM(COALESCE(
@@ -1154,10 +1175,12 @@ def list_tracker_table_rows(
 
 
 def list_tracker_table_rows_from_db(
-    days_back: int,
+    days_back: int | None,
     assignee_name: str | None = None,
     report_status: str | None = None,
     limit: int | None = 200,
+    stakeholder_tag: str | None = None,
+    include_children: bool = False,
 ) -> list[TrackerTableRow]:
     """Return recent assignee tracker rows using a managed connection."""
     # Third-Party Libraries
@@ -1165,12 +1188,19 @@ def list_tracker_table_rows_from_db(
 
     conn = connect()
     try:
+        filters = {}
+        if stakeholder_tag or include_children:
+            filters = {
+                "stakeholder_tag": stakeholder_tag,
+                "include_children": include_children,
+            }
         return list_tracker_table_rows(
             conn=conn,
             days_back=days_back,
             assignee_name=assignee_name,
             report_status=report_status,
             limit=limit,
+            **filters,
         )
     finally:
         close(conn)

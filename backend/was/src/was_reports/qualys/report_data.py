@@ -88,6 +88,10 @@ def parse_tag_details(response_xml: str, requested_name: str) -> QualysTagDetail
     )
     if int(root.count) == 0:
         raise LookupError("No Qualys tag found with the supplied name.")
+    if int(root.count) != 1 or len(root.xpath("./data/Tag")) != 1:
+        raise LookupError(
+            "Qualys tag lookup is ambiguous; an exact unique tag is required."
+        )
     tag = root.data.Tag
     tag_name = str(tag.name) if tag.xpath("./name") else requested_name
     description = str(tag.description) if tag.xpath("./description") else tag_name

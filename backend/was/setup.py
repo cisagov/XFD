@@ -47,6 +47,7 @@ setup(
             "was-compare-reports=was_reports.reporting.report_comparison:main",
             "was-report-batch=was_reports.commands.batch_runner:main",
             "was-report-on-demand=was_reports.commands.on_demand_cli:main",
+            "was-report-standalone=was_reports.commands.standalone_cli:main",
             "was-reports=was_reports.commands.report_generator:main",
             "was-export-xml=was_reports.commands.xml_export_cli:main",
             "was-inventory=was_reports.commands.inventory_cli:main",

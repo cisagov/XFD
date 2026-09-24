@@ -1104,7 +1104,10 @@ def list_report_run_errors(
     query = """
         SELECT
             id,
-            stakeholder_tag,
+            COALESCE(stakeholder_tag, (
+                SELECT target.tag FROM was_standalone_report_targets target
+                WHERE target.id = was_report_runs.standalone_target_id
+            )),
             status,
             email_status,
             started_at,
@@ -1120,7 +1123,7 @@ def list_report_run_errors(
     """
     parameters: list[object] = [days_back]
     if normalized_tag is not None:
-        query += " AND stakeholder_tag = %s"
+        query += " AND COALESCE(stakeholder_tag, (SELECT target.tag FROM was_standalone_report_targets target WHERE target.id = was_report_runs.standalone_target_id)) = %s"
         parameters.append(normalized_tag)
     query += " ORDER BY created_at DESC, id DESC LIMIT %s"
     parameters.append(limit)
@@ -1172,10 +1175,10 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
             """
             SELECT
                 runs.id,
-                runs.stakeholder_tag,
+                COALESCE(runs.stakeholder_tag, standalone.tag),
                 runs.output_path,
-                stakeholders.report_password,
-                stakeholders.distro_email,
+                COALESCE(stakeholders.report_password, standalone.report_password),
+                COALESCE(stakeholders.distro_email, standalone.delivery_email),
                 stakeholders.tech_poc_email,
                 stakeholders.was_report_poc,
                 runs.source_tracker_id,
@@ -1191,7 +1194,9 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 runs.email_claim_token,
                 runs.delivery_purpose
             FROM was_report_runs AS runs
-            JOIN was_stakeholders AS stakeholders
+            LEFT JOIN was_standalone_report_targets AS standalone
+              ON standalone.id = runs.standalone_target_id
+            LEFT JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = runs.stakeholder_tag
             LEFT JOIN was_daily_report_tracker AS tracker
               ON tracker.id = COALESCE(runs.source_tracker_id, (
@@ -1351,8 +1356,8 @@ def claim_report_run_email(
     delivery_purpose: str = "customer",
 ) -> ReportRunEmail | None:
     """Atomically claim one completed report run for email delivery."""
-    if delivery_purpose not in {"customer", "analyst"}:
-        raise ValueError("Delivery purpose must be customer or analyst.")
+    if delivery_purpose not in {"customer", "analyst", "standalone"}:
+        raise ValueError("Unknown delivery purpose.")
     email_claim_token = str(uuid4())
     allowed_email_statuses = [EMAIL_PENDING]
     if allow_held:
@@ -1377,16 +1382,16 @@ def claim_report_run_email(
               AND COALESCE(email_status, %s) = ANY(%s)
               AND delivery_purpose = %s
             RETURNING id, stakeholder_tag, output_path, source_tracker_id,
-                      artifact_type, email_claim_token, delivery_purpose
+                      artifact_type, email_claim_token, delivery_purpose, standalone_target_id
         )
         SELECT
             claimed.id,
-            claimed.stakeholder_tag,
+            COALESCE(claimed.stakeholder_tag, standalone.tag),
             claimed.output_path,
             claimed.source_tracker_id,
             claimed.artifact_type,
-            stakeholders.report_password,
-            stakeholders.distro_email,
+            COALESCE(stakeholders.report_password, standalone.report_password),
+            COALESCE(stakeholders.distro_email, standalone.delivery_email),
             stakeholders.tech_poc_email,
             stakeholders.was_report_poc,
             tracker.template,
@@ -1400,7 +1405,9 @@ def claim_report_run_email(
             claimed.email_claim_token,
             claimed.delivery_purpose
         FROM claimed
-        JOIN was_stakeholders AS stakeholders
+        LEFT JOIN was_standalone_report_targets AS standalone
+          ON standalone.id = claimed.standalone_target_id
+        LEFT JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = claimed.stakeholder_tag
         LEFT JOIN was_daily_report_tracker AS tracker
           ON tracker.id = COALESCE(claimed.source_tracker_id, (
