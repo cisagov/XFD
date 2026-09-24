@@ -28,8 +28,9 @@ Operators need Git, Make, a running Docker engine, and approved repository
 access. Python and a uv environment are not required on the host for container
 commands. The EC2 instance also needs database and Qualys connectivity, S3
 permissions, and permission to assume the configured SES sending role.
-The multi-container capacity Make commands are an exception: their host-side
-coordinator requires the project's Python environment and installed requirements.
+The multi-container batch Make commands are an exception: `recent-scan-batch`
+and the capacity commands share a host-side coordinator workflow that requires
+the project's Python environment and installed requirements (`make install`).
 
 ### First Checkout And Build
 
@@ -765,6 +766,12 @@ on the host instead. That command requires the project Python environment
 (`make install`, or set `PYTHON` to an already configured interpreter), Docker,
 and the rebuilt image. It runs the coordinator on the host and each worker in
 its own container, without mounting the Docker socket into a container.
+`make recent-scan-batch` uses that same phase engine and worker launcher with
+the production database and normal customer delivery. The assignee-test target
+uses the production workflow with an explicit recipient override; it is not
+an isolated capacity test. Both host workflows save their selected workload
+and include completed tracker reports still awaiting delivery. Existing
+running or sending operations require reconciliation before a new run.
 
 Quit and Back to main menu are always option `0`, displayed first. Enter `b`
 at a submenu selection as an alternate way to return to the main menu.

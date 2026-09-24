@@ -53,6 +53,22 @@ class CapacityWorkerTests(unittest.TestCase):
             launch_docker_worker([], run_id="bad", worker_index=0,
                                  image="was-reporting", output_directory=Path("/tmp"))
 
+    def test_capacity_recipients_cannot_be_omitted_or_empty(self):
+        """Shared launching retains the mandatory test recipient safety boundary."""
+        environment = {"WAS_RUN_MODE": "capacity", "WAS_DB_NAME": "was_capacity_test",
+                       "WAS_CAPACITY_TRACKER_IDS": "[1]"}
+        with TemporaryDirectory() as directory, patch.dict(os.environ, environment, clear=True), patch(
+            "was_reports.utils.capacity_workers.subprocess.Popen"
+        ) as launch:
+            for options in ([], ["--test-recipients"], ["--test-recipients", ""]):
+                with self.subTest(options=options), self.assertRaises(ValueError):
+                    launch_docker_worker(
+                        ["was_reports.commands.batch_runner"] + options,
+                        run_id="00000000-0000-0000-0000-000000000001", worker_index=0,
+                        image="was-reporting", output_directory=Path(directory),
+                    )
+            launch.assert_not_called()
+
     @patch("was_reports.utils.capacity_workers.subprocess.run")
     def test_cleanup_stops_container_even_when_client_exited(self, run):
         """An exited Docker CLI does not prove its container stopped."""
@@ -95,6 +111,35 @@ class CapacityWorkerTests(unittest.TestCase):
                 launch_docker_worker(
                     ["was_reports.commands.batch_runner", "--test-recipients", "test@example.com"],
                     run_id="00000000-0000-0000-0000-000000000001", worker_index=0,
+                    image="was-reporting", output_directory=Path(directory),
+                )
+
+    def test_production_launch_uses_saved_scope_without_recipient_override(self):
+        """Shared production workers use ordinary delivery and owned batch names."""
+        identity = "00000000-0000-0000-0000-000000000001"
+        environment = {"WAS_RUN_MODE": "production", "WAS_DB_NAME": "was",
+                       "WAS_BATCH_TRACKER_IDS": "[1]", "WAS_ANALYST_BATCH_ID": identity}
+        with TemporaryDirectory() as directory, patch.dict(os.environ, environment, clear=True), patch(
+            "was_reports.utils.capacity_workers.subprocess.Popen"
+        ) as launch:
+            worker = launch_docker_worker(
+                ["was_reports.commands.batch_runner"], run_id=identity, worker_index=0,
+                image="was-reporting", output_directory=Path(directory),
+            )
+            self.assertEqual(worker.name, "was-batch-{}-0".format(identity))
+            self.assertIn("WAS_BATCH_TRACKER_IDS", launch.call_args.args[0])
+            for changes in ({"WAS_ANALYST_BATCH_ID": "bad"},
+                            {"WAS_CAPACITY_TRACKER_IDS": "[2]"},
+                            {"WAS_ANALYST_BATCH_ID": "00000000-0000-0000-0000-000000000002"}):
+                with patch.dict(os.environ, changes), self.assertRaises(ValueError):
+                    launch_docker_worker(
+                        ["was_reports.commands.batch_runner"], run_id=identity, worker_index=0,
+                        image="was-reporting", output_directory=Path(directory),
+                    )
+            del os.environ["WAS_BATCH_TRACKER_IDS"]
+            with self.assertRaises(ValueError):
+                launch_docker_worker(
+                    ["was_reports.commands.batch_runner"], run_id=identity, worker_index=0,
                     image="was-reporting", output_directory=Path(directory),
                 )
 

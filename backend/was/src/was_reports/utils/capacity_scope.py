@@ -2,19 +2,33 @@
 
 import json
 import os
+from uuid import UUID
 
 
 def capacity_tracker_ids() -> frozenset[int] | None:
-    """Return explicit capacity scope, leaving ordinary batch selection unchanged."""
+    """Return a coordinator workload, leaving unscoped legacy selection unchanged."""
     encoded_ids = os.environ.get("WAS_CAPACITY_TRACKER_IDS")
-    if os.environ.get("WAS_RUN_MODE") != "capacity":
+    batch_ids = os.environ.get("WAS_BATCH_TRACKER_IDS")
+    mode = os.environ.get("WAS_RUN_MODE")
+    if mode != "capacity":
         if encoded_ids is not None:
             raise ValueError("Capacity tracker scope requires capacity mode")
-        return None
-    if encoded_ids is None:
-        raise ValueError("Capacity tracker scope is required")
-    if not os.environ.get("WAS_DB_NAME", "").startswith("was_capacity_"):
-        raise ValueError("Capacity tracker scope requires an isolated database")
+        if batch_ids is None:
+            return None
+        if mode != "production":
+            raise ValueError("Batch tracker scope requires production mode")
+        try:
+            UUID(os.environ.get("WAS_ANALYST_BATCH_ID", ""))
+        except (ValueError, TypeError) as error:
+            raise ValueError("Batch tracker scope requires a valid batch ID") from error
+        encoded_ids = batch_ids
+    else:
+        if batch_ids is not None:
+            raise ValueError("Production tracker scope cannot override capacity scope")
+        if encoded_ids is None:
+            raise ValueError("Capacity tracker scope is required")
+        if not os.environ.get("WAS_DB_NAME", "").startswith("was_capacity_"):
+            raise ValueError("Capacity tracker scope requires an isolated database")
     try:
         tracker_ids = json.loads(encoded_ids)
     except (ValueError, TypeError) as error:

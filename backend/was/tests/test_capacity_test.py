@@ -15,6 +15,12 @@ from was_reports.commands import capacity_test
 class CapacityTestTests(unittest.TestCase):
     """Verify unsafe identities and previews cannot start report work."""
 
+    def setUp(self):
+        """Keep the new shared ready-delivery boundary isolated from PostgreSQL."""
+        delivery_query = patch.object(capacity_test, "list_report_runs_ready_for_email_from_db", return_value=[])
+        self.ready_deliveries = delivery_query.start()
+        self.addCleanup(delivery_query.stop)
+
     def test_start_defaults_to_new_identity_and_auto_count(self):
         """A normal start needs no hand-crafted run ID or workload count."""
         first = capacity_test.parse_args(["--test-recipients", "analyst@example.gov"])
@@ -61,6 +67,48 @@ class CapacityTestTests(unittest.TestCase):
         result, status = self.execute_mock_trial(sent=1, backend="docker")
         self.assertEqual(status, 0)
         self.assertEqual(result["worker_backend"], "docker")
+
+    def test_production_uses_same_worker_phases_without_recipient_override(self):
+        """Production executes the same join/delivery flow with customer recipients."""
+        result, status = self.execute_mock_trial(sent=1, backend="docker", run_mode="production")
+        self.assertEqual(status, 0)
+        self.assertFalse(result["capacity_pass"])
+
+    def test_fresh_snapshot_includes_existing_pending_delivery_in_both_modes(self):
+        """Ready customer deliveries join the manifest, excluding standalone runs."""
+        self.ready_deliveries.return_value = [
+            SimpleNamespace(source_tracker_id=2, stakeholder_tag="pending", delivery_purpose="customer"),
+            SimpleNamespace(source_tracker_id=None, stakeholder_tag="standalone", delivery_purpose="customer"),
+            SimpleNamespace(source_tracker_id=3, stakeholder_tag="test", delivery_purpose="test"),
+        ]
+        for run_mode in ("production", "capacity"):
+            with self.subTest(run_mode=run_mode):
+                result, status = self.execute_mock_trial(
+                    sent=2, backend="docker", run_mode=run_mode, tracker_ids=[1, 2], expected_count=2
+                )
+                self.assertEqual(status, 0)
+                self.assertEqual(result["expected"], 2)
+                self.assertIn("inherited_generated", result)
+
+    def test_production_preserves_storage_configuration(self):
+        """Shared setup must not redirect production storage into the capacity prefix."""
+        arguments = self.arguments()
+        arguments.run_mode = "production"
+        with TemporaryDirectory() as directory, patch.dict(
+            os.environ, {"WAS_REPORTS_PREFIX": "reports", "WAS_REPORT_STORAGE": "s3"}
+        ):
+            arguments.output_root = Path(directory)
+
+            def inspect_execution(options, recipients, output_directory):
+                """Inspect the shared environment before any external work."""
+                self.assertEqual(os.environ["WAS_RUN_MODE"], "production")
+                self.assertEqual(os.environ["WAS_REPORTS_PREFIX"], "reports")
+                self.assertEqual(output_directory.parent.name, "batches")
+                self.assertIsNone(recipients)
+                return 0
+
+            with patch.object(capacity_test, "execute_trial", side_effect=inspect_execution):
+                self.assertEqual(capacity_test.run_coordinated(arguments), 0)
 
     def test_multiple_docker_workers_finish_before_delivery(self):
         """Distinct container partitions complete before the shared delivery retry."""
@@ -383,12 +431,13 @@ class CapacityTestTests(unittest.TestCase):
 
     def execute_mock_trial(self, sent, worker_status=0, summary_status=0,
                            tracker_ids=None, continuing=False, delivery_error=False, backend="process",
-                           cleanup_error=False, worker_count=1):
+                           cleanup_error=False, worker_count=1, run_mode="capacity", expected_count=1):
         """Exercise real orchestration with bounded process and database mocks."""
         arguments = self.arguments(apply=True)
+        arguments.run_mode = run_mode
         arguments.workers = worker_count
         arguments.worker_backend = backend
-        arguments.expected_candidates = 1
+        arguments.expected_candidates = expected_count
         if continuing:
             arguments.continuation_manifest = {
                 "run_id": "ccce3a43-cd47-4a26-99e9-cadcc1094266", "candidate_count": 1,
@@ -401,7 +450,7 @@ class CapacityTestTests(unittest.TestCase):
         if cleanup_error:
             worker.stop.side_effect = OSError("Simulated cleanup failure")
         candidate = SimpleNamespace(id=1, tag="test", template="Standard")
-        counts = {"attempted": 1, "pdfs_generated": 1,
+        counts = {"attempted": expected_count, "pdfs_generated": expected_count,
                   "notifications_generated": 0, "sent": sent,
                   "tracker_ids": [1] if tracker_ids is None else tracker_ids}
         phase_results = [SimpleNamespace(returncode=0)] * (2 if continuing else 3)
@@ -434,13 +483,16 @@ class CapacityTestTests(unittest.TestCase):
         ) as docker_workers:
             try:
                 status = capacity_test.execute_trial(
-                    arguments, "analyst@example.gov", Path(directory))
+                    arguments, "analyst@example.gov" if run_mode == "capacity" else None, Path(directory))
             except TimeoutError:
                 if not delivery_error:
                     raise
                 status = -1
             launcher = docker_workers if backend == "docker" else workers
-            self.assertIn("--test-recipients", launcher.call_args.args[0])
+            self.assertEqual("--test-recipients" in launcher.call_args.args[0], run_mode == "capacity")
+            for phase in phases.call_args_list:
+                if "was_reports.commands.update_tracker_cli" not in phase.args[0]:
+                    self.assertEqual("--test-recipients" in phase.args[0], run_mode == "capacity")
             if backend == "docker":
                 workers.assert_not_called()
                 self.assertEqual(worker.stop.call_count, worker_count)

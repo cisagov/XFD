@@ -149,6 +149,22 @@ with the WAS requirements installed. Docker must be available to that user.
 `ENV_FILE` selects the configuration file and `OUTPUT_DIR` selects the shared
 host output directory. No Docker socket is mounted into a container.
 
+Production `make recent-scan-batch` uses the same coordinator phase engine,
+worker launcher, refresh, workload snapshot, delivery pass, and timing logic.
+The production entry point uses normal database settings and customer recipients;
+capacity selects `TEST_WAS_DB_*`, mandatory approved test recipients, and a
+capacity S3 prefix/output location. Dump/restore remains test preparation, not
+a different report-generation path. Match worker counts, windows, image,
+resource settings, and workload composition for comparisons. Continuations
+remain recovery runs, not fresh capacity benchmarks.
+
+The saved workload includes both eligible generation rows and completed
+tracker reports awaiting delivery, with separate counts for existing artifacts.
+Neither mode automatically resets held emails, uncertain operations, or
+historical MANUAL failures. Overlapping coordinators in the same database are
+blocked. Production output evidence is under `local-output/batches/<run-id>`;
+capacity evidence remains under `local-output/capacity/<run-id>`.
+
 ```bash
 make capacity-start \
   CAPACITY_WORKLOAD_LABEL="approved-baseline-2026-09-24" \

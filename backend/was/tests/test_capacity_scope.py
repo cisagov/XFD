@@ -58,6 +58,31 @@ class CapacityScopeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             capacity_tracker_ids()
 
+    def test_production_saved_scope_requires_batch_identity(self) -> None:
+        """Production snapshots require their coordinator UUID, not test settings."""
+        os.environ.update({"WAS_RUN_MODE": "production", "WAS_DB_NAME": "was",
+                           "WAS_BATCH_TRACKER_IDS": "[4, 9]"})
+        with self.assertRaises(ValueError):
+            capacity_tracker_ids()
+        os.environ["WAS_ANALYST_BATCH_ID"] = "00000000-0000-0000-0000-000000000001"
+        self.assertEqual(capacity_tracker_ids(), frozenset({4, 9}))
+        for invalid in ("[true]", "[-1]", "null", "bad"):
+            os.environ["WAS_BATCH_TRACKER_IDS"] = invalid
+            with self.assertRaises(ValueError):
+                capacity_tracker_ids()
+        os.environ["WAS_BATCH_TRACKER_IDS"] = "[]"
+        self.assertEqual(capacity_tracker_ids(), frozenset())
+
+    def test_cross_mode_scopes_are_rejected(self) -> None:
+        """Neither scope variable may be used to bypass the other mode's fence."""
+        self.enable_scope()
+        os.environ["WAS_BATCH_TRACKER_IDS"] = "[9]"
+        with self.assertRaises(ValueError):
+            capacity_tracker_ids()
+        os.environ["WAS_RUN_MODE"] = "production"
+        with self.assertRaises(ValueError):
+            capacity_tracker_ids()
+
     def test_generation_excludes_outside_workload(self) -> None:
         """Normally eligible rows outside the manifest cannot be generated."""
         self.enable_scope()

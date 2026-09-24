@@ -103,14 +103,18 @@ def launch_docker_worker(
         module_arguments = module_arguments[2:]
     if not module_arguments or module_arguments[0] != "was_reports.commands.batch_runner":
         raise ValueError("Only the capacity batch worker module can be launched.")
-    if os.environ.get("WAS_RUN_MODE") != "capacity" or capacity_tracker_ids() is None:
-        raise ValueError("Docker capacity workers require isolated capacity scope.")
-    try:
-        recipients = module_arguments[module_arguments.index("--test-recipients") + 1]
-    except (ValueError, IndexError) as error:
-        raise ValueError("Docker capacity workers require explicit test recipients.") from error
-    if not recipients.strip() or recipients.startswith("-"):
-        raise ValueError("Docker capacity workers require explicit test recipients.")
+    mode = os.environ.get("WAS_RUN_MODE")
+    if mode not in {"capacity", "production"} or capacity_tracker_ids() is None:
+        raise ValueError("Docker workers require explicit coordinator workload scope.")
+    if mode == "production" and str(UUID(os.environ["WAS_ANALYST_BATCH_ID"])) != identity:
+        raise ValueError("Docker worker identity must match its batch scope.")
+    if mode == "capacity" or "--test-recipients" in module_arguments:
+        try:
+            recipients = module_arguments[module_arguments.index("--test-recipients") + 1]
+        except (ValueError, IndexError) as error:
+            raise ValueError("Docker capacity workers require explicit test recipients.") from error
+        if not recipients.strip() or recipients.startswith("-"):
+            raise ValueError("Docker workers require nonempty explicit test recipients.")
     environment = dict(os.environ)
     aws_variables = {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
                      "AWS_REGION", "AWS_DEFAULT_REGION", "AWS_EC2_METADATA_DISABLED",
@@ -125,7 +129,7 @@ def launch_docker_worker(
         environment["WAS_METRICS_DIRECTORY"] = str(
             Path(environment["WAS_METRICS_DIRECTORY"]) / "worker-{}".format(worker_index)
         )
-    name = "was-capacity-{}-{}".format(identity, worker_index)
+    name = "was-{}-{}-{}".format("capacity" if mode == "capacity" else "batch", identity, worker_index)
     ownership = str(uuid4())
     command = ["docker", "run", "--rm", "--name", name, "--init",
                "--user", "{}:{}".format(os.getuid(), os.getgid()),

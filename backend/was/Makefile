@@ -137,79 +137,14 @@ recent-scan-batch-preflight-local:
 	PYTHONPATH=src $(PYTHON) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
 
 recent-scan-batch:
-	mkdir -p $(OUTPUT_DIR)
-	@case "$(BATCH_WORKERS)" in ''|*[!0-9]*) echo 'BATCH_WORKERS must be an integer from 1 through 30.' >&2; exit 2 ;; esac
-	@test "$(BATCH_WORKERS)" -ge 1 -a "$(BATCH_WORKERS)" -le 30 || (echo 'BATCH_WORKERS must be from 1 through 30.' >&2; exit 2)
-	@set -u; \
-	batch_id=$$(docker run --rm --entrypoint python $(IMAGE) -c 'import uuid; print(uuid.uuid4())') || exit 1; \
-	test -n "$$batch_id" || exit 1; \
-	echo "WAS analyst batch ID: $$batch_id"; \
-	send_summary() { \
-		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-			-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
-			-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
-			--entrypoint python $(IMAGE) -m was_reports.reporting.analyst_summaries \
-			--phase "$$1" --outcome "$${2:-completed}" --batch-id "$$batch_id" --days-back "$(BATCH_DAYS_BACK)" \
-			$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)"); \
-	}; \
-	echo 'Phase 1/5: Refreshing the daily tracker.'; \
-	if ! docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-		-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
-		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
-		$(IMAGE) was-update-tracker --lookback-days "$(TRACKER_LOOKBACK_DAYS)"; then \
-		send_summary final failed || true; exit 1; \
+	@set -- --workers "$(BATCH_WORKERS)" --worker-backend docker \
+	  --worker-image "$(IMAGE)" --env-file "$(ENV_FILE)" \
+	  --output-root "$(OUTPUT_DIR)" --days-back "$(BATCH_DAYS_BACK)" \
+	  --lookback-days "$(TRACKER_LOOKBACK_DAYS)" --apply; \
+	if [ -n "$(BATCH_TEST_RECIPIENTS)" ]; then \
+	  set -- "$$@" --test-recipients "$(BATCH_TEST_RECIPIENTS)"; \
 	fi; \
-	echo 'Phase 2/5: Calculating workload and sending one tracker summary.'; \
-	if ! docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-		-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
-		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
-		$(IMAGE) --recent-scans --skip-tracker-refresh --preflight-only --days-back "$(BATCH_DAYS_BACK)"; then \
-		send_summary final failed || true; exit 1; \
-	fi; \
-	send_summary tracker || { send_summary final failed || true; exit 1; }; \
-	echo 'Phase 3/5: Generating reports with $(BATCH_WORKERS) parallel workers.'; \
-	worker_pids=''; \
-	stop_workers() { \
-		if [ -n "$$worker_pids" ]; then kill $$worker_pids 2>/dev/null || true; fi; \
-	}; \
-	trap 'stop_workers; exit 130' INT TERM; \
-	worker_index=0; \
-	while [ "$$worker_index" -lt "$(BATCH_WORKERS)" ]; do \
-		echo "Starting WAS report container $$((worker_index + 1)) of $(BATCH_WORKERS)."; \
-		docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-			-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
-			-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
-			$(IMAGE) --recent-scans --skip-tracker-refresh \
-			--worker-count "$(BATCH_WORKERS)" --worker-index "$$worker_index" \
-			--create-missing-password --continue-on-error --days-back "$(BATCH_DAYS_BACK)" \
-			--send-email $(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") \
-			--skip-ready-email-retry & \
-		worker_pids="$$worker_pids $$!"; \
-		worker_index=$$((worker_index + 1)); \
-	done; \
-	worker_status=0; \
-	for worker_pid in $$worker_pids; do \
-		if ! wait "$$worker_pid"; then worker_status=1; fi; \
-	done; \
-	trap - INT TERM; \
-	echo 'Phase 4/5: Report workers finished. Delivering completed reports once.'; \
-	mailer_status=0; \
-	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) \
-		-e WAS_REPORT_WORKERS="$(BATCH_WORKERS)" \
-		-e WAS_ANALYST_BATCH_ID="$$batch_id" -v $(OUTPUT_DIR):/output \
-		--entrypoint was-mailer $(IMAGE) --all-ready --include-previous-failures \
-		--days-back "$(BATCH_DAYS_BACK)" \
-		$(if $(strip $(BATCH_TEST_RECIPIENTS)),--test-recipients "$(BATCH_TEST_RECIPIENTS)") || mailer_status=$$?; \
-	echo 'Phase 5/5: Sending one combined analyst batch summary.'; \
-	digest_status=0; \
-	batch_outcome=completed; \
-	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ]; then batch_outcome=failed; fi; \
-	send_summary final "$$batch_outcome" || digest_status=$$?; \
-	if [ "$$worker_status" -ne 0 ] || [ "$$mailer_status" -ne 0 ] || [ "$$digest_status" -ne 0 ]; then \
-		echo 'Parallel WAS batch completed with one or more failures. Review local-output/logs.' >&2; \
-		exit 1; \
-	fi; \
-	echo 'Parallel WAS batch completed successfully.'
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.batch_coordinator "$$@"
 
 recent-scan-batch-assignee-test:
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled WAS functional-test recipient.' >&2; exit 2)
