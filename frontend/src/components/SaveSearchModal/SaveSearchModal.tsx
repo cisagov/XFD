@@ -80,7 +80,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         ENDPOINTS.SAVED_SEARCHES
       );
       // Ensure we have a valid array even if the API response is undefined or null
-      const refreshedSearches = updatedSearches.result ?? [];
+      const refreshedSearches = updatedSearches?.result ?? [];
       setSavedSearches(refreshedSearches); // Update the saved searches
       setSavedSearchCount(refreshedSearches.length); // Update the count
     } catch (e) {
