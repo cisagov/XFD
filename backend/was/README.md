@@ -751,6 +751,13 @@ values, typed confirmation before exporting report passwords, and confirmed
 display of a stakeholder report password. Files are written under the mounted
 `local-output` directory.
 
+For an isolated parallel load test, choose **Report Generation > 6**. The menu
+prompts for 1 through 30 workers (default 30), explicit test recipients, and a
+workload label, then asks for confirmation. It invokes the same capacity
+coordinator as `make capacity-start`, using `TEST_WAS_DB_*` and real Qualys,
+S3, and SES operations. It does not reset the test database or use customer
+POC addresses. Continue and start-over remain separate Make commands.
+
 Quit and Back to main menu are always option `0`, displayed first. Enter `b`
 at a submenu selection as an alternate way to return to the main menu.
 See [operator menu workflows](docs/operator-menu.md) for the updated options.

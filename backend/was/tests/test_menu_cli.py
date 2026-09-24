@@ -2,6 +2,8 @@
 
 # Standard Python Libraries
 from datetime import date
+import subprocess
+import sys
 import unittest
 from unittest.mock import Mock, patch
 
@@ -40,6 +42,83 @@ class WasOperatorMenuTests(unittest.TestCase):
         exit_code = menu.run()
 
         self.assertEqual(exit_code, 0)
+
+    def test_report_menu_routes_capacity_option(self) -> None:
+        """Expose the capacity test as report option six."""
+        menu = self.build_menu(["6", "0"])
+        menu.run_capacity_test = Mock()
+        menu.report_menu()
+        menu.run_capacity_test.assert_called_once_with()
+
+    @patch("was_reports.commands.menu_cli.subprocess.Popen")
+    def test_capacity_defaults_launch_isolated_parallel_coordinator(self, launch) -> None:
+        """Default workers to thirty and require explicit delivery recipients."""
+        menu = self.build_menu(["", "analyst@example.gov", "", "y", ""])
+        launch.return_value.wait.return_value = 0
+        menu.run_capacity_test()
+        launch.assert_called_once_with(
+            [sys.executable, "-m", "was_reports.commands.capacity_test",
+             "--workers", "30", "--test-recipients", "analyst@example.gov",
+             "--workload-label", "capacity-trial", "--apply"],
+            stdin=subprocess.DEVNULL, start_new_session=True,
+        )
+
+    @patch("was_reports.commands.menu_cli.subprocess.Popen")
+    def test_capacity_custom_options_and_required_recipient(self, launch) -> None:
+        """Do not silently fall back to a customer or default recipient."""
+        menu = self.build_menu(["4", "", "one@example.gov;two@example.gov", "trial", "y", ""])
+        launch.return_value.wait.return_value = 0
+        menu.run_capacity_test()
+        arguments = launch.call_args.args[0]
+        self.assertEqual(arguments[arguments.index("--workers") + 1], "4")
+        self.assertEqual(arguments[arguments.index("--test-recipients") + 1],
+                         "one@example.gov;two@example.gov")
+        self.assertEqual(arguments[arguments.index("--workload-label") + 1], "trial")
+
+    @patch("was_reports.commands.menu_cli.subprocess.Popen")
+    def test_capacity_invalid_workers_never_launch(self, launch) -> None:
+        """Reject invalid concurrency before any services or processes run."""
+        for value in ("0", "31", "-1", "many", "1.5"):
+            with self.subTest(value=value):
+                self.build_menu([value]).run_capacity_test()
+        launch.assert_not_called()
+
+    @patch("was_reports.commands.menu_cli.batch_runner.main")
+    @patch("was_reports.commands.menu_cli.subprocess.Popen")
+    def test_capacity_coordinator_rejection_is_not_bypassed(self, launch, batch) -> None:
+        """Isolation or recipient rejection cannot fall back to a production batch."""
+        menu = self.build_menu(["30", "invalid@example.gov", "", "y", ""])
+        launch.return_value.wait.return_value = 1
+        menu.run_capacity_test()
+        batch.assert_not_called()
+        menu.output.assert_any_call("Operation exited with status 1.")
+
+    @patch("was_reports.commands.menu_cli.subprocess.Popen")
+    def test_capacity_declined_confirmation_never_launches(self, launch) -> None:
+        """An unconfirmed test does not mutate the isolated database either."""
+        self.build_menu(["30", "analyst@example.gov", "", "n"]).run_capacity_test()
+        launch.assert_not_called()
+
+    @patch("was_reports.commands.menu_cli.subprocess.Popen")
+    def test_capacity_cancel_terminates_coordinator_and_waits_for_cleanup(self, launch) -> None:
+        """Let the coordinator unwind its workers before returning to the menu."""
+        menu = self.build_menu([])
+        process = launch.return_value
+        process.poll.return_value = None
+
+        def wait_for_cancel(timeout=None):
+            """Request cancellation during the first timed wait."""
+            if timeout is not None:
+                request_operation_cancellation()
+                raise subprocess.TimeoutExpired("capacity", timeout)
+            return 130
+
+        process.wait.side_effect = wait_for_cancel
+        result = menu.execute("capacity", lambda: menu.run_capacity_subprocess(["python"]),
+                              cancellable=True)
+        self.assertEqual(result, 130)
+        process.terminate.assert_called_once_with()
+        self.assertEqual(process.wait.call_args.kwargs, {})
 
     def test_execute_returns_to_menu_after_safe_cancellation(self) -> None:
         """Handle cooperative cancellation without exiting the menu process."""

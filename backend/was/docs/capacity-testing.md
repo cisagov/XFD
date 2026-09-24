@@ -168,7 +168,15 @@ make capacity-start APPLY=1 BATCH_WORKERS=30 \
   TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
 ```
 
-To continue the latest capacity workload in this test database:
+Alternatively, start a new parallel trial with `make menu`, then choose
+**Report Generation > 6**. Select the worker count (default 30, maximum 30),
+enter the approved test recipients and workload label, and confirm the live
+test. The menu launches the same coordinator in a separate process, preserving
+test database isolation without changing the menu's database environment.
+This option starts a new trial only; it does not restore or reset the clone.
+Use the commands below for continuation or an explicit start-over.
+
+To continue the latest saved workload:
 
 ```bash
 make capacity-continue APPLY=1 BATCH_WORKERS=30 \
