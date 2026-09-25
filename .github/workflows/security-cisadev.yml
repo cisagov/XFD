@@ -9,6 +9,7 @@ on:
 
 jobs:
   backend:
+    if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
     runs-on: [self-hosted, xfd-runner-group]
     defaults:
       run:
@@ -24,6 +25,7 @@ jobs:
         run: npm audit --production
 
   frontend:
+    if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
     runs-on: [self-hosted, xfd-runner-group]
     defaults:
       run:
@@ -39,6 +41,7 @@ jobs:
         run: npm audit --production
 
   docs:
+    if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
     runs-on: [self-hosted, xfd-runner-group]
     defaults:
       run:
@@ -54,6 +57,7 @@ jobs:
         run: npm audit --production
 
   backend_python:
+    if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
     runs-on: [self-hosted, xfd-runner-group]
     defaults:
       run:
