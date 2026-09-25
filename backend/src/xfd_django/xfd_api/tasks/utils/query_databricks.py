@@ -16,6 +16,7 @@ from databricks.sdk.service.sql import (
     StatementParameterListItem,
     StatementState,
 )
+import requests
 from xfd_api.tasks.utils.cloudwatch_metrics import (
     cloudwatch_metric,
     emit_databricks_metric,
@@ -48,11 +49,39 @@ def _get_client():
     """Create or return a reusable Databricks WorkspaceClient instance."""
     global _CLIENT
     if _CLIENT is None:
+        server_hostname = os.environ.get("DATABRICKS_SERVER_HOSTNAME")
+        client_id = os.environ.get("DATABRICKS_CLIENT_ID")
+        client_secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
+        # MODIFIED: fail fast with a clear message instead of letting a
+        # missing value reach WorkspaceClient(). When one of these (or
+        # DATABRICKS_WAREHOUSE_ID, checked here too since query_databricks()
+        # needs it right after client init) is unset, the SDK's own config
+        # resolution falls through to a different auth/host source instead
+        # of using the explicit `host=` string below, and eventually raises
+        # requests.exceptions.MissingSchema: "Invalid URL 'None': No scheme
+        # supplied" - an opaque error that never names which env var is
+        # actually missing. This check surfaces that immediately.
+        missing = [
+            name
+            for name, value in (
+                ("DATABRICKS_SERVER_HOSTNAME", server_hostname),
+                ("DATABRICKS_CLIENT_ID", client_id),
+                ("DATABRICKS_CLIENT_SECRET", client_secret),
+                ("DATABRICKS_WAREHOUSE_ID", _WAREHOUSE_ID),
+            )
+            if not value
+        ]
+        if missing:
+            raise QueryError(
+                SCAN_NAME,
+                "Missing required Databricks environment variable(s): "
+                + ", ".join(missing),
+            )
         LOGGER.info("[Databricks] Initializing WorkspaceClient...")
         _CLIENT = WorkspaceClient(
-            host="https://{}".format(os.environ.get("DATABRICKS_SERVER_HOSTNAME")),
-            client_id=os.environ.get("DATABRICKS_CLIENT_ID"),
-            client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET"),
+            host="https://{}".format(server_hostname),
+            client_id=client_id,
+            client_secret=client_secret,
         )
     return _CLIENT
 
@@ -95,7 +124,13 @@ def _infer_statement_param(name: str, value: Any) -> StatementParameterListItem:
         return StatementParameterListItem(
             name=name, value=value.isoformat(), type="TIMESTAMP"
         )
-    return StatementParameterListItem(name=name, value=str(value))
+    # MODIFIED: explicit type="STRING" instead of leaving `type` unset.
+    # Per Databricks' own docs an omitted type is "interpreted as a string"
+    # anyway, so this shouldn't change behavior - but it removes any
+    # ambiguity around how an empty string (e.g. the CVE sync's keyset
+    # last_key="" on its first page) is typed/serialized, which was raised
+    # while debugging why a query returns rows manually but not via the app.
+    return StatementParameterListItem(name=name, value=str(value), type="STRING")
 
 
 def _build_parameters(
@@ -111,24 +146,94 @@ def _build_parameters(
     return [_infer_statement_param(f"p{i}", value) for i, value in enumerate(params)]
 
 
-def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
-    """Walk every INLINE/JSON_ARRAY result chunk and concatenate all rows.
+# def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
+#     """Walk every INLINE/JSON_ARRAY result chunk and concatenate all rows.
 
-    The first chunk comes back attached to the execute_statement/get_statement
-    response itself (result.chunk_index == 0). Subsequent chunks (if the
-    result spans more than one) are fetched by index via
-    get_statement_result_chunk_n() until next_chunk_index is absent.
+#     The first chunk comes back attached to the execute_statement/get_statement
+#     response itself (result.chunk_index == 0). Subsequent chunks (if the
+#     result spans more than one) are fetched by index via
+#     get_statement_result_chunk_n() until next_chunk_index is absent.
+#     """
+#     if first_result is None:
+#         return []
+#     rows = list(first_result.data_array or [])
+#     next_index = first_result.next_chunk_index
+#     while next_index is not None:
+#         chunk = client.statement_execution.get_statement_result_chunk_n(
+#             statement_id, next_index
+#         )
+#         rows.extend(chunk.data_array or [])
+#         next_index = chunk.next_chunk_index
+#     return rows
+
+
+def _download_external_rows(external_links) -> List[list]:
+    """Download and parse rows from Databricks Statement Execution API external links."""
+    rows: List[list] = []
+
+    for link_info in external_links or []:
+        external_link = link_info.external_link
+
+        try:
+            response = requests.get(external_link, timeout=120)
+            response.raise_for_status()
+
+            chunk_rows = response.json()
+
+            if not isinstance(chunk_rows, list):
+                raise ValueError(
+                    "Expected JSON_ARRAY response from Databricks external link, "
+                    f"received {type(chunk_rows).__name__}."
+                )
+
+            rows.extend(chunk_rows)
+
+        except Exception as e:
+            raise QueryError(
+                SCAN_NAME,
+                f"Unable to download Databricks external result chunk: {e}",
+            ) from e
+
+    return rows
+
+
+def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
+    """
+    Fetch all Databricks result chunks.
+
+    Supports both INLINE and EXTERNAL_LINKS result dispositions. The CVE scan
+    normally uses EXTERNAL_LINKS to avoid Statement Execution API inline-size
+    limits.
     """
     if first_result is None:
         return []
-    rows = list(first_result.data_array or [])
+
+    rows: List[list] = []
+
+    # INLINE response handling, retained for compatibility.
+    if first_result.data_array:
+        rows.extend(first_result.data_array)
+
+    # EXTERNAL_LINKS response handling.
+    if first_result.external_links:
+        rows.extend(_download_external_rows(first_result.external_links))
+
     next_index = first_result.next_chunk_index
+
     while next_index is not None:
         chunk = client.statement_execution.get_statement_result_chunk_n(
-            statement_id, next_index
+            statement_id,
+            next_index,
         )
-        rows.extend(chunk.data_array or [])
+
+        if chunk.data_array:
+            rows.extend(chunk.data_array)
+
+        if chunk.external_links:
+            rows.extend(_download_external_rows(chunk.external_links))
+
         next_index = chunk.next_chunk_index
+
     return rows
 
 
@@ -162,7 +267,7 @@ def query_databricks(query, params=None):
                 catalog=_CATALOG,
                 schema=_SCHEMA,
                 wait_timeout="0s",
-                disposition=Disposition.INLINE,
+                disposition=Disposition.EXTERNAL_LINKS,  # avoid inline-size limits
                 format=Format.JSON_ARRAY,
             )
 
@@ -268,27 +373,51 @@ def fetch_from_databricks(query):
         )
         return result
     except Exception as e:
-        LOGGER.info("Error fetching data from Databricks: %s", e)
+        # MODIFIED: was LOGGER.info(...) - a real query_databricks() failure
+        # (permissions, catalog/schema access, param binding, etc.) was being
+        # logged at INFO with no traceback and then silently turned into an
+        # empty list, indistinguishable from "genuinely zero matching rows"
+        # to every caller. LOGGER.exception() captures the real traceback so
+        # the actual cause shows up in the logs instead of disappearing.
+        LOGGER.exception("Error fetching data from Databricks: %s", e)
         LOGGER.info("Erroneous query: %s", query)
         return []
+
+
+# def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
+#     """Fetch data from Databricks with parameters.
+
+#     `query` must use :p0, :p1, ... markers matching the order of `params` -
+#     see query_databricks() docstring.
+#     """
+#     if IS_LOCAL:
+#         data_set = detect_data_set(query)
+#         return load_test_data(data_set)
+#     try:
+#         result = query_databricks(query, params=params)
+#         return result
+#     except Exception as e:
+#         # MODIFIED: was LOGGER.info(...) - see fetch_from_databricks()'s
+#         # MODIFIED note above; same silent-empty-list-on-any-error issue.
+#         LOGGER.exception("Error fetching data from Databricks: %s", e)
+#         LOGGER.info("Erroneous query: %s", query)
+#         return []
 
 
 def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
-    """Fetch data from Databricks with parameters.
-
-    `query` must use :p0, :p1, ... markers matching the order of `params` -
-    see query_databricks() docstring.
-    """
+    """Fetch parameterized data from Databricks."""
     if IS_LOCAL:
         data_set = detect_data_set(query)
         return load_test_data(data_set)
+
     try:
-        result = query_databricks(query, params=params)
-        return result
-    except Exception as e:
-        LOGGER.info("Error fetching data from Databricks: %s", e)
-        LOGGER.info("Erroneous query: %s", query)
-        return []
+        return query_databricks(query, params=params)
+    except Exception:
+        LOGGER.exception(
+            "Error fetching data from Databricks. Params: %r",
+            params,
+        )
+        raise
 
 
 def fetch_in_chunks_keyset_frozen(
