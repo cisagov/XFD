@@ -82,7 +82,6 @@ class RSSTable(BaseModel):
     threat_actor_count: Optional[int]
     dark_web_alerts_count: Optional[int]
     dark_web_mentions_count: Optional[int]
-    dark_web_executive_alerts_count: Optional[int]
     dark_web_asset_alerts_count: Optional[int]
     pe_number_score: Optional[str]  # ?
     pe_letter_grade: Optional[str]
@@ -369,7 +368,6 @@ class RSSInsertInput(BaseModel):
     threat_actor_count: int
     dark_web_alerts_count: int
     dark_web_mentions_count: int
-    dark_web_executive_alerts_count: int
     dark_web_asset_alerts_count: int
     pe_number_score: str  # may be "NA"
     pe_letter_grade: str  # may be "NA"

@@ -431,8 +431,6 @@ def run_flare_events(orgs_list):
     event_types = [
         # > Asset Alert Data:
         # Any events involving IP/Domain assets
-        # > Executive Alert Data:
-        # Any events involving executive name assets
         # > Potential Threat Alert Data:
         "bot",
         "bucket",

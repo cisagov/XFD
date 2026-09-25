@@ -592,33 +592,6 @@ def get_current_ips_by_org(org_abbrv):
     return result
 
 
-def get_execs_by_org_uid(org_uid):
-    """Get executives for the specified organization_uid."""
-    # Build query
-    sql = """
-    SELECT *
-    FROM executives
-    WHERE organizations_uid = %s
-    """
-    # Attempt DB connection
-    conn = connect()
-    if conn is None:
-        LOGGER.error("get_execs_by_org_uid: PE database connection failed")
-        raise RuntimeError("PE database connection failed")
-    # Attempt query
-    try:
-        LOGGER.info("get_execs_by_org_uid: Querying executives for customer")
-        result = pd.read_sql(sql, conn, params=(org_uid,))
-        conn.commit()
-        return result
-    except Exception:
-        conn.rollback()
-        LOGGER.exception("get_execs_by_org_uid: Data retieval failed")
-        raise
-    finally:
-        conn.close()
-
-
 def get_cred_breach_uids(breach_name_list):
     """
     Query API to get the uid for the specified crediential breaches.

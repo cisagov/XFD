@@ -1500,34 +1500,6 @@ def report_gen(data_dict, soc_med_included=False):
     Story.append(
         KeepTogether(
             [
-                Paragraph(f"3.4.{sub_section} Executive Alerts", h3),
-                Paragraph(
-                    f"""
-                    <font face="Franklin_Gothic_Medium_Regular">Table {table_num}</font> includes discussions detected on the dark web involving
-                    individuals that are part of the stakeholder's executive leadership
-                    or upper management.
-                    """,
-                    body,
-                ),
-                point12_spacer,
-                doHeading(f"Table {table_num}. Executive Alerts.", table),
-            ]
-        )
-    )
-    Story.append(
-        format_table(
-            data_dict["alerts_exec"],
-            table_header,
-            [1.5 * inch, 3.5 * inch, 1.5 * inch],
-            [body_centered, body, body_centered],
-        )
-    )
-    Story.append(point12_spacer)
-    sub_section += 1
-    table_num += 1
-    Story.append(
-        KeepTogether(
-            [
                 Paragraph(f"3.4.{sub_section} Threat Actors", h3),
                 Paragraph(
                     f"""
