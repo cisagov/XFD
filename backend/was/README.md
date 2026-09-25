@@ -1854,6 +1854,8 @@ make on-demand-report TAG="CUSTOMER_TAG"
 make recover-manual-reports MANUAL_TRACKER_IDS="123" \
   RECOVERY_CAUSE="password-validation"
 make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="analyst@example.gov"
+make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123,456" \
+  TEST_RECIPIENTS="analyst@example.gov"
 make capacity-start TEST_RECIPIENTS="analyst@example.gov"
 make capacity-continue APPLY=1 TEST_RECIPIENTS="analyst@example.gov"
 make logs-latest
@@ -1912,6 +1914,41 @@ addresses shown as test information, not recipients. This is not a byte-identica
 replay of an archived email. New test runs have analyst delivery purpose and do
 not alter the original tracker or delivery history, including its manual notes.
 No shared analyst digest is sent by this command.
+
+To exercise the production `Targets Removed` email using reviewed tracker data
+without deleting customer web applications, use the dedicated test-only alias.
+It accepts only explicit rows whose current state is `Finished`, whose template
+is `Action Required`, whose note is exactly `QUALYS DELETION REQUIRED`, and
+whose removed-target list is nonempty. Preview first:
+
+```bash
+make test-targets-removed \
+  TARGETS_REMOVED_TRACKER_IDS="260169,260087,260191,260050" \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
+```
+
+After reviewing the complete selection, generate and send the isolated test:
+
+```bash
+make test-targets-removed \
+  TARGETS_REMOVED_TRACKER_IDS="260169,260087,260191,260050" \
+  TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov" \
+  REPLAY_ID="$(uuidgen)" APPLY=1
+```
+
+Save and reuse the replay ID for that test. The command creates an analyst-only
+child run with a persisted `Targets Removed` template override. It does not
+change the source tracker row, customer report runs, sent dates, or customer
+recipients, and it never calls the Qualys web-application deletion operation.
+The real PDF-generation path does create and clean up temporary Qualys report
+objects, and the report reflects current Qualys data rather than a guaranteed
+historical snapshot. The delivered email includes the test-only notice and goes
+only to the approved email-enabled assignee override.
+
+Existing databases require the additive `was_test_replay_items` action and
+`template_override` change before deploying this command. The comprehensive
+definition is in `schema/stakeholders_table_creation.sql`; the application does
+not apply the database change automatically.
 
 ## On-Demand Generation, S3 Archive, And Email
 

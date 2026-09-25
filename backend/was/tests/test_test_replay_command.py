@@ -21,6 +21,9 @@ class TestReplayCommandTests(unittest.TestCase):
         self.manual = ReplayCandidate(
             11, "TEST2", "manual", 21, None, 31, "Test2", None
         )
+        self.targets_removed = ReplayCandidate(
+            12, "TEST3", "targets_removed", None, None, 32, "Test3", None
+        )
         self.arguments = argparse.Namespace(
             replay_id="00000000-0000-0000-0000-000000000001",
             source_email="sender@example.gov",
@@ -203,3 +206,65 @@ class TestReplayCommandTests(unittest.TestCase):
             )
         self.assertEqual(failure.call_args.args[0], child)
         send.assert_not_called()
+
+    @patch.object(test_replay, "execute_candidate")
+    @patch.object(test_replay, "list_replay_candidates")
+    @patch.object(
+        test_replay,
+        "approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
+    def test_targets_removed_requires_exact_explicit_selection(
+        self, approved, candidates, execute
+    ):
+        """Select only reviewed deletion-required rows for test generation."""
+        candidates.return_value = [self.pdf, self.targets_removed]
+
+        result = test_replay.main(
+            [
+                "--test-recipients",
+                "analyst@example.gov",
+                "--targets-removed-tracker-ids",
+                "12",
+            ]
+        )
+
+        self.assertEqual(result, 0)
+        execute.assert_not_called()
+        self.assertEqual(
+            candidates.call_args.kwargs["targets_removed_tracker_ids"],
+            [12],
+        )
+        self.assertFalse(candidates.call_args.kwargs["include_all_manual"])
+
+    @patch.object(test_replay, "send_report_run_email")
+    @patch.object(test_replay, "complete_report_run_by_id")
+    @patch.object(test_replay, "operation_heartbeat", return_value=nullcontext())
+    @patch.object(test_replay, "generate_report_output", return_value="/output/new.pdf")
+    @patch.object(test_replay, "reserve_replay_run")
+    def test_targets_removed_generates_only_isolated_analyst_delivery(
+        self, reserve, generate, heartbeat, complete, send
+    ):
+        """Generate a real PDF without customer delivery or tracker mutation."""
+        reserve.return_value = (
+            ReportRun(99, "TEST3", "running", generation_token="token"),
+            True,
+        )
+
+        self.assertTrue(
+            test_replay.execute_candidate(
+                self.targets_removed,
+                self.arguments,
+                "analyst@example.gov",
+            )
+        )
+
+        self.assertEqual(generate.call_args.kwargs["report_run_id"], 99)
+        self.assertFalse(generate.call_args.kwargs["create_missing_password"])
+        self.assertFalse(generate.call_args.kwargs["allow_tag_lookup"])
+        self.assertEqual(send.call_args.kwargs["delivery_purpose"], "analyst")
+        self.assertTrue(send.call_args.kwargs["preserve_customer_template"])
+        self.assertEqual(
+            send.call_args.kwargs["override_recipients"],
+            "analyst@example.gov",
+        )

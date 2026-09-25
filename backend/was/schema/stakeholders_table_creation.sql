@@ -283,7 +283,14 @@ CREATE TABLE was_test_replay_items (
     tracker_id BIGINT NOT NULL REFERENCES was_daily_report_tracker(id),
     original_run_id BIGINT REFERENCES was_report_runs(id),
     report_run_id BIGINT NOT NULL UNIQUE REFERENCES was_report_runs(id),
-    action TEXT NOT NULL CHECK (action IN ('resend', 'manual')),
+    action TEXT NOT NULL CONSTRAINT was_test_replay_items_action_check CHECK (
+        action IN ('resend', 'manual', 'targets_removed')
+    ),
+    template_override TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (replay_id, tracker_id)
+    PRIMARY KEY (replay_id, tracker_id),
+    CONSTRAINT was_test_replay_items_template_override_check CHECK (
+        (action = 'targets_removed' AND template_override = 'Targets Removed')
+        OR (action <> 'targets_removed' AND template_override IS NULL)
+    )
 );

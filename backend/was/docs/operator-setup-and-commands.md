@@ -171,12 +171,23 @@ The following table is an index, not authorization to run a mutating command.
 | New on-demand report | `make on-demand-report TAG="CUSTOMER_TAG"` | Qualys, database, and S3 writes |
 | Guarded manual recovery preview | `make recover-manual-reports MANUAL_TRACKER_IDS="123" RECOVERY_CAUSE="password-validation"` | Read-only preview |
 | Test replay preview | `make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="..."` | Read-only preview |
+| Targets Removed test preview | `make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123" TEST_RECIPIENTS="..."` | Read-only preview |
 | Capacity isolation checks | `make capacity-start TEST_RECIPIENTS="..."` | Read-only checks |
 | Capacity test | `make capacity-start APPLY=1 BATCH_WORKERS=30 TEST_RECIPIENTS="..."` | Test database, Qualys, capacity S3 prefix, and SES writes |
 
 Commands with `APPLY=1`, `--confirm`, email delivery, tracker imports, or Qualys
 deletion have additional safeguards documented in their focused runbooks. Do
 not remove those safeguards from wrapper scripts.
+
+The Targets Removed test requires explicit tracker IDs, an approved
+email-enabled assignee recipient, and a stable replay UUID when `APPLY=1` is
+used. It generates through the normal Qualys report path but never invokes
+Qualys web-application deletion. It writes only isolated replay and analyst-run
+records, and it does not change the source tracker row or customer delivery
+history. Preview the IDs before applying and reuse the same replay UUID after an
+interruption. The checked-out code requires the comprehensive schema's
+`targets_removed` replay action and `template_override` column; apply the
+approved additive database change before deployment.
 
 Large Qualys XML reports are streamed to private temporary files and processed
 without loading the complete document into memory. The checked-in `dev.env`

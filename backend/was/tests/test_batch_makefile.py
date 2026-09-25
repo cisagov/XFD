@@ -64,3 +64,29 @@ class BatchMakefileTests(unittest.TestCase):
                 )
                 self.assertIn("was_reports.commands.log_diagnostics", result.stdout)
                 self.assertIn(expected, result.stdout)
+
+    def test_targets_removed_test_requires_explicit_rows_and_assignee(self) -> None:
+        """Route a reviewed Targets Removed test through isolated replay."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make",
+                "-n",
+                "-C",
+                str(directory),
+                "test-targets-removed",
+                "TARGETS_REMOVED_TRACKER_IDS=260169,260087",
+                "TEST_RECIPIENTS=analyst@example.gov",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+
+        self.assertIn("test-report-replay", result.stdout)
+        self.assertIn(
+            '--targets-removed-tracker-ids "260169,260087"',
+            result.stdout,
+        )
+        self.assertIn('--test-recipients "analyst@example.gov"', result.stdout)

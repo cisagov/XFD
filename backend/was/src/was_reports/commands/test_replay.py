@@ -51,6 +51,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--test-recipients", required=True)
     parser.add_argument("--manual-tracker-ids", type=tracker_ids, default=[])
     parser.add_argument(
+        "--targets-removed-tracker-ids",
+        type=tracker_ids,
+        default=[],
+        help=(
+            "Explicit QUALYS DELETION REQUIRED rows to generate without deleting "
+            "web applications and email as Targets Removed to test recipients."
+        ),
+    )
+    parser.add_argument(
         "--report-run-ids",
         type=tracker_ids,
         default=[],
@@ -80,10 +89,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if arguments.apply and not arguments.replay_id:
         parser.error("--apply requires a stable --replay-id UUID.")
     if arguments.apply and not (
-        arguments.manual_tracker_ids or arguments.report_run_ids
+        arguments.manual_tracker_ids
+        or arguments.targets_removed_tracker_ids
+        or arguments.report_run_ids
     ):
         parser.error(
-            "--apply requires explicit --report-run-ids or --manual-tracker-ids."
+            "--apply requires explicit report-run, manual-tracker, or Targets "
+            "Removed tracker IDs."
         )
     if arguments.replay_id:
         try:
@@ -103,7 +115,7 @@ def execute_candidate(candidate, arguments: argparse.Namespace, recipient: str) 
             )
         )
         return False
-    if candidate.action == "manual":
+    if candidate.action in {"manual", "targets_removed"}:
         completion_attempted = False
         try:
             with operation_heartbeat(
@@ -164,15 +176,33 @@ def main(argv: list[str] | None = None) -> int:
         include_all_manual=(
             not arguments.apply
             and not arguments.manual_tracker_ids
+            and not arguments.targets_removed_tracker_ids
             and not arguments.report_run_ids
         ),
+        targets_removed_tracker_ids=arguments.targets_removed_tracker_ids,
     )
-    if arguments.apply or arguments.report_run_ids:
+    explicitly_selected = bool(
+        arguments.report_run_ids
+        or arguments.manual_tracker_ids
+        or arguments.targets_removed_tracker_ids
+    )
+    if explicitly_selected:
         candidates = [
             candidate
             for candidate in candidates
-            if candidate.action == "manual"
-            or candidate.original_run_id in arguments.report_run_ids
+            if (
+                candidate.action == "manual"
+                and candidate.tracker_id in arguments.manual_tracker_ids
+            )
+            or (
+                candidate.action == "targets_removed"
+                and candidate.tracker_id
+                in arguments.targets_removed_tracker_ids
+            )
+            or (
+                candidate.action == "resend"
+                and candidate.original_run_id in arguments.report_run_ids
+            )
         ]
     selected_runs = {
         candidate.original_run_id
@@ -182,18 +212,28 @@ def main(argv: list[str] | None = None) -> int:
     selected_manuals = {
         candidate.tracker_id for candidate in candidates if candidate.action == "manual"
     }
+    selected_targets_removed = {
+        candidate.tracker_id
+        for candidate in candidates
+        if candidate.action == "targets_removed"
+    }
     if (
         set(arguments.report_run_ids) - selected_runs
         or set(arguments.manual_tracker_ids) - selected_manuals
+        or set(arguments.targets_removed_tracker_ids) - selected_targets_removed
     ):
         raise ValueError(
             "Some explicitly selected IDs are outside the window or are not eligible. No replay work was reserved."
         )
     resend_count = sum(candidate.action == "resend" for candidate in candidates)
     manual_count = sum(candidate.action == "manual" for candidate in candidates)
+    targets_removed_count = sum(
+        candidate.action == "targets_removed" for candidate in candidates
+    )
     print(
-        "Test-only replay: {} existing PDFs; {} manual candidates. Apply requires explicit IDs.".format(
-            resend_count, manual_count
+        "Test-only replay: {} existing PDFs; {} manual candidates; {} Targets "
+        "Removed candidates. Apply requires explicit IDs.".format(
+            resend_count, manual_count, targets_removed_count
         )
     )
     print(
@@ -202,8 +242,14 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     print(
-        "Manual generation uses current Qualys data, not a guaranteed historical snapshot."
+        "Generated test reports use current Qualys data, not a guaranteed "
+        "historical snapshot."
     )
+    if targets_removed_count:
+        print(
+            "Targets Removed test mode does not delete Qualys web applications. "
+            "It does create and clean up temporary Qualys report objects."
+        )
     for candidate in candidates:
         print(
             "{}: tracker {} tag {} original run {}".format(

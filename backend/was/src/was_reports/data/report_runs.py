@@ -1197,7 +1197,7 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
                 stakeholders.was_report_poc,
                 runs.source_tracker_id,
                 runs.artifact_type,
-                tracker.template,
+                COALESCE(replay.template_override, tracker.template),
                 CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END,
                 tracker.recent_nws,
                 tracker.nws,
@@ -1212,11 +1212,10 @@ def get_report_run_email(report_run_id: int, conn: connection) -> ReportRunEmail
               ON standalone.id = runs.standalone_target_id
             LEFT JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = runs.stakeholder_tag
+            LEFT JOIN was_test_replay_items AS replay
+              ON replay.report_run_id = runs.id
             LEFT JOIN was_daily_report_tracker AS tracker
-              ON tracker.id = COALESCE(runs.source_tracker_id, (
-                  SELECT replay.tracker_id FROM was_test_replay_items AS replay
-                  WHERE replay.report_run_id = runs.id
-              ))
+              ON tracker.id = COALESCE(runs.source_tracker_id, replay.tracker_id)
             LEFT JOIN was_assignees AS assignees
               ON assignees.id = tracker.assignee_id
             WHERE runs.id = %s
@@ -1408,7 +1407,7 @@ def claim_report_run_email(
             COALESCE(stakeholders.distro_email, standalone.delivery_email),
             stakeholders.tech_poc_email,
             stakeholders.was_report_poc,
-            tracker.template,
+            COALESCE(replay.template_override, tracker.template),
             CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END,
             tracker.recent_nws,
             tracker.nws,
@@ -1423,11 +1422,10 @@ def claim_report_run_email(
           ON standalone.id = claimed.standalone_target_id
         LEFT JOIN was_stakeholders AS stakeholders
           ON stakeholders.tag = claimed.stakeholder_tag
+        LEFT JOIN was_test_replay_items AS replay
+          ON replay.report_run_id = claimed.id
         LEFT JOIN was_daily_report_tracker AS tracker
-          ON tracker.id = COALESCE(claimed.source_tracker_id, (
-              SELECT replay.tracker_id FROM was_test_replay_items AS replay
-              WHERE replay.report_run_id = claimed.id
-          ))
+          ON tracker.id = COALESCE(claimed.source_tracker_id, replay.tracker_id)
         LEFT JOIN was_assignees AS assignees
           ON assignees.id = tracker.assignee_id
     """

@@ -27,6 +27,7 @@ class ReplayCandidate:
 def list_replay_candidates(
     days_back: int = 7, manual_tracker_ids: tuple[int, ...] = (),
     include_all_manual: bool = False,
+    targets_removed_tracker_ids: tuple[int, ...] = (),
 ) -> list[ReplayCandidate]:
     """Preview completed PDFs and explicitly selected unsent manual failures."""
     if days_back < 1:
@@ -37,7 +38,8 @@ def list_replay_candidates(
             cursor.execute(
                 """
                 SELECT tracker.id, tracker.tag,
-                       CASE WHEN runs.status = 'completed' THEN 'resend'
+                       CASE WHEN tracker.id = ANY(%s) THEN 'targets_removed'
+                            WHEN runs.status = 'completed' THEN 'resend'
                             ELSE 'manual' END,
                        runs.id, runs.output_path,
                        COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
@@ -52,7 +54,8 @@ def list_replay_candidates(
                   AND COALESCE(tracker.template, '') <> 'Deactivated'
                   AND (runs.id IS NULL OR runs.delivery_purpose = 'customer')
                   AND (
-                    (runs.status = 'completed' AND runs.artifact_type = 'pdf'
+                    (NOT (tracker.id = ANY(%s))
+                     AND runs.status = 'completed' AND runs.artifact_type = 'pdf'
                      AND NULLIF(BTRIM(runs.output_path), '') IS NOT NULL)
                     OR
                     ((%s OR tracker.id = ANY(%s)) AND tracker.report_sent_date IS NULL
@@ -63,10 +66,36 @@ def list_replay_candidates(
                           AND COALESCE(runs.error_message, '')
                               NOT LIKE '%%QualysReportCreationUncertainError%%'))
                      AND COALESCE(tracker.report_scan_notes, '') ILIKE 'MANUAL:%%')
+                    OR
+                    (tracker.id = ANY(%s)
+                     AND tracker.status = 'Finished'
+                     AND tracker.report_sent_date IS NULL
+                     AND BTRIM(COALESCE(tracker.report_scan_notes, ''))
+                         = 'QUALYS DELETION REQUIRED'
+                     AND tracker.template = 'Action Required'
+                     AND NULLIF(BTRIM(COALESCE(tracker.remove_nws, '')), '')
+                         IS NOT NULL
+                     AND COALESCE(tracker.tag_id, stakeholders.qualys_tag_id)
+                         IS NOT NULL
+                     AND (runs.id IS NULL OR (runs.status = 'failed'
+                          AND runs.email_status NOT IN ('held', 'sending', 'sent')
+                          AND COALESCE(runs.qualys_detail_report_status, '')
+                              <> 'CREATE_REQUESTED'
+                          AND COALESCE(runs.qualys_xml_report_status, '')
+                              <> 'CREATE_REQUESTED'
+                          AND COALESCE(runs.error_message, '')
+                              NOT LIKE '%%QualysReportCreationUncertainError%%')))
                   )
                 ORDER BY tracker.id
                 """,
-                (days_back, include_all_manual, list(manual_tracker_ids)),
+                (
+                    list(targets_removed_tracker_ids),
+                    days_back,
+                    list(targets_removed_tracker_ids),
+                    include_all_manual,
+                    list(manual_tracker_ids),
+                    list(targets_removed_tracker_ids),
+                ),
             )
             return [ReplayCandidate(*row) for row in cursor.fetchall()]
     finally:
@@ -79,7 +108,9 @@ def reserve_replay_run(
     """Atomically reserve an analyst child without changing customer history."""
     replay_id = str(UUID(replay_id))
     recipient = recipient.strip().lower()
-    if not recipient or candidate.action not in {"resend", "manual"}:
+    if not recipient or candidate.action not in {
+        "resend", "manual", "targets_removed",
+    }:
         raise ValueError("A recipient and valid replay action are required.")
     conn = connect()
     try:
@@ -99,7 +130,7 @@ def reserve_replay_run(
                 """
                 SELECT runs.id, runs.stakeholder_tag, runs.status, runs.output_path,
                        runs.artifact_type, runs.generation_token,
-                       items.action, items.original_run_id
+                       items.action, items.original_run_id, items.template_override
                 FROM was_test_replay_items AS items
                 JOIN was_report_runs AS runs ON runs.id = items.report_run_id
                 WHERE items.replay_id = %s AND items.tracker_id = %s
@@ -107,7 +138,16 @@ def reserve_replay_run(
             )
             existing = cursor.fetchone()
             if existing is not None:
-                if existing[6:] != (candidate.action, candidate.original_run_id):
+                expected_override = (
+                    "Targets Removed"
+                    if candidate.action == "targets_removed"
+                    else None
+                )
+                if existing[6:] != (
+                    candidate.action,
+                    candidate.original_run_id,
+                    expected_override,
+                ):
                     raise ValueError("Replay source/action differs from the original reservation.")
                 conn.commit()
                 return ReportRun(*existing[:6]), False
@@ -117,7 +157,7 @@ def reserve_replay_run(
             )
             if cursor.fetchone() is None:
                 raise ValueError("Replay stakeholder no longer exists.")
-            if candidate.action == "manual":
+            if candidate.action in {"manual", "targets_removed"}:
                 cursor.execute(
                     "SELECT id FROM was_report_runs WHERE stakeholder_tag = %s "
                     "AND (status = 'running' OR email_status = 'sending') LIMIT 1",
@@ -142,8 +182,8 @@ def reserve_replay_run(
                           AND original.artifact_type = 'pdf'
                           AND original.output_path = %s
                     ))
-                    OR (%s = 'manual' AND tracker.report_sent_date IS NULL
-                        AND COALESCE(tracker.report_scan_notes, '') ILIKE 'MANUAL:%%'
+                    OR (%s IN ('manual', 'targets_removed')
+                        AND tracker.report_sent_date IS NULL
                         AND NOT EXISTS (
                             SELECT 1 FROM was_report_runs AS original
                             WHERE original.source_tracker_id = tracker.id
@@ -154,12 +194,36 @@ def reserve_replay_run(
                                    OR original.qualys_xml_report_status = 'CREATE_REQUESTED'
                                    OR original.error_message
                                        LIKE '%%QualysReportCreationUncertainError%%')
+                        )
+                        AND (
+                            (%s = 'manual'
+                             AND COALESCE(tracker.report_scan_notes, '')
+                                 ILIKE 'MANUAL:%%')
+                            OR
+                            (%s = 'targets_removed'
+                             AND tracker.status = 'Finished'
+                             AND BTRIM(COALESCE(tracker.report_scan_notes, ''))
+                                 = 'QUALYS DELETION REQUIRED'
+                             AND tracker.template = 'Action Required'
+                             AND NULLIF(BTRIM(COALESCE(tracker.remove_nws, '')), '')
+                                 IS NOT NULL
+                             AND COALESCE(
+                                 tracker.tag_id, stakeholders.qualys_tag_id
+                             ) IS NOT NULL)
                         ))
                   )
                 FOR SHARE OF tracker, stakeholders
                 """,
-                (candidate.tracker_id, candidate.tag, candidate.action,
-                 candidate.original_run_id, candidate.output_path, candidate.action),
+                (
+                    candidate.tracker_id,
+                    candidate.tag,
+                    candidate.action,
+                    candidate.original_run_id,
+                    candidate.output_path,
+                    candidate.action,
+                    candidate.action,
+                    candidate.action,
+                ),
             )
             if cursor.fetchone() is None:
                 raise ValueError("Replay source is no longer eligible. Preview again.")
@@ -182,11 +246,22 @@ def reserve_replay_run(
             cursor.execute(
                 """
                 INSERT INTO was_test_replay_items
-                    (replay_id, tracker_id, original_run_id, report_run_id, action)
-                VALUES (%s, %s, %s, %s, %s)
+                    (replay_id, tracker_id, original_run_id, report_run_id,
+                     action, template_override)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (replay_id, candidate.tracker_id, candidate.original_run_id,
-                 report_run_id, candidate.action),
+                (
+                    replay_id,
+                    candidate.tracker_id,
+                    candidate.original_run_id,
+                    report_run_id,
+                    candidate.action,
+                    (
+                        "Targets Removed"
+                        if candidate.action == "targets_removed"
+                        else None
+                    ),
+                ),
             )
         conn.commit()
         return ReportRun(report_run_id, candidate.tag, status, output_path,

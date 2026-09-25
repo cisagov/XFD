@@ -24,6 +24,7 @@ SEND_EMAIL ?= 0
 REPLAY_ID ?=
 REPORT_RUN_IDS ?=
 MANUAL_TRACKER_IDS ?=
+TARGETS_REMOVED_TRACKER_IDS ?=
 RECOVERY_CAUSE ?=
 RECOVERY_CONFIRM ?=
 LOG_BATCH_ID ?=
@@ -225,13 +226,21 @@ on-demand-report:
 	esac; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output --entrypoint was-report-on-demand $(IMAGE) "$$@"
 
-.PHONY: test-report-replay
+.PHONY: test-report-replay test-targets-removed
+
+test-targets-removed:
+	@test -n "$(TARGETS_REMOVED_TRACKER_IDS)" || (echo 'Set TARGETS_REMOVED_TRACKER_IDS to reviewed tracker IDs.' >&2; exit 2)
+	$(MAKE) test-report-replay \
+	  TARGETS_REMOVED_TRACKER_IDS="$(TARGETS_REMOVED_TRACKER_IDS)" \
+	  TEST_RECIPIENTS="$(TEST_RECIPIENTS)" DAYS_BACK="$(DAYS_BACK)" \
+	  REPLAY_ID="$(REPLAY_ID)" APPLY="$(APPLY)"
 
 test-report-replay:
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled assignee.' >&2; exit 2)
 	@set -- --days-back "$(DAYS_BACK)" --test-recipients "$(TEST_RECIPIENTS)"; \
 	if [ -n "$(REPORT_RUN_IDS)" ]; then set -- "$$@" --report-run-ids "$(REPORT_RUN_IDS)"; fi; \
 	if [ -n "$(MANUAL_TRACKER_IDS)" ]; then set -- "$$@" --manual-tracker-ids "$(MANUAL_TRACKER_IDS)"; fi; \
+	if [ -n "$(TARGETS_REMOVED_TRACKER_IDS)" ]; then set -- "$$@" --targets-removed-tracker-ids "$(TARGETS_REMOVED_TRACKER_IDS)"; fi; \
 	if [ -n "$(REPLAY_ID)" ]; then set -- "$$@" --replay-id "$(REPLAY_ID)"; fi; \
 	case "$(APPLY)" in \
 	  0) ;; \

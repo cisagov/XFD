@@ -762,6 +762,10 @@ class ReportRunTests(unittest.TestCase):
             conn.cursor_instance.query,
         )
         self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
+        self.assertIn(
+            "COALESCE(replay.template_override, tracker.template)",
+            conn.cursor_instance.query,
+        )
 
     def test_report_email_start_belongs_to_source_execution(self) -> None:
         """A later stakeholder update cannot change the selected report's start."""
@@ -897,6 +901,10 @@ class ReportRunTests(unittest.TestCase):
             conn.cursor_instance.query,
         )
         self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
+        self.assertIn(
+            "COALESCE(replay.template_override, tracker.template)",
+            conn.cursor_instance.query,
+        )
         self.assertEqual(claimed.source_tracker_id, 42)
         self.assertTrue(conn.committed)
         self.assertIn("UPDATE was_report_runs", conn.cursor_instance.query)

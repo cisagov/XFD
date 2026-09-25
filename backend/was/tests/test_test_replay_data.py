@@ -28,7 +28,7 @@ class ReplayDataTests(unittest.TestCase):
         self.cursor.fetchall.return_value = []
         self.assertEqual([], test_replay.list_replay_candidates(7, (1,)))
         query, parameters = self.cursor.execute.call_args.args
-        self.assertEqual((7, False, [1]), parameters)
+        self.assertEqual(([], 7, [], False, [1], []), parameters)
         self.assertIn("runs.delivery_purpose = 'customer'", query)
         self.assertIn("Deactivated", query)
         self.assertIn("runs.email_status NOT IN ('held', 'sending', 'sent')", query)
@@ -52,7 +52,10 @@ class ReplayDataTests(unittest.TestCase):
         """A repeated UUID and source cannot generate or send a second child."""
         self.cursor.fetchone.side_effect = [
             ("test@example.gov",),
-            (9, "TAG", "completed", "/archive/report.pdf", "pdf", "token", "resend", 2),
+            (
+                9, "TAG", "completed", "/archive/report.pdf", "pdf", "token",
+                "resend", 2, None,
+            ),
         ]
         report, created = test_replay.reserve_replay_run(
             self.replay_id, "test@example.gov", self.candidate)
@@ -88,7 +91,10 @@ class ReplayDataTests(unittest.TestCase):
         """Do not reinterpret an existing manual child as a resend reservation."""
         self.cursor.fetchone.side_effect = [
             ("test@example.gov",),
-            (9, "TAG", "completed", "/archive/report.pdf", "pdf", "token", "manual", 2),
+            (
+                9, "TAG", "completed", "/archive/report.pdf", "pdf", "token",
+                "manual", 2, None,
+            ),
         ]
         with self.assertRaisesRegex(ValueError, "source/action differs"):
             test_replay.reserve_replay_run(self.replay_id, "test@example.gov", self.candidate)
@@ -98,3 +104,61 @@ class ReplayDataTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             test_replay.list_replay_candidates(0)
         self.connection.cursor.assert_not_called()
+
+    def test_targets_removed_reservation_persists_only_test_override(self):
+        """Persist the test template without changing the source tracker row."""
+        candidate = test_replay.ReplayCandidate(
+            4, "TAG", "targets_removed", None, None, 3, "Customer", None
+        )
+        self.cursor.fetchone.side_effect = [
+            ("test@example.gov",),
+            None,
+            ("TAG",),
+            None,
+            ("TAG",),
+            (10,),
+        ]
+
+        report, created = test_replay.reserve_replay_run(
+            self.replay_id,
+            "test@example.gov",
+            candidate,
+        )
+
+        self.assertTrue(created)
+        self.assertEqual(report.id, 10)
+        calls = self.cursor.execute.call_args_list
+        replay_insert = next(
+            call for call in calls if "INSERT INTO was_test_replay_items" in call.args[0]
+        )
+        self.assertEqual(replay_insert.args[1][-2:], ("targets_removed", "Targets Removed"))
+        self.assertFalse(
+            any("UPDATE was_daily_report_tracker" in call.args[0] for call in calls)
+        )
+
+    def test_targets_removed_preview_requires_exact_pending_deletion_state(self):
+        """Fail closed unless every selected row has removal data and no delivery."""
+        self.cursor.fetchall.return_value = []
+
+        test_replay.list_replay_candidates(
+            days_back=7,
+            targets_removed_tracker_ids=(260169, 260087),
+        )
+
+        query, parameters = self.cursor.execute.call_args.args
+        self.assertEqual(
+            parameters,
+            (
+                [260169, 260087],
+                7,
+                [260169, 260087],
+                False,
+                [],
+                [260169, 260087],
+            ),
+        )
+        self.assertIn("tracker.status = 'Finished'", query)
+        self.assertIn("= 'QUALYS DELETION REQUIRED'", query)
+        self.assertIn("tracker.template = 'Action Required'", query)
+        self.assertIn("tracker.remove_nws", query)
+        self.assertIn("tracker.report_sent_date IS NULL", query)

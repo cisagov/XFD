@@ -1097,6 +1097,62 @@ class DeliveryPolicyTests(unittest.TestCase):
         self.assertNotIn(b"Analyst Copy", message_bytes)
         finish.assert_called_once_with(2, "message", email_claim_token="token")
 
+    @patch("was_mailer.message.list_functional_test_recipient_emails_from_db",
+           return_value=["analyst@example.gov"])
+    @patch("was_mailer.email_reports.approved_analyst_recipients",
+           return_value=["analyst@example.gov"])
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.touch_report_email_claim_by_id", return_value=True)
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_targets_removed_replay_goes_only_to_test_assignee(
+        self, claim, touch, finish, validate, configured
+    ):
+        """Render the real removal template without addressing customer POCs."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "TAG1_WAS_report_2026-09-25.pdf"
+            report_path.write_bytes(b"%PDF")
+            claim.return_value = ReportRunEmail(
+                id=3,
+                stakeholder_tag="TAG1",
+                output_path=str(report_path),
+                report_password=None,
+                distro_email="customer@example.gov",
+                tech_poc_email="poc@example.gov",
+                was_report_poc="Customer",
+                template="Targets Removed",
+                recent_nws="https://nws.example.gov<br>",
+                nws_summary="5, 1, 1",
+                remove_nws="https://removed.example.gov<br>",
+                delivery_purpose="analyst",
+                email_claim_token="token",
+            )
+            client = Mock()
+            client.send_raw_email.return_value = {"MessageId": "message"}
+
+            email_reports.send_report_run_email(
+                3,
+                "sender@example.gov",
+                override_recipients="analyst@example.gov",
+                delivery_purpose="analyst",
+                preserve_customer_template=True,
+                ses_client=client,
+                storage_mode="local",
+                local_output_directory=directory,
+            )
+
+        message = BytesParser(policy=policy.default).parsebytes(
+            client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
+        )
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertEqual(message["To"], "analyst@example.gov")
+        self.assertNotIn("customer@example.gov", message["To"])
+        self.assertNotIn("poc@example.gov", message["To"])
+        self.assertEqual(message["Subject"], "TAG1 - WAS Results - Targets Removed")
+        self.assertIn("TEST DELIVERY ONLY", body)
+        self.assertIn("https://removed.example.gov", body)
+        self.assertIn("poc@example.gov", body)
+        finish.assert_called_once_with(3, "message", email_claim_token="token")
+
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
     @patch("was_mailer.email_reports.approved_analyst_recipients",
            side_effect=AnalystRecipientError("Recipient not enabled"))
