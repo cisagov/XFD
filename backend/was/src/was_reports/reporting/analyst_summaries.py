@@ -316,9 +316,7 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
         raise ValueError("Days back must be at least 1.")
     manual_candidate = """(tracker.report_sent_date IS NULL AND
         (stakeholders.manual_report IS TRUE
-         OR NULLIF(BTRIM(tracker.report_scan_notes),'') IS NOT NULL
-         OR NULLIF(BTRIM(tracker.qualys_error),'') IS NOT NULL
-         OR UPPER(BTRIM(COALESCE(tracker.status,'')))='ERROR'))"""
+         OR NULLIF(BTRIM(tracker.report_scan_notes),'') IS NOT NULL))"""
     fields = [
         "COALESCE(assignees.name, tracker.assignee, 'Unassigned')"
         if field == "assignee"
@@ -395,7 +393,7 @@ def manual_reason_category(row):
         return "Password validation failure"
     if note in FAILURE_NOTES[QUALYS_READ_TIMEOUT]:
         return "Qualys read timeout"
-    if (
+    if note and (
         str(row.get("qualys_error") or "").strip()
         or str(row.get("status") or "").strip().upper() == "ERROR"
     ):

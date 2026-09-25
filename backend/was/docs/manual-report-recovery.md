@@ -63,5 +63,7 @@ structured sent date with the existing command:
 make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-22
 ```
 
-Do not use recovery to bypass `manual_report`, Qualys errors, explicit
-operator notes, held delivery, or uncertain Qualys report creation.
+Do not use recovery to bypass `manual_report`, explicit operator notes,
+unresolved Qualys operation failures, held delivery, or uncertain Qualys
+report creation. A completed scan containing Qualys error webapps is part of
+the automated reporting flow and does not use this manual-recovery command.

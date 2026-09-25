@@ -149,6 +149,38 @@ class DailyReportTrackerTests(unittest.TestCase):
             )
         )
 
+    def test_qualys_error_overlay_is_not_manual_without_explicit_reason(self) -> None:
+        """Completed error-webapp scans remain eligible for automation."""
+        self.assertIsNone(
+            manual_work_classification(
+                None,
+                None,
+                "https://error.example.gov<br>",
+                "Error",
+                False,
+            )
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "MANUAL: Report generation failed: QualysReportError",
+                "https://error.example.gov<br>",
+                "Error",
+                False,
+            ),
+            MANUAL_WORK,
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                None,
+                "https://error.example.gov<br>",
+                "Error",
+                True,
+            ),
+            MANUAL_WORK,
+        )
+
     def test_manual_candidates_exclude_unreconciled_legacy_sent_notes(self) -> None:
         """Generic manual processing cannot resend a legacy sent-note row."""
         conn = FakeConnection(
@@ -457,6 +489,17 @@ class DailyReportTrackerTests(unittest.TestCase):
             query.index("legacy.id <> tracker.id"),
         )
         self.assertNotIn("legacy.tag = tracker.tag", query)
+
+    def test_automated_candidates_accept_finished_and_error_statuses(self) -> None:
+        """Treat consolidated scan errors as completed automated work."""
+        conn = FakeConnection()
+
+        list_ready_report_candidates(conn=conn, days_back=7)
+
+        self.assertIn(
+            "IN ('finished', 'error')",
+            conn.cursor_instance.query,
+        )
 
     def test_manual_reports_do_not_inherit_legacy_overlap_hold(self) -> None:
         """Leave deliberate manual generation unchanged by automated holds."""

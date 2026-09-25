@@ -81,7 +81,7 @@ def tracker_result_fields(
     """Return the tracker NWS summary, template, and report notes."""
     template = None
     nws = None
-    if not no_error or item.manual or item.status != "Finished":
+    if not no_error or item.manual:
         return None, None, report_scan_notes or "MANUAL"
     if item.nws:
         recent_count = len(item.recent_nws.split("<br>")) - 1

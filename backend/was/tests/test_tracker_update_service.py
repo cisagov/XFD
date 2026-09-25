@@ -186,6 +186,54 @@ class TrackerUpdateServiceTests(unittest.TestCase):
 
         self.assertEqual(fields, ("10", "Results", ""))
 
+    def test_qualys_error_webapps_remain_eligible_for_results(self) -> None:
+        """Keep a completed scan with error webapps in the automated flow."""
+        item = replace(
+            self.removal_item(False),
+            status="Error",
+            result="Scan Internal Error",
+            nws=False,
+            recent_nws="",
+            removed_nws="",
+            qualys_errors="https://error.example.gov<br>",
+        )
+
+        fields = tracker_result_fields(item, 10, True, "")
+
+        self.assertEqual(fields, ("10", "Results", ""))
+
+    def test_error_without_qualys_error_webapps_uses_legacy_results_flow(self) -> None:
+        """Do not make status alone a manual trigger under legacy rules."""
+        item = replace(
+            self.removal_item(False),
+            status="Error",
+            result="Scan Internal Error",
+            nws=False,
+            recent_nws="",
+            removed_nws="",
+        )
+
+        fields = tracker_result_fields(item, 10, True, "")
+
+        self.assertEqual(fields, ("10", "Results", ""))
+
+    def test_explicit_manual_overrides_qualys_error_automation(self) -> None:
+        """Preserve an explicit legacy manual classification for error scans."""
+        item = replace(
+            self.removal_item(False),
+            status="Error",
+            result="Scan Results Invalid",
+            nws=False,
+            recent_nws="",
+            removed_nws="",
+            manual="MANUAL",
+            qualys_errors="https://error.example.gov<br>",
+        )
+
+        fields = tracker_result_fields(item, 10, True, item.manual)
+
+        self.assertEqual(fields, (None, None, "MANUAL"))
+
     def test_failed_inventory_does_not_deactivate_stakeholder(self) -> None:
         """Unknown inventory must not select an automatic NWS template."""
         fields = tracker_result_fields(self.removal_item(False), 0, False, "MANUAL")

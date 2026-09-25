@@ -60,6 +60,7 @@ class TrackerServiceTests(unittest.TestCase):
             ({1: date(2026, 9, 3)}, 1),
             ({2: None}, 1),
             ({3: "Error", 4: "Failed"}, 1),
+            ({3: "Error", 4: "Scan Internal Error"}, 0),
             ({4: "PROCESSING"}, 1),
             ({4: " "}, 1),
             ({6: "QUALYS DELETION REQUIRED"}, 1),
@@ -216,6 +217,7 @@ class TrackerServiceTests(unittest.TestCase):
             ("legacy-import:2:2026-09-03", date(2026, 9, 3), "Finished", 0),
             (None, date(2026, 9, 2), "Finished", 1),
             ("current", date(2026, 9, 3), "Finished", 0),
+            ("current", date(2026, 9, 3), "Error", 0),
             ("current", date(2026, 9, 3), "Running", 1),
         ):
             cursor.fetchall.return_value = [

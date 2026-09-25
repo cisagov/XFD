@@ -85,13 +85,9 @@ def inspect_exclusions(
                             SELECT 1 FROM was_report_runs runs
                             WHERE runs.source_tracker_id = tracker.id
                         ) THEN 'existing report run'
-                        WHEN NOT (
-                            LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
-                            OR (
-                                LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'error'
-                                AND BTRIM(COALESCE(tracker.qualys_error, '')) <> ''
-                            )
-                        ) THEN 'status not eligible'
+                        WHEN LOWER(BTRIM(COALESCE(tracker.status, '')))
+                             NOT IN ('finished', 'error')
+                            THEN 'status not eligible'
                         WHEN BTRIM(COALESCE(tracker.report_scan_notes, '')) <> ''
                             THEN 'manual report notes'
                         WHEN stakeholders.manual_report IS TRUE

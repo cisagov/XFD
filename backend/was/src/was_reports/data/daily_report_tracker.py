@@ -45,7 +45,7 @@ def manual_work_classification(
     status: str | None,
     stakeholder_manual: bool,
 ) -> str | None:
-    """Classify actionable manual work without hiding unreconciled sent notes."""
+    """Classify explicit manual work without treating scan errors as manual."""
     if report_sent_date is not None:
         return None
     if is_legacy_sent_note(report_scan_notes):
@@ -53,8 +53,6 @@ def manual_work_classification(
     if (
         stakeholder_manual
         or bool((report_scan_notes or "").strip())
-        or bool((qualys_error or "").strip())
-        or (status or "").strip().upper() == "ERROR"
     ):
         return MANUAL_WORK
     return None
@@ -443,13 +441,7 @@ def list_ready_report_candidates(
               AND COALESCE(tracker.template, '') <> 'Deactivated'
               AND stakeholders.retired IS NOT TRUE
               AND runs.id IS NULL
-              AND (
-                    LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'finished'
-                 OR (
-                        LOWER(BTRIM(COALESCE(tracker.status, ''))) = 'error'
-                    AND BTRIM(COALESCE(tracker.qualys_error, '')) <> ''
-                 )
-              )
+              AND LOWER(BTRIM(COALESCE(tracker.status, ''))) IN ('finished', 'error')
               AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
               AND stakeholders.manual_report IS NOT TRUE
               AND NOT EXISTS (

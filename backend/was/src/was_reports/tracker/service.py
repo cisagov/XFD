@@ -92,7 +92,7 @@ def pending_schedules(
         if sent or emailed:
             delivered.add(identity)
         elif (
-            status == "Finished" and result and result.strip()
+            status in {"Finished", "Error"} and result and result.strip()
             and result.strip().upper() not in {"PROCESSING", "RUNNING", "FAILED", "ERROR"}
             and not (notes or "").strip() and not linked
         ):

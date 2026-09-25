@@ -159,6 +159,7 @@ class AnalystSummaryTests(unittest.TestCase):
                 "tag": "MANUAL",
                 "assignee": "Analyst",
                 "status": "ERROR",
+                "report_scan_notes": "MANUAL: Qualys scan processing failed",
                 "open_manual": True,
             },
         ]
@@ -225,7 +226,12 @@ class AnalystSummaryTests(unittest.TestCase):
                     "during report generation."
                 ),
             },
-            {"id": 3, "open_manual": True, "qualys_error": "SCAN_ERROR"},
+            {
+                "id": 3,
+                "open_manual": True,
+                "qualys_error": "SCAN_ERROR",
+                "report_scan_notes": "MANUAL: Qualys scan processing failed",
+            },
             {"id": 4, "open_manual": True, "stakeholder_manual": True},
             {
                 "id": 5,
@@ -330,6 +336,8 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertEqual(execute.call_args.args[1], ("batch", "batch", 7))
         self.assertNotIn("legacy_password", query)
         self.assertNotIn("active IS TRUE", query)
+        self.assertNotIn("BTRIM(tracker.qualys_error)", query)
+        self.assertNotIn("COALESCE(tracker.status", query)
 
     @patch.object(summaries, "_execute")
     def test_tracker_rows_marks_current_batch_and_stakeholder_manual(
@@ -347,6 +355,24 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertTrue(rows[0]["open_manual"])
         self.assertFalse(rows[0]["delivery_reconciliation"])
         self.assertEqual(execute.call_args.args[1], ("batch", "batch"))
+
+    @patch.object(summaries, "_execute")
+    def test_tracker_rows_does_not_mark_error_overlay_as_manual(self, execute):
+        """Qualys error data alone is automated, not open manual work."""
+        values = [None] * len(summaries.TRACKER_EXPORT_FIELDS)
+        values[summaries.TRACKER_EXPORT_FIELDS.index("id")] = 43
+        values[summaries.TRACKER_EXPORT_FIELDS.index("status")] = "Error"
+        values[summaries.TRACKER_EXPORT_FIELDS.index("qualys_error")] = (
+            "https://error.example.gov<br>"
+        )
+        execute.return_value = [tuple(values + [False, True])]
+
+        rows = summaries._tracker_rows(batch_id="batch", days_back=None)
+
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0]["current_batch_attempt"])
+        self.assertFalse(rows[0]["open_manual"])
+        self.assertFalse(rows[0]["delivery_reconciliation"])
 
 
 if __name__ == "__main__":

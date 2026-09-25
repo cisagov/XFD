@@ -913,11 +913,15 @@ encrypted report to S3, and removes the temporary local copy.
 ### Run The Recent-Scan Batch
 
 The operational batch first updates `was_daily_report_tracker` from recently
-completed Qualys scan schedules. It then selects finished automated rows where
-`report_sent_date` is empty and no `was_report_runs` record is already linked.
-Each tracker row is claimed once, generated, uploaded, emailed, and stamped with
-the report sent date. Metadata or generation failures are marked `MANUAL` for
-the assigned analyst.
+completed Qualys scan schedules. It then selects automated rows with a
+`Finished` or `Error` consolidated result where `report_sent_date` is empty and
+no `was_report_runs` record is already linked. An `Error` result is not itself a
+manual trigger: available reports are generated and the approved Qualys-error
+section lists affected web applications. Each tracker row is claimed once,
+generated, uploaded, emailed, and stamped with the report sent date. Explicit
+manual configuration, missing stakeholder or inventory data, consolidation
+failures, and exhausted report-generation failures remain `MANUAL` for the
+assigned analyst.
 
 Qualys schedules without an actual launch timestamp are skipped. If an ad hoc
 schedule has no next launch date and its primary schedule also has no next

@@ -60,6 +60,7 @@ class BatchPreflightTests(unittest.TestCase):
         self.assertIn("legacy.report_sent_date IS NOT NULL", query)
         self.assertIn("same scan run already claimed or sent", query)
         self.assertIn("sibling.scan_name = tracker.scan_name", query)
+        self.assertIn("NOT IN ('finished', 'error')", query)
         for command in ("INSERT ", "UPDATE ", "DELETE ", "LOCK "):
             self.assertNotIn(command, query)
 
