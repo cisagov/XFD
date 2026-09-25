@@ -109,11 +109,9 @@ from .api_methods.was_sync import (
     paginate_queryset,
 )
 from .api_methods.xpanse_sync import xpanse_sync_post
-from .auth import (
+from .auth import (  # handle_okta_callback,; sign_oauth_data,
     get_current_active_user,
     get_current_active_user_unsafe,
-    handle_okta_callback,
-    sign_oauth_data,
 )
 from .auth_saml import router as saml_router
 from .login_gov import callback
@@ -311,10 +309,10 @@ async def get_api_key(
 
 
 # Okta Callback
-@api_router.post("/auth/okta-callback", tags=["Auth"])
-async def okta_callback(request: Request):
-    """Handle Okta Callback."""
-    return await handle_okta_callback(request)
+# @api_router.post("/auth/okta-callback", tags=["Auth"])
+# async def okta_callback(request: Request):
+#     """Handle Okta Callback."""
+#     return await handle_okta_callback(request)
 
 
 # V1 Callback
@@ -330,15 +328,15 @@ async def callback_route(request: Request):
 
 
 # Return signed OAuth metadata
-@api_router.post("/auth/get-oauth-meta", tags=["Auth"])
-async def get_oauth_meta(payload: dict):
-    """Return signed OAuth metadata."""
-    state = payload.get("state")
-    code_verifier = payload.get("code_verifier")
-    if not state or not code_verifier:
-        raise HTTPException(status_code=400, detail="Missing parameters")
-    signed_token = sign_oauth_data(state, code_verifier)
-    return {"signedToken": signed_token}
+# @api_router.post("/auth/get-oauth-meta", tags=["Auth"])
+# async def get_oauth_meta(payload: dict):
+#     """Return signed OAuth metadata."""
+#     state = payload.get("state")
+#     code_verifier = payload.get("code_verifier")
+#     if not state or not code_verifier:
+#         raise HTTPException(status_code=400, detail="Missing parameters")
+#     signed_token = sign_oauth_data(state, code_verifier)
+#     return {"signedToken": signed_token}
 
 
 # ========================================
