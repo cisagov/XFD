@@ -48,11 +48,39 @@ def _get_client():
     """Create or return a reusable Databricks WorkspaceClient instance."""
     global _CLIENT
     if _CLIENT is None:
+        server_hostname = os.environ.get("DATABRICKS_SERVER_HOSTNAME")
+        client_id = os.environ.get("DATABRICKS_CLIENT_ID")
+        client_secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
+        # MODIFIED: fail fast with a clear message instead of letting a
+        # missing value reach WorkspaceClient(). When one of these (or
+        # DATABRICKS_WAREHOUSE_ID, checked here too since query_databricks()
+        # needs it right after client init) is unset, the SDK's own config
+        # resolution falls through to a different auth/host source instead
+        # of using the explicit `host=` string below, and eventually raises
+        # requests.exceptions.MissingSchema: "Invalid URL 'None': No scheme
+        # supplied" - an opaque error that never names which env var is
+        # actually missing. This check surfaces that immediately.
+        missing = [
+            name
+            for name, value in (
+                ("DATABRICKS_SERVER_HOSTNAME", server_hostname),
+                ("DATABRICKS_CLIENT_ID", client_id),
+                ("DATABRICKS_CLIENT_SECRET", client_secret),
+                ("DATABRICKS_WAREHOUSE_ID", _WAREHOUSE_ID),
+            )
+            if not value
+        ]
+        if missing:
+            raise QueryError(
+                SCAN_NAME,
+                "Missing required Databricks environment variable(s): "
+                + ", ".join(missing),
+            )
         LOGGER.info("[Databricks] Initializing WorkspaceClient...")
         _CLIENT = WorkspaceClient(
-            host="https://{}".format(os.environ.get("DATABRICKS_SERVER_HOSTNAME")),
-            client_id=os.environ.get("DATABRICKS_CLIENT_ID"),
-            client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET"),
+            host="https://{}".format(server_hostname),
+            client_id=client_id,
+            client_secret=client_secret,
         )
     return _CLIENT
 
@@ -95,7 +123,13 @@ def _infer_statement_param(name: str, value: Any) -> StatementParameterListItem:
         return StatementParameterListItem(
             name=name, value=value.isoformat(), type="TIMESTAMP"
         )
-    return StatementParameterListItem(name=name, value=str(value))
+    # MODIFIED: explicit type="STRING" instead of leaving `type` unset.
+    # Per Databricks' own docs an omitted type is "interpreted as a string"
+    # anyway, so this shouldn't change behavior - but it removes any
+    # ambiguity around how an empty string (e.g. the CVE sync's keyset
+    # last_key="" on its first page) is typed/serialized, which was raised
+    # while debugging why a query returns rows manually but not via the app.
+    return StatementParameterListItem(name=name, value=str(value), type="STRING")
 
 
 def _build_parameters(
@@ -162,7 +196,7 @@ def query_databricks(query, params=None):
                 catalog=_CATALOG,
                 schema=_SCHEMA,
                 wait_timeout="0s",
-                disposition=Disposition.EXTERNAL_LINKS,
+                disposition=Disposition.INLINE,
                 format=Format.JSON_ARRAY,
             )
 
@@ -268,7 +302,13 @@ def fetch_from_databricks(query):
         )
         return result
     except Exception as e:
-        LOGGER.info("Error fetching data from Databricks: %s", e)
+        # MODIFIED: was LOGGER.info(...) - a real query_databricks() failure
+        # (permissions, catalog/schema access, param binding, etc.) was being
+        # logged at INFO with no traceback and then silently turned into an
+        # empty list, indistinguishable from "genuinely zero matching rows"
+        # to every caller. LOGGER.exception() captures the real traceback so
+        # the actual cause shows up in the logs instead of disappearing.
+        LOGGER.exception("Error fetching data from Databricks: %s", e)
         LOGGER.info("Erroneous query: %s", query)
         return []
 
@@ -286,7 +326,9 @@ def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
         result = query_databricks(query, params=params)
         return result
     except Exception as e:
-        LOGGER.info("Error fetching data from Databricks: %s", e)
+        # MODIFIED: was LOGGER.info(...) - see fetch_from_databricks()'s
+        # MODIFIED note above; same silent-empty-list-on-any-error issue.
+        LOGGER.exception("Error fetching data from Databricks: %s", e)
         LOGGER.info("Erroneous query: %s", query)
         return []
 
