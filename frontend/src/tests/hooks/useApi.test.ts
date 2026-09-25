@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, isApiError } from '../../hooks/useApi';
-import type { ApiResponse } from '../../hooks/useApi';
+import type { ApiResult } from '../../hooks/useApi';
 import { jsonResponse } from '../../test-utils/jsonResponse';
 
 describe('useApi', () => {
@@ -95,7 +95,7 @@ describe('useApi', () => {
     const { useApi } = await import('../../hooks/useApi');
     const { result } = renderHook(() => useApi());
 
-    let apiResponse!: ApiResponse<Blob>;
+    let apiResponse!: ApiResult<Blob>;
 
     await act(async () => {
       apiResponse = await result.current.apiGet<Blob>('/export', {
@@ -109,7 +109,7 @@ describe('useApi', () => {
     expect(apiResponse.headers['content-disposition']).toBe(
       'attachment; filename="data.csv"'
     );
-    expect(apiResponse.response).toBeInstanceOf(Response);
+    expect(apiResponse.rawResponse).toBeInstanceOf(Response);
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringMatching(/\/export$/),
       expect.objectContaining({ credentials: 'include' })

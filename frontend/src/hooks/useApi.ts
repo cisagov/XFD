@@ -102,16 +102,18 @@ export class ApiError<TPayload = unknown> extends Error {
 
 /**
  * Base headers for all API requests.
+ * Only contains the Accept header for JSON responses.
+ * Does not include the Content-Type header by default, allowing flexibility for different request payload types.
+ * Content-Type is set lower in the request handling logic based on the type of the request body.
  */
 
 const baseHeaders: HeadersInit = {
-  'Content-Type': 'application/json',
   Accept: 'application/json'
 };
 
-type ApiMethod = 'GET' | 'POST' | 'DELETE';
+type ApiMethod = 'GET' | 'POST' | 'DELETE'; // Supported HTTP methods for the API requests
 type OnError = (e: Error) => Promise<void>;
-type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none';
+type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none'; //
 
 const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
 const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
@@ -124,7 +126,7 @@ const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
  */
 
 type ApiInit = Omit<RequestInit, 'method' | 'body'> & {
-  body?: unknown; // The request payload, will be JSON-stringified if provided
+  body?: unknown; // The request payload, will be processed and the Content-Type header set accordingly based on its type
   showLoading?: boolean; // Whether to show a loading indicator during the request
   includeResponse?: false; // Does not include the full response object in the return value
   parseAs?: ParseAs; // The expected response type, used to parse the response accordingly
@@ -144,10 +146,10 @@ type ApiInitWithResponse = Omit<ApiInit, 'includeResponse'> & {
  * The ApiResponse type represents the structure of the response returned by the API.
  */
 
-export type ApiResponse<T> = {
-  data: T;
-  headers: Record<string, string>;
-  response?: Response;
+export type ApiResult<T> = {
+  data: T; // The parsed response data, such as JSON, text, or blob depending on the request and parseAs option
+  headers: Record<string, string>; // The normalized response headers
+  rawResponse?: Response; // The original fetch Response metadata, if included
 };
 
 /**
@@ -156,10 +158,7 @@ export type ApiResponse<T> = {
  */
 
 type ApiFn = {
-  <T = unknown>(
-    path: string,
-    init: ApiInitWithResponse
-  ): Promise<ApiResponse<T>>;
+  <T = unknown>(path: string, init: ApiInitWithResponse): Promise<ApiResult<T>>;
 
   <T = unknown>(path: string, init?: ApiInit): Promise<T>;
 };
@@ -237,13 +236,12 @@ export const useApi = (onError?: OnError) => {
 
       const token = getToken();
 
+      const callerHeaders = new Headers(headers);
       const mergedHeaders = new Headers(baseHeaders);
 
-      if (headers) {
-        new Headers(headers).forEach((value, key) => {
-          mergedHeaders.set(key, value);
-        });
-      }
+      callerHeaders.forEach((value, key) => {
+        mergedHeaders.set(key, value);
+      });
 
       if (token) {
         mergedHeaders.set(
@@ -258,24 +256,44 @@ export const useApi = (onError?: OnError) => {
         headers: mergedHeaders
       };
 
+      // Set the body and Content-Type header based on the type of body provided
+
       if (body !== undefined && method !== 'GET') {
         if (body instanceof FormData) {
           options.body = body;
           mergedHeaders.delete('Content-Type');
         } else if (body instanceof URLSearchParams) {
           options.body = body;
-          mergedHeaders.set(
-            'Content-Type',
-            'application/x-www-form-urlencoded; charset=UTF-8'
-          );
-        } else if (
-          body instanceof Blob ||
-          body instanceof ArrayBuffer ||
-          typeof body === 'string'
-        ) {
-          options.body = body as BodyInit;
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set(
+              'Content-Type',
+              'application/x-www-form-urlencoded; charset=UTF-8'
+            );
+          }
+        } else if (body instanceof Blob) {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            if (body.type) {
+              mergedHeaders.set('Content-Type', body.type);
+            } else {
+              mergedHeaders.delete('Content-Type');
+            }
+          }
+        } else if (body instanceof ArrayBuffer) {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.delete('Content-Type');
+          }
+        } else if (typeof body === 'string') {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set('Content-Type', 'application/json');
+          }
         } else {
           options.body = JSON.stringify(body);
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set('Content-Type', 'application/json');
+          }
         }
       }
       return options;
@@ -288,7 +306,7 @@ export const useApi = (onError?: OnError) => {
       const fn = async <T = unknown>(
         path: string,
         init: ApiInit | ApiInitWithResponse = {}
-      ): Promise<T | ApiResponse<T>> => {
+      ): Promise<T | ApiResult<T>> => {
         const {
           showLoading = true,
           includeResponse = false,
@@ -334,8 +352,8 @@ export const useApi = (onError?: OnError) => {
           if (includeResponse) {
             return {
               data: result as T,
-              headers: Object.fromEntries(response.headers.entries()),
-              response
+              headers: normalizeHeaders(response.headers),
+              rawResponse: response
             };
           }
 
