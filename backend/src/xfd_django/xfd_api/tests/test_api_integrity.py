@@ -14,9 +14,9 @@ client = TestClient(app)
 
 # Allow list: public endpoints for specific HTTP methods
 PUBLIC_ENDPOINTS = {
-    ("POST", "/auth/okta-callback"),
+    # ("POST", "/auth/okta-callback"),
     ("POST", "/auth/callback"),
-    ("POST", "/auth/get-oauth-meta"),
+    # ("POST", "/auth/get-oauth-meta"),
     ("GET", "/notifications"),
     ("GET", "/healthcheck"),
     ("GET", "/plugins/Morpheus/images/logo.svg"),
@@ -72,8 +72,8 @@ EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("OPTIONS", "/pe/{path:path}"),
     ("DELETE", "/api-keys/{api_key_id}"),
     ("POST", "/auth/callback"),
-    ("POST", "/auth/okta-callback"),
-    ("POST", "/auth/get-oauth-meta"),
+    # ("POST", "/auth/okta-callback"),
+    # ("POST", "/auth/get-oauth-meta"),
     ("POST", "/domain/export"),
     ("POST", "/vulnerabilities/export"),
     ("DELETE", "/notifications/{notification_id}"),

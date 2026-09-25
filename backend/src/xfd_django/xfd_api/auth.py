@@ -15,7 +15,8 @@ import uuid
 from django.conf import settings
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
-from fastapi.responses import JSONResponse
+
+# from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import jwt
@@ -302,55 +303,55 @@ def verify_oauth_data(token: str, max_age: int = 300):
 
 
 # POST: /auth/okta-callback
-async def handle_okta_callback(request):
-    """POST API LOGIC."""
-    body = await request.json()
-    code = body.get("code")
-    state = body.get("state")
-    signed_token = body.get("signedToken")
+# async def handle_okta_callback(request):
+#     """POST API LOGIC."""
+#     body = await request.json()
+#     code = body.get("code")
+#     state = body.get("state")
+#     signed_token = body.get("signedToken")
 
-    if not code or not state or not signed_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing required OAuth parameters",
-        )
+#     if not code or not state or not signed_token:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Missing required OAuth parameters",
+#         )
 
-    # Validate signed token
-    token_data = verify_oauth_data(signed_token)
-    if not token_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
+#     # Validate signed token
+#     token_data = verify_oauth_data(signed_token)
+#     if not token_data:
+#         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
-    if token_data["state"] != state:
-        raise HTTPException(status_code=400, detail="State mismatch")
+#     if token_data["state"] != state:
+#         raise HTTPException(status_code=400, detail="State mismatch")
 
-    code_verifier = token_data["code_verifier"]
+#     code_verifier = token_data["code_verifier"]
 
-    jwt_data = await get_jwt_from_code(code, code_verifier)
-    if jwt_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid authorization code or failed to retrieve tokens",
-        )
+#     jwt_data = await get_jwt_from_code(code, code_verifier)
+#     if jwt_data is None:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Invalid authorization code or failed to retrieve tokens",
+#         )
 
-    decoded_token = jwt_data.get("decoded_token")
-    resp = await process_user(decoded_token)
-    token = resp.get("token")
+#     decoded_token = jwt_data.get("decoded_token")
+#     resp = await process_user(decoded_token)
+#     token = resp.get("token")
 
-    # Prepare final response
-    response = JSONResponse(
-        content={"message": "User authenticated", "data": resp, "token": token}
-    )
-    response.set_cookie(key="token", value=token)
+#     # Prepare final response
+#     response = JSONResponse(
+#         content={"message": "User authenticated", "data": resp, "token": token}
+#     )
+#     response.set_cookie(key="token", value=token)
 
-    # Set the 'crossfeed-token' cookie
-    response.set_cookie(
-        key="crossfeed-token",
-        value=token,
-        # httponly=True,  # This makes the cookie inaccessible to JavaScript
-        # secure=True,    # Ensures the cookie is only sent over HTTPS
-        # samesite="Lax"  # Restricts when cookies are sent
-    )
-    return response
+#     # Set the 'crossfeed-token' cookie
+#     response.set_cookie(
+#         key="crossfeed-token",
+#         value=token,
+#         # httponly=True,  # This makes the cookie inaccessible to JavaScript
+#         # secure=True,    # Ensures the cookie is only sent over HTTPS
+#         # samesite="Lax"  # Restricts when cookies are sent
+#     )
+#     return response
 
 
 async def process_user(decoded_token):

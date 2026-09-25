@@ -42,7 +42,7 @@ environment variables use values that are stored in SSM.
 
 ### Authentication
 
-Once a user logs in either with Cognito or login.gov, they call the `/auth/callback` on the REST API
+Once a user logs in either with login.gov, they call the `/auth/callback` on the REST API
 with their credential from either provider.
 
 The REST API then verifies the credential and issues the user a JWT. The user uses this server-provided JWT
