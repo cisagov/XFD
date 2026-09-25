@@ -259,9 +259,11 @@ export const useApi = (onError?: OnError) => {
       // Set the body and Content-Type header based on the type of body provided
 
       if (body !== undefined && method !== 'GET') {
+        // FormData requests should not set the Content-Type header explicitly
         if (body instanceof FormData) {
           options.body = body;
           mergedHeaders.delete('Content-Type');
+          // URLSearchParams requests should set the Content-Type header to application/x-www-form-urlencoded
         } else if (body instanceof URLSearchParams) {
           options.body = body;
           if (!callerHeaders.has('Content-Type')) {
@@ -270,6 +272,8 @@ export const useApi = (onError?: OnError) => {
               'application/x-www-form-urlencoded; charset=UTF-8'
             );
           }
+          // Blob requests should set the Content-Type header to the blob's type if available
+          // If not provided, the Content-Type header is removed and the browser will set it automatically for the request
         } else if (body instanceof Blob) {
           options.body = body;
           if (!callerHeaders.has('Content-Type')) {
@@ -279,10 +283,11 @@ export const useApi = (onError?: OnError) => {
               mergedHeaders.delete('Content-Type');
             }
           }
+          // ArrayBuffer requests should set the Content-Type header to application/octet-stream
         } else if (body instanceof ArrayBuffer) {
           options.body = body;
           if (!callerHeaders.has('Content-Type')) {
-            mergedHeaders.delete('Content-Type');
+            mergedHeaders.set('Content-Type', 'application/octet-stream');
           }
         } else if (typeof body === 'string') {
           options.body = body;

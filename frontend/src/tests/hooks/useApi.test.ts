@@ -156,7 +156,7 @@ describe('useApi', () => {
     expect(headers.get('Accept')).toBe('application/json');
   });
 
-  it('sets the correct headers for Blob requests', async () => {
+  it('sets the correct headers for Blob requests if the blob has a type', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
 
     const body = new Blob(['test'], { type: 'text/csv' });
@@ -177,6 +177,30 @@ describe('useApi', () => {
     const headers = new Headers(options.headers);
 
     expect(headers.get('Content-Type')).toBe('text/csv');
+    expect(headers.get('Accept')).toBe('application/json');
+  });
+
+  it('sets the correct headers for Blob requests if the blob has no type', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const body = new Blob(['test']);
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiPost<{ ok: boolean }>('/items', {
+        body
+      });
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    const headers = new Headers(options.headers);
+
+    expect(headers.get('Content-Type')).toBeNull();
     expect(headers.get('Accept')).toBe('application/json');
   });
 
@@ -202,6 +226,57 @@ describe('useApi', () => {
     const headers = new Headers(options.headers);
 
     expect(headers.get('Content-Type')).toBeNull();
+    expect(headers.get('Accept')).toBe('application/json');
+  });
+
+  it('sets the correct headers for ArrayBuffer requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const body = new ArrayBuffer(8);
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiPost<{ ok: boolean }>('/items', {
+        body
+      });
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    const headers = new Headers(options.headers);
+
+    expect(headers.get('Content-Type')).toBe('application/octet-stream');
+    expect(headers.get('Accept')).toBe('application/json');
+  });
+
+  it('sets the correct headers for URLSearchParams requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const body = new URLSearchParams();
+    body.append('key', 'value');
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiPost<{ ok: boolean }>('/items', {
+        body
+      });
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    const headers = new Headers(options.headers);
+
+    expect(headers.get('Content-Type')).toBe(
+      'application/x-www-form-urlencoded; charset=UTF-8'
+    );
     expect(headers.get('Accept')).toBe('application/json');
   });
 
