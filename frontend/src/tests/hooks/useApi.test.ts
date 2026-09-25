@@ -45,10 +45,12 @@ describe('useApi', () => {
 
     expect(url).toEqual(expect.stringMatching(/\/users\/me$/));
     expect(options.method).toBe('GET');
+    expect(options.body).toBeUndefined();
 
     const headers = new Headers(options.headers);
+
     expect(headers.get('Accept')).toBe('application/json');
-    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('Content-Type')).toBeNull();
     expect(headers.get('Authorization')).toBe('Bearer test-token');
     expect(headers.get('X-Test-Header')).toBe('test-value');
   });
@@ -114,6 +116,93 @@ describe('useApi', () => {
       expect.stringMatching(/\/export$/),
       expect.objectContaining({ credentials: 'include' })
     );
+  });
+
+  it('does not include a body for GET requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiGet<{ ok: boolean }>('/items');
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    expect(options.body).toBeUndefined();
+  });
+
+  it('sets the correct headers for JSON requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiPost<{ ok: boolean }>('/items', {
+        body: { name: 'example' }
+      });
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    const headers = new Headers(options.headers);
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('Accept')).toBe('application/json');
+  });
+
+  it('sets the correct headers for Blob requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const body = new Blob(['test'], { type: 'text/csv' });
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiPost<{ ok: boolean }>('/items', {
+        body
+      });
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    const headers = new Headers(options.headers);
+
+    expect(headers.get('Content-Type')).toBe('text/csv');
+    expect(headers.get('Accept')).toBe('application/json');
+  });
+
+  it('sets the correct headers for FormData requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    const body = new FormData();
+    body.append('file', new Blob(['test'], { type: 'text/csv' }), 'test.csv');
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiPost<{ ok: boolean }>('/items', {
+        body
+      });
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    const headers = new Headers(options.headers);
+
+    expect(headers.get('Content-Type')).toBeNull();
+    expect(headers.get('Accept')).toBe('application/json');
   });
 
   it('throws an ApiError for 401 responses', async () => {
