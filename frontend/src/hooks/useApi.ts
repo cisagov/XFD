@@ -262,6 +262,12 @@ export const useApi = (onError?: OnError) => {
         if (body instanceof FormData) {
           options.body = body;
           mergedHeaders.delete('Content-Type');
+        } else if (body instanceof URLSearchParams) {
+          options.body = body;
+          mergedHeaders.set(
+            'Content-Type',
+            'application/x-www-form-urlencoded; charset=UTF-8'
+          );
         } else if (
           body instanceof Blob ||
           body instanceof ArrayBuffer ||
