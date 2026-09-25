@@ -228,8 +228,8 @@ WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS=5
 WAS_QUALYS_RETRY_BASE_DELAY_SECONDS=1
 WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
-WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS=300
-WAS_QUALYS_CREATE_RECONCILE_POLL_SECONDS=10
+WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS=1800
+WAS_QUALYS_CREATE_RECONCILE_POLL_SECONDS=30
 WAS_QUALYS_REPORT_POLL_SECONDS=60
 WAS_QUALYS_REPORT_PROGRESS_SECONDS=300
 WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=0
@@ -376,7 +376,10 @@ repeating them could duplicate or alter Qualys state. Every generated report
 uses a unique name containing its database run ID. If a create response times
 out, WAS searches Qualys for that exact name and format for up to
 `WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS`, recovers the assigned Qualys
-report ID, and continues polling. Report-status polling runs every
+report ID, and continues polling. The 30-minute reconciliation window and
+30-second search interval accommodate large reports without repeating the
+create request or producing excessive report-search traffic. Report-status
+polling runs every
 `WAS_QUALYS_REPORT_POLL_SECONDS` until Qualys returns `COMPLETE` or a terminal
 failure status. Progress is written to the terminal and retained log every
 `WAS_QUALYS_REPORT_PROGRESS_SECONDS`. The default value of `0` for
