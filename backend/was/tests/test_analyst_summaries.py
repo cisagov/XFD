@@ -150,7 +150,7 @@ class AnalystSummaryTests(unittest.TestCase):
     def test_final_body_lists_only_open_manuals_and_csv_has_all(
         self, execute, rows, deliver
     ):
-        """Ordinary report details stay in the CSV, not the final email body."""
+        """Manual details stay in the CSV while the email reports only totals."""
         execute.side_effect = [[(90, 10, None, 2, "capacity", "fixture", "finished", "completed")], [(12, True, True, None, "pdf", 2)]]
         rows.return_value = [
             {"id": 1, "tag": "ORDINARY", "open_manual": False},
@@ -165,7 +165,12 @@ class AnalystSummaryTests(unittest.TestCase):
         summaries.send_batch_summary("batch", "from@example.gov")
         body = deliver.call_args.args[4]
         self.assertNotIn("ORDINARY", body)
-        self.assertIn("Analyst: tracker 2; tag MANUAL", body)
+        self.assertNotIn("Analyst: tracker 2; tag MANUAL", body)
+        self.assertNotIn("MANUAL", body)
+        self.assertIn("Open manual work: 1 total", body)
+        self.assertIn("Current batch failures: 0", body)
+        self.assertIn("Existing manual backlog: 1", body)
+        self.assertIn("- Qualys scan error: 1", body)
         self.assertIn("sent: 1; unsent: 0", body)
         self.assertEqual(len(deliver.call_args.args[5]), 2)
 
@@ -193,10 +198,51 @@ class AnalystSummaryTests(unittest.TestCase):
         ]
         summaries.send_batch_summary("batch", "from@example.gov", days_back=7)
         body = deliver.call_args.args[4]
-        self.assertIn("Open manual work:\nNone.", body)
-        self.assertIn("Delivery reconciliation needed:", body)
-        self.assertIn("tracker 3; tag LEGACY", body)
+        self.assertIn("Open manual work: 0 total", body)
+        self.assertIn("Delivery reconciliation needed: 1", body)
+        self.assertNotIn("tracker 3; tag LEGACY", body)
         rows.assert_called_once_with(batch_id="batch", days_back=7)
+
+    def test_manual_summary_uses_exclusive_categories_and_batch_scope(self):
+        """Manual totals reconcile without putting row details in the email."""
+        rows = [
+            {
+                "id": 1,
+                "open_manual": True,
+                "current_batch_attempt": True,
+                "report_scan_notes": (
+                    "MANUAL: Report generation failed: ExistingReportPasswordError "
+                    "occurred during report generation."
+                ),
+                "status": "ERROR",
+            },
+            {
+                "id": 2,
+                "open_manual": True,
+                "current_batch_attempt": True,
+                "report_scan_notes": (
+                    "MANUAL: Report generation failed: QualysReadTimeout occurred "
+                    "during report generation."
+                ),
+            },
+            {"id": 3, "open_manual": True, "qualys_error": "SCAN_ERROR"},
+            {"id": 4, "open_manual": True, "stakeholder_manual": True},
+            {
+                "id": 5,
+                "open_manual": True,
+                "scan_execution_key": "legacy-import:1:2026-09-01",
+            },
+            {"id": 6, "open_manual": True, "report_scan_notes": "Review"},
+            {"id": 7, "delivery_reconciliation": True},
+        ]
+        body = "\n".join(summaries.manual_work_summary_lines(rows))
+        self.assertIn("Open manual work: 6 total", body)
+        self.assertIn("Current batch failures: 2", body)
+        self.assertIn("Existing manual backlog: 4", body)
+        for label in summaries.MANUAL_REASON_LABELS:
+            self.assertIn("- {}: 1".format(label), body)
+        self.assertIn("Delivery reconciliation needed: 1", body)
+        self.assertNotIn("tracker 1", body.lower())
 
     @patch.object(summaries, "getenv", return_value='{"total": 2, "completed": 1, "failed": 1, "remaining": 1, "blocked": 1}')
     @patch.object(summaries, "_deliver", return_value=True)
@@ -280,9 +326,27 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertIn("CURRENT_DATE - (%s - 1)", query)
         self.assertIn("was_daily_report_tracker newer", query)
         self.assertIn("newer.tag = tracker.tag", query)
-        self.assertEqual(execute.call_args.args[1], ("batch", 7))
+        self.assertIn("current_attempt.batch_id=%s", query)
+        self.assertEqual(execute.call_args.args[1], ("batch", "batch", 7))
         self.assertNotIn("legacy_password", query)
         self.assertNotIn("active IS TRUE", query)
+
+    @patch.object(summaries, "_execute")
+    def test_tracker_rows_marks_current_batch_and_stakeholder_manual(
+        self, execute
+    ):
+        """Expose batch scope and manual configuration to summary grouping."""
+        values = [None] * len(summaries.TRACKER_EXPORT_FIELDS)
+        values[summaries.TRACKER_EXPORT_FIELDS.index("id")] = 42
+        values[summaries.TRACKER_EXPORT_FIELDS.index("report_scan_notes")] = "MANUAL"
+        execute.return_value = [tuple(values + [True, True])]
+        rows = summaries._tracker_rows(batch_id="batch", days_back=None)
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0]["stakeholder_manual"])
+        self.assertTrue(rows[0]["current_batch_attempt"])
+        self.assertTrue(rows[0]["open_manual"])
+        self.assertFalse(rows[0]["delivery_reconciliation"])
+        self.assertEqual(execute.call_args.args[1], ("batch", "batch"))
 
 
 if __name__ == "__main__":

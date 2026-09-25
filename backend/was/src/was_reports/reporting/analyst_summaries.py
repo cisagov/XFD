@@ -1,6 +1,7 @@
 """Durable, combined analyst notifications for a multi-process WAS batch."""
 
 import argparse
+from collections import Counter
 import csv
 from email.message import EmailMessage
 from html.parser import HTMLParser
@@ -20,6 +21,11 @@ from was_reports.data.daily_report_tracker import (
     MANUAL_WORK,
     list_ready_report_candidates_from_db,
     manual_work_classification,
+)
+from was_reports.data.manual_recovery import (
+    FAILURE_NOTES,
+    PASSWORD_VALIDATION,
+    QUALYS_READ_TIMEOUT,
 )
 from was_reports.reporting.report_transformer import spreadsheet_safe_field
 from was_reports.utils.database import connect
@@ -270,8 +276,18 @@ TRACKER_EXPORT_FIELDS = (
 )
 
 EXPORT_FIELDS = TRACKER_EXPORT_FIELDS + (
+    "current_batch_attempt",
     "open_manual",
     "delivery_reconciliation",
+)
+
+MANUAL_REASON_LABELS = (
+    "Password validation failure",
+    "Qualys read timeout",
+    "Qualys scan error",
+    "Stakeholder configured for manual reporting",
+    "Legacy imported manual marker",
+    "Other or unclassified",
 )
 
 
@@ -310,10 +326,16 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
         for field in TRACKER_EXPORT_FIELDS
     ]
     condition = "tracker.id = ANY(%s)"
-    parameters = (list(candidate_ids or []),)
+    current_batch_expression = "FALSE"
+    parameters = [list(candidate_ids or [])]
     if batch_id is not None:
+        current_batch_expression = (
+            "EXISTS(SELECT 1 FROM was_batch_report_attempts current_attempt "
+            "WHERE current_attempt.batch_id=%s "
+            "AND current_attempt.tracker_id=tracker.id)"
+        )
         recent_manual = manual_candidate
-        parameters = (batch_id,)
+        parameters = [batch_id, batch_id]
         if days_back is not None:
             recent_manual = """({} AND COALESCE(tracker.scan_start_date,
                 tracker.data_pull_date) >= CURRENT_DATE - (%s - 1)
@@ -334,33 +356,90 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
                 ))""".format(
                 manual_candidate
             )
-            parameters = (batch_id, days_back)
+            parameters.append(days_back)
         condition = """(tracker.id IN (SELECT tracker_id
             FROM was_batch_report_attempts WHERE batch_id=%s) OR {})""".format(
             recent_manual
         )
-    query = """SELECT {}, stakeholders.manual_report
+    query = """SELECT {}, stakeholders.manual_report, {}
         FROM was_daily_report_tracker tracker
         LEFT JOIN was_stakeholders stakeholders ON stakeholders.tag=tracker.tag
         LEFT JOIN was_assignees assignees ON assignees.id=tracker.assignee_id
         WHERE {} ORDER BY LOWER(COALESCE(assignees.name, tracker.assignee,
         'Unassigned')), tracker.id""".format(
-        ",".join(fields), condition
+        ",".join(fields), current_batch_expression, condition
     )
     results = []
-    for values in _execute(query, parameters, True):
+    for values in _execute(query, tuple(parameters), True):
         row = dict(zip(TRACKER_EXPORT_FIELDS, values))
+        stakeholder_manual = bool(values[-2])
         classification = manual_work_classification(
             report_sent_date=row.get("report_sent_date"),
             report_scan_notes=row.get("report_scan_notes"),
             qualys_error=row.get("qualys_error"),
             status=row.get("status"),
-            stakeholder_manual=bool(values[-1]),
+            stakeholder_manual=stakeholder_manual,
         )
+        row["stakeholder_manual"] = stakeholder_manual
+        row["current_batch_attempt"] = bool(values[-1])
         row["open_manual"] = classification == MANUAL_WORK
         row["delivery_reconciliation"] = classification == DELIVERY_RECONCILIATION
         results.append(row)
     return results
+
+
+def manual_reason_category(row):
+    """Assign one stable primary category to an open manual tracker row."""
+    note = str(row.get("report_scan_notes") or "").strip()
+    if note in FAILURE_NOTES[PASSWORD_VALIDATION]:
+        return "Password validation failure"
+    if note in FAILURE_NOTES[QUALYS_READ_TIMEOUT]:
+        return "Qualys read timeout"
+    if (
+        str(row.get("qualys_error") or "").strip()
+        or str(row.get("status") or "").strip().upper() == "ERROR"
+    ):
+        return "Qualys scan error"
+    if row.get("stakeholder_manual"):
+        return "Stakeholder configured for manual reporting"
+    if (
+        str(row.get("scan_execution_key") or "").startswith("legacy-import:")
+        or note.upper().startswith("LEGACY REPORT SENT DATE VALUE:")
+    ):
+        return "Legacy imported manual marker"
+    return "Other or unclassified"
+
+
+def manual_work_summary_lines(rows):
+    """Return compact manual-work totals while row details remain in the CSV."""
+    manuals = [row for row in rows if row.get("open_manual")]
+    categories = Counter(manual_reason_category(row) for row in manuals)
+    current_batch = sum(bool(row.get("current_batch_attempt")) for row in manuals)
+    reconciliation_count = sum(
+        bool(row.get("delivery_reconciliation")) for row in rows
+    )
+    lines = [
+        "Open manual work: {} total".format(len(manuals)),
+        "",
+        "Current batch failures: {}".format(current_batch),
+        "Existing manual backlog: {}".format(len(manuals) - current_batch),
+        "",
+        "Primary reason:",
+    ]
+    lines.extend(
+        "- {}: {}".format(label, categories[label])
+        for label in MANUAL_REASON_LABELS
+    )
+    lines.extend(
+        (
+            "",
+            "Delivery reconciliation needed: {}".format(reconciliation_count),
+            "",
+            "See the attached tracker CSV for tags, tracker IDs, assignees, "
+            "scan names, and complete notes.",
+        )
+    )
+    return lines
 
 
 def _recipients(override_recipients):
@@ -543,8 +622,6 @@ def send_batch_summary(
             else "Not available"
         ),
         "Errors: {}".format(", ".join(sorted(error_codes)) or "none"),
-        "",
-        "Open manual work:",
     ]
     if continuation:
         lines.insert(2, "CONTINUATION: workload totals include previous completions. "
@@ -563,36 +640,7 @@ def send_batch_summary(
         except (TypeError, ValueError):
             LOGGER.warning("Capacity progress summary metadata is invalid; omitted.")
     rows = _tracker_rows(batch_id=batch_id, days_back=days_back)
-    manuals = [row for row in rows if row.get("open_manual")]
-    for row in manuals:
-        lines.append(
-            "{}: tracker {}; tag {}; status {}; scan {}; reason {}".format(
-                row["assignee"],
-                row["id"],
-                row["tag"],
-                row["status"],
-                row.get("scan_name") or "Not available",
-                row.get("report_scan_notes") or "Manual review required",
-            )
-        )
-    if not manuals:
-        lines.append("None.")
-    lines.extend(("", "Delivery reconciliation needed:"))
-    reconciliation_rows = [
-        row for row in rows if row.get("delivery_reconciliation")
-    ]
-    for row in reconciliation_rows:
-        lines.append(
-            "{}: tracker {}; tag {}; scan {}; note {}; structured sent date is missing".format(
-                row["assignee"],
-                row["id"],
-                row["tag"],
-                row.get("scan_name") or "Not available",
-                row.get("report_scan_notes") or "Legacy sent marker",
-            )
-        )
-    if not reconciliation_rows:
-        lines.append("None.")
+    lines.extend(("", *manual_work_summary_lines(rows)))
     if not attempts:
         lines.append("No recorded report attempts; generation metrics are unavailable.")
     return _deliver(

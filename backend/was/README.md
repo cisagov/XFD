@@ -1375,10 +1375,15 @@ report counts, NWS/error report and affected-webapp counts, tracker duration, an
 refresh errors. NWS and error categories can overlap. Unavailable counts are not
 presented as zero.
 
-The final email reports generation counts, timing, and errors. Its body lists only
-open manuals, sorted by assignee and identifying the assignee for each item.
-The CSV includes attempted tracker rows, including failures and unsent reports,
-plus open manuals, deduplicated by tracker ID. Password fields are excluded.
+The final email reports generation counts, timing, and errors. Its body summarizes
+open manual work as current-batch failures versus existing backlog, then reports
+mutually exclusive totals for password validation, Qualys read timeouts, Qualys
+scan errors, stakeholder-configured manual reporting, legacy imported markers,
+and other or unclassified reasons. Delivery reconciliation is a separate total.
+Tags, tracker IDs, assignees, scan names, and complete notes remain in the
+attached CSV rather than expanding the email body. The CSV includes attempted
+tracker rows, including failures and unsent reports, plus open manuals,
+deduplicated by tracker ID. Password fields are excluded.
 
 Batch IDs and per-report attempt records preserve scope across parallel workers.
 Each email phase is claimed once; an uncertain send is held for review, not
