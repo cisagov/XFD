@@ -16,6 +16,7 @@ from databricks.sdk.service.sql import (
     StatementParameterListItem,
     StatementState,
 )
+import requests
 from xfd_api.tasks.utils.cloudwatch_metrics import (
     cloudwatch_metric,
     emit_databricks_metric,
@@ -145,24 +146,94 @@ def _build_parameters(
     return [_infer_statement_param(f"p{i}", value) for i, value in enumerate(params)]
 
 
-def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
-    """Walk every INLINE/JSON_ARRAY result chunk and concatenate all rows.
+# def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
+#     """Walk every INLINE/JSON_ARRAY result chunk and concatenate all rows.
 
-    The first chunk comes back attached to the execute_statement/get_statement
-    response itself (result.chunk_index == 0). Subsequent chunks (if the
-    result spans more than one) are fetched by index via
-    get_statement_result_chunk_n() until next_chunk_index is absent.
+#     The first chunk comes back attached to the execute_statement/get_statement
+#     response itself (result.chunk_index == 0). Subsequent chunks (if the
+#     result spans more than one) are fetched by index via
+#     get_statement_result_chunk_n() until next_chunk_index is absent.
+#     """
+#     if first_result is None:
+#         return []
+#     rows = list(first_result.data_array or [])
+#     next_index = first_result.next_chunk_index
+#     while next_index is not None:
+#         chunk = client.statement_execution.get_statement_result_chunk_n(
+#             statement_id, next_index
+#         )
+#         rows.extend(chunk.data_array or [])
+#         next_index = chunk.next_chunk_index
+#     return rows
+
+
+def _download_external_rows(external_links) -> List[list]:
+    """Download and parse rows from Databricks Statement Execution API external links."""
+    rows: List[list] = []
+
+    for link_info in external_links or []:
+        external_link = link_info.external_link
+
+        try:
+            response = requests.get(external_link, timeout=120)
+            response.raise_for_status()
+
+            chunk_rows = response.json()
+
+            if not isinstance(chunk_rows, list):
+                raise ValueError(
+                    "Expected JSON_ARRAY response from Databricks external link, "
+                    f"received {type(chunk_rows).__name__}."
+                )
+
+            rows.extend(chunk_rows)
+
+        except Exception as e:
+            raise QueryError(
+                SCAN_NAME,
+                f"Unable to download Databricks external result chunk: {e}",
+            ) from e
+
+    return rows
+
+
+def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
+    """
+    Fetch all Databricks result chunks.
+
+    Supports both INLINE and EXTERNAL_LINKS result dispositions. The CVE scan
+    normally uses EXTERNAL_LINKS to avoid Statement Execution API inline-size
+    limits.
     """
     if first_result is None:
         return []
-    rows = list(first_result.data_array or [])
+
+    rows: List[list] = []
+
+    # INLINE response handling, retained for compatibility.
+    if first_result.data_array:
+        rows.extend(first_result.data_array)
+
+    # EXTERNAL_LINKS response handling.
+    if first_result.external_links:
+        rows.extend(_download_external_rows(first_result.external_links))
+
     next_index = first_result.next_chunk_index
+
     while next_index is not None:
         chunk = client.statement_execution.get_statement_result_chunk_n(
-            statement_id, next_index
+            statement_id,
+            next_index,
         )
-        rows.extend(chunk.data_array or [])
+
+        if chunk.data_array:
+            rows.extend(chunk.data_array)
+
+        if chunk.external_links:
+            rows.extend(_download_external_rows(chunk.external_links))
+
         next_index = chunk.next_chunk_index
+
     return rows
 
 
@@ -313,24 +384,40 @@ def fetch_from_databricks(query):
         return []
 
 
-def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
-    """Fetch data from Databricks with parameters.
+# def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
+#     """Fetch data from Databricks with parameters.
 
-    `query` must use :p0, :p1, ... markers matching the order of `params` -
-    see query_databricks() docstring.
-    """
+#     `query` must use :p0, :p1, ... markers matching the order of `params` -
+#     see query_databricks() docstring.
+#     """
+#     if IS_LOCAL:
+#         data_set = detect_data_set(query)
+#         return load_test_data(data_set)
+#     try:
+#         result = query_databricks(query, params=params)
+#         return result
+#     except Exception as e:
+#         # MODIFIED: was LOGGER.info(...) - see fetch_from_databricks()'s
+#         # MODIFIED note above; same silent-empty-list-on-any-error issue.
+#         LOGGER.exception("Error fetching data from Databricks: %s", e)
+#         LOGGER.info("Erroneous query: %s", query)
+#         return []
+
+
+def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
+    """Fetch parameterized data from Databricks."""
     if IS_LOCAL:
         data_set = detect_data_set(query)
         return load_test_data(data_set)
+
     try:
-        result = query_databricks(query, params=params)
-        return result
-    except Exception as e:
-        # MODIFIED: was LOGGER.info(...) - see fetch_from_databricks()'s
-        # MODIFIED note above; same silent-empty-list-on-any-error issue.
-        LOGGER.exception("Error fetching data from Databricks: %s", e)
-        LOGGER.info("Erroneous query: %s", query)
-        return []
+        return query_databricks(query, params=params)
+    except Exception:
+        LOGGER.exception(
+            "Error fetching data from Databricks. Params: %r",
+            params,
+        )
+        raise
 
 
 def fetch_in_chunks_keyset_frozen(
