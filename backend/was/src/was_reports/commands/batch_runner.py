@@ -55,7 +55,12 @@ from was_reports.storage.s3_reports import (
 )
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.capacity_scope import capacity_tracker_ids
-from was_reports.utils.logging_config import configure_logging, exception_details
+from was_reports.utils.logging_config import (
+    bind_logging_context,
+    configure_logging,
+    exception_details,
+    reset_logging_context,
+)
 from was_reports.utils.passwords import ExistingReportPasswordError
 from was_reports.utils.operation_lease import (
     OperationLeaseLostError,
@@ -493,6 +498,13 @@ def run_recent_scan_reports(
                 **retry_options,
             )
         for candidate_index, candidate in enumerate(candidates, start=1):
+            candidate_context = bind_logging_context(
+                phase="report_processing",
+                tag=candidate.tag,
+                tracker_id=candidate.id,
+                report_run_id=candidate.report_run_id,
+            )
+            run_context = None
             attempt_started = None
             delivery_started = None
             generation_duration = 0.0
@@ -533,6 +545,7 @@ def run_recent_scan_reports(
                             "Manual WAS report email retry failed for tracker row %s: %s",
                             candidate.id,
                             exception_details(error),
+                            extra={"event": "ses_delivery_failed"},
                         )
                         if not continue_on_error:
                             raise
@@ -567,6 +580,7 @@ def run_recent_scan_reports(
                         LOGGER.error(
                             "Recovery tracker row %s changed after preview and was not reclaimed.",
                             candidate.id,
+                            extra={"event": "manual_recovery_race"},
                         )
                         continue
                     LOGGER.info(
@@ -577,6 +591,7 @@ def run_recent_scan_reports(
 
                 attempted = True
                 attempt_report_run_id = report_run.id
+                run_context = bind_logging_context(report_run_id=report_run.id)
                 attempt_started = monotonic()
                 if candidate.template in NO_REPORT_TEMPLATES:
                     try:
@@ -613,11 +628,13 @@ def run_recent_scan_reports(
                             "Notification completion or delivery is uncertain for run %s: %s",
                             report_run.id,
                             exception_details(error),
+                            extra={"event": "notification_delivery_uncertain"},
                         )
                         LOGGER.error(
                             "WAS no-report notification failed for tracker row %s: %s",
                             candidate.id,
                             exception_details(error),
+                            extra={"event": "notification_failed"},
                         )
                         if not continue_on_error:
                             raise
@@ -675,12 +692,14 @@ def run_recent_scan_reports(
                             "%s",
                             report_run.id,
                             exception_details(exception),
+                            extra={"event": "report_completion_uncertain"},
                         )
                     LOGGER.error(
                         "WAS report generation failed for tracker row %s and tag %s: %s",
                         candidate.id,
                         candidate.tag,
                         exception_details(exception),
+                        extra={"event": "report_generation_failed"},
                     )
                     if not continue_on_error:
                         raise
@@ -708,26 +727,40 @@ def run_recent_scan_reports(
                             candidate.id,
                             report_run.id,
                             exception_details(error),
+                            extra={"event": "ses_delivery_failed"},
                         )
                         if not continue_on_error:
                             raise
 
             finally:
-                if analyst_batch_id and attempted and not dry_run_email:
-                    active_error = sys.exc_info()[1]
-                    analyst_summaries.record_report_attempt(
-                        analyst_batch_id, candidate.id,
-                        duration_seconds=(monotonic() - attempt_started
-                                          if attempt_started is not None else generation_duration),
-                        generated=notification_completed or generated_count > before_generated,
-                        sent=sent_count > before_sent,
-                        error=attempt_error or (type(active_error).__name__ if active_error else None),
-                        report_run_id=attempt_report_run_id,
-                        delivery_duration_seconds=(monotonic() - delivery_started
-                                                   if delivery_started is not None else None),
-                        artifact_type=("notification" if candidate.template in NO_REPORT_TEMPLATES
-                                       else "pdf"),
-                    )
+                try:
+                    if analyst_batch_id and attempted and not dry_run_email:
+                        active_error = sys.exc_info()[1]
+                        analyst_summaries.record_report_attempt(
+                            analyst_batch_id, candidate.id,
+                            duration_seconds=(monotonic() - attempt_started
+                                              if attempt_started is not None
+                                              else generation_duration),
+                            generated=(notification_completed
+                                       or generated_count > before_generated),
+                            sent=sent_count > before_sent,
+                            error=(attempt_error or (type(active_error).__name__
+                                                     if active_error else None)),
+                            report_run_id=attempt_report_run_id,
+                            delivery_duration_seconds=(
+                                monotonic() - delivery_started
+                                if delivery_started is not None else None
+                            ),
+                            artifact_type=(
+                                "notification"
+                                if candidate.template in NO_REPORT_TEMPLATES
+                                else "pdf"
+                            ),
+                        )
+                finally:
+                    if run_context is not None:
+                        reset_logging_context(run_context)
+                    reset_logging_context(candidate_context)
 
     finally:
         if analyst_batch_id and not dry_run_email and worker_index is None:

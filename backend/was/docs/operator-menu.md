@@ -1,5 +1,9 @@
 # Operator menu workflows
 
+For first checkout, environment setup, build verification, host Make commands,
+troubleshooting, and update procedures, start with the
+[operator setup and command runbook](operator-setup-and-commands.md).
+
 `make menu` has three categories: Report generation, Report tracker, and
 Stakeholder management. Quit and Back to main menu are always **0**, first in
 the list; submenus retain `b` as a shortcut. Destination menus use 0 to cancel.
@@ -8,7 +12,10 @@ inventory CLI remains available for explicit use.
 
 ## Report generation
 
-1. Run the complete recent scan batch.
+1. Run the complete recent scan batch. This action runs inside the single menu
+   container. For the normal production topology with the host coordinator and
+   separate parallel worker containers, exit the menu and use
+   `make recent-scan-batch`.
 2. Process eligible automated tracker reports: no tag prompt, no report-count
    limit; uses existing tracker rows and asks for the window (7 days by default,
    or `all`). Existing newest-row eligibility and duplicate guards still apply.

@@ -526,14 +526,17 @@ class QualysClient:
                 qualys_request.endpoint,
                 time.monotonic() - started,
                 exception_details(error),
+                extra={"event": "qualys_request_failed"},
             )
             LOGGER.error(
                 "Qualys failure replay command, credentials omitted: %s",
                 qualys_replay_command(qualys_request, error=error),
+                extra={"event": "qualys_replay_available"},
             )
             LOGGER.error(
                 "Qualys failure response evidence: %s",
                 qualys_failure_response_summary(error),
+                extra={"event": "qualys_failure_evidence"},
             )
             raise
         LOGGER.info(

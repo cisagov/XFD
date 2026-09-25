@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 import json
+import logging
 import os
 from pathlib import Path
 import signal
@@ -16,6 +17,9 @@ from was_reports.data.daily_report_tracker import list_ready_report_candidates_f
 from was_reports.data.report_runs import list_report_runs_ready_for_email_from_db
 from was_reports.utils.database import connect
 from was_reports.utils.env import load_env_file, require_env
+from was_reports.utils.logging_config import configure_logging
+
+LOGGER = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -303,9 +307,22 @@ def stop_process(process):
             continue
 
 
-def run_phase(arguments, *, check, timeout):
+def phase_environment(role: str, phase: str) -> dict[str, str]:
+    """Return a child environment with deterministic logging context."""
+    environment = dict(os.environ)
+    environment["WAS_LOG_ROLE"] = role
+    environment["WAS_LOG_PHASE"] = phase
+    environment.pop("WAS_LOG_WORKER_INDEX", None)
+    return environment
+
+
+def run_phase(arguments, *, check, timeout, environment=None):
     """Bound a phase and stop its descendants on cancellation or timeout."""
-    process = subprocess.Popen(arguments, start_new_session=True)  # nosec B603
+    process = subprocess.Popen(  # nosec B603
+        arguments,
+        env=environment,
+        start_new_session=True,
+    )
     try:
         returncode = process.wait(timeout=timeout)
     except BaseException:
@@ -356,9 +373,16 @@ def execute_trial(arguments, recipients, output_directory):
                                 run_id=arguments.run_id, workers=arguments.workers,
                                 workload_label=arguments.workload_label)
             else:
-                run_phase(command("was_reports.commands.update_tracker_cli",
-                                  "--lookback-days", str(arguments.lookback_days)),
-                          check=True, timeout=remaining())
+                run_phase(
+                    command(
+                        "was_reports.commands.update_tracker_cli",
+                        "--lookback-days",
+                        str(arguments.lookback_days),
+                    ),
+                    check=True,
+                    timeout=remaining(),
+                    environment=phase_environment("tracker", "tracker_refresh"),
+                )
                 candidates = list_ready_report_candidates_from_db(days_back=arguments.days_back)
                 candidate_rows = [{"tracker_id": candidate.id, "tag": candidate.tag,
                                    "template": candidate.template} for candidate in candidates]
@@ -399,6 +423,13 @@ def execute_trial(arguments, recipients, output_directory):
                 os.environ["WAS_CAPACITY_CONTINUATION"] = "1" if continuing else "0"
             print("{} run {} selected {} outcomes{}.".format(
                 run_mode.title(), arguments.run_id, expected_count, " (continuation)" if continuing else ""))
+            LOGGER.info(
+                "%s batch selected %s outcome(s)%s.",
+                run_mode.title(),
+                expected_count,
+                " as a continuation" if continuing else "",
+                extra={"event": "batch_workload_selected"},
+            )
             (output_directory / "workload.json").write_text(
                 json.dumps(snapshot, indent=2), encoding="utf-8"
             )
@@ -411,8 +442,14 @@ def execute_trial(arguments, recipients, output_directory):
             elif existing_delivery_ids:
                 inherited = continuation_status(existing_delivery_ids, arguments.run_id)
                 result["inherited_generated"] = inherited["pdfs_generated"] + inherited["notifications_generated"]
-            run_phase(command(summary_module, "--phase", "tracker",
-                              *summary_arguments), check=True, timeout=remaining())
+            run_phase(
+                command(summary_module, "--phase", "tracker", *summary_arguments),
+                check=True,
+                timeout=remaining(),
+                environment=phase_environment(
+                    "tracker-summary", "tracker_summary"
+                ),
+            )
             for worker_index in range(arguments.workers if expected_count else 0):
                 worker_command = command(
                     "was_reports.commands.batch_runner", "--recent-scans",
@@ -430,12 +467,24 @@ def execute_trial(arguments, recipients, output_directory):
                         image=arguments.worker_image, output_directory=arguments.output_root.resolve(),
                     ))
                 else:
-                    workers.append(subprocess.Popen(worker_command, start_new_session=True))  # nosec B603
+                    worker_environment = phase_environment(
+                        "worker", "report_generation"
+                    )
+                    worker_environment["WAS_LOG_WORKER_INDEX"] = str(worker_index)
+                    workers.append(  # nosec B603
+                        subprocess.Popen(
+                            worker_command,
+                            env=worker_environment,
+                            start_new_session=True,
+                        )
+                    )
             statuses = [worker.wait(timeout=remaining()) for worker in workers]
             delivery = run_phase(
                 command("was_mailer.email_reports", "--all-ready", "--include-previous-failures",
                         "--days-back", days_back, *recipient_arguments),
-                check=False, timeout=remaining(),
+                check=False,
+                timeout=remaining(),
+                environment=phase_environment("delivery", "email_delivery"),
             ) if expected_count else subprocess.CompletedProcess([], 0)
             trial_elapsed = monotonic() - started
             if continuing:
@@ -459,6 +508,11 @@ def execute_trial(arguments, recipients, output_directory):
             )
         except BaseException as error:
             result["execution_error"] = type(error).__name__
+            LOGGER.error(
+                "Coordinated WAS batch failed: %s.",
+                type(error).__name__,
+                extra={"event": "batch_failed"},
+            )
             raise
         finally:
             cleanup_errors = []
@@ -496,8 +550,12 @@ def execute_trial(arguments, recipients, output_directory):
                 })
                 os.environ["WAS_BATCH_OUTCOME"] = "completed" if succeeded else "failed"
                 analyst_summaries.finish_batch(arguments.run_id, os.environ["WAS_BATCH_OUTCOME"])
-                summary = run_phase(command(summary_module, "--phase", "final",
-                                            *summary_arguments), check=False, timeout=60)
+                summary = run_phase(
+                    command(summary_module, "--phase", "final", *summary_arguments),
+                    check=False,
+                    timeout=60,
+                    environment=phase_environment("final-summary", "final_summary"),
+                )
                 summary_succeeded = summary.returncode == 0
             finally:
                 result.update({"elapsed_seconds": trial_elapsed,
@@ -520,6 +578,16 @@ def execute_trial(arguments, recipients, output_directory):
                 print("{} outcomes: sent {}; remaining {}; blocked {}; {} {}.".format(
                     run_mode.title(), result.get("sent", 0), result.get("remaining", "unknown"),
                     result.get("blocked", 0), completion_label, completion_value))
+                LOGGER.info(
+                    "%s batch finished: sent=%s remaining=%s blocked=%s %s=%s.",
+                    run_mode.title(),
+                    result.get("sent", 0),
+                    result.get("remaining", "unknown"),
+                    result.get("blocked", 0),
+                    completion_label.replace(" ", "_"),
+                    completion_value,
+                    extra={"event": "batch_finished"},
+                )
     return 0 if result["workflow_completed"] else 1
 
 
@@ -568,6 +636,14 @@ def run_coordinated(arguments, recipients=None):
         "WAS_WORKLOAD_LABEL": arguments.workload_label,
         "WAS_OUTPUT_DIRECTORY": str(output_directory),
         "WAS_METRICS_DIRECTORY": str(output_directory / "metrics"),
+        "WAS_LOG_DIRECTORY": str(
+            arguments.output_root.resolve()
+            / "logs"
+            / "batches"
+            / arguments.run_id
+        ),
+        "WAS_LOG_ROLE": "coordinator",
+        "WAS_LOG_PHASE": "coordination",
     }
     if run_mode == "capacity":
         settings.update({"WAS_CAPACITY_RUN_ID": arguments.run_id,
@@ -577,6 +653,7 @@ def run_coordinated(arguments, recipients=None):
     previous_handler = signal.getsignal(signal.SIGTERM)
     try:
         os.environ.update(settings)
+        configure_logging()
         signal.signal(signal.SIGTERM, interrupt_trial)
         return execute_trial(arguments, recipients, output_directory)
     finally:

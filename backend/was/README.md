@@ -1,5 +1,36 @@
 # WAS Reporting
 
+Start with the [operator setup and command runbook](docs/operator-setup-and-commands.md)
+for checkout, environment setup, build verification, menu use, production and
+test Make commands, troubleshooting, updates, and rollback guidance.
+
+## Documentation map
+
+- [Operator setup and command runbook](docs/operator-setup-and-commands.md):
+  clone, configure, build, validate, operate, troubleshoot, update, and recover.
+- [Operator menu workflows](docs/operator-menu.md): current interactive menu
+  choices and their safeguards.
+- [Capacity testing](docs/capacity-testing.md): isolated database reset,
+  parallel test execution, continuation, evidence, and interpretation.
+- [Manual report recovery](docs/manual-report-recovery.md): guarded recovery for
+  supported password-validation and Qualys read-timeout failures.
+- [Standalone reports](docs/standalone-reports.md): reports for Qualys tags that
+  are intentionally outside stakeholder enrollment and automatic batches.
+- [Daily report tracker schema](docs/daily_report_tracker_schema.md): canonical
+  schema ownership, tracker fields, related tables, and read-only verification.
+- [Live Qualys equivalence runbook](docs/live_qualys_equivalence_runbook.md):
+  controlled evidence for legacy alignment and end-to-end validation.
+- [Qualys API inventory](docs/qualys_api_inventory.md): active and deliberately
+  disabled API calls, request handling, and operational risk.
+- [Legacy workflow migration](docs/legacy_workflow_migration.md): legacy source
+  mapping and the current replacement entry points.
+- [Authoritative email implementation](wasDailyWasReportMailer_20260910160638/README.md):
+  approved September 21 template composition, subjects, conditional sections,
+  addresses, attachments, and customer examples.
+
+Update the relevant runbooks in the same review as any behavior, command,
+schema, configuration, safeguard, or side-effect change.
+
 For isolated load testing and production timing metrics, see
 [Capacity testing](docs/capacity-testing.md). The target is 600 report outcomes
 within eight hours through persisted SES acceptance, with no operational tracker
@@ -43,7 +74,10 @@ mkdir -p ~/code
 cd ~/code
 git clone --branch cd_WAS_update --single-branch \
   git@github.com:cisagov/XFD.git cd_WAS_update
-cd cd_WAS_update/backend/was
+cd cd_WAS_update
+python3 -m venv cd_WAS_update
+cd backend/was
+make install
 ./scripts/create-local-env.sh
 ```
 
@@ -86,10 +120,13 @@ or worker-script changes. Menu and Make commands do not rebuild automatically.
 Already-running containers retain their original image; new runs use the newly
 built image.
 
-Before deploying the ownership and tracker hardening update, apply the
-[existing-database upgrade](docs/daily_report_tracker_schema.md#existing-database-hardening-upgrade).
-Stop old workers first. Do not run the full table-creation script against an
-existing database. The new code requires the additional columns and index.
+The current operational database is expected to have the schema required by the
+checked-out code. `schema/stakeholders_table_creation.sql` is the comprehensive
+definition for a new database. Do not run that full creation script against an
+existing database. The application does not apply migrations automatically;
+have a database administrator compare an existing environment with the
+comprehensive schema and apply an approved, environment-specific additive change
+before deploying incompatible code.
 
 Changes only to `.env` do not require a build; start a new container to load
 them. Compare updated `dev.env` with your local configuration after pulls and
@@ -235,16 +272,23 @@ is not repeated internally before the application can place it on hold.
 
 All WAS commands log to container stdout for `docker logs`. When `/output` is
 mounted, the same messages are retained on the host under `local-output/logs/`.
-Each process writes a timestamped `was-reporting-*.log` file, rotates it at 10
-MiB, and retains five segments. Command startup removes WAS log files older than
-14 days. Change the log settings only when operational retention requirements
-differ. Every log entry includes the logging statement's Python filename and
-line number. Handled exception summaries also include `origin=<path>:<line>`
-for the deepest traceback frame where the failure originated.
+Standalone commands write timestamped `was-reporting-*.log` files. Coordinated
+production and capacity batches instead write one deterministic set under
+`local-output/logs/batches/<batch-id>/`, including coordinator, tracker,
+delivery, summary, and numbered worker logs. Each process also writes a private
+JSON-lines file with the same records for read-only diagnostics. Logs rotate at
+10 MiB and retain five segments. Command startup removes standalone WAS log
+files older than 14 days. Change the log settings only when operational
+retention requirements differ. Every entry includes the batch, process role,
+worker, phase, tag, tracker ID, report-run ID, stable event category, Python
+filename, and line number when those values are available. Handled exception
+summaries also include `origin=<path>:<line>` for the deepest traceback frame
+where the failure originated.
 
-Log files are owner-readable only, including rotated files. Their random suffix
-prevents separate containers with the same PID and start second from sharing a
-file. Qualys requests log endpoint, elapsed time, and safe HTTP error metadata.
+Log files are owner-readable only, including rotated files. Standalone random
+suffixes and coordinated role and worker filenames prevent concurrent
+containers from sharing a file. Qualys requests log endpoint, elapsed time, and
+safe HTTP error metadata.
 A final Qualys request failure logs the exact prepared request URL and API
 version in a credential-free `curl` replay command containing the HTTP method
 and sanitized XML request. It also logs the HTTP status, approved response
@@ -266,6 +310,24 @@ Make targets that mount `local-output` run the container with the invoking
 operator's UID and GID. This keeps private host log and export files readable by
 that operator without requiring `sudo`. Files created by older root-running
 containers retain their existing ownership.
+
+Use the read-only Make targets to inspect a coordinated batch without opening
+or combining individual worker files manually:
+
+```bash
+make logs-latest
+make logs-summary LOG_BATCH_ID="<batch-uuid>"
+make logs-errors LOG_BATCH_ID="<batch-uuid>"
+make logs-tag LOG_BATCH_ID="<batch-uuid>" LOG_TAG="GLTNMT"
+```
+
+Set `LOG_LIMIT` to change the default maximum of 200 displayed records. The
+summary groups levels, process roles, and stable events, then prints the newest
+error and critical records with their report identities. These commands only
+read local log files. They do not query Qualys, alter database state, generate
+reports, or send email. Older batches created before structured batch logging
+do not contain JSON-lines records and remain available as their original plain
+log files.
 
 After all WAS containers have finished, repair an existing root-owned output
 tree once from `backend/was`:
@@ -981,13 +1043,16 @@ Missing timing data remains unknown. Customer emails display the start in
 Eastern Time, including daylight-saving adjustment; the approved template does
 not gain a new end-time sentence.
 The tracker requires nullable `scan_started_at TIMESTAMPTZ` and
-`scan_ended_at TIMESTAMPTZ` columns before
-deploying this code; existing rows remain unknown rather than being backfilled
-from completion dates or date-only imports. The comprehensive creation schema
-includes both columns. Incremental SQL stays local under `schema/updates/`;
-apply `016_store_tracker_scan_timestamps.sql` before deployment.
+`scan_ended_at TIMESTAMPTZ` columns before deploying this code; existing rows
+remain unknown rather than being backfilled from completion dates or date-only
+imports. The comprehensive creation schema includes both columns. The current
+operational database is expected to have these columns. For another existing
+environment, have a database administrator compare it with the comprehensive
+schema and apply an approved additive change before deploying the code.
 
-The additive migration, which does not change existing row values, is:
+For DBA comparison, the required additive column shape is shown below. The
+current operational database is expected to already match it; do not execute
+schema changes solely because this example appears in the README:
 
 ```sql
 ALTER TABLE was_daily_report_tracker
@@ -1317,11 +1382,10 @@ plus open manuals, deduplicated by tracker ID. Password fields are excluded.
 
 Batch IDs and per-report attempt records preserve scope across parallel workers.
 Each email phase is claimed once; an uncertain send is held for review, not
-automatically resent. Check SES before resetting any sending/held phase.
-Existing databases require the local additive migration
-`schema/updates/017_shared_analyst_batch_summaries.sql` before deployment.
-The comprehensive schema includes `was_batch_runs` and
-`was_batch_report_attempts`. Incremental SQL remains local and untracked.
+automatically resent. Check SES before resetting any sending/held phase. The
+current operational database is expected to contain `was_batch_runs` and
+`was_batch_report_attempts`, as defined by the comprehensive schema. The
+application does not create them automatically.
 
 To send the final summary for an existing batch, replace `BATCH_ID` with the
 identifier printed by that batch:
@@ -1758,8 +1822,20 @@ make recent-scan-batch
 make recent-scan-batch BATCH_WORKERS=30
 make recent-scan-batch-assignee-test TEST_RECIPIENTS="analyst@example.gov"
 make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
+make recent-scan-batch-preflight
+make report-alignment-diagnostic-local
 make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"
+make on-demand-report TAG="CUSTOMER_TAG"
+make recover-manual-reports MANUAL_TRACKER_IDS="123" \
+  RECOVERY_CAUSE="password-validation"
+make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="analyst@example.gov"
+make capacity-start TEST_RECIPIENTS="analyst@example.gov"
+make capacity-continue APPLY=1 TEST_RECIPIENTS="analyst@example.gov"
+make logs-latest
+make logs-summary LOG_BATCH_ID="<batch-uuid>"
+make logs-errors LOG_BATCH_ID="<batch-uuid>"
+make logs-tag LOG_BATCH_ID="<batch-uuid>" LOG_TAG="CUSTOMER_TAG"
 ```
 
 ## Test-Only Report Resends And Manual Retries
@@ -1767,11 +1843,11 @@ make manual-report TAG="CUSTOMER_TAG"
 Use `make test-report-replay` to test existing PDFs and explicitly approved
 manual retries without resetting tracker status, sent dates, or original report
 runs. Run the test while normal batches are idle to avoid overlapping work for
-different tracker rows belonging to the same tag. Apply local migration
-`schema/updates/018_test_report_replay.sql` before
-using the updated mailer. The same definitions are included in the comprehensive
-`schema/stakeholders_table_creation.sql`; do not run that full creation script
-against an existing database. Incremental update files remain local and ignored.
+different tracker rows belonging to the same tag. The current operational
+database is expected to contain `was_test_replay_batches` and
+`was_test_replay_items`, as defined by the comprehensive schema. Do not run the
+full creation script against an existing database. The application does not
+create these tables automatically.
 
 From `backend/was`, preview the last seven calendar dates, including today:
 

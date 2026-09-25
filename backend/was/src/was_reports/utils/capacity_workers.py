@@ -116,6 +116,9 @@ def launch_docker_worker(
         if not recipients.strip() or recipients.startswith("-"):
             raise ValueError("Docker workers require nonempty explicit test recipients.")
     environment = dict(os.environ)
+    environment["WAS_LOG_ROLE"] = "worker"
+    environment["WAS_LOG_PHASE"] = "report_generation"
+    environment["WAS_LOG_WORKER_INDEX"] = str(worker_index)
     aws_variables = {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
                      "AWS_REGION", "AWS_DEFAULT_REGION", "AWS_EC2_METADATA_DISABLED",
                      "AWS_METADATA_SERVICE_TIMEOUT", "AWS_METADATA_SERVICE_NUM_ATTEMPTS"}

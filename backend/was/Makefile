@@ -26,6 +26,9 @@ REPORT_RUN_IDS ?=
 MANUAL_TRACKER_IDS ?=
 RECOVERY_CAUSE ?=
 RECOVERY_CONFIRM ?=
+LOG_BATCH_ID ?=
+LOG_TAG ?=
+LOG_LIMIT ?= 200
 APPLY ?= 0
 CAPACITY_RUN_ID ?=
 CAPACITY_WORKLOAD_LABEL ?= capacity-trial
@@ -37,7 +40,7 @@ INPUT_CSV ?=
 INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports logs-latest logs-summary logs-errors logs-tag
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -157,6 +160,29 @@ recent-scan-batch-assignee-test:
 recent-scan-batch-test:
 	mkdir -p $(OUTPUT_DIR)
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --create-missing-password --continue-on-error --send-email --send-assignee-digests --test-recipients "$(TEST_RECIPIENTS)" --dry-run-email --limit 1
+
+logs-latest:
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.log_diagnostics \
+	  --root "$(OUTPUT_DIR)/logs/batches" --latest --mode summary --limit "$(LOG_LIMIT)"
+
+logs-summary:
+	@test -n "$(LOG_BATCH_ID)" || (echo 'LOG_BATCH_ID is required.' >&2; exit 2)
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.log_diagnostics \
+	  --root "$(OUTPUT_DIR)/logs/batches" --batch-id "$(LOG_BATCH_ID)" \
+	  --mode summary --limit "$(LOG_LIMIT)"
+
+logs-errors:
+	@test -n "$(LOG_BATCH_ID)" || (echo 'LOG_BATCH_ID is required.' >&2; exit 2)
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.log_diagnostics \
+	  --root "$(OUTPUT_DIR)/logs/batches" --batch-id "$(LOG_BATCH_ID)" \
+	  --mode errors --limit "$(LOG_LIMIT)"
+
+logs-tag:
+	@test -n "$(LOG_BATCH_ID)" || (echo 'LOG_BATCH_ID is required.' >&2; exit 2)
+	@test -n "$(LOG_TAG)" || (echo 'LOG_TAG is required.' >&2; exit 2)
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.log_diagnostics \
+	  --root "$(OUTPUT_DIR)/logs/batches" --batch-id "$(LOG_BATCH_ID)" \
+	  --mode tag --tag "$(LOG_TAG)" --limit "$(LOG_LIMIT)"
 
 single-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make single-report TAG="CUSTOMER_TAG"' >&2; exit 1)

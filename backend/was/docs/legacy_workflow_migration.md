@@ -25,8 +25,12 @@ active report-generation contract unless stakeholders explicitly restore them.
 | Capability | Current Modernized Entry Point | Status | Notes |
 | --- | --- | --- | --- |
 | Scheduled report batch | `was-report-batch` | Complete | Selects due stakeholders from Postgres and atomically claims each stakeholder schedule before generation. Active schedule uniqueness prevents duplicate concurrent runs. |
+| Coordinated production batch | `make recent-scan-batch` | Active | Uses the host coordinator and parallel container workers, with persisted workload selection, one coordinator lock, shared delivery, and batch summaries. |
+| Batch preflight | `make recent-scan-batch-preflight` | Active | Reports candidate and template counts without tracker refresh, report generation, database mutation, or email delivery. |
 | Single stakeholder report | `was-reports --tag` | Complete | Runs only the WAS-owned production pipeline. |
 | Tracked manual stakeholder report | `make manual-report TAG="CUSTOMER_TAG"` | Active | Reuses or safely retries one manual tracker claim, uploads the encrypted PDF, sends it through SES, and stamps the tracker sent date only after accepted delivery. |
+| Guarded manual recovery | `make recover-manual-reports MANUAL_TRACKER_IDS="<id>" RECOVERY_CAUSE="<cause>"` | Active | Previews explicit tracker IDs by default and permits an applied retry only for classified password-validation or safe-timeout failures after current eligibility, delivery, held, and uncertain-create checks. Existing run history is preserved. |
+| Standalone report | Operator menu, Report Generation option 5 | Active | Creates an isolated report for a Qualys tag not enrolled in the stakeholder table. It records a standalone target and report run without changing tracker rows. See `docs/standalone-reports.md`. |
 | Report password creation | `was-reports --create-missing-password` | Complete | Generates and stores customer report passwords in Postgres. |
 | Report password rotation | `was-reports --change-password` | Complete | Generates a new password for the supplied stakeholder tag. |
 | Report artifact storage | `was_reports.storage.s3_reports` | Active | Scheduled encrypted PDFs use run-specific S3 keys. The S3 URI is stored in `was_report_runs.output_path`; explicit local mode remains available for development. |
@@ -38,6 +42,8 @@ active report-generation contract unless stakeholders explicitly restore them.
 | Stakeholder CSV export | `make stakeholder-export` | Active | Exports non-secret fields by default. Report-password export requires separate explicit sensitive-data confirmation. |
 | Manual tracker sent-date reconciliation | `make tracker-mark-sent` | Active | Sets a sent date only for an unsent tracker row already classified for manual handling. |
 | Interactive operator menu | `make menu` | Active | Provides guided numbered access to existing report, tracker, stakeholder, and safe Qualys commands without duplicating business logic. |
+| Isolated capacity workflow | `make capacity-start`, `make capacity-continue`, `make capacity-start-over` | Active | Runs the production coordinator and container-worker pattern against the dedicated capacity database and redirected test recipients. It is intentionally not in the interactive menu. See `docs/capacity-testing.md`. |
+| Batch log diagnostics | `make logs-latest`, `make logs-summary`, `make logs-errors`, `make logs-tag` | Active | Reads structured per-batch logs by batch ID, severity, or exact tag. These commands do not query Qualys, mutate the database, generate reports, or send email. |
 | Daily tracker assignees | `was_reports.data.assignees` | Complete | Reads active assignees from Postgres and distributes tracker rows in stable round-robin order. |
 | Stakeholder inventory | `was-inventory` | Implemented | Lists child tags under `WAS_CUSTOMERS` and their web application counts. Live Qualys validation remains pending. |
 
@@ -63,7 +69,7 @@ is retained only as local reference material and is not packaged or executable.
 | Calculate graph and summary metrics | `get_summary_info`, `totalgraphgen`, `qid_counter`, `percent_donut` | `was_reports.reporting.report_metrics` | Active | Global summary, severity totals, status counts, group and OWASP mappings, cumulative monthly trends, colors, and fixed percentage are fixture-tested. |
 | Retrieve report-card finding ages | `max_age` | `was_reports.qualys.finding_ages` | Active | Critical and urgent searches preserve the tag, active-status, severity, false-positive, and one-result filters. Missing severities are handled independently instead of hiding an available age. |
 | Render graph images | `owasp_graph_gen`, `vulnsbygroupgraphgen`, `percent_donut`, `plot_histogram`, `monthly_trend` | `was_reports.reporting.chart_renderer` | Active | All five production PNG outputs retain legacy filenames, labels, colors, dimensions, and ordering. Deterministic render tests verify valid PNG artifacts and figure cleanup. |
-| Generate attachment artifacts | `webapp_vuln_table`, `app_overview_table`, `return_links`, `return_emails`, `return_rejects`, `get_ssn_and_cc` | `was_reports.reporting.report_artifacts` | Active | XML-derived CSV attachments and the two filtered Qualys sensitive-finding queries preserve legacy filenames and report-template inputs. The known unsupported-module response logs a warning and writes explicit unavailable markers. |
+| Generate attachment artifacts | `webapp_vuln_table`, `app_overview_table`, `return_links`, `return_emails`, `return_rejects`, `get_ssn_and_cc` | `was_reports.reporting.report_artifacts` | Active with documented exception | XML-derived CSV attachments preserve legacy filenames and report-template inputs. The SSN and credit-card `/search/was/finding` calls are temporarily disabled for a known vendor issue. Attachment 7 is header-only, a warning distinguishes unavailable data from no findings, and the remaining report proceeds. Finding-age count calls remain active. Re-enablement requires explicit validation and approval. |
 | Assemble report template data | `get_summary_info`, `generate_full` | `was_reports.reporting.report_template_data` | Active | All Mustache placeholders are assembled from production metrics and artifact filenames, including legacy colors, severity totals, report-card age positions, and the fewer-than-35-app detail attachment rule. |
 | Generate report body | `mustache_generate`, `generate_full` | `was_reports.reporting.latex_renderer` | Active | Mustache rendering, filename construction, HTML entity decoding, LaTeX escaping, and title-width thresholds run in production. |
 | Compile PDF | `generate_pdf`, `cleanup` | `was_reports.reporting.latex_renderer` | Active | Production runs two checked XeLaTeX passes and removes only known temporary files. The Docker image retains `texlive-xetex`. |
@@ -126,6 +132,11 @@ than scheduled batch behavior.
   comparator validates both representations. Follow
   `docs/live_qualys_equivalence_runbook.md` for execution, evidence, failure,
   and cutover requirements.
+- Before an applied coordinated batch, use `make recent-scan-batch-preflight`
+  to record the expected workload. After the run, use `make logs-latest` and the
+  batch-ID-specific diagnostic commands to investigate errors without rerunning
+  the workflow. These are operational diagnostics, not evidence of live Qualys,
+  S3, SES, or database validation by themselves.
 
 Legacy `read_file()` CSV inputs are deprecated. Administrative capabilities
 that remain required should accept explicit validated arguments or query

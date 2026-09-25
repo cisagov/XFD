@@ -39,7 +39,11 @@ from was_reports.data.report_runs import (
 from was_reports.storage.s3_reports import materialize_report
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.capacity_scope import capacity_tracker_ids
-from was_reports.utils.logging_config import configure_logging, exception_details
+from was_reports.utils.logging_config import (
+    configure_logging,
+    exception_details,
+    logging_context,
+)
 from was_reports.utils.operation_lease import (
     check_operation_ownership,
     operation_heartbeat,
@@ -217,17 +221,20 @@ def send_report_run_email(
                     "Unable to persist WAS report email failure for run id %s: %s",
                     report_run_id,
                     exception_details(persistence_error),
+                    extra={"event": "delivery_failure_persistence_failed"},
                 )
         if delivery_accepted:
             LOGGER.critical(
                 "SES accepted WAS report run id %s, but delivery status could not "
                 "be persisted; manual reconciliation is required.",
                 report_run_id,
+                extra={"event": "ses_delivery_uncertain"},
             )
         LOGGER.error(
             "WAS report email delivery failed for report run id %s: %s",
             report_run_id,
             exception_details(error),
+            extra={"event": "ses_delivery_failed"},
         )
         raise
 
@@ -329,40 +336,53 @@ def send_ready_report_emails(
     sent_count = 0
 
     for report_run in report_runs:
-        message_id = None
-        delivery_error = None
-        delivery_started = monotonic()
-        try:
-            message_id = send_report_run_email(
-                report_run_id=report_run.id,
-                source_email=source_email,
-                override_recipients=override_recipients,
-                dry_run=dry_run,
-                include_previous_failure=include_previous_failures,
-            )
-        except Exception as error:
-            delivery_error = type(error).__name__
-            LOGGER.error(
-                "Report email failed for run id %s; continuing: %s",
-                report_run.id,
-                exception_details(error),
-            )
-            continue
-        finally:
-            batch_id = analyst_batch_id or getenv("WAS_ANALYST_BATCH_ID")
-            tracker_id = getattr(report_run, "source_tracker_id", None)
-            if batch_id and tracker_id is not None and not dry_run:
-                from was_reports.reporting.analyst_summaries import record_report_attempt
-
-                record_report_attempt(
-                    batch_id, tracker_id, duration_seconds=0.0,
-                    generated=False, sent=bool(message_id), error=delivery_error,
+        with logging_context(
+            phase="email_delivery",
+            tag=getattr(report_run, "stakeholder_tag", None),
+            tracker_id=getattr(report_run, "source_tracker_id", None),
+            report_run_id=report_run.id,
+        ):
+            message_id = None
+            delivery_error = None
+            delivery_started = monotonic()
+            try:
+                message_id = send_report_run_email(
                     report_run_id=report_run.id,
-                    delivery_duration_seconds=monotonic() - delivery_started,
-                    artifact_type=getattr(report_run, "artifact_type", None),
+                    source_email=source_email,
+                    override_recipients=override_recipients,
+                    dry_run=dry_run,
+                    include_previous_failure=include_previous_failures,
                 )
-        if message_id or dry_run:
-            sent_count += 1
+            except Exception as error:
+                delivery_error = type(error).__name__
+                LOGGER.error(
+                    "Report email failed for run id %s; continuing: %s",
+                    report_run.id,
+                    exception_details(error),
+                    extra={"event": "ses_delivery_failed"},
+                )
+                continue
+            finally:
+                batch_id = analyst_batch_id or getenv("WAS_ANALYST_BATCH_ID")
+                tracker_id = getattr(report_run, "source_tracker_id", None)
+                if batch_id and tracker_id is not None and not dry_run:
+                    from was_reports.reporting.analyst_summaries import (
+                        record_report_attempt,
+                    )
+
+                    record_report_attempt(
+                        batch_id,
+                        tracker_id,
+                        duration_seconds=0.0,
+                        generated=False,
+                        sent=bool(message_id),
+                        error=delivery_error,
+                        report_run_id=report_run.id,
+                        delivery_duration_seconds=monotonic() - delivery_started,
+                        artifact_type=getattr(report_run, "artifact_type", None),
+                    )
+            if message_id or dry_run:
+                sent_count += 1
 
     return sent_count
 

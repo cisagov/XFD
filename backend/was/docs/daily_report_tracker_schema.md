@@ -37,6 +37,27 @@ This document maps the legacy daily report tracker workbook to the Postgres
 | `Schedule ID` | `schedule_id` | `BIGINT` | Qualys schedule identifier. Indexed. |
 | `Qualys Error` | `qualys_error` | `TEXT` | May contain HTML break-delimited URLs or error context. |
 
+The API-backed tracker also stores fields that do not exist in the legacy
+workbook:
+
+| Database Column | Type | Purpose |
+| --- | --- | --- |
+| `id` | `BIGSERIAL` | Stable tracker-row identifier. |
+| `assignee_id` | `BIGINT` | Optional foreign key to `was_assignees.id`. |
+| `scan_started_at` | `TIMESTAMPTZ` | Actual Qualys execution start timestamp. |
+| `scan_ended_at` | `TIMESTAMPTZ` | Actual or safely derived Qualys execution end timestamp. |
+| `tag_id` | `BIGINT` | Qualys tag identifier associated with the execution. |
+| `scan_execution_key` | `TEXT` | Exact execution identity used by the partial unique index. |
+| `assignee_emailed_at` | `TIMESTAMPTZ` | Historical assignee-delivery timestamp. |
+| `assignee_email_message_id` | `TEXT` | SES acceptance identifier for the historical assignee delivery. |
+| `assignee_email_error` | `TEXT` | Safe delivery failure summary. |
+| `assignee_email_status` | `TEXT` | `pending`, `sending`, `sent`, `failed`, or `held`. |
+| `assignee_email_claim_token` | `TEXT` | Ownership token for concurrent-safe email claims. |
+| `assignee_email_claimed_at` | `TIMESTAMPTZ` | Claim timestamp used for stale-operation handling. |
+| `digest_revision` | `BIGINT` | Monotonic revision for shared analyst summaries. |
+| `digest_claimed_revision` | `BIGINT` | Revision owned by an in-progress summary claim. |
+| `created_at`, `updated_at` | `TIMESTAMPTZ` | Database audit timestamps. |
+
 ## Operational Notes
 
 - `assignee_id` links tracker rows to `was_assignees.id`. The original workbook
@@ -49,90 +70,113 @@ This document maps the legacy daily report tracker workbook to the Postgres
 - `legacy_password` should not be treated as the source of truth for generated
   PDF encryption. Use `was_stakeholders.report_password` for current report
   password management.
+- `scan_start_date` is the calendar-date selection field. It is not a substitute
+  for `scan_started_at`, which is the timestamp shown in customer email text.
+  Date-only CSV/XLSX imports do not invent execution timestamps.
+- `scan_started_at` and `scan_ended_at` are nullable because historical imports
+  and incomplete Qualys responses may not provide defensible timestamps.
+- `source_tracker_id` on `was_report_runs` is unique when present. Together with
+  report-run claims and `scan_execution_key`, this prevents the same tracker row
+  from being generated concurrently or delivered as a new customer run twice.
 
-## Existing Database Hardening Upgrade
+## Canonical Schema And Deployment State
 
-`schema/stakeholders_table_creation.sql` is the complete schema for a new
-database. For an existing database, stop old workers, take an approved backup,
-confirm `SELECT current_database();` returns `was`, and apply the following
-additive SQL. Do not rerun the complete CREATE TABLE file. No historical rows
-are deleted by this update.
+[`schema/stakeholders_table_creation.sql`](../schema/stakeholders_table_creation.sql)
+is the authoritative desired-state schema for a new, empty database. It defines
+the current stakeholder, standalone target, report-run, assignee, tracker,
+special-case, batch-summary, capacity-attempt, and test-replay structures,
+including their indexes, constraints, and foreign keys.
 
-Incremental SQL history is intentionally kept outside the repository. The SQL
-below documents the additive change for operator review, while
-`schema/stakeholders_table_creation.sql` remains the canonical final schema.
+The currently managed WAS database is assumed to have already received the
+approved schema changes. Do not rerun the comprehensive creation file against
+an existing populated database: it contains unconditional `CREATE TABLE`
+statements and is a desired-state reference, not an idempotent migration.
+
+Incremental files retained locally under `schema/updates/` are historical or
+operator-specific records. They are intentionally ignored by Git and are not
+release artifacts or a supported ordered migration chain. When a populated
+environment needs a future change, generate a narrowly scoped DBA-reviewed
+migration from the canonical desired state, back up the database, stop writers,
+apply it through the approved change process, verify it, and update both the
+canonical schema and this document in the same code change.
+
+## Current Related Tables
+
+The tracker participates in these current schema relationships:
+
+- `was_stakeholders` stores enrolled customer metadata and the current PDF
+  password.
+- `was_assignees` controls operational assignment (`active`) independently from
+  permitted email recipients (`email_enabled`).
+- `was_report_runs.source_tracker_id` links a generated run to one tracker row;
+  `delivery_purpose` allows `customer`, `analyst`, and `standalone`.
+- `was_standalone_report_targets` supports approved on-demand reporting for a
+  Qualys tag that is not enrolled as a stakeholder. Standalone runs do not
+  create or change tracker rows.
+- `was_batch_runs` and `was_batch_report_attempts` record production and
+  capacity-batch scope, progress, summary delivery, timing, and outcomes.
+- `was_test_replay_batches` and `was_test_replay_items` preserve controlled
+  analyst-recipient replay scope without deleting original report history.
+- `was_special_cases` stores active tags that bypass automated NWS removal.
+
+## Read-Only Schema Verification
+
+Run these checks after a deployment or database restore. They inspect metadata
+only and do not modify application data.
+
+Confirm the expected application tables:
 
 ```sql
-BEGIN;
-ALTER TABLE was_report_runs
-    ADD COLUMN IF NOT EXISTS generation_token TEXT,
-    ADD COLUMN IF NOT EXISTS email_claim_token TEXT,
-    ADD COLUMN IF NOT EXISTS delivery_purpose TEXT NOT NULL DEFAULT 'customer'
-        CHECK (delivery_purpose IN ('customer', 'analyst'));
-
-ALTER TABLE was_daily_report_tracker
-    ADD COLUMN IF NOT EXISTS scan_execution_key TEXT,
-    ADD COLUMN IF NOT EXISTS assignee_email_status TEXT NOT NULL DEFAULT 'pending'
-        CHECK (assignee_email_status IN ('pending', 'sending', 'sent', 'failed', 'held')),
-    ADD COLUMN IF NOT EXISTS assignee_email_claim_token TEXT,
-    ADD COLUMN IF NOT EXISTS assignee_email_claimed_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS digest_revision BIGINT NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS digest_claimed_revision BIGINT;
-
-CREATE UNIQUE INDEX IF NOT EXISTS was_daily_report_tracker_scan_execution_uidx
-    ON was_daily_report_tracker (scan_execution_key)
-    WHERE scan_execution_key IS NOT NULL;
-
-UPDATE was_daily_report_tracker
-SET assignee_email_status = CASE
-    WHEN assignee_emailed_at IS NOT NULL THEN 'sent'
-    ELSE 'held' END
-WHERE assignee_email_status = 'pending'
-  AND (assignee_emailed_at IS NOT NULL OR assignee_email_error IS NOT NULL);
-
-UPDATE was_report_runs
-SET delivery_purpose = 'analyst'
-WHERE generation_token IS NULL
-  AND scheduled_epoch IS NULL
-  AND (source_tracker_id IS NULL OR email_status = 'held');
-
-UPDATE was_report_runs
-SET qualys_xml_report_status = CASE
-        WHEN qualys_xml_report_id IS NULL AND qualys_xml_report_status IS NULL
-            THEN 'CREATE_REQUESTED' ELSE qualys_xml_report_status END,
-    qualys_detail_report_status = CASE
-        WHEN qualys_detail_report_id IS NULL AND qualys_detail_report_status IS NULL
-            THEN 'CREATE_REQUESTED' ELSE qualys_detail_report_status END
-WHERE generation_token IS NULL AND status IN ('running', 'failed');
-COMMIT;
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name LIKE 'was_%'
+ORDER BY table_name;
 ```
 
-The audience update conservatively classifies historical standalone/held runs
-as analyst-only. Review other historical runs' intended audience before sending.
-An existing digest error might represent uncertain delivery, so the upgrade
-holds it instead of automatically retrying it. Re-running the upgrade does not
-reset current claims or sent records. Apply only with workers stopped.
-Historical failed/running rows without an artifact ID or creation status are
-conservatively marked `CREATE_REQUESTED`: the old code did not record whether
-a timed-out POST was accepted. Reconcile these in Qualys before retrying; do
-not clear an uncertain marker merely to force creation of a replacement.
-
-Verify the additional columns with:
+Confirm the execution, claim, and delivery fields used by current code:
 
 ```sql
-SELECT table_name, column_name, data_type
+SELECT table_name, column_name, data_type, is_nullable
 FROM information_schema.columns
 WHERE table_schema = 'public'
-  AND table_name IN ('was_report_runs', 'was_daily_report_tracker')
-  AND (column_name LIKE '%token' OR column_name LIKE 'assignee_email%'
-       OR column_name IN ('delivery_purpose', 'scan_execution_key',
-                          'digest_revision', 'digest_claimed_revision'))
+  AND (
+    (table_name = 'was_daily_report_tracker' AND column_name IN (
+      'scan_execution_key', 'scan_started_at', 'scan_ended_at',
+      'assignee_email_status', 'assignee_email_claim_token',
+      'assignee_email_claimed_at', 'digest_revision',
+      'digest_claimed_revision'
+    ))
+    OR
+    (table_name = 'was_report_runs' AND column_name IN (
+      'source_tracker_id', 'standalone_target_id', 'generation_token',
+      'delivery_purpose', 'email_status', 'email_claim_token',
+      'qualys_detail_report_status', 'qualys_xml_report_status'
+    ))
+  )
 ORDER BY table_name, ordinal_position;
 ```
 
-Rollback means stopping the new workers and restoring the previous image after
-reviewing active/held runs. Leave the additive columns in place; do not drop
-ownership or delivery evidence to make an older image run.
+Confirm the duplicate-prevention indexes:
+
+```sql
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexname IN (
+    'was_daily_report_tracker_scan_execution_uidx',
+    'was_report_runs_source_tracker_id_uidx',
+    'was_report_runs_active_schedule_uidx',
+    'was_report_runs_active_standalone_uidx'
+  )
+ORDER BY indexname;
+```
+
+Treat a missing table, column, constraint, or index as a deployment blocker.
+Do not repair drift by copying a historical local increment into production
+without review. Rollback should restore the approved database backup and prior
+application image together, while preserving evidence for held or uncertain
+Qualys and SES operations.
 
 ## Assignee Seed Data
 

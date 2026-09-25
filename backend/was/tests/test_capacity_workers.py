@@ -45,6 +45,12 @@ class CapacityWorkerTests(unittest.TestCase):
             self.assertIn("{}:{}".format(os.getuid(), os.getgid()), command)
             self.assertEqual(launch.call_args.kwargs["env"]["WAS_METRICS_DIRECTORY"],
                              "/output/capacity/trial/metrics/worker-2")
+            self.assertEqual(launch.call_args.kwargs["env"]["WAS_LOG_ROLE"], "worker")
+            self.assertEqual(launch.call_args.kwargs["env"]["WAS_LOG_WORKER_INDEX"], "2")
+            self.assertEqual(
+                launch.call_args.kwargs["env"]["WAS_LOG_PHASE"],
+                "report_generation",
+            )
             self.assertTrue(worker.name.endswith("-2"))
 
     def test_invalid_identity_rejected_before_launch(self):

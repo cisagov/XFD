@@ -40,8 +40,17 @@ Confirm all of the following before starting:
   `ses:SendRawEmail` for the approved sender; no named profile is needed.
 - Docker is running and the production image has been rebuilt from the current
   source.
-- Apply the additive hardening SQL in `daily_report_tracker_schema.md` before
-  starting the updated workers. Retain old logs and reconcile active claims.
+- The database matches the authoritative desired state in
+  `schema/stakeholders_table_creation.sql`. The currently managed database is
+  assumed to have received the approved changes. Use the read-only checks in
+  `daily_report_tracker_schema.md` to verify it before testing.
+- Existing `running`, `sending`, or `held` operations have been reviewed. Do
+  not clear claims or delivery evidence merely to make a test eligible.
+
+The comprehensive schema is for a new, empty database and must not be run over
+an existing populated database. Locally retained `schema/updates/` files are
+historical or operator-specific records, not versioned release artifacts or a
+supported migration chain.
 
 ## Hardening Regression Checks
 
@@ -124,9 +133,12 @@ PDF, downloads that S3 object through the mailer, and sends one actual email.
 It does not depend on a recent-scan candidate or reuse a missing historical PDF.
 Approve the recipient and tag before running. From `backend/was`:
 
-The recipient must be configured as active and email-enabled in
-`was_assignees`. This on-demand workflow is for analyst delivery only and
-rejects customer contact addresses.
+The recipient must be configured as email-enabled in `was_assignees`. It may be
+inactive so a functional-test recipient remains excluded from operational
+tracker assignment. Email-enabled inactive analysts are still included in
+shared analyst summaries unless a test-recipient override is used. This
+on-demand workflow is for analyst delivery only and rejects unapproved customer
+contact addresses.
 
 ```bash
 set +x
@@ -140,11 +152,14 @@ RUN_STATUS=${PIPESTATUS[0]}
 printf 'Functional test exit code: %s\n' "$RUN_STATUS"
 ```
 
-This is a standalone report test: it creates a report-run record but does not
-invent or change a daily tracker row. To validate tracker delivery, first select
-an actual matching unsent row without an existing report run, then explicitly
-pass its ID as `TRACKER_ID`. A test-recipient send marks that linked row sent;
-do not use an operational row that must still be sent to customer recipients.
+This is an on-demand report test independent of tracker processing: without
+`TRACKER_ID`, it creates a report-run record but does not invent or change a
+daily tracker row. It still requires an enrolled stakeholder. Use the separate
+standalone workflow for a Qualys tag that is not enrolled. To validate tracker
+delivery, first select an actual matching unsent row without an existing report
+run, then explicitly pass its ID as `TRACKER_ID`. A test-recipient send marks
+that linked row sent; do not use an operational row that must still be sent to
+customer recipients.
 
 Using the new run ID printed in the log, query the WAS database:
 
@@ -166,8 +181,9 @@ JOIN public.was_report_runs AS runs ON runs.source_tracker_id = tracker.id
 WHERE runs.id = NEW_RUN_ID;
 ```
 
-For standalone runs, zero tracker rows is expected, not a failure. Copy the
-exact object key from `output_path`, omitting `s3://cisa-was-reports/`:
+For an unlinked on-demand run, zero tracker rows is expected, not a failure.
+Copy the exact object key from `output_path`, omitting
+`s3://cisa-was-reports/`:
 
 ```bash
 aws s3api head-object --bucket cisa-was-reports --key "EXACT_OBJECT_KEY"
@@ -176,9 +192,9 @@ aws s3api head-object --bucket cisa-was-reports --key "EXACT_OBJECT_KEY"
 The object must exist and have nonzero size. Verify its encryption metadata
 against bucket requirements, then confirm inbox receipt and open the attached
 PDF using the stakeholder password obtained through approved secure access.
-Review that unsupported sensitive-finding data is labelled unavailable, not
-zero. Record the source commit, run ID, S3 reference, message ID, and recipient
-confirmation, but never record the report password.
+Review that the temporarily disabled sensitive-finding data is labelled
+unavailable, not zero. Record the source commit, run ID, S3 reference, message
+ID, and recipient confirmation, but never record the report password.
 
 For an email failure, the PDF remains archived and the on-demand run remains
 held for explicit delivery. Use `was-mailer --report-run-id` with the approved
@@ -221,9 +237,11 @@ text, attachments, and selected metadata. A difference is not automatically a
 defect because report dates and live Qualys data can change. Document and
 review every difference before approval.
 
-## Validate S3 Without Sending Email
+## Validate One Candidate Without Sending Email
 
-Run one controlled recent-scan batch with email disabled:
+Run one controlled single-process candidate with email disabled. This validates
+generation and S3 archival, but it is not the production coordinator or a
+parallel-capacity test:
 
 ```bash
 docker run --rm \
@@ -261,6 +279,73 @@ Confirm all three records of success:
 2. SES returns a message ID that is stored on `was_report_runs`.
 3. The approved recipient receives and opens the encrypted report.
 
+## Validate The Production Coordinator
+
+The operational EC2 workflow is the host-side coordinator invoked by
+`make recent-scan-batch`. It refreshes the tracker once, performs a read-only
+preflight, partitions eligible work among separate worker containers, completes
+pending delivery, and sends the shared tracker and final analyst summaries. It
+uses the same phase engine and Docker worker launcher as capacity testing.
+
+Before any write or email side effects, preview the current eligible workload:
+
+```bash
+make recent-scan-batch-preflight
+```
+
+The preview reads the existing tracker. It does not refresh Qualys data, claim
+runs, generate reports, archive PDFs, change the database, or send email. Review
+the candidate total, templates, PDF and notification counts, missing stakeholder
+rows, and manual rows before authorizing a live batch.
+
+For a controlled end-to-end coordinator test, redirect every customer report,
+retry, tracker summary, and final summary to one or more approved,
+email-enabled analyst addresses:
+
+```bash
+make recent-scan-batch-assignee-test \
+  TEST_RECIPIENTS="REPLACE_WITH_APPROVED_TEST_RECIPIENT" \
+  BATCH_WORKERS=30 \
+  BATCH_DAYS_BACK=7
+```
+
+This is a live operation. It refreshes the tracker, calls Qualys, generates and
+encrypts reports, archives them to S3, sends SES email, and records successful
+tracker rows as sent. It does not use customer POC addresses, but it processes
+the complete eligible workload in the selected window. Use it only when that
+workload and all test recipients have been approved.
+
+After controlled coordinator validation, the production command is:
+
+```bash
+make recent-scan-batch
+```
+
+The production command uses normal customer recipients. `BATCH_WORKERS`
+defaults to 30, `BATCH_DAYS_BACK` defaults to seven calendar dates including
+today, and `TRACKER_LOOKBACK_DAYS` defaults to three days for tracker discovery.
+Changing those values changes operational scope and must be intentional.
+
+Each coordinated run writes a batch identifier and process-specific logs under
+`local-output/logs/batches/<batch-id>/`. Use the read-only diagnostics instead
+of manually combining coordinator and worker logs:
+
+```bash
+make logs-latest
+make logs-summary LOG_BATCH_ID="<batch-uuid>"
+make logs-errors LOG_BATCH_ID="<batch-uuid>"
+make logs-tag LOG_BATCH_ID="<batch-uuid>" LOG_TAG="CUSTOMER_TAG"
+```
+
+Set `LOG_LIMIT` to change the default maximum of 200 displayed records. These
+commands read local structured JSON-lines logs only. They do not query Qualys,
+modify the database, generate reports, or send email. Preserve the batch ID,
+summary, errors, and relevant tag output in the approved validation record
+without copying sensitive payloads.
+
+Do not use `make recent-scan-batch-test` as proof of production-coordinator
+behavior. That target is a one-process, one-candidate dry-run email smoke test.
+
 ## Acceptance Criteria
 
 A production validation passes only when:
@@ -269,13 +354,17 @@ A production validation passes only when:
 - Report generation exits successfully.
 - The expected encrypted PDF opens with the stored stakeholder password.
 - Required report pages, charts, and attachments are present.
-- Expected unsupported Qualys module responses are logged and skipped only by
-  the approved conditional handling.
+- Attachment 7 is present with its CSV headings and no data rows while the
+  approved SSN and credit-card finding-query suspension remains active. The log
+  must identify that data as unavailable, not as zero findings.
 - Temporary Qualys reports are deleted after success and failure paths.
 - S3 storage succeeds under the configured run-specific key.
 - Email delivery, when tested, is accepted by SES, persisted in Postgres, and
   confirmed by the recipient.
 - Logs contain no credentials, report passwords, or unintended report data.
+- For coordinator validation, preflight scope, batch outcome, per-role log
+  summary, error events, and SES acceptance counts are reviewed against the
+  expected workload.
 - The commit SHA, image ID, tag, date, operator, and result are recorded in the
   approved validation record.
 

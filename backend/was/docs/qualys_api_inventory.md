@@ -24,8 +24,8 @@ Keep this file updated whenever WAS API usage changes.
 
 The production boundary now logs endpoint and elapsed time without raw response
 bodies or headers. XML payloads use serializer escaping and actual CDATA nodes,
-not global entity replacement. Sensitive-findings searches follow all returned
-pages using `lastId`/`startFromId` and reject non-advancing cursors. XML export
+not global entity replacement. The SSN and credit-card sensitive-finding
+searches are temporarily disabled, as described below. XML export
 uses a unique report name and waits for completion before downloading. Polling
 continues through retryable transport/HTTP failures but stops on permanent
 HTTP failures rather than waiting indefinitely. CSV attachments quote multiline
@@ -51,7 +51,7 @@ These calls are required for the current single-page PDF report generation path.
 | `/search/was/report` | `POST` | Recovery addition | Finds a uniquely named report after an uncertain create response so the create request is not repeated. | Exact report name and format filters, without a preferences block, matching the documented Qualys filtered-search request. | Reads report ID, name, format, and status. | High, invalid search XML prevents safe timeout reconciliation and can encourage duplicate report creation. |
 | `/download/was/report/<id>` | `GET` | `get_report` | Downloads generated XML report content. | Report ID from `/create/was/report`. | XML is parsed into findings, charts, summaries, and appendix data. | High, XML schema changes can alter report output. |
 | `/count/was/finding` | Not explicitly set by legacy call | `max_age` | Counts open critical and urgent findings by date range. | XML filter payload built in code. | Used for max-age calculations and trend context. | Medium, date filters and finding status semantics must be verified. |
-| `/search/was/finding` | `POST` | `get_ssn_and_cc` | Searches findings that indicate SSN or credit-card exposure. | XML filter payload built in code for relevant QIDs. | Parses payload request links for sensitive-data appendix fields. The exact HTTP 400 `Module is not supported for this agent` response is logged and represented as unavailable data so report generation can continue. Other API errors remain fatal. | High, sensitive-data handling and QID assumptions need explicit validation. |
+| `/search/was/finding` | `POST` | `get_ssn_and_cc` | Intended to search findings that indicate SSN or credit-card exposure. | XML builders and parsers remain in `report_artifacts.py`, but the two calls are disabled. | No production request is made. Attachment 7 is written as header-only `ssn-and-cc-found.csv`, and the report email states that it is not populated. | High, re-enable only after Qualys validation, operator review, and explicit approval. |
 | `/search/was/webapp` | `POST` | `get_app_id`, `app_overview_table` | Finds web applications by URL or stakeholder tag. | XML filter payload built in code. | Reads web app IDs, URLs, scopes, and operating-system metadata. | Medium, output fields may vary by account permissions and scope. |
 
 ## Required For Detail Attachments
@@ -65,6 +65,25 @@ report service.
 | `/download/was/report/<id>` | `GET` through the WAS direct-download boundary | `download_report` | Downloads the Qualys-generated PDF detail report. | Environment-backed credentials and the shared timeout and retry policy. | Writes detail PDF, watermarks it, and redacts it. | Medium, direct-download authentication and response handling require live validation. |
 | `/delete/was/report/<id>` | Not explicitly set by legacy call | `delete_report` | Deletes temporary Qualys reports after use. | Report ID. | Used as cleanup. | Medium, cleanup failure could leave reports in Qualys. |
 | `/status/was/report/<id>` | `GET` | `get_report_status` | Checks generated report status. | Report ID. | Determines when report download can proceed. | Medium, polling states and timeout behavior need explicit handling. |
+
+## Temporarily Disabled Sensitive-Finding Searches
+
+`write_sensitive_data_attachment()` deliberately does not call
+`/search/was/finding` for the SSN and credit-card QID sets. A known vendor issue
+made that request unreliable. The current behavior is fail-open for the rest of
+report generation while remaining explicit about missing data:
+
+- write `ssn-and-cc-found.csv` with its header and no finding rows;
+- log that sensitive-data results are unavailable, not that no findings exist;
+- continue generating the remaining report and attachments; and
+- include the approved Attachment 7 vendor-maintenance notice in customer
+  report emails.
+
+The code contains a TODO, but no date-based automatic re-enablement. Restoring
+the calls requires a successful nonproduction API validation, operator review,
+explicit approval, and updated fixtures and documentation. The separate
+`/count/was/finding` calls used for critical and urgent finding ages remain
+active.
 
 ## Required For Daily Tracker Refresh
 

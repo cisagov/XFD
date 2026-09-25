@@ -14,8 +14,10 @@ in the capacity result and repeat the relevant measurements if they are enabled.
 
 ## Isolation prerequisites
 
-An administrator must prepare these resources separately. The launcher does not
-provision infrastructure, copy data, reset tables, or restore snapshots.
+An administrator must prepare these resources separately. The capacity trial
+launcher does not provision infrastructure, copy data, reset tables, or restore
+snapshots. The separate `make capacity-database-reset` command performs the
+explicitly confirmed database copy and cleanup described later in this runbook.
 
 1. A dedicated database and login role whose names start with `was_capacity_`.
    Give that role privileges only in the test database, no production-table
@@ -26,9 +28,10 @@ provision infrastructure, copy data, reset tables, or restore snapshots.
    schedule/history, special-case, and assignee data needed by the normal code.
    Customer contacts should be sanitized to test destinations. Protect stored PDF
    passwords and other copied data as sensitive. Keep the operational database
-   untouched. Apply the comprehensive schema to a new empty database, or the
-   appropriate local increments to an existing clone. Local migration
-   `schema/updates/019_capacity_metrics.sql` adds the shared metrics fields.
+   untouched. Apply the comprehensive schema to a new empty database. For an
+   existing clone, have a database administrator compare it with the
+   comprehensive schema and apply an approved additive change before testing.
+   The application does not create or migrate schema objects automatically.
 3. Private, Git-ignored environment configuration. Keep the ordinary `WAS_DB_*`
    settings and the capacity-only `TEST_WAS_DB_*` settings together in `dev.env`,
    copied to `.env` on EC2. Only the capacity launcher selects the test settings;
@@ -259,6 +262,28 @@ baseline identifier, Git/image version, EC2 size, workload composition, and serv
 limits with the result. There is no automatic deletion of the evidence or S3
 artifacts; arrange retention separately.
 
+Each capacity batch also writes role-specific plain-text and structured JSONL
+application logs under `local-output/logs/batches/<run-id>/`. Coordinator,
+tracker, tracker-summary, numbered worker, delivery, and final-summary processes
+retain separate files. Repeated process phases for one batch append rather than
+replacing earlier evidence. A continuation is a separate attempt with its own
+run ID and matching log directory.
+
+Use the read-only Make diagnostics from `backend/was`:
+
+```bash
+make logs-latest
+make logs-summary LOG_BATCH_ID="<run-id>"
+make logs-errors LOG_BATCH_ID="<run-id>"
+make logs-tag LOG_BATCH_ID="<run-id>" LOG_TAG="CUSTOMER_TAG"
+```
+
+Set `LOG_LIMIT` to change the default maximum of 200 displayed records. These
+commands read local structured logs only. They do not query the capacity or
+production database, call Qualys, create a report, access S3, or send email.
+Preserve both the capacity evidence directory and its matching batch-log
+directory when retaining test evidence.
+
 The shared summary records worker count, run mode, a fixed finish time, outcome,
 PDF and notification counts, batch-specific accepted sends, PDF generation
 average/median/p95, delivery timing, and accepted deliveries per hour. Production
@@ -271,16 +296,16 @@ timestamps are not valid capacity benchmarks.
 
 Endpoint events record individual Qualys attempt latency, attempt number, outcome
 class, and HTTP status when available, without request payloads or credentials.
-For the process backend, resource samples describe the launcher's cgroup-v2 CPU
-and memory plus shared output-filesystem space. With host-coordinated Docker
-workers, these samples are not an aggregate of worker-container resource usage.
-Use host monitoring and Docker statistics for that comparison. Unsupported
+The internal process backend remains available for development diagnostics, but
+the supported Make workflow always selects host-coordinated Docker workers. Its
+resource samples are not an aggregate of worker-container CPU and memory. Use
+host monitoring and Docker statistics for that comparison. Unsupported
 measurements are null, not zero. Optional
 telemetry write failures are logged and mean the diagnostic evidence is incomplete.
 Use host monitoring separately if the capacity plan requires host-wide contention
 or metrics unavailable in the container.
 
 The capacity Make workflow now uses separate worker containers like production.
-There is no capacity menu option. Keep resource limits
-comparable and record the selected backend. Confirm final production throughput with operational
+There is no capacity menu option. Keep resource limits comparable and record
+the Docker backend. Confirm final production throughput with operational
 summaries; small daily batches do not establish maximum sustained capacity.

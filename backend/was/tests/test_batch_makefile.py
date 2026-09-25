@@ -40,3 +40,27 @@ class BatchMakefileTests(unittest.TestCase):
                 self.assertIn('BATCH_DAYS_BACK="{}"'.format(expected), result.stdout)
                 self.assertIn('--days-back "{}"'.format(expected), result.stdout)
                 self.assertNotIn("previous 30 calendar days", result.stdout)
+
+    def test_log_diagnostics_remain_make_only_and_read_batch_files(self) -> None:
+        """Expose summary, error, and tag filters without adding menu operations."""
+        directory = Path(__file__).resolve().parents[1]
+        commands = {
+            "logs-latest": ("--latest --mode summary", []),
+            "logs-summary": ("--mode summary", ["LOG_BATCH_ID=" + "0" * 36]),
+            "logs-errors": ("--mode errors", ["LOG_BATCH_ID=" + "0" * 36]),
+            "logs-tag": (
+                '--mode tag --tag "TAG1"',
+                ["LOG_BATCH_ID=" + "0" * 36, "LOG_TAG=TAG1"],
+            ),
+        }
+        for target, (expected, variables) in commands.items():
+            with self.subTest(target=target):
+                result = subprocess.run(
+                    ["make", "-n", "-C", str(directory), target] + variables,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=15,
+                )
+                self.assertIn("was_reports.commands.log_diagnostics", result.stdout)
+                self.assertIn(expected, result.stdout)
