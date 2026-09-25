@@ -53,7 +53,9 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
     React.useState<MaintenanceNotification | null>(null);
   const fetchNotifications = React.useCallback(async () => {
     try {
-      const rows = await apiGet(ENDPOINTS.NOTIFICATIONS);
+      const rows = await apiGet<MaintenanceNotification[]>(
+        ENDPOINTS.NOTIFICATIONS
+      );
       // Updated maintenance window banner check
       const now = new Date();
       const activeRow = rows.find((row: MaintenanceNotification) => {
@@ -61,7 +63,9 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
         const end = new Date(row.end_datetime);
         return row.status === 'active' && start <= now && now <= end;
       });
-      setNotification(activeRow);
+
+      const activeNotification = activeRow ?? null;
+      setNotification(activeNotification);
     } catch (e: any) {
       logger.error('AuthLogin.fetchNotifications failed:', { error: e });
     }

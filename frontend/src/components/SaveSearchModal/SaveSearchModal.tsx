@@ -22,6 +22,10 @@ interface SaveSearchModalProps {
   initialFilters: ContextType['filters'];
 }
 
+type SavedSearchResponse = {
+  result: SavedSearch[];
+};
+
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
     searchTerm,
@@ -71,9 +75,14 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       } else {
         await apiPost(ENDPOINTS.SAVED_SEARCHES, body);
       }
-      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
-      setSavedSearches(updatedSearches.result); // Update the saved searches
-      setSavedSearchCount(updatedSearches.result.length); // Update the count
+      // Fetch the updated list of saved searches after saving/updating
+      const updatedSearches = await apiGet<SavedSearchResponse>(
+        ENDPOINTS.SAVED_SEARCHES
+      );
+      // Ensure we have a valid array even if the API response is undefined or null
+      const refreshedSearches = updatedSearches?.result ?? [];
+      setSavedSearches(refreshedSearches); // Update the saved searches
+      setSavedSearchCount(refreshedSearches.length); // Update the count
     } catch (e) {
       logger.error('SaveSearchModal.handleSave failed:', {
         error: e,
