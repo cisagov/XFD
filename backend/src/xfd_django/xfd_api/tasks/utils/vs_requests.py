@@ -262,7 +262,8 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         "acronym": request.get("_id"),
         "retired": bool(request.get("retired", False)),
         "type": request.get("agency", {}).get("type"),
-        "state": request.get("agency", {}).get("location", {}).get("state"),
+        # "state": request.get("agency", {}).get("location", {}).get("state"),
+        "state": ((request.get("agency") or {}).get("location") or {}).get("state"),
         "state_name": request.get("agency", {}).get("location", {}).get("state_name"),
         "county": request.get("agency", {}).get("location", {}).get("county"),
         "county_fips": parse_int(
