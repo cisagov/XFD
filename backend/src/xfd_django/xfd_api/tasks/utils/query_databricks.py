@@ -267,7 +267,7 @@ def query_databricks(query, params=None):
                 catalog=_CATALOG,
                 schema=_SCHEMA,
                 wait_timeout="0s",
-                disposition=Disposition.INLINE,
+                disposition=Disposition.EXTERNAL_LINKS,  # avoid inline-size limits
                 format=Format.JSON_ARRAY,
             )
 
