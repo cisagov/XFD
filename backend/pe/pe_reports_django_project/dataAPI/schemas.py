@@ -98,8 +98,7 @@ class OrganizationsFullTable(BaseModel):
     state_name: Optional[str] = None
     country: Optional[str] = None
     country_name: Optional[str] = None
-    exec_url: Optional[str] = None
-
+    
 
 class DNSMonitorDomainMapTable(BaseModel):
     """Serialized dnsmonitor_domain_map row."""

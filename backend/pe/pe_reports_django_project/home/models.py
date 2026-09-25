@@ -934,8 +934,6 @@ class Organizations(models.Model):
     state_name = models.TextField(blank=True, null=True)
     country = models.TextField(blank=True, null=True)
     country_name = models.TextField(blank=True, null=True)
-    exec_url = models.TextField(blank=True, null=True)
-
     class Meta:
         """Set Organizations model metadata."""
 

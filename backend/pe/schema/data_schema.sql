@@ -1683,7 +1683,6 @@ CREATE TABLE public.organizations (
 	state_name text NULL,
 	country text NULL,
 	country_name text NULL,
-	exec_url text NULL,
 	CONSTRAINT organizations_pkey PRIMARY KEY (organizations_uid),
 	CONSTRAINT unique_cyhy_db_name UNIQUE (cyhy_db_name),
 	CONSTRAINT organizations_org_type_uid_fkey FOREIGN KEY (org_type_uid) REFERENCES public.org_type(org_type_uid),
