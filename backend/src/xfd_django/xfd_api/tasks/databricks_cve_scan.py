@@ -30,13 +30,6 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
-# MODIFIED: new constant. The old Redshift query had no LIMIT (it relied on
-# the AE feed being small enough to return in one shot), but Databricks'
-# cyhy_cve_data table is expected to be much larger, so pagination here is a
-# real LIMIT/OFFSET-by-keyset loop rather than the effectively-single-shot
-# loop the Redshift version had.
-_PAGE_SIZE = 5000
-
 
 def handler(event):
     """Sync CVE/SSVC data from Databricks into MDL."""
@@ -282,16 +275,14 @@ def build_databricks_sql() -> str:
                ssvc_version,
                ssvc_timestamp
            FROM cyber_insights_prd.cve_gold.cyhy_cve_data
-           WHERE exploitation IS NOT NULL
+           WHERE cna IS NOT NULL
+             AND cna_provider_metadata_date_updated >= CURRENT_DATE - INTERVAL '1' YEAR
              AND (:p0 = '' OR cve_id > :p1)
            ORDER BY cve_id
-           LIMIT :p2
            """  # nosec B608
 
 
-def sync_cve_from_databricks(
-    max_batches: int = 100, page_size: int = _PAGE_SIZE
-) -> int:
+def sync_cve_from_databricks(max_batches: int = 100) -> int:
     """
     Fetch CVE rows from Databricks (parameterized, keyset-paginated), then upsert into local models.
 
@@ -303,9 +294,7 @@ def sync_cve_from_databricks(
     batches = 0
 
     while True:
-        # MODIFIED: was `params: Tuple[Any, Any] = (last_key, last_key)` -
-        # now a 3-tuple, adding page_size for the new LIMIT :p2 marker.
-        params: Tuple[Any, Any, Any] = (last_key, last_key, page_size)
+        params: Tuple[Any, Any] = (last_key, last_key)
         LOGGER.debug("Fetching Databricks rows with last_key=%r", last_key)
         rows: List[Dict[str, Any]] = fetch_from_databricks_with_params(sql, params)
 
@@ -329,14 +318,6 @@ def sync_cve_from_databricks(
                 LOGGER.exception("Failed to upsert CVE %r: %s", cve_id, e)
 
         batches += 1
-
-        if len(rows) < page_size:
-            LOGGER.info(
-                "Fetched a partial page (%d < %d); no more rows remain.",
-                len(rows),
-                page_size,
-            )
-            break
         if batches >= max_batches:
             LOGGER.warning(
                 "Stopping after %s batches to avoid long runtime.", max_batches
