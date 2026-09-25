@@ -13,6 +13,53 @@ if TYPE_CHECKING:
     from psycopg2.extensions import connection
 
 
+MANUAL_WORK = "manual"
+DELIVERY_RECONCILIATION = "delivery_reconciliation"
+
+
+def is_legacy_sent_note(report_scan_notes: str | None) -> bool:
+    """Return whether the first note line is an exact legacy sent marker."""
+    if not report_scan_notes:
+        return False
+    note_lines = report_scan_notes.strip().splitlines()
+    if not note_lines:
+        return False
+    first_line = note_lines[0].strip()
+    prefixes = ("Sent ", "Report sent - ")
+    for prefix in prefixes:
+        if not first_line.startswith(prefix):
+            continue
+        date_text = first_line[len(prefix):]
+        try:
+            datetime.strptime(date_text, "%m/%d/%Y")
+        except ValueError:
+            continue
+        return True
+    return False
+
+
+def manual_work_classification(
+    report_sent_date: date | None,
+    report_scan_notes: str | None,
+    qualys_error: str | None,
+    status: str | None,
+    stakeholder_manual: bool,
+) -> str | None:
+    """Classify actionable manual work without hiding unreconciled sent notes."""
+    if report_sent_date is not None:
+        return None
+    if is_legacy_sent_note(report_scan_notes):
+        return DELIVERY_RECONCILIATION
+    if (
+        stakeholder_manual
+        or bool((report_scan_notes or "").strip())
+        or bool((qualys_error or "").strip())
+        or (status or "").strip().upper() == "ERROR"
+    ):
+        return MANUAL_WORK
+    return None
+
+
 @dataclass(frozen=True)
 class DailyReportTrackerRow:
     """Database representation of one WAS daily report tracker row."""
@@ -304,7 +351,11 @@ def list_ready_report_candidates(
                 tracker.qualys_error,
                 runs.id,
                 runs.status,
-                runs.email_status
+                runs.email_status,
+                tracker.report_sent_date,
+                tracker.report_scan_notes,
+                tracker.status,
+                stakeholders.manual_report
             FROM was_daily_report_tracker AS tracker
             JOIN was_stakeholders AS stakeholders
               ON stakeholders.tag = tracker.tag
@@ -437,6 +488,20 @@ def list_ready_report_candidates(
     with conn.cursor() as cursor:
         cursor.execute(query, tuple(parameters))
         rows = cursor.fetchall()
+
+    if include_manual:
+        rows = [
+            row
+            for row in rows
+            if manual_work_classification(
+                report_sent_date=row[13],
+                report_scan_notes=row[14],
+                qualys_error=row[9],
+                status=row[15],
+                stakeholder_manual=bool(row[16]),
+            )
+            == MANUAL_WORK
+        ]
 
     return [
         TrackerReportCandidate(

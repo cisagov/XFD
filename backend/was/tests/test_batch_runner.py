@@ -341,6 +341,32 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertIn("QualysReportCreationUncertainError", message)
         self.assertNotIn("--encrypt", message)
 
+    def test_summarize_existing_password_failure_uses_stable_category(self) -> None:
+        """Store a retryable category without password contents."""
+        exception = batch_runner.ExistingReportPasswordError(
+            "private-password-value"
+        )
+
+        message = batch_runner.summarize_report_failure(exception)
+
+        self.assertEqual(
+            message,
+            "ExistingReportPasswordError occurred during report generation.",
+        )
+        self.assertNotIn("private-password-value", message)
+
+    def test_summarize_read_timeout_uses_stable_qualys_category(self) -> None:
+        """Store an actionable timeout category without request details."""
+        exception = batch_runner.ReadTimeout("private request URL and payload")
+
+        message = batch_runner.summarize_report_failure(exception)
+
+        self.assertEqual(
+            message,
+            "QualysReadTimeout occurred during report generation.",
+        )
+        self.assertNotIn("private request URL and payload", message)
+
     def test_summarize_failure_excludes_qualys_exception_payload(self) -> None:
         """Never persist Qualys payloads even for uncertain-create errors."""
         error = batch_runner.QualysReportCreationUncertainError(
@@ -900,6 +926,104 @@ class BatchRunnerTests(unittest.TestCase):
             artifact_type="pdf",
             generation_token="token",
         )
+
+    @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
+    @patch("was_reports.commands.batch_runner.generate_report_output")
+    @patch(
+        "was_reports.commands.batch_runner.claim_manual_report_recovery_by_id"
+    )
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_recovery_batch_claims_only_explicit_guarded_tracker_ids(
+        self,
+        list_candidates,
+        claim_recovery,
+        generate_report,
+        complete_run,
+    ) -> None:
+        """Use the guarded recovery claim instead of the general manual retry."""
+        list_candidates.return_value = [
+            TrackerReportCandidate(
+                id=9,
+                tag="TAG1",
+                data_pull_date=date(2026, 9, 24),
+                schedule_id=123,
+                assignee_id=3,
+                report_run_id=42,
+                report_run_status="failed",
+                report_email_status="failed",
+            ),
+            TrackerReportCandidate(
+                id=10,
+                tag="TAG2",
+                data_pull_date=date(2026, 9, 24),
+                schedule_id=124,
+                assignee_id=3,
+                report_run_id=43,
+                report_run_status="failed",
+                report_email_status="failed",
+            ),
+        ]
+        claim_recovery.return_value = ReportRun(
+            id=42,
+            stakeholder_tag="TAG1",
+            status="running",
+            generation_token="token",
+        )
+        generate_report.return_value = "s3://reports/TAG1.pdf"
+
+        summary = batch_runner.run_recent_scan_reports(
+            resource_root="/WAS_REPORT_RESOURCES",
+            python_executable="/usr/local/bin/python",
+            include_manual=True,
+            days_back=7,
+            recovery_causes={9: "password-validation"},
+        )
+
+        self.assertEqual(summary.candidates, 1)
+        self.assertEqual(summary.generated, 1)
+        claim_recovery.assert_called_once_with(
+            9, "password-validation", days_back=7
+        )
+        complete_run.assert_called_once_with(
+            42,
+            output_path="s3://reports/TAG1.pdf",
+            artifact_type="pdf",
+            generation_token="token",
+        )
+
+    @patch(
+        "was_reports.commands.batch_runner.retry_failed_report_run_for_tracker_by_id"
+    )
+    @patch(
+        "was_reports.commands.batch_runner.claim_manual_report_recovery_by_id",
+        return_value=None,
+    )
+    @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
+    def test_recovery_race_never_falls_back_to_general_manual_retry(
+        self, list_candidates, claim_recovery, general_retry
+    ) -> None:
+        """Fail a changed recovery row without bypassing the atomic guard."""
+        list_candidates.return_value = [
+            TrackerReportCandidate(
+                id=9,
+                tag="TAG1",
+                data_pull_date=date(2026, 9, 24),
+                schedule_id=123,
+                assignee_id=3,
+                report_run_id=42,
+                report_run_status="failed",
+                report_email_status="failed",
+            )
+        ]
+        summary = batch_runner.run_recent_scan_reports(
+            resource_root="/WAS_REPORT_RESOURCES",
+            python_executable="/usr/local/bin/python",
+            include_manual=True,
+            recovery_causes={9: "password-validation"},
+        )
+        self.assertEqual(summary.failed, 1)
+        claim_recovery.assert_called_once()
+        general_retry.assert_not_called()
 
     def test_main_requires_tag_for_manual_recent_scan_report(self) -> None:
         """Prevent an accidental manual report run across all stakeholders."""

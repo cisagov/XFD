@@ -954,9 +954,12 @@ logging finding contents. Authentication failures, network failures, malformed
 responses, and unrelated API errors are not suppressed. A blank attachment in
 this case does not mean that the scan found no sensitive data.
 
-Historical recovery is separate from daily discovery. An automated recovery
-command is not provided by this latest-only change; use an explicitly reviewed
-reconciliation plan and counts-only preview before generating historical work.
+Historical recovery is separate from daily discovery. The guarded
+`recover-manual-reports` command accepts explicit tracker IDs only for
+log-confirmed historical password-validation or safe Qualys read-timeout
+failures. It previews by default and rechecks sent, held, overlap, stakeholder,
+execution, and uncertain-creation safeguards before application. See
+[`docs/manual-report-recovery.md`](docs/manual-report-recovery.md).
 
 ### Customer email dates and attachment names
 

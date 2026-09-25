@@ -55,14 +55,32 @@ class PasswordTests(unittest.TestCase):
             "Legacy\x7fPassword123!", "Legacy\u00a0Password123!",
         ):
             with self.subTest(report_password=report_password):
-                with self.assertRaises(ValueError):
+                with self.assertRaises(passwords.ExistingReportPasswordError):
                     passwords.validate_existing_report_password(report_password)
 
     def test_validation_error_does_not_disclose_password_character(self) -> None:
         """Keep rejected password characters out of errors and downstream logs."""
-        with self.assertRaisesRegex(ValueError, "unsupported character") as error:
+        with self.assertRaisesRegex(
+            passwords.ExistingReportPasswordError, "unsupported character"
+        ) as error:
             passwords.validate_existing_report_password("Legacy\u00e9Password123!")
         self.assertNotIn("\u00e9", str(error.exception))
+
+    def test_existing_password_error_does_not_disclose_password(self) -> None:
+        """Use one bounded error for empty and unsupported stored passwords."""
+        for report_password in ("", "private\npassword", "private\u00e9password"):
+            with self.subTest(report_password=report_password):
+                with self.assertRaises(
+                    passwords.ExistingReportPasswordError
+                ) as error:
+                    passwords.validate_existing_report_password(report_password)
+                self.assertEqual(
+                    str(error.exception),
+                    "Stored report password is empty or contains an unsupported "
+                    "character.",
+                )
+                if report_password:
+                    self.assertNotIn(report_password, str(error.exception))
 
     def test_validate_report_password_accepts_apostrophe(self) -> None:
         """Accept an apostrophe in an existing stakeholder report password."""

@@ -16,6 +16,8 @@ from typing import List, Optional
 from uuid import uuid4
 
 # Third-Party Libraries
+from requests.exceptions import ReadTimeout
+
 from was_mailer.email_reports import (
     send_ready_report_emails,
     send_report_run_email,
@@ -31,6 +33,7 @@ from was_reports.commands.batch_progress import (
 )
 from was_reports.commands.update_tracker_cli import run_update_tracker
 from was_reports.data.daily_report_tracker import list_ready_report_candidates_from_db
+from was_reports.data.manual_recovery import claim_manual_report_recovery_by_id
 from was_reports.data.report_runs import (
     ActiveReportOperationError,
     ReportRun,
@@ -53,6 +56,7 @@ from was_reports.storage.s3_reports import (
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.capacity_scope import capacity_tracker_ids
 from was_reports.utils.logging_config import configure_logging, exception_details
+from was_reports.utils.passwords import ExistingReportPasswordError
 from was_reports.utils.operation_lease import (
     OperationLeaseLostError,
     check_operation_ownership,
@@ -106,6 +110,12 @@ def summarize_report_failure(exception: Exception) -> str:
             "Qualys report creation outcome is uncertain; reconcile before retrying. "
             "{}".format(exception_details(exception))
         )
+
+    if isinstance(exception, ExistingReportPasswordError):
+        return "ExistingReportPasswordError occurred during report generation."
+
+    if isinstance(exception, ReadTimeout):
+        return "QualysReadTimeout occurred during report generation."
 
     if isinstance(exception, subprocess.CalledProcessError):
         return "Report generation failed with exit code {}.".format(
@@ -399,6 +409,7 @@ def run_recent_scan_reports(
     retry_ready_emails: bool = True,
     days_back: int | None = None,
     analyst_batch_id: str | None = None,
+    recovery_causes: dict[int, str] | None = None,
 ) -> BatchExecutionSummary:
     """Generate and deliver reports for recent tracker rows with delivery gaps."""
     tracker_scope = capacity_tracker_ids()
@@ -414,6 +425,19 @@ def run_recent_scan_reports(
         candidates = [
             candidate for candidate in candidates if candidate.id in tracker_scope
         ]
+    if recovery_causes is not None:
+        requested_ids = frozenset(recovery_causes)
+        candidates = [
+            candidate for candidate in candidates if candidate.id in requested_ids
+        ]
+        selected_ids = frozenset(candidate.id for candidate in candidates)
+        if selected_ids != requested_ids:
+            missing_ids = sorted(requested_ids - selected_ids)
+            raise ValueError(
+                "Recovery tracker rows are no longer selectable: {}.".format(
+                    ", ".join(str(tracker_id) for tracker_id in missing_ids)
+                )
+            )
     capacity_continuation = (
         tracker_scope is not None
         and os.environ.get("WAS_CAPACITY_CONTINUATION") == "1"
@@ -513,7 +537,13 @@ def run_recent_scan_reports(
                         if not continue_on_error:
                             raise
                     continue
-                if capacity_continuation and candidate.report_run_status == "failed":
+                if recovery_causes is not None:
+                    report_run = claim_manual_report_recovery_by_id(
+                        candidate.id,
+                        recovery_causes[candidate.id],
+                        days_back=days_back or DEFAULT_RECENT_SCAN_DAYS_BACK,
+                    )
+                elif capacity_continuation and candidate.report_run_status == "failed":
                     report_run = retry_failed_report_run_for_tracker_by_id(
                         candidate.id, safe_only=True,
                     )
@@ -524,9 +554,21 @@ def run_recent_scan_reports(
                         enforce_automated_eligibility=not include_manual,
                         days_back=days_back,
                     )
-                if report_run is None and include_manual and not capacity_continuation:
+                if (
+                    report_run is None
+                    and include_manual
+                    and not capacity_continuation
+                    and recovery_causes is None
+                ):
                     report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
                 if report_run is None:
+                    if recovery_causes is not None:
+                        failed_count += 1
+                        LOGGER.error(
+                            "Recovery tracker row %s changed after preview and was not reclaimed.",
+                            candidate.id,
+                        )
+                        continue
                     LOGGER.info(
                         "Skipping tracker row %s because it was claimed or is no longer eligible.",
                         candidate.id,
@@ -699,6 +741,7 @@ def run_recent_scan_reports(
                 analyst_batch_id,
                 source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
                 override_recipients=test_recipients,
+                days_back=days_back,
             )
 
     summary = BatchExecutionSummary(
@@ -950,6 +993,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         analyst_batch_id,
                         source_email=args.source_email or require_env("WAS_EMAIL_SOURCE"),
                         override_recipients=test_recipients,
+                        days_back=resolved_days_back,
                     )
                 raise
         else:

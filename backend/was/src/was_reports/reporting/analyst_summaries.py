@@ -16,7 +16,10 @@ from was_reports.data.assignees import (
     list_functional_test_recipient_emails_from_db,
 )
 from was_reports.data.daily_report_tracker import (
+    DELIVERY_RECONCILIATION,
+    MANUAL_WORK,
     list_ready_report_candidates_from_db,
+    manual_work_classification,
 )
 from was_reports.reporting.report_transformer import spreadsheet_safe_field
 from was_reports.utils.database import connect
@@ -241,7 +244,7 @@ def preflight_counts(rows):
     return counts
 
 
-EXPORT_FIELDS = (
+TRACKER_EXPORT_FIELDS = (
     "id",
     "tag",
     "schedule_id",
@@ -264,7 +267,11 @@ EXPORT_FIELDS = (
     "recent_nws",
     "remove_nws",
     "qualys_error",
+)
+
+EXPORT_FIELDS = TRACKER_EXPORT_FIELDS + (
     "open_manual",
+    "delivery_reconciliation",
 )
 
 
@@ -287,9 +294,11 @@ def summary_csv(rows):
     return output.getvalue()
 
 
-def _tracker_rows(candidate_ids=None, batch_id=None):
-    """Read allowed tracker columns and all unresolved manual work when final."""
-    manual = """(tracker.report_sent_date IS NULL AND
+def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
+    """Read batch rows plus recent manual and delivery-reconciliation work."""
+    if days_back is not None and days_back < 1:
+        raise ValueError("Days back must be at least 1.")
+    manual_candidate = """(tracker.report_sent_date IS NULL AND
         (stakeholders.manual_report IS TRUE
          OR NULLIF(BTRIM(tracker.report_scan_notes),'') IS NOT NULL
          OR NULLIF(BTRIM(tracker.qualys_error),'') IS NOT NULL
@@ -298,24 +307,60 @@ def _tracker_rows(candidate_ids=None, batch_id=None):
         "COALESCE(assignees.name, tracker.assignee, 'Unassigned')"
         if field == "assignee"
         else "tracker." + field
-        for field in EXPORT_FIELDS[:-1]
+        for field in TRACKER_EXPORT_FIELDS
     ]
     condition = "tracker.id = ANY(%s)"
     parameters = (list(candidate_ids or []),)
     if batch_id is not None:
+        recent_manual = manual_candidate
+        parameters = (batch_id,)
+        if days_back is not None:
+            recent_manual = """({} AND COALESCE(tracker.scan_start_date,
+                tracker.data_pull_date) >= CURRENT_DATE - (%s - 1)
+                AND NOT EXISTS (
+                    SELECT 1 FROM was_daily_report_tracker newer
+                    WHERE newer.tag = tracker.tag
+                      AND COALESCE(newer.scan_execution_key, '')
+                          NOT LIKE 'legacy-import:%%'
+                      AND ROW(
+                          COALESCE(newer.scan_start_date, DATE '0001-01-01'),
+                          COALESCE(newer.data_pull_date, DATE '0001-01-01'),
+                          newer.id
+                      ) > ROW(
+                          COALESCE(tracker.scan_start_date, DATE '0001-01-01'),
+                          COALESCE(tracker.data_pull_date, DATE '0001-01-01'),
+                          tracker.id
+                      )
+                ))""".format(
+                manual_candidate
+            )
+            parameters = (batch_id, days_back)
         condition = """(tracker.id IN (SELECT tracker_id
             FROM was_batch_report_attempts WHERE batch_id=%s) OR {})""".format(
-            manual
+            recent_manual
         )
-        parameters = (batch_id,)
-    query = """SELECT {}, {} FROM was_daily_report_tracker tracker
+    query = """SELECT {}, stakeholders.manual_report
+        FROM was_daily_report_tracker tracker
         LEFT JOIN was_stakeholders stakeholders ON stakeholders.tag=tracker.tag
         LEFT JOIN was_assignees assignees ON assignees.id=tracker.assignee_id
         WHERE {} ORDER BY LOWER(COALESCE(assignees.name, tracker.assignee,
         'Unassigned')), tracker.id""".format(
-        ",".join(fields), manual, condition
+        ",".join(fields), condition
     )
-    return [dict(zip(EXPORT_FIELDS, row)) for row in _execute(query, parameters, True)]
+    results = []
+    for values in _execute(query, parameters, True):
+        row = dict(zip(TRACKER_EXPORT_FIELDS, values))
+        classification = manual_work_classification(
+            report_sent_date=row.get("report_sent_date"),
+            report_scan_notes=row.get("report_scan_notes"),
+            qualys_error=row.get("qualys_error"),
+            status=row.get("status"),
+            stakeholder_manual=bool(values[-1]),
+        )
+        row["open_manual"] = classification == MANUAL_WORK
+        row["delivery_reconciliation"] = classification == DELIVERY_RECONCILIATION
+        results.append(row)
+    return results
 
 
 def _recipients(override_recipients):
@@ -416,7 +461,13 @@ def send_tracker_summary(
     )
 
 
-def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run=False):
+def send_batch_summary(
+    batch_id,
+    source_email,
+    override_recipients=None,
+    dry_run=False,
+    days_back=7,
+):
     """Send one aggregate outcome and only unresolved manual items in the body."""
     batch = _execute(
         "SELECT EXTRACT(EPOCH FROM (COALESCE(finished_at,now())-started_at)), tracker_duration_seconds, "
@@ -511,8 +562,8 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
                 ))
         except (TypeError, ValueError):
             LOGGER.warning("Capacity progress summary metadata is invalid; omitted.")
-    rows = _tracker_rows(batch_id=batch_id)
-    manuals = [row for row in rows if row["open_manual"]]
+    rows = _tracker_rows(batch_id=batch_id, days_back=days_back)
+    manuals = [row for row in rows if row.get("open_manual")]
     for row in manuals:
         lines.append(
             "{}: tracker {}; tag {}; status {}; scan {}; reason {}".format(
@@ -525,6 +576,22 @@ def send_batch_summary(batch_id, source_email, override_recipients=None, dry_run
             )
         )
     if not manuals:
+        lines.append("None.")
+    lines.extend(("", "Delivery reconciliation needed:"))
+    reconciliation_rows = [
+        row for row in rows if row.get("delivery_reconciliation")
+    ]
+    for row in reconciliation_rows:
+        lines.append(
+            "{}: tracker {}; tag {}; scan {}; note {}; structured sent date is missing".format(
+                row["assignee"],
+                row["id"],
+                row["tag"],
+                row.get("scan_name") or "Not available",
+                row.get("report_scan_notes") or "Legacy sent marker",
+            )
+        )
+    if not reconciliation_rows:
         lines.append("None.")
     if not attempts:
         lines.append("No recorded report attempts; generation metrics are unavailable.")
@@ -569,6 +636,9 @@ def main(argv=None):
             arguments.dry_run,
         )
     else:
+        days = (
+            None if arguments.days_back.lower() == "all" else int(arguments.days_back)
+        )
         if not arguments.dry_run:
             finish_batch(arguments.batch_id, arguments.outcome)
         send_batch_summary(
@@ -576,6 +646,7 @@ def main(argv=None):
             arguments.source_email,
             arguments.test_recipients,
             arguments.dry_run,
+            days,
         )
     return 0
 

@@ -23,6 +23,10 @@ PASSWORD_CHARACTER_SET = "".join(
 EXISTING_PASSWORD_CHARACTER_SET = PASSWORD_CHARACTER_SET + ",- "
 
 
+class ExistingReportPasswordError(ValueError):
+    """Indicate that a stored report password cannot be used safely."""
+
+
 def password_length_from_environment() -> int:
     """Return the configured WAS password length."""
     raw_length = getenv("WAS_PASSWORD_LENGTH")
@@ -61,7 +65,12 @@ def validate_report_password(value: str) -> None:
 
 def validate_existing_report_password(value: str) -> None:
     """Accept existing printable ASCII passwords without stripping literal spaces."""
-    _validate_password_characters(value, EXISTING_PASSWORD_CHARACTER_SET)
+    try:
+        _validate_password_characters(value, EXISTING_PASSWORD_CHARACTER_SET)
+    except ValueError as error:
+        raise ExistingReportPasswordError(
+            "Stored report password is empty or contains an unsupported character."
+        ) from error
 
 
 def _contains_any(value: str, characters: Iterable[str]) -> bool:

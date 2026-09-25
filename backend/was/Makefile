@@ -24,6 +24,8 @@ SEND_EMAIL ?= 0
 REPLAY_ID ?=
 REPORT_RUN_IDS ?=
 MANUAL_TRACKER_IDS ?=
+RECOVERY_CAUSE ?=
+RECOVERY_CONFIRM ?=
 APPLY ?= 0
 CAPACITY_RUN_ID ?=
 CAPACITY_WORKLOAD_LABEL ?= capacity-trial
@@ -35,7 +37,7 @@ INPUT_CSV ?=
 INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -165,6 +167,22 @@ manual-report:
 	@test -n "$(TAG)" || (echo 'TAG is required. Use: make manual-report TAG="CUSTOMER_TAG"' >&2; exit 1)
 	mkdir -p $(OUTPUT_DIR)
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) --recent-scans --skip-tracker-refresh --tag "$(TAG)" --include-manual --create-missing-password --continue-on-error --send-email --limit 1
+
+recover-manual-reports:
+	@test -n "$(MANUAL_TRACKER_IDS)" || (echo 'MANUAL_TRACKER_IDS is required.' >&2; exit 2)
+	@test "$(RECOVERY_CAUSE)" = 'password-validation' -o "$(RECOVERY_CAUSE)" = 'qualys-read-timeout' || (echo 'RECOVERY_CAUSE must be password-validation or qualys-read-timeout.' >&2; exit 2)
+	@set -- --tracker-ids "$(MANUAL_TRACKER_IDS)" --cause "$(RECOVERY_CAUSE)" --days-back "$(DAYS_BACK)"; \
+	if [ -n "$(TEST_RECIPIENTS)" ] && [ "$(TEST_RECIPIENTS)" != 'operator@example.gov' ]; then \
+	  set -- "$$@" --test-recipients "$(TEST_RECIPIENTS)"; \
+	fi; \
+	case "$(APPLY)" in \
+	  0) ;; \
+	  1) test "$(RECOVERY_CONFIRM)" = 'RECOVER' || { echo 'APPLY=1 requires RECOVERY_CONFIRM=RECOVER.' >&2; exit 2; }; \
+	     mkdir -p "$(OUTPUT_DIR)"; set -- "$$@" --apply --confirm RECOVER --send-email ;; \
+	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; \
+	esac; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" -v "$(OUTPUT_DIR):/output" \
+	  --entrypoint python $(IMAGE) -m was_reports.commands.recover_manual_reports "$$@"
 
 .PHONY: on-demand-report
 

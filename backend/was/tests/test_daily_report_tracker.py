@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import (
+    DELIVERY_RECONCILIATION,
+    MANUAL_WORK,
     DailyReportTrackerRow,
     TRACKER_RECORD_COLUMNS,
     claim_assignee_digest_rows,
@@ -19,6 +21,7 @@ from was_reports.data.daily_report_tracker import (
     list_ready_report_candidates,
     list_tracker_rows_for_export,
     list_tracker_table_rows,
+    manual_work_classification,
     mark_manual_tracker_report_sent,
     mark_tracker_report_manual,
     record_tracker_digest_failure,
@@ -83,6 +86,98 @@ class FakeConnection:
 
 class DailyReportTrackerTests(unittest.TestCase):
     """Validate daily report tracker persistence helpers."""
+
+    def test_manual_work_classification_separates_legacy_sent_notes(self) -> None:
+        """An unreconciled sent marker is not actionable manual generation."""
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "Sent 09/22/2026",
+                None,
+                "Finished",
+                False,
+            ),
+            DELIVERY_RECONCILIATION,
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "Report sent - 09/21/2026\nLegacy child-tag detail",
+                None,
+                "Finished",
+                False,
+            ),
+            DELIVERY_RECONCILIATION,
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "MANUAL: PasswordValidationError",
+                None,
+                "Finished",
+                False,
+            ),
+            MANUAL_WORK,
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "Sent yesterday",
+                None,
+                "Finished",
+                False,
+            ),
+            MANUAL_WORK,
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "Sent 09/31/2026",
+                None,
+                "Finished",
+                False,
+            ),
+            MANUAL_WORK,
+        )
+        self.assertIsNone(
+            manual_work_classification(
+                date(2026, 9, 22),
+                "Sent 09/22/2026",
+                None,
+                "Finished",
+                False,
+            )
+        )
+
+    def test_manual_candidates_exclude_unreconciled_legacy_sent_notes(self) -> None:
+        """Generic manual processing cannot resend a legacy sent-note row."""
+        conn = FakeConnection(
+            fetchall_rows=[
+                (
+                    7,
+                    "TAG",
+                    date(2026, 9, 22),
+                    123,
+                    1,
+                    456,
+                    "Customer",
+                    "Results",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "Sent 09/22/2026",
+                    "Finished",
+                    False,
+                )
+            ]
+        )
+        self.assertEqual(
+            list_ready_report_candidates(conn=conn, include_manual=True),
+            [],
+        )
 
     def test_insert_preserves_full_execution_timestamps(self) -> None:
         """Persist exact start and end separately from execution identity."""
@@ -459,6 +554,10 @@ class DailyReportTrackerTests(unittest.TestCase):
                     8,
                     "failed",
                     "pending",
+                    None,
+                    "MANUAL",
+                    "Error",
+                    False,
                 )
             ]
         )

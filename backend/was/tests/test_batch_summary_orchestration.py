@@ -72,6 +72,7 @@ class BatchSummaryOrchestrationTests(unittest.TestCase):
         self.summaries.send_batch_summary.assert_called_once_with(
             "shared-batch", source_email="reports@example.gov",
             override_recipients="analyst@example.gov",
+            days_back=None,
         )
         arguments = self.summaries.record_report_attempt.call_args
         self.assertEqual(arguments.args, ("shared-batch", 9))

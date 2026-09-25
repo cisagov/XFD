@@ -169,6 +169,35 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertIn("sent: 1; unsent: 0", body)
         self.assertEqual(len(deliver.call_args.args[5]), 2)
 
+    @patch.object(summaries, "_deliver", return_value=True)
+    @patch.object(summaries, "_tracker_rows")
+    @patch.object(summaries, "_execute")
+    def test_final_body_separates_delivery_reconciliation(
+        self, execute, rows, deliver
+    ):
+        """Missing structured sent dates appear outside open manual work."""
+        execute.side_effect = [
+            [(90, 10, None, 2, "production", "fixture", "finished", "completed")],
+            [],
+        ]
+        rows.return_value = [
+            {
+                "id": 3,
+                "tag": "LEGACY",
+                "assignee": "Analyst",
+                "scan_name": "Legacy scan",
+                "report_scan_notes": "Sent 09/22/2026",
+                "open_manual": False,
+                "delivery_reconciliation": True,
+            }
+        ]
+        summaries.send_batch_summary("batch", "from@example.gov", days_back=7)
+        body = deliver.call_args.args[4]
+        self.assertIn("Open manual work:\nNone.", body)
+        self.assertIn("Delivery reconciliation needed:", body)
+        self.assertIn("tracker 3; tag LEGACY", body)
+        rows.assert_called_once_with(batch_id="batch", days_back=7)
+
     @patch.object(summaries, "getenv", return_value='{"total": 2, "completed": 1, "failed": 1, "remaining": 1, "blocked": 1}')
     @patch.object(summaries, "_deliver", return_value=True)
     @patch.object(summaries, "_tracker_rows", return_value=[])
@@ -242,12 +271,16 @@ class AnalystSummaryTests(unittest.TestCase):
         summary.assert_called_once()
 
     @patch.object(summaries, "_execute", return_value=[])
-    def test_manual_query_includes_unassigned_and_open_historical_rows(self, execute):
-        """Final manual work is not restricted to this batch's generation window."""
+    def test_manual_query_includes_unassigned_and_limits_backlog(self, execute):
+        """Final output includes current-batch rows plus seven-day manual backlog."""
         summaries._tracker_rows(batch_id="batch")
         query = execute.call_args.args[0]
         self.assertIn("LEFT JOIN was_stakeholders", query)
         self.assertIn("report_sent_date IS NULL", query)
+        self.assertIn("CURRENT_DATE - (%s - 1)", query)
+        self.assertIn("was_daily_report_tracker newer", query)
+        self.assertIn("newer.tag = tracker.tag", query)
+        self.assertEqual(execute.call_args.args[1], ("batch", 7))
         self.assertNotIn("legacy_password", query)
         self.assertNotIn("active IS TRUE", query)
 
