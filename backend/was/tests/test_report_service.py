@@ -17,6 +17,7 @@ from was_reports.reporting import (
     report_retrieval,
     report_service,
     report_transformer,
+    streaming_report,
 )
 from was_reports.utils.qualys_config import QualysCredentials
 
@@ -151,6 +152,114 @@ class ReportServiceTests(unittest.TestCase):
         )
         mock_get_tag_details.assert_not_called()
         mock_render.assert_called_once()
+
+    @patch("was_reports.reporting.report_service.latex_renderer.render_report_pdf")
+    @patch(
+        "was_reports.reporting.report_service.report_template_data.build_template_data"
+    )
+    @patch("was_reports.reporting.report_service.finding_ages.retrieve_finding_ages")
+    @patch("was_reports.reporting.report_service.chart_renderer.render_report_charts")
+    @patch(
+        "was_reports.reporting.report_service.streaming_report.process_report_xml"
+    )
+    @patch(
+        "was_reports.reporting.report_service.report_retrieval.managed_report_source_data"
+    )
+    def test_generate_unencrypted_report_streams_file_backed_xml(
+        self,
+        mock_managed_source_data,
+        mock_process_report_xml,
+        mock_charts,
+        mock_ages,
+        mock_template_data,
+        mock_render,
+    ) -> None:
+        """Use the bounded-memory processor for downloaded report XML files."""
+        xml_path = Path("/private/report.xml")
+        source_data = report_retrieval.ReportSourceData(
+            stakeholder_tag="CUSTOMER",
+            tag_id="tag-1",
+            web_application_count=12,
+            xml_report_id="report-1",
+            report_xml=None,
+            detail_pdf_path=Path("/work/assets/CUSTOMERDetails.pdf"),
+            report_xml_path=xml_path,
+        )
+
+        @contextmanager
+        def source_context(*args, **kwargs):
+            """Yield representative file-backed Qualys source data."""
+            yield source_data
+
+        transformation = report_transformer.TransformationResult(
+            vulnerability_filename="vulnerability-list-CUSTOMER.csv",
+            information_filename="information-gathered-listCUSTOMER.csv",
+            severities=["4"],
+            ages=[10],
+        )
+        finding_metrics_result = Mock()
+        summary_metrics_result = Mock()
+        artifacts_result = report_artifacts.ReportArtifactResult(
+            "vulns.csv",
+            "overview.csv",
+            "links.csv",
+            "emails.csv",
+            "rejects.csv",
+            "sensitive.csv",
+        )
+        streaming_result = streaming_report.StreamingReportResult(
+            transformation=transformation,
+            finding_metrics=finding_metrics_result,
+            summary_metrics=summary_metrics_result,
+            severity_totals=("1", "2", "3", "4", "5"),
+            artifacts=artifacts_result,
+        )
+        mock_managed_source_data.side_effect = source_context
+        mock_process_report_xml.return_value = streaming_result
+        mock_ages.return_value = finding_ages.FindingAges(10, 20)
+        mock_template_data.return_value = {"OrgName": "Customer Organization"}
+        mock_render.return_value = latex_renderer.LatexRenderResult(
+            tex_path=Path("/work/CUSTOMER_report_2026-08-27.tex"),
+            pdf_path=Path("/output/CUSTOMER_report_2026-08-27.pdf"),
+        )
+
+        result = report_service.generate_unencrypted_report(
+            client=self.client,
+            credentials=self.credentials,
+            stakeholder_tag="CUSTOMER",
+            paths=self.paths,
+            python_executable="python3",
+            current_time=CURRENT_TIME,
+            tag_id="tag-1",
+            organization_name="Customer Organization",
+            allow_tag_lookup=False,
+        )
+
+        self.assertEqual(result, Path("/output/CUSTOMER_report_2026-08-27.pdf"))
+        mock_process_report_xml.assert_called_once_with(
+            xml_path=xml_path,
+            stakeholder_tag="CUSTOMER",
+            asset_directory=Path("/work/assets"),
+            client=self.client,
+            current_time=CURRENT_TIME,
+        )
+        mock_charts.assert_called_once_with(
+            finding_metrics=finding_metrics_result,
+            ages=[10],
+            severities=["4"],
+            asset_directory=Path("/work/assets"),
+        )
+        template_arguments = mock_template_data.call_args.kwargs
+        self.assertIsNone(template_arguments["report_xml"])
+        self.assertIs(
+            template_arguments["summary_metrics"],
+            summary_metrics_result,
+        )
+        self.assertEqual(
+            template_arguments["severity_totals"],
+            ("1", "2", "3", "4", "5"),
+        )
+        self.assertIs(template_arguments["artifacts"].generated, artifacts_result)
 
     @patch("was_reports.reporting.report_service.publish_encrypted_pdf")
     @patch("was_reports.reporting.report_service.encrypt_pdf_in_place")

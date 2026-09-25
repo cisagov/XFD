@@ -230,6 +230,8 @@ WAS_QUALYS_RETRY_MAX_DELAY_SECONDS=30
 WAS_QUALYS_RETRY_JITTER_RATIO=0.25
 WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS=1800
 WAS_QUALYS_CREATE_RECONCILE_POLL_SECONDS=30
+WAS_QUALYS_REPORT_XML_MAX_BYTES=10737418240
+WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES=5368709120
 WAS_QUALYS_REPORT_POLL_SECONDS=60
 WAS_QUALYS_REPORT_PROGRESS_SECONDS=300
 WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=0
@@ -386,6 +388,16 @@ failure status. Progress is written to the terminal and retained log every
 `WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS` allows multi-hour reports to continue
 without an elapsed-time cutoff. Set a positive number of seconds only when an
 environment requires a bounded polling window.
+
+Qualys report XML is streamed to a private file and processed in two bounded-
+memory passes. `WAS_QUALYS_REPORT_XML_MAX_BYTES` defaults to 10 GiB and stops a
+download that exceeds the configured disk safety limit.
+`WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES` defaults to 5 GiB and stops a download
+before it consumes the host's reserved free space. Either condition records a
+specific failure category in the private batch log. The temporary source file
+is removed after success or downstream failure, while its Qualys report ID is
+retained when reconciliation may safely resume the work. Size the report
+workspace for the configured worker concurrency before a production load test.
 
 Active Qualys detail and XML report IDs, current statuses, and last-poll
 timestamps are stored on `was_report_runs`. If a tracker-linked failed run is

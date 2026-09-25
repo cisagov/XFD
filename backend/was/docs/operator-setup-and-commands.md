@@ -178,6 +178,15 @@ Commands with `APPLY=1`, `--confirm`, email delivery, tracker imports, or Qualys
 deletion have additional safeguards documented in their focused runbooks. Do
 not remove those safeguards from wrapper scripts.
 
+Large Qualys XML reports are streamed to private temporary files and processed
+without loading the complete document into memory. The checked-in `dev.env`
+sets `WAS_QUALYS_REPORT_XML_MAX_BYTES` to 10 GiB and
+`WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES` to 5 GiB. Copy both settings to the
+deployed `.env`, rebuild after code changes, and verify that the report
+workspace can support the configured worker concurrency. A
+`ReportXmlSizeLimitError` or `ReportXmlDiskSpaceError` requires review before
+changing a limit or retrying the affected tracker row.
+
 ## Batch troubleshooting
 
 Every coordinated production or capacity batch prints a batch UUID. Preserve

@@ -3,6 +3,7 @@
 # Standard Python Libraries
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -12,6 +13,10 @@ import requests
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRetryPolicy
 from was_reports.reporting import detail_reports
+from was_reports.reporting.exceptions import (
+    ReportXmlDiskSpaceError,
+    ReportXmlSizeLimitError,
+)
 from was_reports.utils.qualys_config import QualysCredentials
 
 
@@ -41,14 +46,25 @@ class FakeConnection:
 class FakeResponse:
     """Small HTTP response fake."""
 
-    def __init__(self, content: bytes):
+    def __init__(self, content: bytes, headers=None):
         """Initialize response content."""
         self.content = content
+        self.headers = headers or {}
         self.raise_for_status_called = False
+        self.closed = False
 
     def raise_for_status(self):
         """Record status validation."""
         self.raise_for_status_called = True
+
+    def iter_content(self, chunk_size: int):
+        """Yield response bytes in bounded chunks."""
+        for offset in range(0, len(self.content), chunk_size):
+            yield self.content[offset : offset + chunk_size]
+
+    def close(self):
+        """Record response cleanup."""
+        self.closed = True
 
 
 class FakeSession:
@@ -60,7 +76,7 @@ class FakeSession:
         self.urls = []
         self.response = FakeResponse(b"pdf-content")
 
-    def get(self, url: str):
+    def get(self, url: str, **kwargs):
         """Capture requested URL and return a fake response."""
         self.urls.append(url)
         return self.response
@@ -74,7 +90,7 @@ class RetryingFakeSession(FakeSession):
         super().__init__()
         self.outcomes = list(outcomes)
 
-    def get(self, url: str):
+    def get(self, url: str, **kwargs):
         """Capture a URL and return or raise the next queued outcome."""
         self.urls.append(url)
         outcome = self.outcomes.pop(0)
@@ -359,6 +375,142 @@ class DetailReportsTests(unittest.TestCase):
 
         self.assertEqual(len(session.urls), 2)
         self.assertEqual(sleep_calls, [1.0])
+
+    def test_download_report_xml_streams_to_private_file(self) -> None:
+        """Stream XML chunks to disk without retaining response content copies."""
+        session = FakeSession()
+        session.response = FakeResponse(b"<WAS_WEBAPP_REPORT />")
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_REPORT_XML_MAX_BYTES": "1024",
+                "WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
+            output_path = Path(directory) / "report.xml"
+            result = detail_reports.download_report_xml(
+                report_id="123",
+                output_path=output_path,
+                credentials=credentials,
+                session_factory=lambda: session,
+            )
+
+            self.assertEqual(result, output_path)
+            self.assertEqual(output_path.read_bytes(), b"<WAS_WEBAPP_REPORT />")
+            self.assertEqual(output_path.stat().st_mode & 0o777, 0o600)
+            self.assertFalse(Path("{}.part".format(output_path)).exists())
+        self.assertTrue(session.response.closed)
+
+    def test_download_report_xml_enforces_disk_size_limit(self) -> None:
+        """Stop an oversized download and remove its partial file."""
+        session = FakeSession()
+        session.response = FakeResponse(b"01234567890")
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_REPORT_XML_MAX_BYTES": "10",
+                "WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
+            output_path = Path(directory) / "report.xml"
+            with self.assertRaises(ReportXmlSizeLimitError):
+                detail_reports.download_report_xml(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+            self.assertFalse(Path("{}.part".format(output_path)).exists())
+
+    def test_download_report_xml_preserves_free_disk_reserve(self) -> None:
+        """Stop streaming before consuming the configured disk reserve."""
+        session = FakeSession()
+        session.response = FakeResponse(b"report-content")
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_REPORT_XML_MAX_BYTES": "1024",
+                "WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES": "100",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=100),
+        ):
+            output_path = Path(directory) / "report.xml"
+            with self.assertRaises(ReportXmlDiskSpaceError):
+                detail_reports.download_report_xml(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+            self.assertFalse(Path("{}.part".format(output_path)).exists())
+
+    def test_download_report_xml_rejects_large_content_length(self) -> None:
+        """Reject a declared oversized report before consuming its body."""
+        session = FakeSession()
+        session.response = FakeResponse(
+            b"unused",
+            headers={"Content-Length": "2048"},
+        )
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_REPORT_XML_MAX_BYTES": "1024",
+                "WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES": "1",
+            },
+        ):
+            output_path = Path(directory) / "report.xml"
+            with self.assertRaises(ReportXmlSizeLimitError):
+                detail_reports.download_report_xml(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+        self.assertTrue(session.response.closed)
+
+    def test_download_report_xml_rejects_doctype_across_chunks(self) -> None:
+        """Reject DTD declarations even when a token spans download chunks."""
+        session = FakeSession()
+        session.response = FakeResponse(b"<root><!DOCTYPE unsafe></root>")
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_REPORT_XML_MAX_BYTES": "1024",
+                "WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports,
+            "REPORT_XML_CHUNK_BYTES",
+            10,
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
+            output_path = Path(directory) / "report.xml"
+            with self.assertRaises(
+                detail_reports.ReportXmlUnsafeContentError
+            ):
+                detail_reports.download_report_xml(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+            self.assertFalse(Path("{}.part".format(output_path)).exists())
 
     @patch("was_reports.reporting.detail_reports.post_process_detail_pdf")
     def test_download_and_process_detail_report_runs_full_flow(

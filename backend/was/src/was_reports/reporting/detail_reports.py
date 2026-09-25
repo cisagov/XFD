@@ -1,9 +1,12 @@
 """Qualys detail-report download and post-processing helpers."""
 
 # Standard Python Libraries
+import errno
 import logging
+import os
 from pathlib import Path
 import random
+import shutil
 import time
 from typing import Any, Callable
 
@@ -19,6 +22,11 @@ from was_reports.qualys.qualys_client import (
     TimeoutSession,
     execute_retryable_operation,
 )
+from was_reports.reporting.exceptions import (
+    ReportXmlDiskSpaceError,
+    ReportXmlSizeLimitError,
+    ReportXmlUnsafeContentError,
+)
 from was_reports.reporting.pdf_helpers import post_process_detail_pdf
 from was_reports.utils.env import getenv
 from was_reports.utils.operation_cancellation import (
@@ -30,6 +38,10 @@ from was_reports.utils.qualys_config import QualysCredentials
 DETAIL_POLL_SECONDS = 60
 DETAIL_PROGRESS_SECONDS = 300
 DETAIL_POLL_TIMEOUT_SECONDS = 0
+DEFAULT_REPORT_XML_MAX_BYTES = 10 * 1024 * 1024 * 1024
+DEFAULT_REPORT_XML_MIN_FREE_BYTES = 5 * 1024 * 1024 * 1024
+REPORT_XML_CHUNK_BYTES = 1024 * 1024
+PROHIBITED_XML_DECLARATIONS = (b"<!DOCTYPE", b"<!ENTITY")
 TERMINAL_FAILURE_STATUSES = frozenset(
     {"CANCELED", "CANCELLED", "DELETED", "ERROR", "FAILED"}
 )
@@ -57,6 +69,18 @@ def report_poll_timeout_seconds_from_environment() -> int | None:
 
 def positive_poll_setting(name: str, default: int) -> int:
     """Return one positive Qualys polling interval from the environment."""
+    raw_value = getenv(name, str(default))
+    try:
+        value = int(raw_value) if raw_value is not None else default
+    except ValueError as error:
+        raise ValueError("{} must be an integer.".format(name)) from error
+    if value < 1:
+        raise ValueError("{} must be at least 1.".format(name))
+    return value
+
+
+def positive_byte_setting(name: str, default: int) -> int:
+    """Return one positive byte-count setting from the environment."""
     raw_value = getenv(name, str(default))
     try:
         value = int(raw_value) if raw_value is not None else default
@@ -225,6 +249,118 @@ def _download_response(session: Any, url: str) -> Any:
     response = session.get(url)
     response.raise_for_status()
     return response
+
+
+def _stream_report_xml_once(
+    session: Any,
+    url: str,
+    output_path: Path,
+    maximum_bytes: int,
+    minimum_free_bytes: int,
+) -> Path:
+    """Stream one Qualys XML response to an owner-readable temporary file."""
+    output_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    partial_path = output_path.with_name("{}.part".format(output_path.name))
+    response = session.get(url, stream=True)
+    response.raise_for_status()
+    content_length = getattr(response, "headers", {}).get("Content-Length")
+    if content_length is not None:
+        try:
+            expected_bytes = int(content_length)
+        except ValueError as error:
+            response.close()
+            raise ValueError("Qualys returned an invalid Content-Length.") from error
+        if expected_bytes > maximum_bytes:
+            response.close()
+            raise ReportXmlSizeLimitError(expected_bytes, maximum_bytes)
+    total_bytes = 0
+    declaration_prefix = b""
+    try:
+        output_path.parent.chmod(0o700)
+        partial_path.unlink(missing_ok=True)
+        with partial_path.open("xb") as output_file:
+            partial_path.chmod(0o600)
+            for chunk in response.iter_content(chunk_size=REPORT_XML_CHUNK_BYTES):
+                raise_if_operation_cancelled()
+                if not chunk:
+                    continue
+                total_bytes += len(chunk)
+                if total_bytes > maximum_bytes:
+                    raise ReportXmlSizeLimitError(total_bytes, maximum_bytes)
+                inspection = declaration_prefix + chunk
+                if any(
+                    declaration in inspection
+                    for declaration in PROHIBITED_XML_DECLARATIONS
+                ):
+                    raise ReportXmlUnsafeContentError(
+                        "Qualys report XML contains a prohibited DTD declaration."
+                    )
+                declaration_prefix = inspection[-16:]
+                free_bytes = shutil.disk_usage(output_path.parent).free
+                if free_bytes - len(chunk) < minimum_free_bytes:
+                    raise ReportXmlDiskSpaceError(
+                        "Qualys report XML download stopped to preserve the "
+                        "configured free-disk reserve."
+                    )
+                try:
+                    output_file.write(chunk)
+                except OSError as error:
+                    if error.errno == errno.ENOSPC:
+                        raise ReportXmlDiskSpaceError(
+                            "Qualys report XML download exhausted local disk space."
+                        ) from error
+                    raise
+        os.replace(partial_path, output_path)
+        output_path.chmod(0o600)
+        LOGGER.info(
+            "Streamed Qualys report XML %s to private storage (%s bytes).",
+            output_path.name,
+            total_bytes,
+        )
+        return output_path
+    finally:
+        response.close()
+        partial_path.unlink(missing_ok=True)
+
+
+def download_report_xml(
+    report_id: str,
+    output_path: Path,
+    credentials: QualysCredentials,
+    session_factory: Callable | None = None,
+    retry_policy: QualysRetryPolicy | None = None,
+    sleep_function: Callable[[float], None] = time.sleep,
+    random_function: Callable[[], float] = random.random,
+) -> Path:
+    """Stream a generated Qualys XML report to private local storage."""
+    resolved_retry_policy = retry_policy or QualysRetryPolicy.from_environment()
+    maximum_bytes = positive_byte_setting(
+        "WAS_QUALYS_REPORT_XML_MAX_BYTES",
+        DEFAULT_REPORT_XML_MAX_BYTES,
+    )
+    minimum_free_bytes = positive_byte_setting(
+        "WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES",
+        DEFAULT_REPORT_XML_MIN_FREE_BYTES,
+    )
+    if session_factory is None:
+        session = TimeoutSession(resolved_retry_policy.request_timeout_seconds)
+    else:
+        session = session_factory()
+    session.auth = (credentials.username, credentials.password)
+    download_url = build_download_url(credentials.hostname, report_id)
+    return execute_retryable_operation(
+        operation=lambda: _stream_report_xml_once(
+            session,
+            download_url,
+            output_path,
+            maximum_bytes,
+            minimum_free_bytes,
+        ),
+        operation_name="download XML report {}".format(report_id),
+        policy=resolved_retry_policy,
+        sleep_function=sleep_function,
+        random_function=random_function,
+    )
 
 
 def download_detail_pdf(

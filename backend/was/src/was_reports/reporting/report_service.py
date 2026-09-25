@@ -19,6 +19,7 @@ from was_reports.reporting import (
     report_template_data,
     report_transformer,
     report_workspace,
+    streaming_report,
 )
 from was_reports.reporting.pdf_security import (
     encrypt_pdf_in_place,
@@ -85,28 +86,45 @@ def generate_unencrypted_report(
         report_creation_intent_claim=report_creation_intent_claim,
         tag_id=resolved_tag_id,
     ) as source_data:
-        parsed_report = report_transformer.parse_report(source_data.report_xml)
-        transformation = report_transformer.transform_report_to_csv(
-            report_xml=parsed_report,
-            stakeholder_tag=stakeholder_tag,
-            asset_directory=paths.asset_directory,
-            current_time=current_time,
-        )
-        finding_metrics = report_metrics.calculate_finding_metrics(
-            parsed_report,
-            current_time,
-        )
+        parsed_report = None
+        summary_metrics = None
+        severity_totals = None
+        if source_data.report_xml_path is not None:
+            streamed = streaming_report.process_report_xml(
+                xml_path=source_data.report_xml_path,
+                stakeholder_tag=stakeholder_tag,
+                asset_directory=paths.asset_directory,
+                client=client,
+                current_time=current_time,
+            )
+            transformation = streamed.transformation
+            finding_metrics = streamed.finding_metrics
+            summary_metrics = streamed.summary_metrics
+            severity_totals = streamed.severity_totals
+            generated_artifacts = streamed.artifacts
+        else:
+            parsed_report = report_transformer.parse_report(source_data.report_xml)
+            transformation = report_transformer.transform_report_to_csv(
+                report_xml=parsed_report,
+                stakeholder_tag=stakeholder_tag,
+                asset_directory=paths.asset_directory,
+                current_time=current_time,
+            )
+            finding_metrics = report_metrics.calculate_finding_metrics(
+                parsed_report,
+                current_time,
+            )
+            generated_artifacts = report_artifacts.generate_report_artifacts(
+                report_xml=parsed_report,
+                stakeholder_tag=stakeholder_tag,
+                asset_directory=paths.asset_directory,
+                client=client,
+            )
         chart_renderer.render_report_charts(
             finding_metrics=finding_metrics,
             ages=transformation.ages,
             severities=transformation.severities,
             asset_directory=paths.asset_directory,
-        )
-        generated_artifacts = report_artifacts.generate_report_artifacts(
-            report_xml=parsed_report,
-            stakeholder_tag=stakeholder_tag,
-            asset_directory=paths.asset_directory,
-            client=client,
         )
         maximum_ages = finding_ages.retrieve_finding_ages(
             client=client,
@@ -134,6 +152,8 @@ def generate_unencrypted_report(
             web_application_count=source_data.web_application_count,
             current_time=current_time,
             finding_metrics=finding_metrics,
+            summary_metrics=summary_metrics,
+            severity_totals=severity_totals,
         )
         render_result = latex_renderer.render_report_pdf(
             template_path=paths.working_directory / "NEW_BIG.mustache",

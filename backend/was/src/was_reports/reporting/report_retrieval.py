@@ -35,9 +35,10 @@ class ReportSourceData:
     tag_id: str
     web_application_count: int
     xml_report_id: str
-    report_xml: str
+    report_xml: str | bytes | None
     detail_pdf_path: Optional[Path]
     detail_report_id: str | None = None
+    report_xml_path: Path | None = None
 
 
 def report_request_name(
@@ -70,6 +71,7 @@ def retrieve_report_source_data(
     report_creation_intent_claim: Callable[[str], bool] | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
     report_waiter: Callable = detail_reports.wait_for_report_completion,
+    xml_downloader: Callable | None = None,
     tag_id: str | None = None,
 ) -> ReportSourceData:
     """Retrieve the Qualys XML report and optional detail PDF artifact."""
@@ -155,16 +157,24 @@ def retrieve_report_source_data(
             "xml",
         )
     report_waiter(**waiter_arguments)
-    report_xml = report_data.get_report_xml(client, xml_report_id)
+    xml_directory = output_directory / ".qualys-xml"
+    xml_path = xml_directory / "{}-{}.xml".format(xml_report_id, uuid4())
+    resolved_xml_downloader = xml_downloader or detail_reports.download_report_xml
+    report_xml_path = resolved_xml_downloader(
+        report_id=xml_report_id,
+        output_path=xml_path,
+        credentials=credentials,
+    )
 
     return ReportSourceData(
         stakeholder_tag=stakeholder_tag,
         tag_id=tag_id,
         web_application_count=web_application_count,
         xml_report_id=xml_report_id,
-        report_xml=report_xml,
+        report_xml=None,
         detail_pdf_path=detail_pdf_path,
         detail_report_id=detail_report_id,
+        report_xml_path=report_xml_path,
     )
 
 
@@ -185,6 +195,7 @@ def managed_report_source_data(
     report_creation_intent_claim: Callable[[str], bool] | None = None,
     detail_downloader: Callable = detail_reports.download_and_process_detail_report,
     report_waiter: Callable = detail_reports.wait_for_report_completion,
+    xml_downloader: Callable | None = None,
     tag_id: str | None = None,
 ) -> Iterator[ReportSourceData]:
     """Retain retry references on failure; clean up only after successful use."""
@@ -204,9 +215,17 @@ def managed_report_source_data(
         report_creation_intent_claim=report_creation_intent_claim,
         detail_downloader=detail_downloader,
         report_waiter=report_waiter,
+        xml_downloader=xml_downloader,
         tag_id=tag_id,
     )
-    yield source_data
+    try:
+        yield source_data
+    except BaseException:
+        if source_data.report_xml_path is not None:
+            source_data.report_xml_path.unlink(missing_ok=True)
+        raise
+    if source_data.report_xml_path is not None:
+        source_data.report_xml_path.unlink(missing_ok=True)
     for label, report_id in (
         ("xml", source_data.xml_report_id),
         ("detail", source_data.detail_report_id),

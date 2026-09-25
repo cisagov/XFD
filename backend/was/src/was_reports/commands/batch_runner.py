@@ -47,6 +47,11 @@ from was_reports.data.report_runs import (
 )
 from was_reports.data.stakeholders import list_due_stakeholders_for_report
 from was_reports.qualys.report_data import QualysReportCreationUncertainError
+from was_reports.reporting.exceptions import (
+    ReportXmlDiskSpaceError,
+    ReportXmlSizeLimitError,
+    ReportXmlUnsafeContentError,
+)
 from was_reports.storage.s3_reports import (
     S3_STORAGE,
     VALID_STORAGE_MODES,
@@ -121,6 +126,15 @@ def summarize_report_failure(exception: Exception) -> str:
 
     if isinstance(exception, ReadTimeout):
         return "QualysReadTimeout occurred during report generation."
+
+    if isinstance(exception, ReportXmlSizeLimitError):
+        return "ReportXmlSizeLimitError occurred during report generation."
+
+    if isinstance(exception, ReportXmlDiskSpaceError):
+        return "ReportXmlDiskSpaceError occurred during report generation."
+
+    if isinstance(exception, ReportXmlUnsafeContentError):
+        return "ReportXmlUnsafeContentError occurred during report generation."
 
     if isinstance(exception, subprocess.CalledProcessError):
         return "Report generation failed with exit code {}.".format(

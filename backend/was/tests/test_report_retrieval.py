@@ -28,7 +28,7 @@ class ReportRetrievalTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertTrue(first.startswith("WAS-TAG-REQUEST-"))
 
-    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
     @patch(
         "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
     )
@@ -39,12 +39,12 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_count_webapps,
         mock_get_tag_id,
         mock_create_xml_report,
-        mock_get_report_xml,
+        mock_download_xml,
     ) -> None:
         """Reuse an already resolved tag ID during one report generation."""
         mock_count_webapps.return_value = 35
         mock_create_xml_report.return_value = "xml-789"
-        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        mock_download_xml.return_value = Path("/output/report.xml")
 
         source_data = report_retrieval.retrieve_report_source_data(
             client=self.client,
@@ -83,9 +83,9 @@ class ReportRetrievalTests(unittest.TestCase):
                 )
                 stack.enter_context(
                     patch.object(
-                        report_retrieval.report_data,
-                        "get_report_xml",
-                        return_value="<report />",
+                        report_retrieval.detail_reports,
+                        "download_report_xml",
+                        return_value=Path("/output/report.xml"),
                     )
                 )
                 create = stack.enter_context(
@@ -316,7 +316,7 @@ class ReportRetrievalTests(unittest.TestCase):
         self.resource_root = Path("/resources")
         self.output_directory = Path("/output")
 
-    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
     @patch(
         "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
     )
@@ -331,14 +331,14 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_get_tag_id,
         mock_create_detail_report,
         mock_create_xml_report,
-        mock_get_report_xml,
+        mock_download_xml,
     ) -> None:
         """Preserve the legacy detail attachment threshold behavior."""
         mock_count_webapps.return_value = 34
         mock_get_tag_id.return_value = "tag-123"
         mock_create_detail_report.return_value = "detail-456"
         mock_create_xml_report.return_value = "xml-789"
-        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        mock_download_xml.return_value = Path("/output/report.xml")
         detail_downloader = Mock(return_value=Path("/legacy/assets/TAGDetails.pdf"))
         report_waiter = Mock()
 
@@ -367,7 +367,11 @@ class ReportRetrievalTests(unittest.TestCase):
             claim.assert_called_with(label)
         self.assertEqual(source_data.tag_id, "tag-123")
         self.assertEqual(source_data.xml_report_id, "xml-789")
-        self.assertEqual(source_data.report_xml, "<WAS_WEBAPP_REPORT />")
+        self.assertIsNone(source_data.report_xml)
+        self.assertEqual(
+            source_data.report_xml_path,
+            Path("/output/report.xml"),
+        )
         self.assertEqual(
             source_data.detail_pdf_path,
             Path("/legacy/assets/TAGDetails.pdf"),
@@ -386,7 +390,7 @@ class ReportRetrievalTests(unittest.TestCase):
             report_id="xml-789",
         )
 
-    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
     @patch(
         "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
     )
@@ -401,13 +405,13 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_get_tag_id,
         mock_create_detail_report,
         mock_create_xml_report,
-        mock_get_report_xml,
+        mock_download_xml,
     ) -> None:
         """Skip the detail attachment when the web application count is 35."""
         mock_count_webapps.return_value = 35
         mock_get_tag_id.return_value = "tag-123"
         mock_create_xml_report.return_value = "xml-789"
-        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        mock_download_xml.return_value = Path("/output/report.xml")
         detail_downloader = Mock()
         report_waiter = Mock()
 
@@ -431,7 +435,7 @@ class ReportRetrievalTests(unittest.TestCase):
             report_id="xml-789",
         )
 
-    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
     @patch(
         "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
     )
@@ -446,12 +450,12 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_get_tag_id,
         mock_create_detail_report,
         mock_create_xml_report,
-        mock_get_report_xml,
+        mock_download_xml,
     ) -> None:
         """Reuse persisted report IDs instead of submitting duplicate reports."""
         mock_count_webapps.return_value = 34
         mock_get_tag_id.return_value = "tag-123"
-        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        mock_download_xml.return_value = Path("/output/report.xml")
         detail_downloader = Mock(return_value=Path("/output/TAGDetails.pdf"))
         report_waiter = Mock()
         status_recorder = Mock()
@@ -484,7 +488,7 @@ class ReportRetrievalTests(unittest.TestCase):
             "xml-existing",
         )
 
-    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
     @patch(
         "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
     )
@@ -495,13 +499,13 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_count_webapps,
         mock_get_tag_id,
         mock_create_xml_report,
-        mock_get_report_xml,
+        mock_download_xml,
     ) -> None:
         """Persist a new Qualys report ID before polling starts."""
         mock_count_webapps.return_value = 35
         mock_get_tag_id.return_value = "tag-123"
         mock_create_xml_report.return_value = "xml-new"
-        mock_get_report_xml.return_value = "<WAS_WEBAPP_REPORT />"
+        mock_download_xml.return_value = Path("/output/report.xml")
         report_id_recorder = Mock()
 
         report_retrieval.retrieve_report_source_data(
@@ -537,7 +541,7 @@ class ReportRetrievalTests(unittest.TestCase):
             )
 
     @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
-    @patch("was_reports.reporting.report_retrieval.report_data.get_report_xml")
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
     @patch(
         "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
     )
@@ -548,14 +552,14 @@ class ReportRetrievalTests(unittest.TestCase):
         mock_count_webapps,
         mock_get_tag_id,
         mock_create_xml_report,
-        mock_get_report_xml,
+        mock_download_xml,
         mock_delete_report,
     ) -> None:
         """Retain the Qualys report and saved reference when download fails."""
         mock_count_webapps.return_value = 35
         mock_get_tag_id.return_value = "tag-123"
         mock_create_xml_report.return_value = "xml-789"
-        mock_get_report_xml.side_effect = RuntimeError("download failed")
+        mock_download_xml.side_effect = RuntimeError("download failed")
         report_waiter = Mock()
         report_id_clearer = Mock()
 

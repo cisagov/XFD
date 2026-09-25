@@ -153,13 +153,19 @@ def build_template_data(
     web_application_count: int,
     current_time: datetime,
     finding_metrics: report_metrics.FindingMetrics | None = None,
+    summary_metrics: report_metrics.SummaryMetrics | None = None,
+    severity_totals: tuple[str, str, str, str, str] | None = None,
 ) -> Dict[str, str]:
     """Build every field required by the legacy NEW_BIG Mustache template."""
-    summary = report_metrics.calculate_summary_metrics(report_xml)
+    summary = summary_metrics
+    if summary is None:
+        summary = report_metrics.calculate_summary_metrics(report_xml)
     findings = finding_metrics
     if findings is None:
         findings = report_metrics.calculate_finding_metrics(report_xml, current_time)
-    severity_totals = report_metrics.calculate_severity_totals(report_xml)
+    resolved_severity_totals = severity_totals
+    if resolved_severity_totals is None:
+        resolved_severity_totals = report_metrics.calculate_severity_totals(report_xml)
     escaped_organization_name = latex_renderer.escape_latex(organization_name)
     critical_age = latex_renderer.escape_latex(finding_ages.critical_days)
     urgent_age = latex_renderer.escape_latex(finding_ages.urgent_days)
@@ -191,11 +197,11 @@ def build_template_data(
         "UrgColor": report_metrics.status_color(critical_age),
         "maxctl": urgent_age,
         "CtlColor": report_metrics.status_color(urgent_age),
-        "lev1": severity_totals[0],
-        "lev2": severity_totals[1],
-        "lev3": severity_totals[2],
-        "lev4": severity_totals[3],
-        "lev5": severity_totals[4],
+        "lev1": resolved_severity_totals[0],
+        "lev2": resolved_severity_totals[1],
+        "lev3": resolved_severity_totals[2],
+        "lev4": resolved_severity_totals[3],
+        "lev5": resolved_severity_totals[4],
         "PdfFile": _detail_pdf_block(
             artifacts.detail_pdf,
             web_application_count,
