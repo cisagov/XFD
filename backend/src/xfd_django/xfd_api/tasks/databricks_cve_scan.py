@@ -79,7 +79,7 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "source_json": cna.get("source"),
         "adp_json": None,
         "published_at": parse_iso8601(cna.get("datePublic")),
-        "modified_at": None,
+        "modified_at": parse_iso8601(cna.get("date_updated")),
         "state": None,
         "date_reserved": None,
         "assigner_org_id": None,
@@ -273,10 +273,11 @@ def build_databricks_sql() -> str:
                adp_title,
                adp_provider,
                ssvc_version,
-               ssvc_timestamp
+               ssvc_timestamp,
+               date_updated
            FROM cyber_insights_prd.cve_gold.cyhy_cve_data
            WHERE cna IS NOT NULL
-             AND cna_provider_metadata_date_updated >= CURRENT_DATE - INTERVAL '1' YEAR
+             AND date_updated >= CURRENT_DATE - INTERVAL '1' YEAR
              AND (:p0 = '' OR cve_id > :p1)
            ORDER BY cve_id
            """  # nosec B608
