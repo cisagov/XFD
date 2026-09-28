@@ -361,8 +361,7 @@ resource "aws_instance" "open_cti" {
   }
 
   lifecycle {
-    ignore_changes  = [ami]
-    prevent_destroy = true
+    ignore_changes = [ami]
   }
 
   depends_on = [
