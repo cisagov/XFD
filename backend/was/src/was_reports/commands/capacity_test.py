@@ -9,6 +9,7 @@ from pathlib import Path
 import signal
 import subprocess  # nosec B404
 import sys
+from threading import Event, Thread
 from time import monotonic
 from uuid import UUID, uuid4
 
@@ -20,6 +21,80 @@ from was_reports.utils.env import load_env_file, require_env
 from was_reports.utils.logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
+ACTIVE_DURATION_CHECKPOINT_SECONDS = 30
+
+
+class BatchActiveDurationMonitor:
+    """Persist recoverable coordinator runtime without affecting batch work."""
+
+    def __init__(
+        self,
+        batch_id,
+        started_at,
+        persist,
+        interval_seconds=ACTIVE_DURATION_CHECKPOINT_SECONDS,
+        clock=None,
+    ):
+        """Configure one batch-local background checkpoint worker."""
+        if interval_seconds <= 0:
+            raise ValueError("Active-duration checkpoint interval must be positive.")
+        self.batch_id = batch_id
+        self.started_at = started_at
+        self.persist = persist
+        self.interval_seconds = interval_seconds
+        self.clock = clock or monotonic
+        self.stop_event = Event()
+        self.thread = Thread(
+            target=self._run,
+            name="was-batch-active-duration",
+            daemon=True,
+        )
+        self.thread_started = False
+
+    def checkpoint(self, phase):
+        """Persist one phase boundary, logging and tolerating database failure."""
+        elapsed = max(0.0, self.clock() - self.started_at)
+        try:
+            self.persist(self.batch_id, elapsed)
+        except Exception as error:
+            LOGGER.warning(
+                "Unable to checkpoint WAS batch active duration during %s: %s.",
+                phase,
+                type(error).__name__,
+                extra={"event": "batch_duration_checkpoint_failed"},
+            )
+            return False
+        return True
+
+    def _run(self):
+        """Checkpoint periodically until the coordinator requests shutdown."""
+        while not self.stop_event.wait(self.interval_seconds):
+            self.checkpoint("periodic")
+
+    def start(self):
+        """Record startup and begin periodic checkpoints."""
+        self.checkpoint("start")
+        try:
+            self.thread.start()
+            self.thread_started = True
+        except Exception as error:
+            LOGGER.warning(
+                "Unable to start WAS batch active-duration checkpoint worker: %s.",
+                type(error).__name__,
+                extra={"event": "batch_duration_checkpoint_start_failed"},
+            )
+
+    def stop(self):
+        """Stop, join, and record one final unfinished-batch checkpoint."""
+        self.stop_event.set()
+        if self.thread_started:
+            self.thread.join(timeout=self.interval_seconds + 1)
+            if self.thread.is_alive():
+                LOGGER.warning(
+                    "WAS batch active-duration checkpoint worker did not stop promptly.",
+                    extra={"event": "batch_duration_checkpoint_stop_delayed"},
+                )
+        self.checkpoint("stop")
 
 
 @contextmanager
@@ -366,7 +441,33 @@ def execute_trial(arguments, recipients, output_directory):
         return seconds
 
     with resource_monitor(output_directory):
-        analyst_summaries.start_batch(arguments.run_id)
+        analyst_summaries.start_batch(
+            arguments.run_id,
+            parent_batch_id=(
+                arguments.continuation_manifest.get("parent_run_id")
+                if continuing
+                else None
+            ),
+            root_batch_id=(
+                arguments.continuation_manifest.get("root_run_id")
+                if continuing
+                else arguments.run_id
+            ),
+        )
+        active_duration_monitor = None
+        if run_mode == "capacity":
+            active_duration_monitor = BatchActiveDurationMonitor(
+                arguments.run_id,
+                started,
+                analyst_summaries.checkpoint_batch_active_duration,
+            )
+            active_duration_monitor.start()
+
+        def checkpoint_active_duration(phase):
+            """Record a capacity phase boundary when monitoring is enabled."""
+            if active_duration_monitor is not None:
+                active_duration_monitor.checkpoint(phase)
+
         try:
             if continuing:
                 snapshot = dict(arguments.continuation_manifest,
@@ -383,6 +484,7 @@ def execute_trial(arguments, recipients, output_directory):
                     timeout=remaining(),
                     environment=phase_environment("tracker", "tracker_refresh"),
                 )
+                checkpoint_active_duration("tracker-refresh")
                 candidates = list_ready_report_candidates_from_db(days_back=arguments.days_back)
                 candidate_rows = [{"tracker_id": candidate.id, "tag": candidate.tag,
                                    "template": candidate.template} for candidate in candidates]
@@ -433,6 +535,7 @@ def execute_trial(arguments, recipients, output_directory):
             (output_directory / "workload.json").write_text(
                 json.dumps(snapshot, indent=2), encoding="utf-8"
             )
+            checkpoint_active_duration("workload-selected")
             if arguments.expected_candidates is not None and expected_count != arguments.expected_candidates:
                 raise ValueError("Refreshed candidate count differs from expected workload.")
             if continuing:
@@ -450,6 +553,7 @@ def execute_trial(arguments, recipients, output_directory):
                     "tracker-summary", "tracker_summary"
                 ),
             )
+            checkpoint_active_duration("tracker-summary")
             for worker_index in range(arguments.workers if expected_count else 0):
                 worker_command = command(
                     "was_reports.commands.batch_runner", "--recent-scans",
@@ -479,6 +583,7 @@ def execute_trial(arguments, recipients, output_directory):
                         )
                     )
             statuses = [worker.wait(timeout=remaining()) for worker in workers]
+            checkpoint_active_duration("workers-complete")
             delivery = run_phase(
                 command("was_mailer.email_reports", "--all-ready", "--include-previous-failures",
                         "--days-back", days_back, *recipient_arguments),
@@ -486,6 +591,7 @@ def execute_trial(arguments, recipients, output_directory):
                 timeout=remaining(),
                 environment=phase_environment("delivery", "email_delivery"),
             ) if expected_count else subprocess.CompletedProcess([], 0)
+            checkpoint_active_duration("delivery-complete")
             trial_elapsed = monotonic() - started
             if continuing:
                 result.update(continuation_status(snapshot["candidate_ids"], arguments.run_id))
@@ -528,7 +634,11 @@ def execute_trial(arguments, recipients, output_directory):
                 result["worker_cleanup_errors"] = cleanup_errors
                 workflow_clean = False
                 succeeded = False
-            trial_elapsed = trial_elapsed if trial_elapsed is not None else monotonic() - started
+            if active_duration_monitor is not None:
+                active_duration_monitor.stop()
+            trial_elapsed = monotonic() - started
+            if trial_elapsed > arguments.max_seconds:
+                succeeded = False
             if expected_count:
                 try:
                     persisted = (continuation_status(snapshot["candidate_ids"], arguments.run_id)
@@ -549,7 +659,11 @@ def execute_trial(arguments, recipients, output_directory):
                     "blocked": result.get("blocked", 0),
                 })
                 os.environ["WAS_BATCH_OUTCOME"] = "completed" if succeeded else "failed"
-                analyst_summaries.finish_batch(arguments.run_id, os.environ["WAS_BATCH_OUTCOME"])
+                analyst_summaries.finish_batch(
+                    arguments.run_id,
+                    os.environ["WAS_BATCH_OUTCOME"],
+                    active_duration_seconds=trial_elapsed,
+                )
                 summary = run_phase(
                     command(summary_module, "--phase", "final", *summary_arguments),
                     check=False,

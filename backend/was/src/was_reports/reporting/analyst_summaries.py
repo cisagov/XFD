@@ -158,7 +158,14 @@ def _summary_content(title, tables, notes=()):
     return "\n\n".join(text_parts) + "\n", "".join(html_parts)
 
 
-def start_batch(batch_id, worker_count=None, run_mode=None, workload_label=None):
+def start_batch(
+    batch_id,
+    worker_count=None,
+    run_mode=None,
+    workload_label=None,
+    parent_batch_id=None,
+    root_batch_id=None,
+):
     """Create the shared batch context once without resetting phase claims."""
     if not batch_id or len(batch_id) > 200:
         raise ValueError("A batch ID of at most 200 characters is required.")
@@ -169,22 +176,127 @@ def start_batch(batch_id, worker_count=None, run_mode=None, workload_label=None)
         raise ValueError("Positive worker count and production/capacity run mode required.")
     if workload_label is not None and len(workload_label) > 200:
         raise ValueError("Workload label must be at most 200 characters.")
+    root_batch_id = root_batch_id or batch_id
+    if parent_batch_id == batch_id:
+        raise ValueError("A batch cannot be its own parent.")
+    if parent_batch_id is None and root_batch_id != batch_id:
+        raise ValueError("A root batch must identify itself as the lineage root.")
+    if parent_batch_id is not None and root_batch_id == batch_id:
+        raise ValueError("A continuation must retain its source lineage root.")
     _execute(
-        "INSERT INTO was_batch_runs (batch_id, worker_count, run_mode, workload_label) VALUES (%s,%s,%s,%s) "
+        "INSERT INTO was_batch_runs "
+        "(batch_id, parent_batch_id, root_batch_id, worker_count, run_mode, workload_label) "
+        "VALUES (%s,%s,%s,%s,%s,%s) "
         "ON CONFLICT (batch_id) DO NOTHING",
-        (batch_id, worker_count, run_mode, workload_label),
+        (
+            batch_id,
+            parent_batch_id,
+            root_batch_id,
+            worker_count,
+            run_mode,
+            workload_label,
+        ),
     )
 
 
-def finish_batch(batch_id, outcome="completed"):
-    """Freeze coordinator completion once, independently of summary delivery."""
+def finish_batch(batch_id, outcome="completed", active_duration_seconds=None):
+    """Freeze coordinator completion and its active runtime exactly once."""
     if outcome not in {"completed", "failed"}:
         raise ValueError("Batch outcome must be completed or failed.")
-    _execute(
-        "UPDATE was_batch_runs SET finished_at=now(), outcome=%s, updated_at=now() "
-        "WHERE batch_id=%s AND finished_at IS NULL",
-        (outcome, batch_id),
+    active_duration = (
+        None
+        if active_duration_seconds is None
+        else _duration(active_duration_seconds)
     )
+    _execute(
+        "UPDATE was_batch_runs SET finished_at=now(), outcome=%s, "
+        "active_duration_seconds=COALESCE(%s, "
+        "EXTRACT(EPOCH FROM (now()-started_at))), updated_at=now() "
+        "WHERE batch_id=%s AND finished_at IS NULL",
+        (outcome, active_duration, batch_id),
+    )
+
+
+def checkpoint_batch_active_duration(batch_id, active_duration_seconds):
+    """Monotonically persist runtime only while a coordinator is unfinished."""
+    _execute(
+        "UPDATE was_batch_runs SET "
+        "active_duration_seconds=GREATEST("
+        "COALESCE(active_duration_seconds,0),%s), updated_at=now() "
+        "WHERE batch_id=%s AND finished_at IS NULL",
+        (_duration(active_duration_seconds), batch_id),
+    )
+
+
+def _batch_lineage(batch_id):
+    """Return current-to-root capacity lineage with persisted active timings."""
+    rows = _execute(
+        """WITH RECURSIVE lineage AS (
+        SELECT batch_id, parent_batch_id, root_batch_id, started_at, finished_at,
+               active_duration_seconds,
+               tracker_duration_seconds, tracker_error, tracker_rows_updated,
+               worker_count, run_mode, workload_label, outcome, updated_at,
+               ARRAY[batch_id]::TEXT[] AS path, 0 AS depth
+        FROM was_batch_runs WHERE batch_id=%s
+        UNION ALL
+        SELECT parent.batch_id, parent.parent_batch_id, parent.root_batch_id,
+               parent.started_at, parent.finished_at,
+               parent.active_duration_seconds, parent.tracker_duration_seconds,
+               parent.tracker_error, parent.tracker_rows_updated,
+               parent.worker_count, parent.run_mode, parent.workload_label,
+               parent.outcome, parent.updated_at,
+               child.path || parent.batch_id, child.depth + 1
+        FROM lineage child
+        JOIN was_batch_runs parent ON child.parent_batch_id=parent.batch_id
+        WHERE child.depth < 100 AND NOT parent.batch_id=ANY(child.path)
+        )
+        SELECT lineage.batch_id,
+               COALESCE(
+                   lineage.active_duration_seconds,
+                   EXTRACT(EPOCH FROM (
+                       COALESCE(
+                           lineage.finished_at,
+                           GREATEST(
+                               lineage.updated_at,
+                               COALESCE(activity.last_activity, lineage.updated_at)
+                           )
+                       ) - lineage.started_at
+                   ))
+               ) AS active_duration_seconds,
+               lineage.tracker_duration_seconds, lineage.tracker_error,
+               lineage.tracker_rows_updated, lineage.worker_count,
+               lineage.run_mode, lineage.workload_label, lineage.finished_at,
+               lineage.outcome,
+               lineage.active_duration_seconds IS NOT NULL
+                   OR lineage.finished_at IS NOT NULL AS timing_persisted,
+               lineage.parent_batch_id, lineage.root_batch_id,
+               lineage.depth
+        FROM lineage
+        LEFT JOIN LATERAL (
+            SELECT MAX(GREATEST(
+                attempts.attempted_at,
+                COALESCE(attempts.sent_recorded_at, attempts.attempted_at)
+            )) AS last_activity
+            FROM was_batch_report_attempts attempts
+            WHERE attempts.batch_id=lineage.batch_id
+        ) activity ON TRUE
+        ORDER BY lineage.depth""",
+        (batch_id,),
+        True,
+    )
+    if not rows:
+        raise ValueError("Unknown analyst batch ID.")
+    expected_root = rows[0][12]
+    for index, row in enumerate(rows[:-1]):
+        if row[11] != rows[index + 1][0] or row[12] != expected_root:
+            raise ValueError("Capacity continuation lineage is incomplete.")
+    if (
+        rows[-1][11] is not None
+        or rows[-1][0] != expected_root
+        or rows[-1][12] != expected_root
+    ):
+        raise ValueError("Capacity continuation lineage is incomplete.")
+    return rows
 
 
 def record_tracker_result(batch_id, duration_seconds, error=None, rows_updated=None):
@@ -636,14 +748,26 @@ def send_tracker_summary(
     rows = _tracker_rows(candidate_ids=candidate_ids)
     counts = preflight_counts(rows)
     result = _execute(
-        "SELECT tracker_duration_seconds, tracker_error, tracker_rows_updated "
+        "SELECT tracker_duration_seconds, tracker_error, tracker_rows_updated, "
+        "run_mode, workload_label, parent_batch_id, root_batch_id "
         "FROM was_batch_runs WHERE batch_id=%s",
         (batch_id,),
         True,
     )
     if not result:
         raise ValueError("Unknown analyst batch ID.")
-    duration, error, updated = result[0]
+    duration, error, updated, mode, workload, parent_batch_id, root_batch_id = result[0]
+    continuation = (
+        mode == "capacity"
+        and parent_batch_id is not None
+    )
+    tracker_source = batch_id
+    tracker_refresh = "Completed in this batch"
+    if continuation:
+        source = _batch_lineage(batch_id)[-1]
+        tracker_source = source[0]
+        duration, error, updated = source[2], source[3], source[4]
+        tracker_refresh = "Inherited from source batch"
     manual_rows = _tracker_rows(batch_id=batch_id)
     count_labels = {
         "reports": "Reports",
@@ -660,8 +784,13 @@ def send_tracker_summary(
             ("Metric", "Value"),
             (
                 ("Batch ID", batch_id),
-                ("Tracker time", _format_seconds(duration)),
-                ("Rows updated", updated if updated is not None else "Not available"),
+                ("Tracker refresh", tracker_refresh),
+                ("Tracker source batch", tracker_source),
+                (
+                    "Tracker time",
+                    _format_seconds(duration) if duration is not None else "Not recorded",
+                ),
+                ("Rows updated", updated if updated is not None else "Not recorded"),
                 ("Error", _safe_error(error) or "none"),
             ),
         ),
@@ -704,15 +833,7 @@ def send_batch_summary(
     days_back=7,
 ):
     """Send one aggregate outcome and only unresolved manual items in the body."""
-    batch = _execute(
-        "SELECT EXTRACT(EPOCH FROM (COALESCE(finished_at,now())-started_at)), tracker_duration_seconds, "
-        "tracker_error, worker_count, run_mode, workload_label, finished_at, outcome "
-        "FROM was_batch_runs WHERE batch_id=%s",
-        (batch_id,),
-        True,
-    )
-    if not batch:
-        raise ValueError("Unknown analyst batch ID.")
+    lineage = _batch_lineage(batch_id)
     attempts = _execute(
         """SELECT attempts.duration_seconds, attempts.generated,
         attempts.sent, attempts.error,
@@ -724,8 +845,20 @@ def send_batch_summary(
         (batch_id,),
         True,
     )
-    elapsed, tracker_duration, tracker_error, workers, mode, workload, finished, outcome = batch[0]
-    continuation = mode == "capacity" and str(workload or "").startswith("continuation of ")
+    current = lineage[0]
+    source = lineage[-1]
+    elapsed = current[1]
+    tracker_duration = source[2]
+    tracker_error = source[3]
+    tracker_rows_updated = source[4]
+    workers = current[5]
+    mode = current[6]
+    workload = current[7]
+    finished = current[8]
+    outcome = current[9]
+    continuation = mode == "capacity" and current[11] is not None
+    cumulative_elapsed = sum(float(row[1]) for row in lineage)
+    timing_estimated = any(not bool(row[10]) for row in lineage)
     sent = sum(bool(row[2]) for row in attempts)
     durations = sorted(
         float(row[0]) for row in attempts if row[4] == "pdf" and float(row[0]) > 0
@@ -744,9 +877,50 @@ def send_batch_summary(
         ("Workload", workload or "Not supplied"),
         ("Outcome", outcome or "running"),
         ("Completion time", finished or "Not finished; elapsed time is provisional"),
-        ("Elapsed real time", _format_elapsed(elapsed)),
-        ("Tracker time", _format_seconds(tracker_duration)),
     ]
+    if continuation:
+        batch_rows.extend(
+            (
+                ("Current continuation elapsed real time", _format_elapsed(elapsed)),
+                (
+                    "Cumulative active elapsed real time",
+                    _format_elapsed(cumulative_elapsed),
+                ),
+                (
+                    "Cumulative timing basis",
+                    (
+                        "Estimated from persisted batch activity"
+                        if timing_estimated
+                        else "Persisted coordinator runtimes"
+                    ),
+                ),
+                ("Source batch", source[0]),
+                (
+                    "Source tracker time",
+                    (
+                        _format_seconds(tracker_duration)
+                        if tracker_duration is not None
+                        else "Not recorded"
+                    ),
+                ),
+                (
+                    "Source tracker rows updated",
+                    (
+                        tracker_rows_updated
+                        if tracker_rows_updated is not None
+                        else "Not recorded"
+                    ),
+                ),
+                ("Source tracker error", _safe_error(tracker_error) or "none"),
+            )
+        )
+    else:
+        batch_rows.extend(
+            (
+                ("Elapsed real time", _format_elapsed(elapsed)),
+                ("Tracker time", _format_seconds(tracker_duration)),
+            )
+        )
     if mode == "capacity":
         try:
             progress = json.loads(getenv("WAS_CAPACITY_PROGRESS", "{}"))
@@ -830,8 +1004,24 @@ def send_batch_summary(
     tables = [
         ("Batch", ("Metric", "Value"), tuple(batch_rows)),
         ("Report outcomes", ("Metric", "Count"), report_rows),
-        ("PDF generation", ("Metric", "Value"), pdf_rows),
-        ("Delivery", ("Metric", "Value"), delivery_rows),
+        (
+            (
+                "Current continuation PDF generation timing"
+                if continuation
+                else "PDF generation"
+            ),
+            ("Metric", "Value"),
+            pdf_rows,
+        ),
+        (
+            (
+                "Current continuation delivery timing"
+                if continuation
+                else "Delivery"
+            ),
+            ("Metric", "Value"),
+            delivery_rows,
+        ),
         (
             "Pending manual work",
             ("Metric", "Count"),
@@ -869,6 +1059,18 @@ def send_batch_summary(
             "CONTINUATION: workload totals include previous completions. Generated "
             "totals mean artifacts available across attempts. This is not a fresh "
             "throughput or 600-report capacity benchmark.",
+        )
+        notes.insert(
+            1,
+            "Cumulative active elapsed real time adds only the source and continuation "
+            "coordinator runtimes. It excludes operator downtime between attempts and "
+            "is recovery evidence, not a fresh capacity benchmark.",
+        )
+        notes.insert(
+            2,
+            "PDF generation and recorded delivery timings contain only nonzero "
+            "observations from the current continuation attempt. They do not describe "
+            "the full inherited workload.",
         )
     if not attempts:
         notes.append("No recorded report attempts; generation metrics are unavailable.")

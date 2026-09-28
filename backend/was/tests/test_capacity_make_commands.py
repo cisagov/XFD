@@ -34,8 +34,9 @@ class CapacityMakeCommandsTests(unittest.TestCase):
     def test_continue_uses_saved_workload_not_reset(self):
         """Continuation must never reset the test database."""
         plan = self.plan("capacity-continue", "APPLY=1")
-        self.assertIn('case "continue"', plan)
-        self.assertIn("--continue-latest", plan)
+        self.assertIn("CAPACITY_ACTION=continue", plan)
+        self.assertIn("was_reports.commands.tmux_batch start", plan)
+        self.assertIn("--workflow capacity", plan)
         self.assertNotIn("capacity_database_reset", plan)
 
     def test_selected_continuation_can_be_specified(self):
@@ -47,7 +48,10 @@ class CapacityMakeCommandsTests(unittest.TestCase):
     def test_start_over_resets_before_new_run(self):
         """Restart is distinct, stops on reset failure, and selects a fresh ID."""
         plan = self.plan("capacity-start-over", "APPLY=1")
-        self.assertLess(plan.index("capacity_database_reset"), plan.rindex("commands.capacity_test"))
+        self.assertLess(
+            plan.index("capacity_database_reset"),
+            plan.rindex("commands.tmux_batch start"),
+        )
         self.assertIn("CAPACITY_ACTION=start CAPACITY_RUN_ID=", plan)
 
 

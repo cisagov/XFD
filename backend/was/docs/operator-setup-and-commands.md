@@ -131,6 +131,31 @@ make recent-scan-batch BATCH_WORKERS=30 \
   TRACKER_LOOKBACK_DAYS=3 BATCH_DAYS_BACK=7
 ```
 
+This command assigns the batch ID before launch and starts the coordinator in a
+detached `tmux` session. The command prints the batch ID, exact session name,
+manifest path, and status, console, attach, graceful-stop, and structured-log
+commands. Returning successfully means that `tmux` accepted the workload. It
+does not mean preflight or the batch succeeded. Check the retained session:
+
+```bash
+make recent-scan-batch-status TMUX_SESSION="was-production-<batch-UUID>"
+make recent-scan-batch-console TMUX_SESSION="was-production-<batch-UUID>"
+make recent-scan-batch-attach TMUX_SESSION="was-production-<batch-UUID>"
+make logs-summary LOG_BATCH_ID="<batch-UUID>"
+```
+
+Detaching from an attached session with `Ctrl-b d` leaves the batch running.
+To request a deliberate stop, use the exact printed session name:
+
+```bash
+make recent-scan-batch-stop TMUX_SESSION="was-production-<batch-UUID>"
+```
+
+Stop sends `Ctrl-c` to the foreground coordinator so its cleanup can run. It
+does not kill the session or declare cleanup complete. Check status and console
+output afterward. Production does not provide a continuation command. Reconcile
+delivery and Qualys state before deciding how to recover an interrupted run.
+
 The coordinator refreshes the tracker once, records a workload snapshot, sends
 the tracker summary, launches separate worker containers, performs the final
 delivery pass, and sends the final analyst summary. Customer delivery uses the
@@ -163,6 +188,9 @@ The following table is an index, not authorization to run a mutating command.
 | Menu | `make menu` | Depends on the selected menu action |
 | Tracker preflight | `make recent-scan-batch-preflight` | Read-only database selection |
 | Production batch | `make recent-scan-batch` | Qualys, database, S3, and SES writes |
+| Production batch status | `make recent-scan-batch-status TMUX_SESSION="..."` | Read-only tmux state |
+| Production batch console | `make recent-scan-batch-console TMUX_SESSION="..."` | Read-only retained output |
+| Graceful production stop | `make recent-scan-batch-stop TMUX_SESSION="..."` | Interrupts the selected coordinator and starts cleanup |
 | Controlled recipient batch | `make recent-scan-batch-assignee-test TEST_RECIPIENTS="..."` | Production workflow with recipient override |
 | Refresh report tracker | `make update-tracker` | Qualys reads and tracker writes |
 | Preview tracker rows | `make tracker-table DAYS_BACK=7` | Read-only |

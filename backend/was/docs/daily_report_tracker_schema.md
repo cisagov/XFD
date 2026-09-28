@@ -100,6 +100,120 @@ migration from the canonical desired state, back up the database, stop writers,
 apply it through the approved change process, verify it, and update both the
 canonical schema and this document in the same code change.
 
+### Additive batch-lineage deployment
+
+Deploy the batch-lineage columns to the production database and every existing
+capacity-test clone before deploying code that writes them. A capacity reset
+performed after the production migration will copy the updated schema. Stop
+batch writers first. The one-time backfill below uses the former capacity
+continuation label only to convert historical records. Runtime code does not
+infer identity from that display label.
+
+```sql
+BEGIN;
+
+LOCK TABLE was_batch_runs IN SHARE ROW EXCLUSIVE MODE;
+
+ALTER TABLE was_batch_runs
+    ADD COLUMN parent_batch_id TEXT,
+    ADD COLUMN root_batch_id TEXT,
+    ADD COLUMN active_duration_seconds DOUBLE PRECISION;
+
+UPDATE was_batch_runs AS child
+SET parent_batch_id = parent.batch_id
+FROM was_batch_runs AS parent
+WHERE child.run_mode = 'capacity'
+  AND child.workload_label = 'continuation of ' || parent.batch_id;
+
+WITH RECURSIVE ancestry AS (
+    SELECT
+        batch_id AS child_id,
+        batch_id AS ancestor_id,
+        parent_batch_id,
+        ARRAY[batch_id]::TEXT[] AS path,
+        0 AS depth
+    FROM was_batch_runs
+
+    UNION ALL
+
+    SELECT
+        ancestry.child_id,
+        parent.batch_id,
+        parent.parent_batch_id,
+        ancestry.path || parent.batch_id,
+        ancestry.depth + 1
+    FROM ancestry
+    JOIN was_batch_runs AS parent
+      ON parent.batch_id = ancestry.parent_batch_id
+    WHERE ancestry.depth < 100
+      AND NOT parent.batch_id = ANY(ancestry.path)
+), roots AS (
+    SELECT DISTINCT ON (child_id)
+        child_id,
+        ancestor_id AS root_id,
+        parent_batch_id
+    FROM ancestry
+    ORDER BY child_id, depth DESC
+)
+UPDATE was_batch_runs AS batch
+SET root_batch_id = roots.root_id
+FROM roots
+WHERE roots.child_id = batch.batch_id
+  AND roots.parent_batch_id IS NULL;
+
+UPDATE was_batch_runs
+SET active_duration_seconds = EXTRACT(EPOCH FROM (finished_at - started_at))
+WHERE finished_at IS NOT NULL;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM was_batch_runs
+        WHERE root_batch_id IS NULL
+           OR active_duration_seconds < 0
+    ) THEN
+        RAISE EXCEPTION 'Batch lineage or duration backfill is incomplete';
+    END IF;
+END
+$$;
+
+ALTER TABLE was_batch_runs
+    ALTER COLUMN root_batch_id SET NOT NULL,
+    ADD CONSTRAINT was_batch_runs_active_duration_check
+        CHECK (active_duration_seconds >= 0),
+    ADD CONSTRAINT was_batch_runs_parent_batch_fk
+        FOREIGN KEY (parent_batch_id) REFERENCES was_batch_runs(batch_id),
+    ADD CONSTRAINT was_batch_runs_root_batch_fk
+        FOREIGN KEY (root_batch_id) REFERENCES was_batch_runs(batch_id),
+    ADD CONSTRAINT was_batch_runs_lineage_check CHECK (
+        (parent_batch_id IS NULL AND root_batch_id = batch_id)
+        OR
+        (parent_batch_id IS NOT NULL AND root_batch_id <> batch_id)
+    );
+
+COMMIT;
+```
+
+Verify the backfill after commit:
+
+```sql
+SELECT
+    COUNT(*) FILTER (WHERE root_batch_id IS NULL) AS missing_roots,
+    COUNT(*) FILTER (
+        WHERE parent_batch_id IS NULL AND root_batch_id <> batch_id
+    ) AS invalid_roots,
+    COUNT(*) FILTER (
+        WHERE parent_batch_id IS NOT NULL AND root_batch_id = batch_id
+    ) AS invalid_continuations,
+    COUNT(*) FILTER (WHERE active_duration_seconds < 0) AS invalid_durations
+FROM was_batch_runs;
+```
+
+All four values must be zero. An unfinished historical batch may retain a null
+`active_duration_seconds`; summaries explicitly label its last-activity fallback
+as estimated rather than counting downtime until a continuation.
+
 ## Current Related Tables
 
 The tracker participates in these current schema relationships:
@@ -115,6 +229,12 @@ The tracker participates in these current schema relationships:
   create or change tracker rows.
 - `was_batch_runs` and `was_batch_report_attempts` record production and
   capacity-batch scope, progress, summary delivery, timing, and outcomes.
+  `parent_batch_id` and `root_batch_id` form an explicit continuation chain,
+  while `active_duration_seconds` preserves coordinator runtime without counting
+  operator downtime before a continuation. Root batches reference themselves
+  through `root_batch_id`; only continuations have `parent_batch_id`. Capacity
+  coordinators update active duration monotonically while unfinished, using
+  separate managed connections for periodic and phase-boundary checkpoints.
 - `was_test_replay_batches` and `was_test_replay_items` preserve controlled
   analyst-recipient replay scope without deleting original report history.
 - `was_special_cases` stores active tags that bypass automated NWS removal.

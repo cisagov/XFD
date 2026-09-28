@@ -10,6 +10,7 @@ STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
 TEST_RECIPIENTS ?= operator@example.gov
 BATCH_WORKERS ?= 30
 BATCH_TEST_RECIPIENTS ?=
+BATCH_RUN_ID ?=
 BATCH_DAYS_BACK ?= 7
 TRACKER_LOOKBACK_DAYS ?= 3
 DIAGNOSTIC_OUTPUT ?= $(OUTPUT_DIR)/report-alignment-$(shell date -u +%Y%m%dT%H%M%SZ).json
@@ -36,12 +37,23 @@ CAPACITY_WORKLOAD_LABEL ?= capacity-trial
 CAPACITY_EXPECTED_CANDIDATES ?= auto
 CAPACITY_ACTION ?= start
 CAPACITY_CONTINUE_RUN_ID ?=
+TMUX_SESSION ?=
+TMUX_LINES ?= 200
+TMUX_STOP_WAIT_SECONDS ?= 60
+WAS_TMUX_LAUNCH ?= 0
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
 INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
 .PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports logs-latest logs-summary logs-errors logs-tag
+
+export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
+export CAPACITY_ACTION CAPACITY_CONTINUE_RUN_ID CAPACITY_EXPECTED_CANDIDATES
+export CAPACITY_RUN_ID CAPACITY_WORKLOAD_LABEL ENV_FILE IMAGE OUTPUT_DIR PYTHON
+export TEST_RECIPIENTS TMUX_LINES TMUX_SESSION TMUX_STOP_WAIT_SECONDS
+export TRACKER_LOOKBACK_DAYS
+export WAS_TMUX_LAUNCH
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -87,6 +99,7 @@ stakeholders-help:
 .PHONY: recent-scan-batch-preflight recent-scan-batch-preflight-local
 
 .PHONY: capacity-test capacity-start capacity-continue capacity-start-over capacity-database-reset
+.PHONY: _capacity-tmux-start _capacity-test-foreground capacity-status capacity-attach capacity-console capacity-stop
 
 capacity-start:
 	$(MAKE) capacity-test CAPACITY_ACTION=start
@@ -112,7 +125,18 @@ capacity-database-reset:
 	  --entrypoint python $(IMAGE) \
 	  -m was_reports.commands.capacity_database_reset "$$@"
 
-capacity-test:
+ifeq ($(APPLY),1)
+capacity-test: _capacity-tmux-start
+else
+capacity-test: _capacity-test-foreground
+endif
+
+_capacity-tmux-start:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch start \
+	  --workflow capacity --working-directory "$(CURDIR)"
+
+_capacity-test-foreground:
+	@test "$(APPLY)" != 1 -o "$(WAS_TMUX_LAUNCH)" = 1 || (echo 'Applied capacity runs must use make capacity-start or capacity-continue.' >&2; exit 2)
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to approved test recipients.' >&2; exit 2)
 	@set -- --workload-label "$(CAPACITY_WORKLOAD_LABEL)" \
 	  --workers "$(BATCH_WORKERS)" --expected-candidates "$(CAPACITY_EXPECTED_CANDIDATES)" \
@@ -130,6 +154,18 @@ capacity-test:
 	  --worker-backend docker --worker-image "$(IMAGE)" \
 	  --env-file "$(ENV_FILE)" --output-root "$(OUTPUT_DIR)" "$$@"
 
+capacity-status:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch status --workflow capacity
+
+capacity-attach:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch attach --workflow capacity
+
+capacity-console:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch console --workflow capacity
+
+capacity-stop:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch stop --workflow capacity
+
 .PHONY: report-alignment-diagnostic-local
 
 report-alignment-diagnostic-local:
@@ -142,15 +178,35 @@ recent-scan-batch-preflight:
 recent-scan-batch-preflight-local:
 	PYTHONPATH=src $(PYTHON) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
 
+.PHONY: _recent-scan-batch-foreground recent-scan-batch-status recent-scan-batch-attach recent-scan-batch-console recent-scan-batch-stop
+
 recent-scan-batch:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch start \
+	  --workflow production --working-directory "$(CURDIR)"
+
+_recent-scan-batch-foreground:
+	@test "$(WAS_TMUX_LAUNCH)" = 1 || (echo 'Use make recent-scan-batch to start the persistent production session.' >&2; exit 2)
 	@set -- --workers "$(BATCH_WORKERS)" --worker-backend docker \
 	  --worker-image "$(IMAGE)" --env-file "$(ENV_FILE)" \
 	  --output-root "$(OUTPUT_DIR)" --days-back "$(BATCH_DAYS_BACK)" \
 	  --lookback-days "$(TRACKER_LOOKBACK_DAYS)" --apply; \
+	if [ -n "$(BATCH_RUN_ID)" ]; then set -- "$$@" --run-id "$(BATCH_RUN_ID)"; fi; \
 	if [ -n "$(BATCH_TEST_RECIPIENTS)" ]; then \
 	  set -- "$$@" --test-recipients "$(BATCH_TEST_RECIPIENTS)"; \
 	fi; \
 	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.batch_coordinator "$$@"
+
+recent-scan-batch-status:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch status --workflow production
+
+recent-scan-batch-attach:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch attach --workflow production
+
+recent-scan-batch-console:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch console --workflow production
+
+recent-scan-batch-stop:
+	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch stop --workflow production
 
 recent-scan-batch-assignee-test:
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled WAS functional-test recipient.' >&2; exit 2)

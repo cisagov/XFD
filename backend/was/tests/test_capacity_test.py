@@ -31,6 +31,72 @@ class CapacityTestTests(unittest.TestCase):
         self.assertIsNone(second.expected_candidates)
         self.assertEqual(first.worker_backend, "process")
 
+    def test_active_duration_monitor_checkpoints_phase_and_periodic_time(self):
+        """Phase and timer checkpoints persist elapsed coordinator runtime."""
+        persist = MagicMock()
+        clock = MagicMock(side_effect=[101.0, 102.0])
+        monitor = capacity_test.BatchActiveDurationMonitor(
+            "batch",
+            100.0,
+            persist,
+            interval_seconds=30,
+            clock=clock,
+        )
+        self.assertTrue(monitor.checkpoint("tracker-refresh"))
+        monitor.stop_event.wait = MagicMock(side_effect=[False, True])
+        monitor._run()
+        self.assertEqual(
+            [call.args for call in persist.call_args_list],
+            [("batch", 1.0), ("batch", 2.0)],
+        )
+
+    def test_active_duration_monitor_tolerates_checkpoint_and_start_failure(self):
+        """Optional timing persistence cannot abort report processing."""
+        persist = MagicMock(side_effect=RuntimeError("database unavailable"))
+        with patch.object(capacity_test, "Thread") as thread_class:
+            thread_class.return_value.start.side_effect = RuntimeError("thread unavailable")
+            monitor = capacity_test.BatchActiveDurationMonitor(
+                "batch", 100.0, persist, clock=lambda: 101.0
+            )
+            monitor.start()
+            monitor.stop()
+        self.assertFalse(monitor.thread_started)
+        self.assertEqual(persist.call_count, 2)
+        thread_class.return_value.join.assert_not_called()
+
+    def test_active_duration_monitor_stops_and_joins_cleanly(self):
+        """A started checkpoint worker is signaled and joined before exit."""
+        with patch.object(capacity_test, "Thread") as thread_class:
+            thread_class.return_value.is_alive.return_value = False
+            monitor = capacity_test.BatchActiveDurationMonitor(
+                "batch", 100.0, MagicMock(), clock=lambda: 101.0
+            )
+            monitor.start()
+            monitor.stop()
+        thread_class.return_value.start.assert_called_once_with()
+        thread_class.return_value.join.assert_called_once_with(timeout=31)
+        self.assertTrue(monitor.stop_event.is_set())
+
+    def test_trial_checkpoints_major_phase_boundaries(self):
+        """Coordinator recovery timing advances at each durable workflow phase."""
+        with patch.object(capacity_test, "BatchActiveDurationMonitor") as monitor_class:
+            result, status = self.execute_mock_trial(sent=1)
+        self.assertEqual(status, 0)
+        self.assertTrue(result["capacity_pass"])
+        monitor = monitor_class.return_value
+        monitor.start.assert_called_once_with()
+        self.assertEqual(
+            [call.args[0] for call in monitor.checkpoint.call_args_list],
+            [
+                "tracker-refresh",
+                "workload-selected",
+                "tracker-summary",
+                "workers-complete",
+                "delivery-complete",
+            ],
+        )
+        monitor.stop.assert_called_once_with()
+
     def test_docker_options_use_explicit_host_paths(self):
         """Host launch selects Docker without changing the menu's process default."""
         arguments = capacity_test.parse_args([
@@ -183,6 +249,8 @@ class CapacityTestTests(unittest.TestCase):
             "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
         ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
             "was_reports.reporting.analyst_summaries.finish_batch"
+        ), patch(
+            "was_reports.reporting.analyst_summaries.checkpoint_batch_active_duration"
         ), patch.object(capacity_test, "list_ready_report_candidates_from_db", return_value=[]), patch.object(
             capacity_test, "run_phase", return_value=SimpleNamespace(returncode=0)
         ) as phases, patch.object(capacity_test.subprocess, "Popen") as workers:
@@ -377,14 +445,23 @@ class CapacityTestTests(unittest.TestCase):
             "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
         ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
             "was_reports.reporting.analyst_summaries.finish_batch"
-        ) as finish, patch.object(capacity_test, "list_ready_report_candidates_from_db",
-                                  return_value=[]), patch.object(
+        ) as finish, patch(
+            "was_reports.reporting.analyst_summaries.checkpoint_batch_active_duration"
+        ), patch.object(
+            capacity_test,
+            "list_ready_report_candidates_from_db",
+            return_value=[],
+        ), patch.object(
             capacity_test, "run_phase", return_value=SimpleNamespace(returncode=0)
         ), patch.object(capacity_test.subprocess, "Popen") as workers:
             with self.assertRaisesRegex(ValueError, "candidate count"):
                 capacity_test.execute_trial(arguments, "analyst@example.gov", Path(directory))
             workers.assert_not_called()
-            finish.assert_called_once_with(arguments.run_id, "failed")
+            finish.assert_called_once()
+            self.assertEqual(finish.call_args.args, (arguments.run_id, "failed"))
+            self.assertGreaterEqual(
+                finish.call_args.kwargs["active_duration_seconds"], 0
+            )
             self.assertTrue((Path(directory) / "result.json").exists())
 
     def test_success_requires_complete_durable_deliveries(self):
@@ -471,6 +548,8 @@ class CapacityTestTests(unittest.TestCase):
             "was_reports.utils.capacity_telemetry.resource_monitor", return_value=nullcontext()
         ), patch("was_reports.reporting.analyst_summaries.start_batch"), patch(
             "was_reports.reporting.analyst_summaries.finish_batch"
+        ), patch(
+            "was_reports.reporting.analyst_summaries.checkpoint_batch_active_duration"
         ), patch.object(capacity_test, "list_ready_report_candidates_from_db",
                         return_value=[candidate]), patch.object(
             capacity_test, "trial_counts", return_value=counts

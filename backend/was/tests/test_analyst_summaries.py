@@ -6,6 +6,42 @@ from unittest.mock import patch
 from was_reports.reporting import analyst_summaries as summaries
 
 
+def batch_lineage(
+    batch_id="batch",
+    elapsed=90,
+    tracker_duration=10,
+    tracker_error=None,
+    tracker_rows=4,
+    workers=2,
+    mode="capacity",
+    workload="fixture",
+    finished="finished",
+    outcome="completed",
+    timing_persisted=True,
+    parent_batch_id=None,
+    root_batch_id=None,
+    depth=0,
+):
+    """Build one persisted batch-lineage row for summary fixtures."""
+    resolved_root = root_batch_id or batch_id
+    return (
+        batch_id,
+        elapsed,
+        tracker_duration,
+        tracker_error,
+        tracker_rows,
+        workers,
+        mode,
+        workload,
+        finished,
+        outcome,
+        timing_persisted,
+        parent_batch_id,
+        resolved_root,
+        depth,
+    )
+
+
 class AnalystSummaryTests(unittest.TestCase):
     """Exercise content, persistence and duplicate delivery boundaries."""
 
@@ -43,7 +79,11 @@ class AnalystSummaryTests(unittest.TestCase):
 
     @patch.object(summaries, "_deliver", return_value=True)
     @patch.object(summaries, "_tracker_rows", return_value=[])
-    @patch.object(summaries, "_execute", return_value=[(8, None, 12)])
+    @patch.object(
+        summaries,
+        "_execute",
+        return_value=[(8, None, 12, "production", "fixture", None, "batch")],
+    )
     def test_preflight_includes_tracker_duration_and_updated_count(
         self, execute, rows, deliver
     ):
@@ -62,7 +102,11 @@ class AnalystSummaryTests(unittest.TestCase):
 
     @patch.object(summaries, "_deliver", return_value=True)
     @patch.object(summaries, "_tracker_rows")
-    @patch.object(summaries, "_execute", return_value=[(1.234, None, 4)])
+    @patch.object(
+        summaries,
+        "_execute",
+        return_value=[(1.234, None, 4, "production", "fixture", None, "batch")],
+    )
     def test_tracker_summary_groups_pending_manuals_by_assignee(
         self, execute, tracker_rows, deliver
     ):
@@ -86,6 +130,110 @@ class AnalystSummaryTests(unittest.TestCase):
             "Pending manual reports by analyst",
             deliver.call_args.kwargs["html_body"],
         )
+
+    @patch.object(summaries, "_deliver", return_value=True)
+    @patch.object(summaries, "_tracker_rows", return_value=[])
+    @patch.object(summaries, "_batch_lineage")
+    @patch.object(
+        summaries,
+        "_execute",
+        return_value=[
+            (
+                None,
+                None,
+                None,
+                "capacity",
+                "continuation of source-batch",
+                "source-batch",
+                "source-batch",
+            )
+        ],
+    )
+    def test_continuation_tracker_summary_uses_source_refresh(
+        self, execute, lineage, rows, deliver
+    ):
+        """Continuation notices identify and reuse the root tracker refresh."""
+        lineage.return_value = [
+            batch_lineage(
+                workload="continuation of source-batch",
+                tracker_duration=None,
+                tracker_rows=None,
+                parent_batch_id="source-batch",
+                root_batch_id="source-batch",
+            ),
+            batch_lineage(
+                batch_id="source-batch",
+                tracker_duration=42.62,
+                tracker_rows=1,
+                depth=1,
+            ),
+        ]
+        summaries.send_tracker_summary("batch", [], "from@example.gov")
+        body = deliver.call_args.args[4]
+        self.assertIn("Tracker refresh | Inherited from source batch", body)
+        self.assertIn("Tracker source batch | source-batch", body)
+        self.assertIn("Tracker time | 42.62 seconds", body)
+        self.assertIn("Rows updated | 1", body)
+        self.assertNotIn("Not available", body)
+
+    @patch.object(summaries, "_execute")
+    def test_batch_lineage_fallback_is_activity_bounded(self, execute):
+        """An unfinished legacy parent uses activity time, not operator downtime."""
+        execute.return_value = [batch_lineage(timing_persisted=False)]
+        rows = summaries._batch_lineage("batch")
+        self.assertFalse(rows[0][10])
+        query = execute.call_args.args[0]
+        self.assertIn("active_duration_seconds", query)
+        self.assertIn("attempts.attempted_at", query)
+        self.assertIn("attempts.sent_recorded_at", query)
+        self.assertNotIn("COALESCE(finished_at,now())", query)
+        self.assertIn("child.parent_batch_id=parent.batch_id", query)
+        self.assertNotIn("child.workload_label=", query)
+
+    @patch.object(summaries, "_execute")
+    def test_batch_lineage_validates_multi_hop_parent_and_root(self, execute):
+        """Explicit identifiers preserve and validate a multi-hop recovery chain."""
+        execute.return_value = [
+            batch_lineage(
+                batch_id="third",
+                parent_batch_id="second",
+                root_batch_id="first",
+            ),
+            batch_lineage(
+                batch_id="second",
+                parent_batch_id="first",
+                root_batch_id="first",
+                depth=1,
+            ),
+            batch_lineage(
+                batch_id="first",
+                root_batch_id="first",
+                depth=2,
+            ),
+        ]
+        self.assertEqual(
+            [row[0] for row in summaries._batch_lineage("third")],
+            ["third", "second", "first"],
+        )
+
+    @patch.object(summaries, "_execute")
+    def test_batch_lineage_rejects_cycle_or_missing_root(self, execute):
+        """A truncated cycle cannot be presented as complete recovery evidence."""
+        execute.return_value = [
+            batch_lineage(
+                batch_id="second",
+                parent_batch_id="first",
+                root_batch_id="first",
+            ),
+            batch_lineage(
+                batch_id="first",
+                parent_batch_id="second",
+                root_batch_id="first",
+                depth=1,
+            ),
+        ]
+        with self.assertRaisesRegex(ValueError, "lineage is incomplete"):
+            summaries._batch_lineage("second")
 
     @patch("was_mailer.email_reports.send_message", return_value="message-id")
     @patch.object(summaries, "create_ses_client")
@@ -190,7 +338,10 @@ class AnalystSummaryTests(unittest.TestCase):
         self, execute, rows, deliver
     ):
         """Manual details stay in the CSV while the email reports only totals."""
-        execute.side_effect = [[(90, 10, None, 2, "capacity", "fixture", "finished", "completed")], [(12, True, True, None, "pdf", 2)]]
+        execute.side_effect = [
+            [batch_lineage()],
+            [(12, True, True, None, "pdf", 2)],
+        ]
         rows.return_value = [
             {"id": 1, "tag": "ORDINARY", "open_manual": False},
             {
@@ -228,7 +379,7 @@ class AnalystSummaryTests(unittest.TestCase):
     ):
         """Missing structured sent dates appear outside open manual work."""
         execute.side_effect = [
-            [(90, 10, None, 2, "production", "fixture", "finished", "completed")],
+            [batch_lineage(mode="production")],
             [],
         ]
         rows.return_value = [
@@ -302,12 +453,44 @@ class AnalystSummaryTests(unittest.TestCase):
     def test_continuation_does_not_claim_fresh_throughput(self, execute, rows, deliver, getenv):
         """Previously accepted sends must not inflate a continuation's throughput."""
         execute.side_effect = [
-            [(90, None, None, 2, "capacity", "continuation of previous", "finished", "failed")],
+            [
+                batch_lineage(
+                    batch_id="batch",
+                    elapsed=90,
+                    tracker_duration=None,
+                    tracker_rows=None,
+                    workload="continuation of previous",
+                    outcome="failed",
+                    parent_batch_id="previous",
+                    root_batch_id="previous",
+                ),
+                batch_lineage(
+                    batch_id="previous",
+                    elapsed=120,
+                    tracker_duration=8,
+                    tracker_rows=12,
+                    timing_persisted=False,
+                    depth=1,
+                ),
+            ],
             [(0, True, True, None, "pdf", None)],
         ]
         summaries.send_batch_summary("batch", "from@example.gov")
         body = deliver.call_args.args[4]
         self.assertIn("CONTINUATION", body)
+        self.assertIn("Current continuation elapsed real time | 0:01:30.00", body)
+        self.assertIn("Cumulative active elapsed real time | 0:03:30.00", body)
+        self.assertIn("Source batch | previous", body)
+        self.assertIn("Source tracker time | 8.00 seconds", body)
+        self.assertIn("Source tracker rows updated | 12", body)
+        self.assertIn(
+            "Cumulative timing basis | Estimated from persisted batch activity",
+            body,
+        )
+        self.assertIn("excludes operator downtime", body)
+        self.assertIn("Current continuation PDF generation timing", body)
+        self.assertIn("Current continuation delivery timing", body)
+        self.assertIn("do not describe the full inherited workload", body)
         self.assertIn("Accepted deliveries per hour | Not available", body)
         self.assertIn("they are not new sends", body)
         self.assertIn("total=2; completed=1; failed=1; remaining=1; blocked=1", body)
@@ -316,13 +499,39 @@ class AnalystSummaryTests(unittest.TestCase):
     def test_batch_context_and_completion_are_insert_once(self, execute):
         """Workers cannot reset the coordinator context or completion clock."""
         summaries.start_batch("batch", 4, "capacity", "same-workload")
-        self.assertEqual(execute.call_args.args[1], ("batch", 4, "capacity", "same-workload"))
+        self.assertEqual(
+            execute.call_args.args[1],
+            ("batch", None, "batch", 4, "capacity", "same-workload"),
+        )
         self.assertIn("ON CONFLICT (batch_id) DO NOTHING", execute.call_args.args[0])
         summaries.finish_batch("batch", "failed")
         self.assertIn("finished_at IS NULL", execute.call_args.args[0])
-        self.assertEqual(execute.call_args.args[1], ("failed", "batch"))
+        self.assertIn("active_duration_seconds", execute.call_args.args[0])
+        self.assertEqual(execute.call_args.args[1], ("failed", None, "batch"))
+        summaries.finish_batch("timed-batch", "completed", 12.345)
+        self.assertEqual(
+            execute.call_args.args[1],
+            ("completed", 12.345, "timed-batch"),
+        )
         with self.assertRaises(ValueError):
             summaries.start_batch("batch", 0)
+        with self.assertRaises(ValueError):
+            summaries.start_batch(
+                "child",
+                parent_batch_id="parent",
+                root_batch_id="child",
+            )
+
+    @patch.object(summaries, "_execute")
+    def test_active_duration_checkpoint_is_monotonic_and_unfinished_only(
+        self, execute
+    ):
+        """Checkpoint SQL cannot reduce timing or overwrite a finished batch."""
+        summaries.checkpoint_batch_active_duration("batch", 12.5)
+        query, parameters = execute.call_args.args
+        self.assertIn("GREATEST", query)
+        self.assertIn("finished_at IS NULL", query)
+        self.assertEqual(parameters, (12.5, "batch"))
 
     @patch.object(summaries, "_execute")
     def test_delivery_acceptance_is_persisted_with_first_timestamp(self, execute):
@@ -341,7 +550,7 @@ class AnalystSummaryTests(unittest.TestCase):
     def test_capacity_metrics_exclude_zero_timings_and_tracker_sent_dates(self, execute, rows, deliver):
         """Stable batch wall time and explicit attempts determine throughput."""
         execute.side_effect = [
-            [(120, 10, None, 4, "capacity", "fixture", "finished", "completed")],
+            [batch_lineage(elapsed=120, workers=4)],
             [(10, True, True, None, "pdf", 2),
              (30, False, False, "Error", "pdf", None),
              (0.1, False, True, None, "notification", 1)],
@@ -360,7 +569,7 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertIn("Sent | 2", body)
         self.assertIn("Unsent | 1", body)
         self.assertNotIn("report_sent_date", execute.call_args_list[1].args[0])
-        self.assertIn("COALESCE(finished_at,now())", execute.call_args_list[0].args[0])
+        self.assertIn("WITH RECURSIVE lineage", execute.call_args_list[0].args[0])
 
     def test_pending_manual_rows_groups_only_analysts_with_open_work(self):
         """Pending-manual tables group assigned work and omit zero-count analysts."""

@@ -8,19 +8,57 @@ import unittest
 class BatchMakefileTests(unittest.TestCase):
     """Keep production, preview, and assignee-test date scopes aligned."""
 
-    def test_production_uses_shared_coordinator_not_shell_worker_loop(self) -> None:
-        """Launch production through the same Python workflow as capacity mode."""
+    def test_production_public_target_starts_persistent_tmux_launcher(self) -> None:
+        """Submit production through the persistent host launcher."""
         directory = Path(__file__).resolve().parents[1]
         result = subprocess.run(
             ["make", "-n", "-C", str(directory), "recent-scan-batch"],
+            capture_output=True, text=True, check=True, timeout=15,
+        )
+        self.assertIn("was_reports.commands.tmux_batch start", result.stdout)
+        self.assertIn("--workflow production", result.stdout)
+        self.assertNotIn("was_reports.commands.batch_coordinator", result.stdout)
+
+    def test_production_internal_target_uses_shared_coordinator(self) -> None:
+        """Keep the detached implementation on the shared Python workflow."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make", "-n", "-C", str(directory),
+                "_recent-scan-batch-foreground",
+                "BATCH_RUN_ID=00000000-0000-0000-0000-000000000000",
+                "WAS_TMUX_LAUNCH=1",
+            ],
             capture_output=True, text=True, check=True, timeout=15,
         )
         self.assertIn("was_reports.commands.batch_coordinator", result.stdout)
         self.assertIn('--workers "30" --worker-backend docker', result.stdout)
         self.assertIn('--worker-image "was-reporting"', result.stdout)
         self.assertIn('--lookback-days "3" --apply', result.stdout)
+        self.assertIn('--run-id "00000000-0000-0000-0000-000000000000"', result.stdout)
         self.assertNotIn("worker_pids=", result.stdout)
         self.assertNotIn("--send-assignee-digests", result.stdout)
+
+    def test_capacity_apply_detaches_but_preview_stays_foreground(self) -> None:
+        """Require APPLY=1 before capacity work moves into tmux."""
+        directory = Path(__file__).resolve().parents[1]
+        base_command = [
+            "make", "-n", "-C", str(directory), "capacity-start",
+            "TEST_RECIPIENTS=preview@example.invalid",
+        ]
+        preview = subprocess.run(
+            base_command,
+            capture_output=True, text=True, check=True, timeout=15,
+        )
+        applied = subprocess.run(
+            base_command + ["APPLY=1"],
+            capture_output=True, text=True, check=True, timeout=15,
+        )
+        self.assertIn("was_reports.commands.capacity_test", preview.stdout)
+        self.assertNotIn("was_reports.commands.tmux_batch start", preview.stdout)
+        self.assertIn("was_reports.commands.tmux_batch start", applied.stdout)
+        self.assertIn("--workflow capacity", applied.stdout)
+        self.assertNotIn("was_reports.commands.capacity_test", applied.stdout)
 
     def test_assignee_test_inherits_default_and_explicit_windows(self) -> None:
         """Dry-run expansion forwards seven days by default and honors overrides."""
@@ -38,7 +76,7 @@ class BatchMakefileTests(unittest.TestCase):
                     command, capture_output=True, text=True, check=True, timeout=15
                 )
                 self.assertIn('BATCH_DAYS_BACK="{}"'.format(expected), result.stdout)
-                self.assertIn('--days-back "{}"'.format(expected), result.stdout)
+                self.assertIn("was_reports.commands.tmux_batch start", result.stdout)
                 self.assertNotIn("previous 30 calendar days", result.stdout)
 
     def test_log_diagnostics_remain_make_only_and_read_batch_files(self) -> None:

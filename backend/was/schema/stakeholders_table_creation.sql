@@ -239,12 +239,15 @@ CREATE UNIQUE INDEX was_report_runs_source_tracker_id_uidx
 
 CREATE TABLE was_batch_runs (
     batch_id TEXT PRIMARY KEY,
+    parent_batch_id TEXT,
+    root_batch_id TEXT NOT NULL,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ,
     worker_count INTEGER NOT NULL DEFAULT 1 CHECK (worker_count > 0),
     run_mode TEXT NOT NULL DEFAULT 'production' CHECK (run_mode IN ('production', 'capacity')),
     workload_label VARCHAR(200),
     outcome TEXT CHECK (outcome IN ('completed', 'failed')),
+    active_duration_seconds DOUBLE PRECISION,
     tracker_duration_seconds DOUBLE PRECISION,
     tracker_rows_updated BIGINT,
     tracker_error TEXT,
@@ -254,7 +257,19 @@ CREATE TABLE was_batch_runs (
     final_summary_status TEXT NOT NULL DEFAULT 'pending'
         CHECK (final_summary_status IN ('pending', 'sending', 'sent', 'held')),
     final_summary_message_id TEXT,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT was_batch_runs_parent_batch_fk FOREIGN KEY (parent_batch_id)
+        REFERENCES was_batch_runs(batch_id),
+    CONSTRAINT was_batch_runs_root_batch_fk FOREIGN KEY (root_batch_id)
+        REFERENCES was_batch_runs(batch_id),
+    CONSTRAINT was_batch_runs_active_duration_check CHECK (
+        active_duration_seconds >= 0
+    ),
+    CONSTRAINT was_batch_runs_lineage_check CHECK (
+        (parent_batch_id IS NULL AND root_batch_id = batch_id)
+        OR
+        (parent_batch_id IS NOT NULL AND root_batch_id <> batch_id)
+    )
 );
 
 CREATE TABLE was_batch_report_attempts (

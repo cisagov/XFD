@@ -194,6 +194,32 @@ make capacity-start APPLY=1 BATCH_WORKERS=30 \
   TEST_RECIPIENTS="craig.duhn@associates.cisa.dhs.gov"
 ```
 
+With `APPLY=1`, `capacity-start` and `capacity-continue` assign the new attempt
+ID and submit the coordinator to a detached `tmux` session. A successful submit
+only proves that `tmux` accepted the workload. It does not prove database
+isolation, preflight, generation, delivery, or summary success. The launcher
+prints the attempt ID and exact follow-up commands. Inspect the retained session
+with:
+
+```bash
+make capacity-status TMUX_SESSION="was-capacity-<attempt-UUID>"
+make capacity-console TMUX_SESSION="was-capacity-<attempt-UUID>"
+make capacity-attach TMUX_SESSION="was-capacity-<attempt-UUID>"
+make logs-summary LOG_BATCH_ID="<attempt-UUID>"
+```
+
+Use `Ctrl-b d` to detach without stopping the coordinator. A read-only capacity
+preview, without `APPLY=1`, stays in the foreground so its checks remain visible.
+To interrupt an applied attempt, use the exact printed session name:
+
+```bash
+make capacity-stop TMUX_SESSION="was-capacity-<attempt-UUID>"
+```
+
+This sends `Ctrl-c` rather than killing the session, allowing coordinator worker
+cleanup to run. Confirm cleanup through the status and console commands before
+starting or continuing another attempt.
+
 Capacity testing is not offered in `make menu`. Use the host Make commands
 to run separate worker containers matching the production batch layout.
 `capacity-start` starts a new trial without restoring or resetting the clone.
@@ -222,6 +248,29 @@ them as fresh throughput. A recovered workload can finish successfully, but a
 continuation is not a new 600-in-eight-hours benchmark. Normal start runs retain
 the complete refresh-to-SES measurement. Zero candidates means no report work,
 not a passed capacity benchmark.
+
+Every new batch persists an explicit root identifier. A continuation also
+persists its direct parent identifier. The final continuation summary reports the
+current attempt's elapsed real time and the cumulative active elapsed real time
+for the complete parent chain. Cumulative active time adds coordinator runtimes
+only, excludes operator downtime between attempts, and remains recovery evidence,
+not a fresh throughput result. The tracker table identifies the root source batch
+and reuses that batch's tracker duration, updated-row count, and tracker error.
+The PDF-generation and delivery-duration tables in a continuation summarize only
+nonzero measurements recorded by that retry attempt; they are labeled as current
+continuation timing and do not describe the inherited workload's full history.
+For historical unfinished batches that predate persisted active runtimes, the
+summary bounds elapsed time at the last persisted batch or report-attempt activity
+and labels the cumulative timing as estimated.
+
+An applied capacity coordinator checkpoints `active_duration_seconds` every 30
+seconds and after tracker refresh, workload selection, tracker-summary delivery,
+worker completion, and report delivery. Each checkpoint opens its own managed
+database connection and only increases timing on an unfinished batch. A failed
+checkpoint is logged and does not stop generation or delivery. The coordinator
+signals and joins the checkpoint thread during cleanup, then finalization stores
+the exact measured runtime. A hard process or host failure therefore loses at
+most the interval since the last successful checkpoint under normal conditions.
 
 To discard the current test state and run a fresh trial in one explicit command:
 
@@ -296,7 +345,9 @@ Timing percentiles include positive-duration failed PDF generation attempts and
 exclude fast notification preparation. Repeated measurements retain the longest
 per-report duration; JSONL events provide individual observations. Summed worker
 durations are not wall-clock elapsed time. Historical batches without captured
-timestamps are not valid capacity benchmarks.
+timestamps are not valid capacity benchmarks. Capacity continuation is currently
+the recovery path for test workloads; these continuation metrics do not claim
+that a production continuation command exists.
 
 Endpoint events record individual Qualys attempt latency, attempt number, outcome
 class, and HTTP status when available, without request payloads or credentials.

@@ -1424,9 +1424,21 @@ tracker rows, including failures and unsent reports, plus open manuals,
 deduplicated by tracker ID. Password fields are excluded.
 
 Batch IDs and per-report attempt records preserve scope across parallel workers.
+Capacity continuations persist explicit parent and root batch IDs. Their final
+summaries show the current continuation runtime separately from cumulative active
+coordinator runtime across the recovery chain. The cumulative value excludes the
+operator downtime between attempts and is recovery evidence, not a new capacity
+benchmark. Continuation tracker tables reuse the root batch's recorded tracker
+duration, updated-row count, and tracker error rather than displaying the
+continuation as an unavailable tracker refresh.
+While a capacity coordinator is unfinished, it checkpoints active runtime every
+30 seconds and at major workflow phase boundaries. Checkpoints are monotonic,
+cannot overwrite finished-batch timing, and fail open with a warning so an
+optional timing write cannot stop report generation or delivery.
 Each email phase is claimed once; an uncertain send is held for review, not
 automatically resent. Check SES before resetting any sending/held phase. The
-current operational database is expected to contain `was_batch_runs` and
+current operational database is expected to contain `was_batch_runs`, including
+its `parent_batch_id`, `root_batch_id`, and `active_duration_seconds` columns, and
 `was_batch_report_attempts`, as defined by the comprehensive schema. The
 application does not create them automatically.
 
