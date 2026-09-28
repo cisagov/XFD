@@ -17,13 +17,15 @@ from was_reports.tracker import tracker_import
 def workbook_row(
     tag: str = "TAG1",
     assignee: str = "Analyst",
+    data_pull_date: object = "09/09/2026",
     report_sent_date: object = "09/09/2026",
     scan_start_date: object = "09/08/2026",
+    next_scan_date: object = "10/08/2026",
     schedule_id: object = 12345,
 ) -> tuple[object, ...]:
     """Return one representative legacy tracker workbook row."""
     return (
-        "09/09/2026",
+        data_pull_date,
         tag,
         "WAVS - TAG1 - Monthly Run #1",
         assignee,
@@ -32,7 +34,7 @@ def workbook_row(
         report_sent_date,
         None,
         scan_start_date,
-        "10/08/2026",
+        next_scan_date,
         "Customer POC",
         "poc@example.gov",
         None,
@@ -287,9 +289,54 @@ class TrackerImportTests(unittest.TestCase):
         self.assertEqual(updated_count, 1)
         query = mock_execute_values.call_args.args[1]
         self.assertIn(
-            "COALESCE(imported.report_sent_date, tracker.report_sent_date)",
+            "COALESCE(imported.report_sent_date::date, "
+            "tracker.report_sent_date)",
             query,
         )
+
+    @patch("was_reports.tracker.tracker_import.execute_values")
+    def test_update_casts_nullable_dates_and_identifiers(
+        self,
+        mock_execute_values,
+    ) -> None:
+        """Type an overwrite page even when nullable values are all NULL."""
+        mock_execute_values.return_value = [(91,)]
+        row = tracker_import.workbook_values_to_row(
+            workbook_row(
+                data_pull_date=None,
+                report_sent_date=None,
+                scan_start_date=None,
+                next_scan_date=None,
+                schedule_id=None,
+            )
+        )
+        values = tracker_import.database_values(
+            row,
+            assignee_id=None,
+            fingerprint=tracker_import.tracker_fingerprint(row),
+        )
+        update_values = tuple(
+            values[tracker_import.DATABASE_COLUMNS.index(column)]
+            for column in tracker_import.IMPORT_UPDATE_COLUMNS
+        ) + (91,)
+
+        updated_count = tracker_import.update_converted_rows(
+            MagicMock(),
+            [update_values],
+        )
+
+        self.assertEqual(updated_count, 1)
+        query = mock_execute_values.call_args.args[1]
+        for expected_expression in (
+            "data_pull_date = imported.data_pull_date::date",
+            "assignee_id = imported.assignee_id::bigint",
+            "scan_start_date = imported.scan_start_date::date",
+            "next_scan_date = imported.next_scan_date::date",
+            "schedule_id = imported.schedule_id::bigint",
+            "tracker.id = imported.tracker_id::bigint",
+        ):
+            with self.subTest(expression=expected_expression):
+                self.assertIn(expected_expression, query)
 
     @patch("was_reports.tracker.tracker_import.execute_values")
     def test_insert_uses_atomic_conflict_overwrite(

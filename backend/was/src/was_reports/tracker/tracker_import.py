@@ -108,6 +108,15 @@ IMPORT_UPDATE_COLUMNS = tuple(
     if column not in {"scan_execution_key", "assignee_email_status"}
 )
 
+IMPORT_UPDATE_CASTS = {
+    "data_pull_date": "date",
+    "assignee_id": "bigint",
+    "report_sent_date": "date",
+    "scan_start_date": "date",
+    "next_scan_date": "date",
+    "schedule_id": "bigint",
+}
+
 TrackerImportKey = tuple[str, ...]
 
 
@@ -456,20 +465,24 @@ def update_converted_rows(
         return 0
     assignments = []
     for column in IMPORT_UPDATE_COLUMNS:
+        imported_value = "imported.{}".format(column)
+        database_type = IMPORT_UPDATE_CASTS.get(column)
+        if database_type is not None:
+            imported_value = "{}::{}".format(imported_value, database_type)
         if column == "report_sent_date":
             assignments.append(
-                "report_sent_date = COALESCE(imported.report_sent_date, "
-                "tracker.report_sent_date)"
+                "report_sent_date = COALESCE({}, "
+                "tracker.report_sent_date)".format(imported_value)
             )
         else:
             assignments.append(
-                "{} = imported.{}".format(column, column)
+                "{} = {}".format(column, imported_value)
             )
     query = """
         UPDATE was_daily_report_tracker AS tracker
         SET {}, updated_at = NOW()
         FROM (VALUES %s) AS imported ({}, tracker_id)
-        WHERE tracker.id = imported.tracker_id
+        WHERE tracker.id = imported.tracker_id::bigint
         RETURNING tracker.id
     """.format(", ".join(assignments), ", ".join(IMPORT_UPDATE_COLUMNS))
     updated_count = 0
