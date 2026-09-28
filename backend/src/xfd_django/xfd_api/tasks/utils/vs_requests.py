@@ -253,49 +253,6 @@ def parse_int(value):
         return None
 
 
-# def process_organization(request, network_list, location_dict, org_id_dict):
-#     """Save organization data and update org_id_dict."""
-#     ip_blocks: list[str] = [net["network"] for net in network_list]
-
-#     org_data = {
-#         "name": request.get("agency", {}).get("name"),
-#         "acronym": request.get("_id"),
-#         "retired": bool(request.get("retired", False)),
-#         "type": request.get("agency", {}).get("type"),
-#         "state": request.get("agency", {}).get("location", {}).get("state"),
-#         "state_name": request.get("agency", {}).get("location", {}).get("state_name"),
-#         "county": request.get("agency", {}).get("location", {}).get("county"),
-#         "county_fips": parse_int(
-#             request.get("agency", {}).get("location", {}).get("county_fips")
-#         ),
-#         "state_fips": parse_int(
-#             request.get("agency", {}).get("location", {}).get("state_fips")
-#         ),
-#         "country": request.get("agency", {}).get("location", {}).get("country"),
-#         "country_name": request.get("agency", {})
-#         .get("location", {})
-#         .get("country_name"),
-#         "region_id": REGION_STATE_MAP.get(
-#             request.get("agency", {}).get("location", {}).get("state_name"), None
-#         ),
-#         "stakeholder": bool(request.get("stakeholder", False)),
-#         "enrolled_in_vs_timestamp": request.get("enrolled") or timezone.now(),
-#         "period_start_vs_timestamp": request.get("period_start"),
-#         "report_types": json.dumps(request.get("report_types", [])),
-#         "scan_types": json.dumps(request.get("scan_types", [])),
-#         "ip_blocks": ip_blocks,
-#         "is_passive": False,
-#     }
-#     try:
-#         org_record = save_organization_to_mdl(org_data, network_list, location_dict)
-#         org_id_dict[request["_id"]] = org_record.id
-#     except Exception as e:
-#         LOGGER.info("Error saving organization: %s - %s", e, request["_id"])
-#         raise IngestionError(
-#             SCAN_NAME, str(e), "Failed processing organizations"
-#         ) from e
-
-
 def process_organization(request, network_list, location_dict, org_id_dict):
     """Save organization data and update org_id_dict."""
     agency = request.get("agency")

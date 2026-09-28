@@ -146,27 +146,6 @@ def _build_parameters(
     return [_infer_statement_param(f"p{i}", value) for i, value in enumerate(params)]
 
 
-# def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
-#     """Walk every INLINE/JSON_ARRAY result chunk and concatenate all rows.
-
-#     The first chunk comes back attached to the execute_statement/get_statement
-#     response itself (result.chunk_index == 0). Subsequent chunks (if the
-#     result spans more than one) are fetched by index via
-#     get_statement_result_chunk_n() until next_chunk_index is absent.
-#     """
-#     if first_result is None:
-#         return []
-#     rows = list(first_result.data_array or [])
-#     next_index = first_result.next_chunk_index
-#     while next_index is not None:
-#         chunk = client.statement_execution.get_statement_result_chunk_n(
-#             statement_id, next_index
-#         )
-#         rows.extend(chunk.data_array or [])
-#         next_index = chunk.next_chunk_index
-#     return rows
-
-
 def _download_external_rows(external_links) -> List[list]:
     """Download and parse rows from Databricks Statement Execution API external links."""
     rows: List[list] = []
@@ -382,26 +361,6 @@ def fetch_from_databricks(query):
         LOGGER.exception("Error fetching data from Databricks: %s", e)
         LOGGER.info("Erroneous query: %s", query)
         return []
-
-
-# def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
-#     """Fetch data from Databricks with parameters.
-
-#     `query` must use :p0, :p1, ... markers matching the order of `params` -
-#     see query_databricks() docstring.
-#     """
-#     if IS_LOCAL:
-#         data_set = detect_data_set(query)
-#         return load_test_data(data_set)
-#     try:
-#         result = query_databricks(query, params=params)
-#         return result
-#     except Exception as e:
-#         # MODIFIED: was LOGGER.info(...) - see fetch_from_databricks()'s
-#         # MODIFIED note above; same silent-empty-list-on-any-error issue.
-#         LOGGER.exception("Error fetching data from Databricks: %s", e)
-#         LOGGER.info("Erroneous query: %s", query)
-#         return []
 
 
 def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
