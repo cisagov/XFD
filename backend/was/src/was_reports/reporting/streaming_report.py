@@ -14,6 +14,7 @@ from lxml import etree
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient
+from was_reports.reporting.exceptions import ReportXmlUnsafeContentError
 from was_reports.reporting.report_artifacts import (
     EMAILS_FOUND_QID,
     LINKS_CRAWLED_QID,
@@ -140,6 +141,10 @@ def _iter_report(source: BinaryIO) -> Iterator[Tuple[str, object]]:
     for event, element in parser:
         if not root_checked and event == "start":
             root_checked = True
+            if element.getroottree().docinfo.doctype:
+                raise ReportXmlUnsafeContentError(
+                    "Qualys report XML contains a prohibited DTD declaration."
+                )
             if _local_name(element) != "WAS_WEBAPP_REPORT":
                 raise ValueError(
                     "Qualys report XML has an unexpected root element."

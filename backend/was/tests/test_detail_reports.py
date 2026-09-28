@@ -481,10 +481,16 @@ class DetailReportsTests(unittest.TestCase):
             self.assertFalse(output_path.exists())
         self.assertTrue(session.response.closed)
 
-    def test_download_report_xml_rejects_doctype_across_chunks(self) -> None:
-        """Reject DTD declarations even when a token spans download chunks."""
+    def test_download_report_xml_does_not_reject_literal_declaration_text(
+        self,
+    ) -> None:
+        """Leave XML syntax decisions to the secure streaming parser."""
         session = FakeSession()
-        session.response = FakeResponse(b"<root><!DOCTYPE unsafe></root>")
+        report_content = (
+            b"<root><![CDATA[<!DOCTYPE literal>]]>"
+            b"<!-- <!ENTITY literal> --></root>"
+        )
+        session.response = FakeResponse(report_content)
         credentials = QualysCredentials("user", "secret", "qualys.example")
 
         with tempfile.TemporaryDirectory() as directory, patch.dict(
@@ -503,13 +509,11 @@ class DetailReportsTests(unittest.TestCase):
             return_value=SimpleNamespace(free=10_000),
         ):
             output_path = Path(directory) / "report.xml"
-            with self.assertRaises(
-                detail_reports.ReportXmlUnsafeContentError
-            ):
-                detail_reports.download_report_xml(
-                    "123", output_path, credentials, session_factory=lambda: session
-                )
-            self.assertFalse(output_path.exists())
+            result = detail_reports.download_report_xml(
+                "123", output_path, credentials, session_factory=lambda: session
+            )
+            self.assertEqual(result, output_path)
+            self.assertEqual(output_path.read_bytes(), report_content)
             self.assertFalse(Path("{}.part".format(output_path)).exists())
 
     @patch("was_reports.reporting.detail_reports.post_process_detail_pdf")

@@ -203,6 +203,8 @@ deployed `.env`, rebuild after code changes, and verify that the report
 workspace can support the configured worker concurrency. A
 `ReportXmlSizeLimitError` or `ReportXmlDiskSpaceError` requires review before
 changing a limit or retrying the affected tracker row.
+The secure streaming parser rejects an actual document DTD. Declaration-like
+text inside comments or CDATA is inert and is not classified as a DTD.
 
 ## Batch troubleshooting
 
@@ -239,6 +241,13 @@ Do not retry held SES delivery or uncertain Qualys creation based only on an
 error line. Reconcile the external outcome and persisted run first. Use the
 [manual recovery runbook](manual-report-recovery.md) only for its supported,
 explicitly reviewed failure categories.
+
+An SES response-parsing failure after the delivery request starts is a held,
+uncertain outcome even when no message ID was returned. Confirm the SES outcome
+before changing that report run or attempting another delivery. A failure that
+occurs before the SES request starts remains retryable for an ordinary, unheld
+customer delivery. Existing held deliveries and analyst deliveries retain their
+stricter hold policy.
 
 ## Capacity testing
 

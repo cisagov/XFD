@@ -25,7 +25,6 @@ from was_reports.qualys.qualys_client import (
 from was_reports.reporting.exceptions import (
     ReportXmlDiskSpaceError,
     ReportXmlSizeLimitError,
-    ReportXmlUnsafeContentError,
 )
 from was_reports.reporting.pdf_helpers import post_process_detail_pdf
 from was_reports.utils.env import getenv
@@ -41,7 +40,6 @@ DETAIL_POLL_TIMEOUT_SECONDS = 0
 DEFAULT_REPORT_XML_MAX_BYTES = 10 * 1024 * 1024 * 1024
 DEFAULT_REPORT_XML_MIN_FREE_BYTES = 5 * 1024 * 1024 * 1024
 REPORT_XML_CHUNK_BYTES = 1024 * 1024
-PROHIBITED_XML_DECLARATIONS = (b"<!DOCTYPE", b"<!ENTITY")
 TERMINAL_FAILURE_STATUSES = frozenset(
     {"CANCELED", "CANCELLED", "DELETED", "ERROR", "FAILED"}
 )
@@ -274,7 +272,6 @@ def _stream_report_xml_once(
             response.close()
             raise ReportXmlSizeLimitError(expected_bytes, maximum_bytes)
     total_bytes = 0
-    declaration_prefix = b""
     try:
         output_path.parent.chmod(0o700)
         partial_path.unlink(missing_ok=True)
@@ -287,15 +284,6 @@ def _stream_report_xml_once(
                 total_bytes += len(chunk)
                 if total_bytes > maximum_bytes:
                     raise ReportXmlSizeLimitError(total_bytes, maximum_bytes)
-                inspection = declaration_prefix + chunk
-                if any(
-                    declaration in inspection
-                    for declaration in PROHIBITED_XML_DECLARATIONS
-                ):
-                    raise ReportXmlUnsafeContentError(
-                        "Qualys report XML contains a prohibited DTD declaration."
-                    )
-                declaration_prefix = inspection[-16:]
                 free_bytes = shutil.disk_usage(output_path.parent).free
                 if free_bytes - len(chunk) < minimum_free_bytes:
                     raise ReportXmlDiskSpaceError(

@@ -126,11 +126,14 @@ def create_multiscan(
     is_adhoc = any(marker in tag.lower() for marker in ADHOC_MARKERS)
 
     for scan in scans:
-        webapp_url = element_text(scan, "./target/webApp/url")
         result = element_text(scan, "./summary/resultsStatus")
         status = element_text(scan, "status")
         statuses.append(status)
         results.append(result)
+
+        webapp_url = None
+        if result in QUALYS_ERROR_RESULTS or result in INACCESSIBLE_RESULTS:
+            webapp_url = element_text(scan, "./target/webApp/url")
 
         if result in QUALYS_ERROR_RESULTS:
             qualys_errors.append("{}<br>".format(webapp_url))
@@ -244,7 +247,9 @@ def create_tracker_items(
             requests.HTTPError,
         ) as error:
             LOGGER.error(
-                "Unable to consolidate Qualys scans for %s; marking it manual: %s",
+                "Unable to consolidate Qualys scans for %s; holding the "
+                "execution "
+                "for a later refresh: %s",
                 tag,
                 exception_details(error),
             )

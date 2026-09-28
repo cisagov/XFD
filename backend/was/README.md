@@ -398,6 +398,9 @@ specific failure category in the private batch log. The temporary source file
 is removed after success or downstream failure, while its Qualys report ID is
 retained when reconciliation may safely resume the work. Size the report
 workspace for the configured worker concurrency before a production load test.
+The streaming parser disables entity resolution, DTD loading, network access,
+DTD validation, and attribute defaults. It rejects an actual document DTD while
+allowing inert declaration-like text inside comments or CDATA.
 
 Active Qualys detail and XML report IDs, current statuses, and last-poll
 timestamps are stored on `was_report_runs`. If a tracker-linked failed run is
@@ -462,9 +465,13 @@ but do not execute the complete creation file against an existing database.
 
 The unique active-schedule index prevents separate report containers from
 generating the same stakeholder schedule concurrently. Email delivery uses an
-atomic database claim before calling SES. If SES accepts a message but the
-database cannot record the result, the claim remains in `sending` status for
-manual reconciliation rather than being retried automatically.
+atomic database claim before calling SES. Any exception after the SES request
+starts is treated as an uncertain delivery, including a response-parsing error
+that occurs before an SES message ID is available. The report run is held for
+manual reconciliation rather than being retried automatically. Failures before
+the SES request starts remain safely retryable for an ordinary, unheld customer
+delivery. Existing held deliveries and analyst deliveries retain their stricter
+hold policy.
 
 For local batch development without AWS access, explicitly select local storage
 and mount an output directory:
@@ -1026,6 +1033,12 @@ Time Limit Reached, Successful. No Host Alive remains an inaccessible-target
 result. Empty, unknown, or incomplete inputs cannot become Successful. This
 priority is an explicit correction to the archived legacy behavior, which
 placed Service Error ahead of No Web Service.
+
+The tracker requires a slice web-application URL only when that URL is needed
+for an inaccessible-target or Qualys-error customer list. Successful, Service
+Error, and Time Limit Reached slices remain valid when Qualys omits that unused
+URL. A missing required URL holds the execution for a later refresh rather than
+persisting a misleading MANUAL row.
 
 If the sensitive-finding API explicitly returns `OTHER_ERROR`, Attachment 7
 contains its CSV headings with no data rows. Partial findings from earlier

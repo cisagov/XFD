@@ -680,7 +680,7 @@ class WasMailerTests(unittest.TestCase):
         mock_logger_exception,
         mock_mark_failed,
     ) -> None:
-        """Record a delivery failure when SES send fails."""
+        """Hold a delivery when SES raises after the request was attempted."""
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
             report_path.write_bytes(b"%PDF")
@@ -712,6 +712,71 @@ class WasMailerTests(unittest.TestCase):
             email_claim_token=None,
         )
         self.assertEqual(mock_logger_exception.call_count, 1)
+        self.assertEqual(
+            mock_logger_exception.call_args.kwargs["extra"],
+            {
+                "event": "ses_delivery_uncertain",
+                "error_category": "RuntimeError",
+            },
+        )
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.LOGGER.error")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_send_report_run_email_holds_response_parser_failure(
+        self,
+        mock_claim_report_run_email,
+        mock_logger_error,
+        mock_mark_failed,
+    ) -> None:
+        """Hold an SES response parsing failure without logging its payload."""
+        class ResponseParserError(Exception):
+            """Represent SES accepting a request before response parsing fails."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
+            report_path.write_bytes(b"%PDF")
+            mock_claim_report_run_email.return_value = ReportRunEmail(
+                id=1,
+                stakeholder_tag="TAG1",
+                output_path=str(report_path),
+                report_password="secret",
+                distro_email="recipient@example.gov",
+                tech_poc_email=None,
+                was_report_poc=None,
+            )
+            parser_error = ResponseParserError(
+                "sensitive response payload for recipient@example.gov"
+            )
+            ses_client = Mock()
+            ses_client.send_raw_email.side_effect = parser_error
+
+            with self.assertRaises(ResponseParserError):
+                email_reports.send_report_run_email(
+                    report_run_id=1,
+                    source_email="sender@example.gov",
+                    ses_client=ses_client,
+                    storage_mode="local",
+                    local_output_directory=directory,
+                )
+
+        mock_mark_failed.assert_called_once_with(
+            report_run_id=1,
+            error_message="WAS report email delivery failed.",
+            hold_for_manual_retry=True,
+            email_claim_token=None,
+        )
+        self.assertEqual(mock_logger_error.call_count, 1)
+        log_call = mock_logger_error.call_args
+        self.assertEqual(
+            log_call.kwargs["extra"],
+            {
+                "event": "ses_delivery_uncertain",
+                "error_category": "ResponseParserError",
+            },
+        )
+        self.assertNotIn("sensitive response payload", str(log_call))
+        self.assertNotIn("recipient@example.gov", str(log_call))
 
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")

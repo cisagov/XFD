@@ -17,6 +17,7 @@ from was_reports.reporting import (
     report_transformer,
     streaming_report,
 )
+from was_reports.reporting.exceptions import ReportXmlUnsafeContentError
 
 FIXTURE_DIRECTORY = Path(__file__).parent / "fixtures"
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0, tzinfo=timezone.utc)
@@ -190,6 +191,77 @@ class StreamingReportTests(unittest.TestCase):
                     Mock(),
                     CURRENT_TIME,
                 )
+
+    def test_process_report_rejects_actual_document_doctype(self) -> None:
+        """Reject a real document DTD before processing report content."""
+        with tempfile.TemporaryDirectory() as directory:
+            base_directory = Path(directory)
+            xml_path = base_directory / "report.xml"
+            _write_complete_report(xml_path)
+            root = etree.fromstring(xml_path.read_bytes())
+            root.insert(0, etree.Entity("probe"))
+            xml_path.write_bytes(
+                etree.tostring(
+                    root,
+                    xml_declaration=True,
+                    encoding="UTF-8",
+                    doctype=(
+                        '<!DOCTYPE WAS_WEBAPP_REPORT '
+                        '[<!ENTITY probe "EXPANSION_SENTINEL">]>'
+                    ),
+                )
+            )
+
+            with self.assertRaisesRegex(
+                ReportXmlUnsafeContentError,
+                "prohibited DTD declaration",
+            ):
+                streaming_report.process_report_xml(
+                    xml_path,
+                    "CUSTOMER",
+                    base_directory / "assets",
+                    Mock(),
+                    CURRENT_TIME,
+                )
+
+    def test_process_report_accepts_literal_declarations_in_cdata_and_comment(
+        self,
+    ) -> None:
+        """Treat declaration-like CDATA and comments as inert literal text."""
+        with tempfile.TemporaryDirectory() as directory:
+            base_directory = Path(directory)
+            xml_path = base_directory / "report.xml"
+            _write_complete_report(xml_path)
+            root = etree.fromstring(xml_path.read_bytes())
+            literal_text = (
+                '<!DOCTYPE literal [<!ENTITY probe "EXPANSION_SENTINEL">]>'
+                "&probe;"
+            )
+            root.text = etree.CDATA(literal_text)
+            root.insert(0, etree.Comment("<!DOCTYPE comment> <!ENTITY comment>"))
+            xml_path.write_bytes(
+                etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+            )
+
+            with xml_path.open("rb") as xml_file:
+                parsed_root = None
+                for event, element in streaming_report._iter_report(xml_file):
+                    if event == "start" and parsed_root is None:
+                        parsed_root = element
+                self.assertIsNotNone(parsed_root)
+                self.assertEqual(parsed_root.text, literal_text)
+
+            result = streaming_report.process_report_xml(
+                xml_path,
+                "CUSTOMER",
+                base_directory / "assets",
+                Mock(),
+                CURRENT_TIME,
+            )
+            self.assertEqual(
+                result.transformation.vulnerability_filename,
+                "vulnerability-list-CUSTOMER.csv",
+            )
 
 
 if __name__ == "__main__":

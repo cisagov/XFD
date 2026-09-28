@@ -7,6 +7,8 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 # Third-Party Libraries
+from lxml import etree
+
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
 from was_reports.tracker.item_builder import (
@@ -117,8 +119,96 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             )
         self.assertEqual(items[0].manual, "MANUAL")
         self.assertIn("ValueError", logs.output[0])
+        self.assertIn("holding the execution for a later refresh", logs.output[0])
+        self.assertNotIn("marking it manual", logs.output[0])
         self.assertNotIn("private-response-payload", "".join(logs.output))
         self.assertIsNone(logs.records[0].exc_info)
+
+    @patch(
+        "was_reports.tracker.item_builder.stakeholder_flags",
+        return_value=("", False),
+    )
+    def test_ordinary_result_tolerates_missing_webapp_url(
+        self,
+        mock_flags,
+    ) -> None:
+        """Do not hold an ordinary result when its unused URL is absent."""
+        stakeholder = TrackerStakeholder(
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            1,
+            "MONTHLY",
+            "TAG",
+        )
+        for result, expected_result in (
+            ("SUCCESSFUL", "Successful"),
+            ("SERVICE_ERROR", "Service Error"),
+            ("TIME_LIMIT_REACHED", "Time Limit Reached"),
+        ):
+            with self.subTest(result=result):
+                scan = etree.fromstring(
+                    (
+                        "<WasScan><name>Customer Run #1</name>"
+                        "<status>FINISHED</status><summary>"
+                        "<resultsStatus>{}</resultsStatus></summary>"
+                        "</WasScan>"
+                    ).format(result).encode("utf-8")
+                )
+
+                item = create_tracker_items(
+                    Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+                )[0]
+
+                self.assertEqual(item.status, "Finished")
+                self.assertEqual(item.result, expected_result)
+                self.assertEqual(item.manual, "")
+                self.assertEqual(item.qualys_errors, "")
+
+    def test_customer_list_results_still_require_webapp_url(self) -> None:
+        """Hold NWS and Qualys-error results when their customer URL is absent."""
+        stakeholder = TrackerStakeholder(
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            1,
+            "MONTHLY",
+            "TAG",
+        )
+        for status, result in (
+            ("FINISHED", "NO_WEB_SERVICE"),
+            ("ERROR", "SCAN_INTERNAL_ERROR"),
+            ("ERROR", "SCAN_RESULTS_INVALID"),
+        ):
+            with self.subTest(result=result):
+                scan = etree.fromstring(
+                    (
+                        "<WasScan><name>Customer Run #1</name><status>{}</status>"
+                        "<summary><resultsStatus>{}</resultsStatus></summary>"
+                        "</WasScan>"
+                    ).format(status, result).encode("utf-8")
+                )
+                with self.assertLogs(
+                    "was_reports.tracker.item_builder", level="ERROR"
+                ) as logs:
+                    item = create_tracker_items(
+                        Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+                    )[0]
+
+                self.assertEqual(item.status, "")
+                self.assertEqual(item.result, "")
+                self.assertEqual(item.manual, "MANUAL")
+                self.assertEqual(item.qualys_errors, "AttributeError")
+                self.assertIn(
+                    "holding the execution for a later refresh", logs.output[0]
+                )
+                with patch(
+                    "was_reports.tracker.update_service.connect"
+                ) as mock_connect:
+                    self.assertEqual(update_tracker(Mock(), [item], False), 0)
+                mock_connect.assert_not_called()
 
     def setUp(self) -> None:
         """Keep legacy database inspection isolated from update flow tests."""

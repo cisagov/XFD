@@ -113,7 +113,6 @@ def send_report_run_email(
                     report_run_id
                 )
             )
-    delivery_accepted = False
     delivery_attempted = False
     try:
         recipients = recipient_addresses(
@@ -196,7 +195,6 @@ def send_report_run_email(
             check_operation_ownership()
             delivery_attempted = True
             message_id = send_message(client, message)
-            delivery_accepted = True
         mark_report_run_emailed_by_id(
             report_run_id,
             message_id,
@@ -223,19 +221,25 @@ def send_report_run_email(
                     exception_details(persistence_error),
                     extra={"event": "delivery_failure_persistence_failed"},
                 )
-        if delivery_accepted:
-            LOGGER.critical(
-                "SES accepted WAS report run id %s, but delivery status could not "
-                "be persisted; manual reconciliation is required.",
+        if delivery_attempted:
+            error_category = type(error).__name__
+            LOGGER.error(
+                "SES delivery outcome is uncertain for WAS report run id %s "
+                "after exception category %s; manual reconciliation is required.",
                 report_run_id,
-                extra={"event": "ses_delivery_uncertain"},
+                error_category,
+                extra={
+                    "event": "ses_delivery_uncertain",
+                    "error_category": error_category,
+                },
             )
-        LOGGER.error(
-            "WAS report email delivery failed for report run id %s: %s",
-            report_run_id,
-            exception_details(error),
-            extra={"event": "ses_delivery_failed"},
-        )
+        else:
+            LOGGER.error(
+                "WAS report email delivery failed for report run id %s: %s",
+                report_run_id,
+                exception_details(error),
+                extra={"event": "ses_delivery_failed"},
+            )
         raise
 
 
