@@ -136,6 +136,12 @@ the tracker summary, launches separate worker containers, performs the final
 delivery pass, and sends the final analyst summary. Customer delivery uses the
 normal stakeholder recipients.
 
+Both analyst notifications use semantic HTML tables with a matching plain-text
+table fallback. Time measurements use two decimal places, and final elapsed real
+time uses `h:mm:ss.ss`. Each notification includes pending manual-report counts
+for analysts who have at least one pending item, plus `Unassigned` when needed.
+Detailed tags, tracker IDs, scan names, and notes remain in the final CSV.
+
 For a controlled functional batch that overrides every report and summary
 recipient with an approved email-enabled analyst:
 

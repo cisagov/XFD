@@ -1392,13 +1392,19 @@ analysts. Customer reports retain their existing delivery behavior.
 The tracker-completion email summarizes the planned workload before generation:
 report counts, NWS/error report and affected-webapp counts, tracker duration, and
 refresh errors. NWS and error categories can overlap. Unavailable counts are not
-presented as zero.
+presented as zero. The tracker and final notifications provide semantic HTML
+tables with matching plain-text table fallbacks. Both include a table containing
+only analysts who have pending manual reports, plus an `Unassigned` row when
+applicable. Analysts with zero pending manual reports are omitted.
 
-The final email reports generation counts, timing, and errors. Its body summarizes
-open manual work as current-batch failures versus existing backlog, then reports
-mutually exclusive totals for password validation, Qualys read timeouts, Qualys
-scan errors, stakeholder-configured manual reporting, legacy imported markers,
-and other or unclassified reasons. Delivery reconciliation is a separate total.
+The final email reports generation counts, timing, and errors. Duration values
+use two decimal places. Elapsed real time is displayed as `h:mm:ss.ss`, and the
+average, median, and p95 PDF generation times appear together. Its body
+summarizes open manual work as current-batch failures versus existing backlog,
+then reports mutually exclusive totals for password validation, Qualys read
+timeouts, Qualys scan errors, stakeholder-configured manual reporting, legacy
+imported markers, and other or unclassified reasons. Delivery reconciliation is
+a separate total.
 Tags, tracker IDs, assignees, scan names, and complete notes remain in the
 attached CSV rather than expanding the email body. The CSV includes attempted
 tracker rows, including failures and unsent reports, plus open manuals,

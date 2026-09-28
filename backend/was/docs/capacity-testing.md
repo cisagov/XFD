@@ -288,6 +288,10 @@ The shared summary records worker count, run mode, a fixed finish time, outcome,
 PDF and notification counts, batch-specific accepted sends, PDF generation
 average/median/p95, delivery timing, and accepted deliveries per hour. Production
 batches use the same summary metrics after their database schema is updated.
+Tracker and final notifications use semantic HTML tables with plain-text table
+fallbacks. Duration values use two decimal places, final elapsed real time uses
+`h:mm:ss.ss`, and both notifications group pending manual-report counts by
+analyst while omitting analysts with zero pending work.
 Timing percentiles include positive-duration failed PDF generation attempts and
 exclude fast notification preparation. Repeated measurements retain the longest
 per-report duration; JSONL events provide individual observations. Summed worker

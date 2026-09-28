@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 import csv
 from email.message import EmailMessage
+from html import escape
 from html.parser import HTMLParser
 import io
 import json
@@ -74,6 +75,87 @@ def _duration(value):
     if not math.isfinite(result) or result < 0:
         raise ValueError("Duration must be finite and nonnegative.")
     return result
+
+
+def _format_seconds(value):
+    """Format an optional duration with two decimal places."""
+    if value is None:
+        return "Not available"
+    return "{:.2f} seconds".format(_duration(value))
+
+
+def _format_elapsed(value):
+    """Format elapsed real time as hours, minutes, and two-decimal seconds."""
+    hundredths = int(round(_duration(value) * 100))
+    hours, remainder = divmod(hundredths, 360000)
+    minutes, remainder = divmod(remainder, 6000)
+    seconds, fraction = divmod(remainder, 100)
+    return "{}:{:02d}:{:02d}.{:02d}".format(
+        hours, minutes, seconds, fraction
+    )
+
+
+def _text_table(caption, headers, rows):
+    """Render a readable plain-text table for non-HTML email clients."""
+    lines = [caption, " | ".join(str(header) for header in headers)]
+    lines.append(" | ".join("---" for _header in headers))
+    lines.extend(
+        " | ".join(str(value) for value in row)
+        for row in rows
+    )
+    return "\n".join(lines)
+
+
+def _html_table(caption, headers, rows):
+    """Render one semantic, email-compatible HTML table."""
+    header_cells = "".join(
+        '<th scope="col" style="border:1px solid #d9d9d9;'
+        'background:#1f4e78;color:#ffffff;padding:8px;text-align:left;">{}</th>'.format(
+            escape(str(header))
+        )
+        for header in headers
+    )
+    body_rows = []
+    for row in rows:
+        cells = "".join(
+            '<td style="border:1px solid #d9d9d9;padding:8px;vertical-align:top;">{}</td>'.format(
+                escape(str(value))
+            )
+            for value in row
+        )
+        body_rows.append("<tr>{}</tr>".format(cells))
+    return (
+        '<table style="border-collapse:collapse;margin:0 0 20px 0;min-width:480px;">'
+        '<caption style="font-weight:bold;text-align:left;padding:0 0 6px 0;">{}</caption>'
+        "<thead><tr>{}</tr></thead><tbody>{}</tbody></table>"
+    ).format(escape(str(caption)), header_cells, "".join(body_rows))
+
+
+def _summary_content(title, tables, notes=()):
+    """Return matching plain-text and accessible HTML summary bodies."""
+    text_parts = [title]
+    text_parts.extend(
+        _text_table(caption, headers, rows)
+        for caption, headers, rows in tables
+    )
+    text_parts.extend(str(note) for note in notes if note)
+    html_parts = [
+        "<html><body>",
+        '<h1 style="font-size:20px;color:#000000;">{}</h1>'.format(
+            escape(str(title))
+        ),
+    ]
+    html_parts.extend(
+        _html_table(caption, headers, rows)
+        for caption, headers, rows in tables
+    )
+    html_parts.extend(
+        "<p>{}</p>".format(escape(str(note)))
+        for note in notes
+        if note
+    )
+    html_parts.append("</body></html>")
+    return "\n\n".join(text_parts) + "\n", "".join(html_parts)
 
 
 def start_batch(batch_id, worker_count=None, run_mode=None, workload_label=None):
@@ -410,34 +492,60 @@ def manual_reason_category(row):
 
 def manual_work_summary_lines(rows):
     """Return compact manual-work totals while row details remain in the CSV."""
-    manuals = [row for row in rows if row.get("open_manual")]
-    categories = Counter(manual_reason_category(row) for row in manuals)
-    current_batch = sum(bool(row.get("current_batch_attempt")) for row in manuals)
-    reconciliation_count = sum(
-        bool(row.get("delivery_reconciliation")) for row in rows
-    )
+    statistics = manual_work_statistics(rows)
     lines = [
-        "Open manual work: {} total".format(len(manuals)),
+        "Open manual work: {} total".format(statistics["total"]),
         "",
-        "Current batch failures: {}".format(current_batch),
-        "Existing manual backlog: {}".format(len(manuals) - current_batch),
+        "Current batch failures: {}".format(statistics["current_batch"]),
+        "Existing manual backlog: {}".format(statistics["backlog"]),
         "",
         "Primary reason:",
     ]
     lines.extend(
-        "- {}: {}".format(label, categories[label])
+        "- {}: {}".format(label, statistics["categories"][label])
         for label in MANUAL_REASON_LABELS
     )
     lines.extend(
         (
             "",
-            "Delivery reconciliation needed: {}".format(reconciliation_count),
+            "Delivery reconciliation needed: {}".format(
+                statistics["delivery_reconciliation"]
+            ),
             "",
             "See the attached tracker CSV for tags, tracker IDs, assignees, "
             "scan names, and complete notes.",
         )
     )
     return lines
+
+
+def manual_work_statistics(rows):
+    """Return reconciled manual-work totals for text and table rendering."""
+    manuals = [row for row in rows if row.get("open_manual")]
+    categories = Counter(manual_reason_category(row) for row in manuals)
+    current_batch = sum(bool(row.get("current_batch_attempt")) for row in manuals)
+    reconciliation_count = sum(
+        bool(row.get("delivery_reconciliation")) for row in rows
+    )
+    return {
+        "total": len(manuals),
+        "current_batch": current_batch,
+        "backlog": len(manuals) - current_batch,
+        "categories": categories,
+        "delivery_reconciliation": reconciliation_count,
+    }
+
+
+def pending_manual_rows(rows):
+    """Group open manual work by assigned analyst, omitting zero-count analysts."""
+    counts = Counter(
+        str(row.get("assignee") or "").strip() or "Unassigned"
+        for row in rows
+        if row.get("open_manual")
+    )
+    if not counts:
+        return [("No pending manual reports", 0)]
+    return sorted(counts.items(), key=lambda item: item[0].lower())
 
 
 def _recipients(override_recipients):
@@ -455,7 +563,16 @@ def _recipients(override_recipients):
     return recipients
 
 
-def _deliver(batch_id, phase, source_email, override_recipients, body, rows, dry_run):
+def _deliver(
+    batch_id,
+    phase,
+    source_email,
+    override_recipients,
+    body,
+    rows,
+    dry_run,
+    html_body=None,
+):
     """Claim once before SES; hold uncertain delivery permanently for review."""
     recipients = _recipients(override_recipients)
     if not recipients:
@@ -466,6 +583,8 @@ def _deliver(batch_id, phase, source_email, override_recipients, body, rows, dry
     message["To"] = ", ".join(recipients)
     message["Subject"] = "WAS {} summary".format(phase)
     message.set_content(body)
+    if html_body:
+        message.add_alternative(html_body, subtype="html")
     if phase == "final":
         message.add_attachment(
             summary_csv(rows).encode("utf-8"),
@@ -525,16 +644,55 @@ def send_tracker_summary(
     if not result:
         raise ValueError("Unknown analyst batch ID.")
     duration, error, updated = result[0]
-    body = "Tracker phase finished. Batch: {}\n".format(batch_id)
-    body += "Tracker time: {} seconds; rows updated: {}; error: {}\n".format(
-        duration if duration is not None else "Not available",
-        updated if updated is not None else "Not available",
-        _safe_error(error) or "none",
+    manual_rows = _tracker_rows(batch_id=batch_id)
+    count_labels = {
+        "reports": "Reports",
+        "nws_reports": "NWS reports",
+        "nws_webapps": "NWS web applications",
+        "nws_unknown": "NWS reports requiring review",
+        "error_reports": "Error reports",
+        "error_webapps": "Error web applications",
+        "error_unknown": "Error reports requiring review",
+    }
+    tables = [
+        (
+            "Tracker update",
+            ("Metric", "Value"),
+            (
+                ("Batch ID", batch_id),
+                ("Tracker time", _format_seconds(duration)),
+                ("Rows updated", updated if updated is not None else "Not available"),
+                ("Error", _safe_error(error) or "none"),
+            ),
+        ),
+        (
+            "Report preview",
+            ("Metric", "Count"),
+            tuple((count_labels[key], value) for key, value in counts.items()),
+        ),
+        (
+            "Pending manual reports by analyst",
+            ("Analyst", "Pending manual reports"),
+            pending_manual_rows(manual_rows),
+        ),
+    ]
+    body, html_body = _summary_content(
+        "WAS tracker summary",
+        tables,
+        (
+            "Web application totals include known entries only. Reports requiring "
+            "review are counted separately.",
+        ),
     )
-    body += "\n".join("{}: {}".format(key, value) for key, value in counts.items())
-    body += "\nWebapp totals are known entries only; unknown counts are reports requiring review.\n"
     return _deliver(
-        batch_id, "tracker", source_email, override_recipients, body, rows, dry_run
+        batch_id,
+        "tracker",
+        source_email,
+        override_recipients,
+        body,
+        rows,
+        dry_run,
+        html_body=html_body,
     )
 
 
@@ -568,7 +726,6 @@ def send_batch_summary(
     )
     elapsed, tracker_duration, tracker_error, workers, mode, workload, finished, outcome = batch[0]
     continuation = mode == "capacity" and str(workload or "").startswith("continuation of ")
-    total = sum(float(row[0]) for row in attempts)
     sent = sum(bool(row[2]) for row in attempts)
     durations = sorted(
         float(row[0]) for row in attempts if row[4] == "pdf" and float(row[0]) > 0
@@ -580,51 +737,16 @@ def send_batch_summary(
     error_codes = {_safe_error(row[3]) for row in attempts if row[3]}
     if tracker_error:
         error_codes.add(_safe_error(tracker_error))
-    lines = [
-        "WAS batch: {}".format(batch_id),
-        "Run mode: {}; workers: {}; workload: {}; outcome: {}".format(
-            mode, workers, workload or "Not supplied", outcome or "running"
-        ),
-        "Completion time: {}".format(finished or "Not finished; wall time is provisional"),
-        "Elapsed wall time: {:.2f} seconds".format(float(elapsed)),
-        "Tracker time: {} seconds".format(tracker_duration),
-        "Attempted: {}; generated: {}; attempts with errors: {}; sent: {}; unsent: {}".format(
-            len(attempts),
-            sum(bool(row[1]) for row in attempts),
-            sum(bool(row[3]) for row in attempts),
-            sent,
-            len(attempts) - sent,
-        ),
-        "Sum of recorded per-report artifact preparation durations: {:.2f} seconds".format(total),
-        "PDFs generated: {}; notifications generated: {}".format(pdfs, notifications),
-        "PDF generation median: {}; p95 (nearest rank): {} seconds".format(median, percentile95),
-        "PDF timing statistics include positive-duration PDF attempts, including failed attempts.",
-        "Accepted deliveries per minute: {}".format(
-            "{:.2f}".format(sent * 60 / float(elapsed))
-            if finished and float(elapsed) > 0 and not continuation else "Not available"
-        ),
-        "Accepted deliveries per hour: {}".format(
-            "{:.2f}".format(sent * 3600 / float(elapsed))
-            if finished and float(elapsed) > 0 and not continuation else "Not available"
-        ),
-        "Sum of recorded per-report delivery durations: {:.2f} seconds".format(
-            sum(float(row[5]) for row in attempts if row[5] is not None)
-        ),
-        ("Sent totals include prior attempts' persisted SES acceptance; they are not new sends."
-         if continuation else
-         "Sent counts use this batch's recorded SES acceptance, not recipient delivery."),
-        "Duration aggregates retain the longest observation per report on retries; they are not wall time or total retry cost.",
-        "Average PDF generation time (timed PDF attempts): {}".format(
-            "{:.2f} seconds".format(sum(durations) / len(durations))
-            if durations
-            else "Not available"
-        ),
-        "Errors: {}".format(", ".join(sorted(error_codes)) or "none"),
+    batch_rows = [
+        ("Batch ID", batch_id),
+        ("Run mode", mode),
+        ("Workers", workers),
+        ("Workload", workload or "Not supplied"),
+        ("Outcome", outcome or "running"),
+        ("Completion time", finished or "Not finished; elapsed time is provisional"),
+        ("Elapsed real time", _format_elapsed(elapsed)),
+        ("Tracker time", _format_seconds(tracker_duration)),
     ]
-    if continuation:
-        lines.insert(2, "CONTINUATION: workload totals include previous completions. "
-                     "Generated totals mean artifacts available across attempts. "
-                     "This is not a fresh throughput or 600-report capacity benchmark.")
     if mode == "capacity":
         try:
             progress = json.loads(getenv("WAS_CAPACITY_PROGRESS", "{}"))
@@ -632,23 +754,134 @@ def send_batch_summary(
             if isinstance(progress, dict) and all(
                 type(progress.get(key)) is int and progress[key] >= 0 for key in keys
             ):
-                lines.insert(2, "Workload status: " + "; ".join(
-                    "{}={}".format(key, progress[key]) for key in keys
-                ))
+                batch_rows.append(
+                    (
+                        "Workload status",
+                        "; ".join(
+                            "{}={}".format(key, progress[key]) for key in keys
+                        ),
+                    )
+                )
         except (TypeError, ValueError):
             LOGGER.warning("Capacity progress summary metadata is invalid; omitted.")
     rows = _tracker_rows(batch_id=batch_id, days_back=days_back)
-    lines.extend(("", *manual_work_summary_lines(rows)))
+    manual_statistics = manual_work_statistics(rows)
+    report_rows = (
+        ("Attempted", len(attempts)),
+        ("Generated", sum(bool(row[1]) for row in attempts)),
+        ("Attempts with errors", sum(bool(row[3]) for row in attempts)),
+        ("Sent", sent),
+        ("Unsent", len(attempts) - sent),
+        ("PDFs generated", pdfs),
+        ("Notifications generated", notifications),
+    )
+    pdf_rows = (
+        (
+            "Average PDF generation time",
+            _format_seconds(sum(durations) / len(durations))
+            if durations
+            else "Not available",
+        ),
+        (
+            "Median PDF generation time",
+            _format_seconds(median),
+        ),
+        (
+            "PDF generation p95 nearest rank",
+            _format_seconds(percentile95),
+        ),
+    )
+    rate_available = finished and float(elapsed) > 0 and not continuation
+    delivery_rows = (
+        (
+            "Accepted deliveries per minute",
+            "{:.2f}".format(sent * 60 / float(elapsed))
+            if rate_available
+            else "Not available",
+        ),
+        (
+            "Accepted deliveries per hour",
+            "{:.2f}".format(sent * 3600 / float(elapsed))
+            if rate_available
+            else "Not available",
+        ),
+        (
+            "Recorded delivery time",
+            _format_seconds(
+                sum(float(row[5]) for row in attempts if row[5] is not None)
+            ),
+        ),
+    )
+    manual_rows = [
+        ("Open manual work", manual_statistics["total"]),
+        ("Current batch failures", manual_statistics["current_batch"]),
+        ("Existing manual backlog", manual_statistics["backlog"]),
+    ]
+    manual_rows.extend(
+        (label, manual_statistics["categories"][label])
+        for label in MANUAL_REASON_LABELS
+    )
+    manual_rows.append(
+        (
+            "Delivery reconciliation needed",
+            manual_statistics["delivery_reconciliation"],
+        )
+    )
+    tables = [
+        ("Batch", ("Metric", "Value"), tuple(batch_rows)),
+        ("Report outcomes", ("Metric", "Count"), report_rows),
+        ("PDF generation", ("Metric", "Value"), pdf_rows),
+        ("Delivery", ("Metric", "Value"), delivery_rows),
+        (
+            "Pending manual work",
+            ("Metric", "Count"),
+            tuple(manual_rows),
+        ),
+        (
+            "Pending manual reports by analyst",
+            ("Analyst", "Pending manual reports"),
+            pending_manual_rows(rows),
+        ),
+        (
+            "Errors",
+            ("Metric", "Value"),
+            (("Error categories", ", ".join(sorted(error_codes)) or "none"),),
+        ),
+    ]
+    notes = [
+        "PDF timing statistics include positive-duration PDF attempts, including "
+        "failed attempts.",
+        (
+            "Sent totals include prior attempts' persisted SES acceptance; they "
+            "are not new sends."
+            if continuation
+            else "Sent counts use this batch's recorded SES acceptance, not "
+            "recipient delivery."
+        ),
+        "Duration aggregates retain the longest observation per report on retries; "
+        "they are not elapsed real time or total retry cost.",
+        "See the attached tracker CSV for tags, tracker IDs, assignees, scan names, "
+        "and complete notes.",
+    ]
+    if continuation:
+        notes.insert(
+            0,
+            "CONTINUATION: workload totals include previous completions. Generated "
+            "totals mean artifacts available across attempts. This is not a fresh "
+            "throughput or 600-report capacity benchmark.",
+        )
     if not attempts:
-        lines.append("No recorded report attempts; generation metrics are unavailable.")
+        notes.append("No recorded report attempts; generation metrics are unavailable.")
+    body, html_body = _summary_content("WAS final summary", tables, notes)
     return _deliver(
         batch_id,
         "final",
         source_email,
         override_recipients,
-        "\n".join(lines),
+        body,
         rows,
         dry_run,
+        html_body=html_body,
     )
 
 

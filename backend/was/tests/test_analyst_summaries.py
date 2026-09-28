@@ -50,8 +50,42 @@ class AnalystSummaryTests(unittest.TestCase):
         """Tracker outcomes are visible before any report workers begin."""
         summaries.send_tracker_summary("batch", [], "from@example.gov")
         body = deliver.call_args.args[4]
-        self.assertIn("Tracker time: 8 seconds; rows updated: 12; error: none", body)
-        self.assertIn("reports: 0", body)
+        self.assertIn("Tracker time | 8.00 seconds", body)
+        self.assertIn("Rows updated | 12", body)
+        self.assertIn("Error | none", body)
+        self.assertIn("Reports | 0", body)
+        self.assertIn("Pending manual reports by analyst", body)
+        self.assertIn("No pending manual reports | 0", body)
+        html_body = deliver.call_args.kwargs["html_body"]
+        self.assertIn("<table", html_body)
+        self.assertIn('<th scope="col"', html_body)
+
+    @patch.object(summaries, "_deliver", return_value=True)
+    @patch.object(summaries, "_tracker_rows")
+    @patch.object(summaries, "_execute", return_value=[(1.234, None, 4)])
+    def test_tracker_summary_groups_pending_manuals_by_assignee(
+        self, execute, tracker_rows, deliver
+    ):
+        """The pre-generation notification includes assigned manual counts."""
+        tracker_rows.side_effect = [
+            [],
+            [
+                {"assignee": "Analyst One", "open_manual": True},
+                {"assignee": "Analyst One", "open_manual": True},
+                {"assignee": "Analyst Two", "open_manual": False},
+                {"assignee": None, "open_manual": True},
+            ],
+        ]
+        summaries.send_tracker_summary("batch", [], "from@example.gov")
+        body = deliver.call_args.args[4]
+        self.assertIn("Tracker time | 1.23 seconds", body)
+        self.assertIn("Analyst One | 2", body)
+        self.assertIn("Unassigned | 1", body)
+        self.assertNotIn("Analyst Two", body)
+        self.assertIn(
+            "Pending manual reports by analyst",
+            deliver.call_args.kwargs["html_body"],
+        )
 
     @patch("was_mailer.email_reports.send_message", return_value="message-id")
     @patch.object(summaries, "create_ses_client")
@@ -69,12 +103,17 @@ class AnalystSummaryTests(unittest.TestCase):
             "body",
             [{"id": 1, "legacy_password": "secret"}],
             False,
+            html_body="<html><body><table></table></body></html>",
         )
         message = send.call_args.args[1]
         self.assertEqual(send.call_count, 1)
         attachments = list(message.iter_attachments())
         self.assertEqual(len(attachments), 1)
         self.assertNotIn(b"secret", attachments[0].get_payload(decode=True))
+        self.assertEqual(
+            message.get_body(preferencelist=("html",)).get_content_type(),
+            "text/html",
+        )
         self.assertIn("summary_status='sent'", execute.call_args.args[0])
 
     def test_csv_deduplicates_and_excludes_passwords(self):
@@ -168,11 +207,17 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertNotIn("ORDINARY", body)
         self.assertNotIn("Analyst: tracker 2; tag MANUAL", body)
         self.assertNotIn("MANUAL", body)
-        self.assertIn("Open manual work: 1 total", body)
-        self.assertIn("Current batch failures: 0", body)
-        self.assertIn("Existing manual backlog: 1", body)
-        self.assertIn("- Qualys scan error: 1", body)
-        self.assertIn("sent: 1; unsent: 0", body)
+        self.assertIn("Open manual work | 1", body)
+        self.assertIn("Current batch failures | 0", body)
+        self.assertIn("Existing manual backlog | 1", body)
+        self.assertIn("Qualys scan error | 1", body)
+        self.assertIn("Sent | 1", body)
+        self.assertIn("Unsent | 0", body)
+        self.assertIn("Analyst | 1", body)
+        self.assertIn(
+            "Pending manual reports by analyst",
+            deliver.call_args.kwargs["html_body"],
+        )
         self.assertEqual(len(deliver.call_args.args[5]), 2)
 
     @patch.object(summaries, "_deliver", return_value=True)
@@ -199,8 +244,8 @@ class AnalystSummaryTests(unittest.TestCase):
         ]
         summaries.send_batch_summary("batch", "from@example.gov", days_back=7)
         body = deliver.call_args.args[4]
-        self.assertIn("Open manual work: 0 total", body)
-        self.assertIn("Delivery reconciliation needed: 1", body)
+        self.assertIn("Open manual work | 0", body)
+        self.assertIn("Delivery reconciliation needed | 1", body)
         self.assertNotIn("tracker 3; tag LEGACY", body)
         rows.assert_called_once_with(batch_id="batch", days_back=7)
 
@@ -263,7 +308,7 @@ class AnalystSummaryTests(unittest.TestCase):
         summaries.send_batch_summary("batch", "from@example.gov")
         body = deliver.call_args.args[4]
         self.assertIn("CONTINUATION", body)
-        self.assertIn("Accepted deliveries per hour: Not available", body)
+        self.assertIn("Accepted deliveries per hour | Not available", body)
         self.assertIn("they are not new sends", body)
         self.assertIn("total=2; completed=1; failed=1; remaining=1; blocked=1", body)
 
@@ -303,15 +348,38 @@ class AnalystSummaryTests(unittest.TestCase):
         ]
         summaries.send_batch_summary("batch", "from@example.gov")
         body = deliver.call_args.args[4]
-        self.assertIn("PDF generation median: 20.0; p95 (nearest rank): 30.0", body)
-        self.assertIn("Average PDF generation time (timed PDF attempts): 20.00 seconds", body)
-        self.assertIn("Sum of recorded per-report artifact preparation durations: 40.10 seconds", body)
-        self.assertIn("Accepted deliveries per minute: 1.00", body)
-        self.assertIn("Accepted deliveries per hour: 60.00", body)
-        self.assertIn("PDFs generated: 1; notifications generated: 1", body)
-        self.assertIn("sent: 2; unsent: 1", body)
+        self.assertIn("Elapsed real time | 0:02:00.00", body)
+        self.assertIn("Average PDF generation time | 20.00 seconds", body)
+        self.assertIn("Median PDF generation time | 20.00 seconds", body)
+        self.assertIn("PDF generation p95 nearest rank | 30.00 seconds", body)
+        self.assertNotIn("artifact preparation durations", body)
+        self.assertIn("Accepted deliveries per minute | 1.00", body)
+        self.assertIn("Accepted deliveries per hour | 60.00", body)
+        self.assertIn("PDFs generated | 1", body)
+        self.assertIn("Notifications generated | 1", body)
+        self.assertIn("Sent | 2", body)
+        self.assertIn("Unsent | 1", body)
         self.assertNotIn("report_sent_date", execute.call_args_list[1].args[0])
         self.assertIn("COALESCE(finished_at,now())", execute.call_args_list[0].args[0])
+
+    def test_pending_manual_rows_groups_only_analysts_with_open_work(self):
+        """Pending-manual tables group assigned work and omit zero-count analysts."""
+        rows = [
+            {"assignee": "Zack Cogswell", "open_manual": True},
+            {"assignee": "zack cogswell", "open_manual": True},
+            {"assignee": "Craig Duhn", "open_manual": False},
+            {"assignee": None, "open_manual": True},
+        ]
+        self.assertEqual(
+            summaries.pending_manual_rows(rows),
+            [("Unassigned", 1), ("Zack Cogswell", 1), ("zack cogswell", 1)],
+        )
+
+    def test_time_formatters_use_two_decimals_and_real_time_clock(self):
+        """Every duration uses two decimals and elapsed time uses h:mm:ss.ss."""
+        self.assertEqual(summaries._format_seconds(8), "8.00 seconds")
+        self.assertEqual(summaries._format_elapsed(3723.456), "1:02:03.46")
+        self.assertEqual(summaries._format_elapsed(59.999), "0:01:00.00")
 
     @patch.object(summaries, "send_batch_summary")
     @patch.object(summaries, "finish_batch")
