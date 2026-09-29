@@ -13,9 +13,9 @@ export DEBIAN_FRONTEND=noninteractive
 # race with this script. Wait for it instead of failing outright.
 wait_for_apt_lock() {
   local timeout=300
-  echo "[$(date -Is)] Waiting for apt/dpkg lock (up to ${timeout}s)..."
+  echo "[$(date -Is)] Waiting for apt/dpkg lock (up to $${timeout}s)..."
   if ! flock -w "$timeout" /var/lib/dpkg/lock-frontend true; then
-    echo "ERROR: Timed out waiting for apt/dpkg lock after ${timeout}s." >&2
+    echo "ERROR: Timed out waiting for apt/dpkg lock after $${timeout}s." >&2
     exit 1
   fi
 }
