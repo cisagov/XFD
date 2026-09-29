@@ -9,13 +9,29 @@ echo "[$(date -Is)] Starting runner bootstrap..."
 
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get update -y
-apt-get install -y ca-certificates curl tar wget perl unzip dpkg
+# Ubuntu's apt-daily(-upgrade) timers can hold the dpkg lock on first boot and
+# race with this script. Wait for it instead of failing outright.
+wait_for_apt_lock() {
+  local timeout=300
+  echo "[$(date -Is)] Waiting for apt/dpkg lock (up to ${timeout}s)..."
+  if ! flock -w "$timeout" /var/lib/dpkg/lock-frontend true; then
+    echo "ERROR: Timed out waiting for apt/dpkg lock after ${timeout}s." >&2
+    exit 1
+  fi
+}
+
+apt_get() {
+  wait_for_apt_lock
+  apt-get "$@"
+}
+
+apt_get update -y
+apt_get install -y ca-certificates curl tar wget perl unzip dpkg
 
 # AWS CLI v2 — GPG-verified against AWS's pinned signing key before install.
 if ! command -v aws >/dev/null 2>&1; then
   echo "[$(date -Is)] Installing AWS CLI v2..."
-  apt-get install -y gnupg
+  apt_get install -y gnupg
   TMPDIR="$(mktemp -d)"
   cd "$TMPDIR"
 
@@ -45,7 +61,8 @@ DEB_S3_URI='${crowdstrike_s3_uri}'
 DEB_LOCAL='/tmp/falcon-sensor.deb'
 
 aws s3 cp "$DEB_S3_URI" "$DEB_LOCAL"
-dpkg -i "$DEB_LOCAL" || apt-get -f install -y
+wait_for_apt_lock
+dpkg -i "$DEB_LOCAL" || apt_get -f install -y
 
 /opt/CrowdStrike/falconctl -s --cid=${crowdstrike_cid}
 /opt/CrowdStrike/falconctl -s --tags="${crowdstrike_tags}"
