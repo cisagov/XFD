@@ -10,10 +10,29 @@ from was_reports.reporting import report_metrics
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_metrics.xml"
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0)
+EXPECTED_OWASP_2025_LABELS = {
+    "A1": "Broken Access Control",
+    "A2": "Security Misconfiguration",
+    "A3": "Software Supply Chain Failures",
+    "A4": "Cryptographic Failures",
+    "A5": "Injection",
+    "A6": "Insecure Design",
+    "A7": "Authentication Failures",
+    "A8": "Software or Data Integrity Failures",
+    "A9": "Security Logging and Alerting Failures",
+    "A10": "Mishandling of Exceptional Conditions",
+}
 
 
 class ReportMetricsTests(unittest.TestCase):
     """Validate legacy-compatible report metric calculations."""
+
+    def test_owasp_labels_match_qualys_2025_categories(self) -> None:
+        """Map each Qualys A-code to its exact OWASP 2025 graph label."""
+        self.assertEqual(
+            report_metrics.OWASP_LABELS,
+            EXPECTED_OWASP_2025_LABELS,
+        )
 
     def test_calculate_summary_metrics_preserves_template_values(self) -> None:
         """Extract global summary values and legacy colors."""
@@ -52,7 +71,7 @@ class ReportMetricsTests(unittest.TestCase):
         self.assertEqual(report_metrics.fixed_percentage(1, 4), 25)
 
     def test_calculate_finding_metrics_maps_groups_and_owasp(self) -> None:
-        """Map active QIDs to legacy group and OWASP labels."""
+        """Map active QIDs to group and OWASP 2025 labels."""
         metrics = report_metrics.calculate_finding_metrics(
             FIXTURE_PATH.read_bytes(),
             CURRENT_TIME,
@@ -63,11 +82,12 @@ class ReportMetricsTests(unittest.TestCase):
         self.assertEqual(metrics.group_counts["SQL Injection"], 1)
         self.assertEqual(metrics.group_counts["Cross-Site Scripting"], 0)
         self.assertEqual(metrics.owasp_counts["Broken Access Control"], 1)
-        self.assertEqual(metrics.owasp_counts["Injection"], 2)
         self.assertEqual(
-            metrics.owasp_counts[
-                "Identification and Authentication Failures"
-            ],
+            metrics.owasp_counts["Software Supply Chain Failures"],
+            2,
+        )
+        self.assertEqual(
+            metrics.owasp_counts["Authentication Failures"],
             0,
         )
 

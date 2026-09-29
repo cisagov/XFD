@@ -25,15 +25,15 @@ GROUP_LABELS = {
 }
 OWASP_LABELS = {
     "A1": "Broken Access Control",
-    "A2": "Cryptographic Failures",
-    "A3": "Injection",
-    "A4": "Insecure Design",
-    "A5": "Security Misconfiguration",
-    "A6": "Vulnerable and Outdated Components",
-    "A7": "Identification and Authentication Failures",
-    "A8": "Software and Data Integrity Failures",
-    "A9": "Security Logging and Monitoring Failures",
-    "A10": "Server-Side Request Forgery (SSRF)",
+    "A2": "Security Misconfiguration",
+    "A3": "Software Supply Chain Failures",
+    "A4": "Cryptographic Failures",
+    "A5": "Injection",
+    "A6": "Insecure Design",
+    "A7": "Authentication Failures",
+    "A8": "Software or Data Integrity Failures",
+    "A9": "Security Logging and Alerting Failures",
+    "A10": "Mishandling of Exceptional Conditions",
 }
 
 

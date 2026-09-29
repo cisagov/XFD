@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 from matplotlib import pyplot as plt
@@ -15,10 +16,51 @@ from was_reports.reporting import chart_renderer, report_metrics
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_metrics.xml"
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0)
+EXPECTED_OWASP_2025_LABELS = [
+    "Broken Access Control",
+    "Security Misconfiguration",
+    "Software Supply Chain Failures",
+    "Cryptographic Failures",
+    "Injection",
+    "Insecure Design",
+    "Authentication Failures",
+    "Software or Data Integrity Failures",
+    "Security Logging and Alerting Failures",
+    "Mishandling of Exceptional Conditions",
+]
 
 
 class ChartRendererTests(unittest.TestCase):
     """Validate chart filenames, formats, and resource cleanup."""
+
+    @patch("was_reports.reporting.chart_renderer.plt.close")
+    @patch("was_reports.reporting.chart_renderer.plt.subplots")
+    def test_owasp_graph_preserves_a1_through_a10_axis_order(
+        self,
+        mock_subplots,
+        mock_close,
+    ) -> None:
+        """Keep A1 at the bottom and A10 at the top of the horizontal chart."""
+        figure = MagicMock()
+        axis = MagicMock()
+        mock_subplots.return_value = (figure, axis)
+        counts = {
+            label: index
+            for index, label in enumerate(EXPECTED_OWASP_2025_LABELS, start=1)
+        }
+
+        chart_renderer.render_owasp_graph(counts, Path("owasp_graph.png"))
+
+        axis.set_yticklabels.assert_called_once_with(
+            [""] + EXPECTED_OWASP_2025_LABELS
+        )
+        axis.barh.assert_called_once()
+        self.assertEqual(
+            axis.barh.call_args.args[1],
+            [0] + list(range(1, 11)),
+        )
+        figure.savefig.assert_called_once_with(Path("owasp_graph.png"))
+        mock_close.assert_called_once_with(figure)
 
     def test_render_report_charts_creates_active_template_images(self) -> None:
         """Render all five generated PNG files used by the legacy template."""
