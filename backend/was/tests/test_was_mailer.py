@@ -316,8 +316,13 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("<strong>Additional details", html_body)
         self.assertIn("<u>double-click on the paper clip icon</u>", html_body)
         self.assertNotIn("scanner IP's have recently changed", html_body)
+        self.assertNotIn("helpful list of scan report and WAS FAQs", html_body)
+        self.assertNotIn(
+            "https://www.cisa.gov/cyber-hygiene-services",
+            html_body,
+        )
         self.assertIn(
-            'href="https://www.cisa.gov/cyber-hygiene-services">',
+            "<strong>vulnerability@cisa.dhs.gov</strong>",
             html_body,
         )
 

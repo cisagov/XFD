@@ -1,8 +1,10 @@
-"""Exact text and run formatting extracted from the September 21 DOCX files.
+"""Approved text and run formatting based on the September 21 DOCX files.
 
 Source: WAS_EMAIL_templates_Newest9_21.zip. Each entry records the original
 DOCX SHA-256. Dynamic angle-bracket placeholders are replaced during composition.
-Do not rewrite customer wording without an updated approved source document.
+The September 29 review removed the FAQ link and required the vulnerability
+contact address to be bold in HTML. Do not otherwise rewrite customer wording
+without an updated approved source document.
 """
 
 SOURCE_ZIP_SHA256 = "262796c823b7bf5b17897ca427755756fa710663fd1c9339bbecd28546739c2f"
@@ -53,7 +55,7 @@ SECTIONS = {
         "applications that fail to resolve for two "
         "consecutive scans will be removed from the "
         "scan target list. Please provide an updated "
-        "list to vulnerability@cisa.dhs.gov; new "
+        "list to <strong>vulnerability@cisa.dhs.gov</strong>; new "
         "targets will be included in your next "
         "scheduled scan.</div>",
     },
@@ -102,11 +104,7 @@ SECTIONS = {
         "to resolve for two consecutive scans will be "
         "removed from the scan target list. Please provide "
         "an updated list; new targets will be included in "
-        "your next scheduled scan.\n"
-        "\n"
-        "For your reference, a helpful list of scan report "
-        "and WAS FAQs can be found here: "
-        "https://www.cisa.gov/cyber-hygiene-services\n",
+        "your next scheduled scan.",
         "html": '<div><span style="font-size:15pt"><strong>WAS '
         "Report for &lt;tag&gt; could not be "
         "generated</strong></span></div>\n"
@@ -136,10 +134,7 @@ SECTIONS = {
         "scans</u> will be <strong>removed from the scan "
         "target list</strong>. Please provide an updated "
         "list; new targets will be included in your next "
-        "scheduled scan.<br><br>For your reference, a "
-        "helpful list of scan report and WAS FAQs can be "
-        "found here: "
-        "https://www.cisa.gov/cyber-hygiene-services</div>\n"
+        "scheduled scan.</div>\n"
         "<div><br></div>",
     },
     "results_part1": {
@@ -164,9 +159,7 @@ SECTIONS = {
         "To access the attachments embedded within the report, open "
         "the report with a dedicated PDF reader (such as Adobe "
         "Acrobat), and double-click on the paper clip icon to the "
-        "left of the attachment name. A helpful list of scan report "
-        "and WAS FAQs can be found here: "
-        "https://www.cisa.gov/cyber-hygiene-services",
+        "left of the attachment name.",
         "html": '<div><span style="font-size:15pt"><strong>WAS Results for '
         "&lt;tag&gt;</strong></span></div>\n"
         "<div><br></div>\n"
@@ -192,10 +185,7 @@ SECTIONS = {
         "the attachments embedded within the report, open the "
         "report with a dedicated PDF reader (such as Adobe "
         "Acrobat), and <u>double-click on the paper clip icon</u> "
-        "to the left of the attachment name. A helpful list of scan "
-        "report and WAS FAQs can be found here: <a "
-        'style="color:#467886;text-decoration:underline" '
-        'href="https://www.cisa.gov/cyber-hygiene-services">https://www.cisa.gov/cyber-hygiene-services</a></div>',
+        "to the left of the attachment name.</div>",
     },
     "results_part2": {
         "sha256": "9748d38d43e6645e068bcdfad460ef9c923fe4e98646b65f6a8debd8004456c7",
@@ -214,7 +204,7 @@ SECTIONS = {
         "html": "<div>Your next scan is scheduled for "
         "<strong>&lt;next_scan_date&gt;</strong>.<br><br>If you "
         "have questions, please email at "
-        "vulnerability@cisa.dhs.gov.<br><br>Regards,<br><br><strong>&lt;assignee_name&gt;</strong><br>Web "
+        "<strong>vulnerability@cisa.dhs.gov</strong>.<br><br>Regards,<br><br><strong>&lt;assignee_name&gt;</strong><br>Web "
         "Application Scanning (WAS)<br>Cybersecurity and "
         "Infrastructure Security Agency (CISA)<br>Email: <a "
         'style="color:#467886;text-decoration:underline" '
@@ -243,7 +233,7 @@ SECTIONS = {
         "<div>&lt;list_removed_webapps&gt;</div>\n"
         "<div><br></div>\n"
         "<div>Please provide an updated list of targets to "
-        "vulnerability@cisa.dhs.gov. Once we receive an updated "
+        "<strong>vulnerability@cisa.dhs.gov</strong>. Once we receive an updated "
         "list of targets, they will be scanned as part of your "
         "next regularly scheduled scan.</div>",
     },

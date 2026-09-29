@@ -25,7 +25,6 @@ ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
 ACTION_REQUIRED_TEMPLATES = frozenset(
     {"Action Required", "FCEB Action Required", "Targets Removed"}
 )
-CYBER_HYGIENE_URL = "https://www.cisa.gov/cyber-hygiene-services"
 WAS_ALLOWLIST_URL = "https://rules.vm.cyber.dhs.gov/was.txt"
 CISA_LOGO_RESOURCE = "resources/assets/CISA_logo_email.png"
 CISA_LOGO_CONTENT_ID = "cisa-logo"

@@ -12,6 +12,55 @@ from was_mailer.authoritative_email_sections import SECTIONS, SOURCE_ZIP_SHA256
 from was_mailer.customer_email_templates import section_names, substitute_values
 from was_mailer.message import customer_report_body, report_email_subject
 
+CONTACT_ADDRESS = "vulnerability@cisa.dhs.gov"
+CYBER_HYGIENE_URL = "https://www.cisa.gov/cyber-hygiene-services"
+FAQ_WORDING = "helpful list of scan report and WAS FAQs"
+FAQ_SENTENCE = (
+    "A helpful list of scan report and WAS FAQs can be found here: "
+    + CYBER_HYGIENE_URL
+)
+APPROVED_TEXT_REMOVALS = {
+    "report_not_generated": "\n\nFor your reference, a helpful list of scan "
+    "report and WAS FAQs can be found here: "
+    + CYBER_HYGIENE_URL
+    + "\n",
+    "results_part1": " " + FAQ_SENTENCE,
+}
+CUSTOMER_TEMPLATES = (
+    "Results",
+    "Action Required",
+    "FCEB Action Required",
+    "Targets Removed",
+    "All NWS",
+    "FCEB All NWS",
+)
+
+
+def remove_formatted_text(characters: list, removed_text: str) -> None:
+    """Remove one approved visible-text span from formatted character records."""
+    compact_text = "".join(
+        character for character in removed_text if not character.isspace()
+    )
+    visible_text = "".join(character for character, unused_styles in characters)
+    start = visible_text.index(compact_text)
+    del characters[start : start + len(compact_text)]
+
+
+def add_bold_style(characters: list, text: str) -> None:
+    """Apply bold to every visible occurrence in formatted character records."""
+    visible_text = "".join(character for character, unused_styles in characters)
+    start = 0
+    while True:
+        match = visible_text.find(text, start)
+        if match < 0:
+            return
+        end = match + len(text)
+        characters[match:end] = [
+            (character, frozenset(set(styles) | {"bold"}))
+            for character, styles in characters[match:end]
+        ]
+        start = end
+
 
 class TextCollector(HTMLParser):
     """Collect visible HTML text to compare it with DOCX text."""
@@ -74,8 +123,10 @@ class FormattedTextCollector(HTMLParser):
 class AuthoritativeEmailTests(unittest.TestCase):
     """Protect source wording, flowchart branches, formatting, and escaping."""
 
-    def test_source_docx_text_matches_every_component(self) -> None:
-        """Extract expected text independently from every original DOCX."""
+    def test_source_docx_text_matches_every_component_except_approved_removals(
+        self,
+    ) -> None:
+        """Allow only the approved FAQ removal from the original DOCX text."""
         source = Path(__file__).parents[1] / "WAS_EMAIL_templates_Newest9_21.zip"
         if not source.exists():
             self.skipTest("Operator source ZIP is not distributed with the package")
@@ -109,7 +160,12 @@ class AuthoritativeEmailTests(unittest.TestCase):
                             depth = int(level.attrib["{" + namespace["w"] + "}val"])
                             text = "  " * depth + "- " + text
                         paragraphs.append(text)
-                    self.assertEqual(section["text"], "\n".join(paragraphs))
+                    expected_text = "\n".join(paragraphs)
+                    if name in APPROVED_TEXT_REMOVALS:
+                        expected_text = expected_text.replace(
+                            APPROVED_TEXT_REMOVALS[name], ""
+                        )
+                    self.assertEqual(section["text"], expected_text)
 
     def test_html_preserves_every_source_word(self) -> None:
         """HTML formatting must not change the source component wording."""
@@ -124,8 +180,8 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 )
                 self.assertEqual(html_words, " ".join(text_words.split()))
 
-    def test_html_emphasis_matches_source_docx_runs(self) -> None:
-        """Verify every source character's bold/italic/underline/highlight/font size."""
+    def test_html_emphasis_matches_source_with_approved_review_changes(self) -> None:
+        """Permit only the approved FAQ removal and contact-address bolding."""
         source = Path(__file__).parents[1] / "WAS_EMAIL_templates_Newest9_21.zip"
         if not source.exists():
             self.skipTest("Operator source ZIP is not distributed with the package")
@@ -155,9 +211,63 @@ class AuthoritativeEmailTests(unittest.TestCase):
                         for text in run.findall("w:t", namespace):
                             expected.extend((character, frozenset(styles)) for character in text.text or ""
                                             if not character.isspace())
+                    if name in APPROVED_TEXT_REMOVALS:
+                        remove_formatted_text(
+                            expected,
+                            APPROVED_TEXT_REMOVALS[name],
+                        )
+                    add_bold_style(expected, CONTACT_ADDRESS)
                     collector = FormattedTextCollector()
                     collector.feed(section["html"])
                     self.assertEqual(collector.characters, expected)
+
+    def test_review_changes_apply_to_every_customer_template(self) -> None:
+        """Remove the FAQ and bold every HTML contact-address occurrence."""
+        for template in CUSTOMER_TEMPLATES:
+            with self.subTest(template=template):
+                arguments = (
+                    "TAG",
+                    "Sample POC",
+                    template,
+                    "Sample Analyst",
+                    "https://example.gov",
+                    "2,1,1",
+                    "https://removed.example.gov",
+                    None,
+                    None,
+                    None,
+                )
+                plain_body = customer_report_body(*arguments)
+                html_body = customer_report_body(*arguments, html=True)
+
+                for body in (plain_body, html_body):
+                    self.assertNotIn(FAQ_WORDING, body)
+                    self.assertNotIn(CYBER_HYGIENE_URL, body)
+
+                plain_occurrences = plain_body.count(CONTACT_ADDRESS)
+                self.assertGreater(plain_occurrences, 0)
+                collector = FormattedTextCollector()
+                collector.feed(html_body)
+                visible_text = "".join(
+                    character for character, unused_styles in collector.characters
+                )
+                self.assertEqual(
+                    visible_text.count(CONTACT_ADDRESS),
+                    plain_occurrences,
+                )
+                search_start = 0
+                for unused_occurrence in range(plain_occurrences):
+                    address_start = visible_text.index(CONTACT_ADDRESS, search_start)
+                    address_end = address_start + len(CONTACT_ADDRESS)
+                    self.assertTrue(
+                        all(
+                            "bold" in styles
+                            for unused_character, styles in collector.characters[
+                                address_start:address_end
+                            ]
+                        )
+                    )
+                    search_start = address_end
 
     def test_flowchart_orders_conditional_sections(self) -> None:
         """Qualys errors precede NWS, warning, removals, and shared closing."""
@@ -250,9 +360,22 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 "https://example.gov", "2,1,1", "https://example.gov", None,
                 None, None, html=html,
             )
-            self.assertIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
+            expected_questions_sentence = (
+                "If you have questions, please email at "
+                "<strong>vulnerability@cisa.dhs.gov</strong>."
+                if html
+                else "If you have questions, please email at "
+                "vulnerability@cisa.dhs.gov."
+            )
+            self.assertIn(expected_questions_sentence, body)
             self.assertNotIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
-            self.assertIn("updated list of targets to vulnerability@cisa.dhs.gov.", body)
+            expected_targets_sentence = (
+                "updated list of targets to "
+                "<strong>vulnerability@cisa.dhs.gov</strong>."
+                if html
+                else "updated list of targets to vulnerability@cisa.dhs.gov."
+            )
+            self.assertIn(expected_targets_sentence, body)
             self.assertIn("reports@cyber.dhs.gov", body)
 
     def test_all_nws_keeps_authoritative_policy_and_closing(self) -> None:
