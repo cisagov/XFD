@@ -4,6 +4,7 @@
 import argparse
 import csv
 from datetime import datetime, timezone
+from functools import partial
 import logging
 import os
 from pathlib import Path
@@ -50,6 +51,18 @@ from was_reports.utils.states import validate_state_code
 
 LOGGER = logging.getLogger(__name__)
 
+POSTGRES_INTEGER_MAXIMUM = 2147483647
+POSTGRES_BIGINT_MAXIMUM = 9223372036854775807
+STAKEHOLDER_TEXT_LIMITS = {
+    "ci_type": 128,
+    "customer_name": 512,
+    "frequency": 64,
+    "parent_tag": 128,
+    "subtype": 128,
+    "testing_sector": 256,
+    "ticket": 128,
+}
+
 
 def nonempty_value(value: str) -> str:
     """Return one normalized nonempty command value."""
@@ -58,6 +71,23 @@ def nonempty_value(value: str) -> str:
         raise argparse.ArgumentTypeError("Value must not be empty.")
     if "\r" in normalized_value or "\n" in normalized_value:
         raise argparse.ArgumentTypeError("Value must not contain line breaks.")
+    return normalized_value
+
+
+def limited_nonempty_value(
+    field_name: str,
+    maximum_length: int,
+    value: str,
+) -> str:
+    """Return a nonempty value that fits its stakeholder database column."""
+    normalized_value = nonempty_value(value)
+    if len(normalized_value) > maximum_length:
+        raise argparse.ArgumentTypeError(
+            "{} must be {} characters or fewer.".format(
+                field_name,
+                maximum_length,
+            )
+        )
     return normalized_value
 
 
@@ -92,23 +122,37 @@ def nonnegative_integer(value: str) -> int:
         raise argparse.ArgumentTypeError(
             "Value must be a whole number of zero or greater."
         )
+    if parsed_value > POSTGRES_INTEGER_MAXIMUM:
+        raise argparse.ArgumentTypeError(
+            "Value must be {} or less.".format(POSTGRES_INTEGER_MAXIMUM)
+        )
     return parsed_value
 
 
 def stakeholder_tag_value(value: str) -> str:
     """Return a validated stakeholder tag."""
     try:
-        return validate_stakeholder_tag(value)
+        normalized_value = validate_stakeholder_tag(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError(str(error)) from error
+    if len(normalized_value) > 128:
+        raise argparse.ArgumentTypeError(
+            "Stakeholder tag must be 128 characters or fewer."
+        )
+    return normalized_value
 
 
 def stakeholder_date_value(value: str) -> int:
     """Return an epoch parsed from YYYY-MM-DD or an existing epoch input."""
     try:
-        return parse_stakeholder_date(value)
+        parsed_value = parse_stakeholder_date(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError(str(error)) from error
+    if parsed_value > POSTGRES_BIGINT_MAXIMUM:
+        raise argparse.ArgumentTypeError(
+            "Date epoch must be {} or less.".format(POSTGRES_BIGINT_MAXIMUM)
+        )
+    return parsed_value
 
 
 def state_code_value(value: str) -> str:
@@ -379,7 +423,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Add one stakeholder and generate its report password.",
     )
     add_command.add_argument("--tag", required=True, type=stakeholder_tag_value)
-    add_command.add_argument("--customer-name", required=True, type=nonempty_value)
+    add_command.add_argument(
+        "--customer-name",
+        required=True,
+        type=partial(
+            limited_nonempty_value,
+            "customer_name",
+            STAKEHOLDER_TEXT_LIMITS["customer_name"],
+        ),
+    )
     for option_name in (
         "comments",
         "location-notes",
@@ -391,10 +443,18 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "parent-tag",
         "ticket",
     ):
+        field_name = option_name.replace("-", "_")
+        value_type = nonempty_value
+        if field_name in STAKEHOLDER_TEXT_LIMITS:
+            value_type = partial(
+                limited_nonempty_value,
+                field_name,
+                STAKEHOLDER_TEXT_LIMITS[field_name],
+            )
         add_command.add_argument(
             "--{}".format(option_name),
-            type=nonempty_value,
-            required=option_name.replace("-", "_") in REQUIRED_STAKEHOLDER_FIELDS,
+            type=value_type,
+            required=field_name in REQUIRED_STAKEHOLDER_FIELDS,
         )
     add_command.add_argument(
         "--state",
@@ -603,6 +663,15 @@ def run_add(args: argparse.Namespace) -> int:
     """Create one stakeholder with an automatically generated password."""
     if not args.confirm:
         raise ValueError("Stakeholder creation requires --confirm.")
+    if args.parent_tag is not None:
+        try:
+            get_stakeholder_record_by_tag(args.parent_tag)
+        except KeyError as error:
+            raise ValueError(
+                "parent_tag {} does not match an existing stakeholder tag.".format(
+                    args.parent_tag
+                )
+            ) from error
     values = {
         "tag": args.tag,
         "customer_name": args.customer_name,

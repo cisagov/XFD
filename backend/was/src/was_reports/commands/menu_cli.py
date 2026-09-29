@@ -174,6 +174,23 @@ class WasOperatorMenu:
                 return parsed_value
             self.output("Enter a whole number of zero or greater.")
 
+    def prompt_days_back_or_all(self, prompt: str, default: int) -> int | None:
+        """Prompt for a nonnegative day count or no date limit."""
+        while True:
+            raw_value = self.input(prompt).strip()
+            if not raw_value:
+                return default
+            if raw_value.lower() == "all":
+                return None
+            try:
+                parsed_value = int(raw_value)
+            except ValueError:
+                self.output("Enter a whole number of zero or greater, or all.")
+                continue
+            if parsed_value >= 0:
+                return parsed_value
+            self.output("Enter a whole number of zero or greater, or all.")
+
     def prompt_row_limit(self, prompt: str, default: int = 200) -> str:
         """Prompt for a positive row limit or all rows."""
         while True:
@@ -308,8 +325,9 @@ class WasOperatorMenu:
                 cancellation_monitor.stop()
             clear_operation_cancellation()
 
-        if exit_code == 0 and show_success:
-            self.output("Operation completed successfully.")
+        if exit_code == 0:
+            if show_success:
+                self.output("Operation completed successfully.")
         else:
             self.output("Operation exited with status {}.".format(exit_code))
         return exit_code
@@ -479,7 +497,9 @@ class WasOperatorMenu:
         """Confirm explicit recipients before delegating an on-demand request."""
         stakeholder_tag = self.prompt_required("Stakeholder tag: ")
         arguments = ["--tag", stakeholder_tag, "--create-missing-password"]
-        send_email = self.confirm("Email the report after archiving to S3?")
+        send_email = self.confirm(
+            "Email the report to an assignee after archiving to S3?"
+        )
         recipient_summary = "no email"
         if send_email:
             recipients = self.prompt_required(
@@ -922,9 +942,13 @@ class WasOperatorMenu:
             arguments.extend(["--email-assignee", email])
         if destination != "1":
             self.output("S3 and emailed tracker exports exclude report passwords.")
-        days_back = self.prompt_nonnegative_integer("Days back [7]: ", default=7)
+        days_back = self.prompt_days_back_or_all(
+            "Days back [7, or all]: ",
+            default=7,
+        )
         assignee = self.prompt_optional("Assignee name [all]: ")
-        arguments.extend(["--days-back", str(days_back)])
+        if days_back is not None:
+            arguments.extend(["--days-back", str(days_back)])
         if assignee:
             arguments.extend(["--assignee", assignee])
         if not self.confirm("Export the selected tracker rows to this destination?"):
@@ -1391,21 +1415,34 @@ class WasOperatorMenu:
 
     def new_stakeholder_tag_available(self, tag: str) -> bool:
         """Reject an existing tag before collecting creation fields."""
+        tag_exists = False
+
         def check() -> int:
             """Treat a lookup failure differently from a confirmed missing tag."""
+            nonlocal tag_exists
             try:
                 stakeholders_cli.get_stakeholder_record_by_tag(tag)
             except KeyError:
                 return 0
-            self.output("That stakeholder already exists. Use Update a stakeholder row.")
-            return 1
+            tag_exists = True
+            self.output(
+                "Error: stakeholder tag {} already exists. "
+                "Use Update a stakeholder row.".format(tag)
+            )
+            return 0
 
-        return self.execute("new stakeholder tag lookup", check, show_success=False) == 0
+        exit_code = self.execute(
+            "new stakeholder tag lookup",
+            check,
+            show_success=False,
+        )
+        return exit_code == 0 and not tag_exists
 
     def add_stakeholder(self) -> None:
         """Collect all operator-managed fields for one new stakeholder."""
         tag = self.prompt_required("Stakeholder tag: ")
         if not self.new_stakeholder_tag_available(tag):
+            self.pause()
             return
         arguments = [
             "add",

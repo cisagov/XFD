@@ -2,7 +2,9 @@
 
 # Standard Python Libraries
 import argparse
+from contextlib import redirect_stderr
 import csv
+from io import StringIO
 import os
 from pathlib import Path
 import tempfile
@@ -35,6 +37,106 @@ class StakeholdersCliTests(unittest.TestCase):
         """Reject customer tags containing spaces or other whitespace."""
         with self.assertRaisesRegex(argparse.ArgumentTypeError, "whitespace"):
             stakeholders_cli.stakeholder_tag_value("CUSTOMER TAG")
+
+    def test_add_rejects_overlong_named_field_before_database(self) -> None:
+        """Identify an oversized stakeholder value and its exact field."""
+        standard_error = StringIO()
+
+        with redirect_stderr(standard_error), self.assertRaises(SystemExit):
+            stakeholders_cli.main(
+                [
+                    "add",
+                    "--tag",
+                    "TAG1",
+                    "--customer-name",
+                    "x" * 513,
+                    "--ci-type",
+                    "CI_CHEMICAL",
+                    "--testing-sector",
+                    "Other",
+                    "--frequency",
+                    "Monthly",
+                    "--state",
+                    "VA",
+                    "--confirm",
+                ]
+            )
+
+        self.assertIn(
+            "customer_name must be 512 characters or fewer",
+            standard_error.getvalue(),
+        )
+
+    def test_add_rejects_overlong_schema_field_before_database(self) -> None:
+        """Apply database column limits to the other named creation fields."""
+        standard_error = StringIO()
+
+        with redirect_stderr(standard_error), self.assertRaises(SystemExit):
+            stakeholders_cli.main(
+                [
+                    "add",
+                    "--tag",
+                    "TAG1",
+                    "--customer-name",
+                    "Customer",
+                    "--ci-type",
+                    "CI_CHEMICAL",
+                    "--testing-sector",
+                    "Other",
+                    "--frequency",
+                    "x" * 65,
+                    "--state",
+                    "VA",
+                    "--confirm",
+                ]
+            )
+
+        self.assertIn(
+            "frequency must be 64 characters or fewer",
+            standard_error.getvalue(),
+        )
+
+    @patch(
+        "was_reports.commands.stakeholders_cli.get_stakeholder_record_by_tag",
+        side_effect=KeyError("not found"),
+    )
+    @patch("was_reports.commands.stakeholders_cli.create_stakeholder_in_db")
+    def test_add_rejects_unknown_parent_tag_with_specific_message(
+        self,
+        mock_create,
+        mock_get_record,
+    ) -> None:
+        """Explain a missing parent tag without relying on a database FK error."""
+        standard_error = StringIO()
+
+        with redirect_stderr(standard_error):
+            exit_code = stakeholders_cli.main(
+                [
+                    "add",
+                    "--tag",
+                    "TAG1",
+                    "--customer-name",
+                    "Customer",
+                    "--ci-type",
+                    "CI_CHEMICAL",
+                    "--testing-sector",
+                    "Other",
+                    "--frequency",
+                    "Monthly",
+                    "--state",
+                    "VA",
+                    "--parent-tag",
+                    "UNKNOWN",
+                    "--confirm",
+                ]
+            )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn(
+            "parent_tag UNKNOWN does not match an existing stakeholder tag",
+            standard_error.getvalue(),
+        )
+        mock_create.assert_not_called()
 
     def test_required_field_cannot_be_cleared(self) -> None:
         """Prevent update commands from nulling required stakeholder fields."""

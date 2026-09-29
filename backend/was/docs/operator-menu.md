@@ -41,7 +41,9 @@ remain. Additional actions:
   email-enabled analysts. S3/email exports exclude the Password column and escape
   spreadsheet formulas. S3 objects are encrypted and use unique names under
   `tracker_exports`. Local exports retain the legacy CSV format, including the
-  legacy password column; handle those files as sensitive.
+  legacy password column; handle those files as sensitive. At the Days back
+  prompt, enter a nonnegative number for a date window or `all` to export the
+  entire tracker table.
 - **Correct a tracker row** displays the row and lets an operator correct one
   supported field per confirmation: status, result, notes, template, NWS/error
   metadata, or Qualys tag ID. Use `CLEAR` for nullable metadata and `CANCEL` to
@@ -66,10 +68,12 @@ was-tracker export-csv --days-back 7 --email-assignee analyst@example.gov
 The order is View, Update row, Update point of contact information, Add new by
 CLI, Import new from CSV, Export to CSV, Retrieve password, Rotate password,
 and Manually enter password. Operations check the tag before collecting further
-inputs; Add rejects existing tags early. Contact prompts show and prefill current
-values. Enter keeps them; `CLEAR` removes a value. Add shows the known CI type,
-testing sector, subtype, and frequency options. State remains a direct entry with
-the INTERNATIONAL guidance. These suggestions do not introduce new enum validation.
+inputs; Add rejects existing tags early, keeps the error visible until the
+operator continues, and identifies invalid schema-bound values before insertion.
+Contact prompts show and prefill current values. Enter keeps them; `CLEAR`
+removes a value. Add shows the known CI type, testing sector, subtype, and
+frequency options. State remains a direct entry with the INTERNATIONAL guidance.
+These suggestions do not introduce new enum validation.
 
 These menu/tracker changes require no additional schema migration. The operator
 has confirmed the standalone-report database changes are complete. This workflow

@@ -94,6 +94,36 @@ class MenuUpdatesTests(unittest.TestCase):
         menu = self.menu(["EXISTS"])
         menu.add_stakeholder()
         self.assertEqual(menu.input.call_count, 1)
+        menu.pause.assert_called_once_with()
+        menu.output.assert_any_call(
+            "Error: stakeholder tag EXISTS already exists. "
+            "Use Update a stakeholder row."
+        )
+        self.assertFalse(
+            any(
+                call.args[0].startswith("Operation exited with status")
+                for call in menu.output.call_args_list
+            )
+        )
+
+    @patch(
+        "was_reports.commands.menu_cli.stakeholders_cli.get_stakeholder_record_by_tag",
+        side_effect=KeyError("not found"),
+    )
+    def test_available_new_stakeholder_tag_has_no_status_output(self, lookup):
+        menu = self.menu([])
+
+        self.assertTrue(menu.new_stakeholder_tag_available("NEW"))
+        menu.output.assert_not_called()
+
+    def test_execute_suppresses_success_output_when_requested(self):
+        menu = self.menu([])
+
+        self.assertEqual(
+            menu.execute("silent operation", lambda: 0, show_success=False),
+            0,
+        )
+        menu.output.assert_not_called()
 
     @patch("was_reports.commands.menu_cli.stakeholders_cli.main")
     @patch(

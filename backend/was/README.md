@@ -1548,6 +1548,10 @@ This writes the filtered CSV to
 rows. The equivalent Docker filters are `--assignee "ASSIGNEE NAME"` and
 `--days-back 7`.
 
+In the operator menu, the tracker export Days back prompt accepts a
+nonnegative number or `all`. Selecting `all` omits the date filter and exports
+the entire tracker table, while any assignee filter still applies.
+
 ### View The Live Tracker Table
 
 Display current tracker rows directly from Postgres without waiting for a CSV
@@ -2010,7 +2014,8 @@ on-demand delivery.
 
 In `make menu`, select **Report generation**, then **4, Generate an on-demand
 report to S3 (optional email)**. Enter the enrolled stakeholder tag, choose whether
-to email, enter email-enabled analyst addresses if sending, and confirm the operation.
+to email the report to an assignee, enter email-enabled analyst addresses if sending,
+and confirm the operation.
 Leave the tracker ID blank for an unlinked report run. Options 2 and 3 remain eligibility
 driven and are not force-generation commands.
 

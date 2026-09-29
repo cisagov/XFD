@@ -167,6 +167,26 @@ class WasOperatorMenuTests(unittest.TestCase):
                 )
                 self.assertIn("0) Back to main menu", displayed_options)
 
+    def test_on_demand_email_prompt_identifies_assignee_recipient(self) -> None:
+        """Make the on-demand email recipient boundary explicit to operators."""
+        menu = self.build_menu(["TAG1", "n", "", "n"])
+
+        menu.run_on_demand_report()
+
+        displayed_prompts = [
+            call.args[0]
+            for call in menu.input.call_args_list
+            if call.args
+        ]
+        self.assertIn(
+            "Email the report to an assignee after archiving to S3? [y/N]: ",
+            displayed_prompts,
+        )
+        self.assertNotIn(
+            "Email the report after archiving to S3? [y/N]: ",
+            displayed_prompts,
+        )
+
     @patch("was_reports.commands.menu_cli.standalone_cli.main", return_value=0)
     def test_standalone_menu_delegates_only_after_confirmation(self, command) -> None:
         """Standalone delivery is explicit and never supplies a tracker ID."""
