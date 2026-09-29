@@ -120,7 +120,7 @@ if [ ! -f .runner ]; then
     --unattended \
     --url ${runner_url} \
     --token ${runner_token} \
-    --runner-group ${runner_group} \
+    --runnergroup ${runner_group} \
     --name ${runner_name}
 fi
 
