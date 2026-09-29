@@ -422,7 +422,7 @@ def list_stakeholders_for_export_from_db(
 def update_scan_metadata(
     tag: str,
     last_scanned: int,
-    next_scheduled: int,
+    next_scheduled: int | None,
     num_web_apps: int,
     web_apps_last_updated: int,
     qualys_tag_id: int | None,
@@ -460,7 +460,7 @@ def update_scan_metadata(
 def update_scan_metadata_for_tag(
     tag: str,
     last_scanned: int,
-    next_scheduled: int,
+    next_scheduled: int | None,
     num_web_apps: int,
     web_apps_last_updated: int,
     qualys_tag_id: int | None,

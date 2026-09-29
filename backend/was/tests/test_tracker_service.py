@@ -10,8 +10,11 @@ from lxml import etree
 
 # First-Party Libraries
 from was_reports.tracker import service
+from was_reports.tracker.service import reconcile_known_schedule_reviews
 from was_reports.tracker.models import (
     MISSING_QUALYS_FIELD_NOTE_PREFIX,
+    MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
+    RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX,
     TrackerItem,
     TrackerStakeholder,
 )
@@ -19,6 +22,135 @@ from was_reports.tracker.models import (
 
 class TrackerServiceTests(unittest.TestCase):
     """Validate tracker orchestration without external systems."""
+
+    def setUp(self) -> None:
+        """Isolate refresh orchestration from the separately tested database boundary."""
+        reconciliation = patch.object(service, "reconcile_known_schedule_reviews", return_value=0)
+        self.mock_reconciliation = reconciliation.start()
+        self.addCleanup(reconciliation.stop)
+
+    def test_existing_execution_resolves_schedule_review_under_claim_guards(self) -> None:
+        """Close the metadata exception without changing the already tracked run."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
+            2, "MONTHLY", "TAG",
+        )
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        note = MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate"
+        cursor.fetchall.return_value = [(2,)]
+        cursor.fetchone.side_effect = [(True,), (17, note, 18)]
+        cursor.rowcount = 1
+        with patch.object(service, "connect", return_value=conn), patch.object(service, "close"):
+            self.assertEqual(reconcile_known_schedule_reviews({"execution": stakeholder}), 1)
+        update = next(
+            call for call in cursor.execute.call_args_list
+            if "UPDATE was_daily_report_tracker" in call.args[0]
+        )
+        self.assertIn("status = 'Resolved'", update.args[0])
+        self.assertIn("report_sent_date IS NULL", update.args[0])
+        self.assertIn("NOT EXISTS (SELECT 1 FROM was_report_runs", update.args[0])
+        self.assertEqual(update.args[1][1:], (17, note))
+        self.assertTrue(update.args[1][0].startswith(RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX))
+        self.assertIn("tracker row 18", update.args[1][0])
+        self.assertIn(note, update.args[1][0])
+
+    def test_schedule_review_without_matching_execution_remains_open(self) -> None:
+        """Recovery does not close an exception until an actual tracker row exists."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
+            2, "MONTHLY", "TAG",
+        )
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [(2,)]
+        cursor.fetchone.side_effect = [(True,), None]
+        with patch.object(service, "connect", return_value=conn), patch.object(service, "close"):
+            self.assertEqual(reconcile_known_schedule_reviews({"execution": stakeholder}), 0)
+        self.assertNotIn("UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list))
+
+    def test_schedule_review_is_not_resolved_while_metadata_is_missing(self) -> None:
+        """A restored last date alone does not resolve a still-missing next date."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, None, "2026-09-03T12:00:00Z", 2, "MONTHLY", "TAG",
+            discovery_notes=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "nextLaunchDate",
+        )
+        with patch.object(service, "connect") as connect:
+            self.assertEqual(reconcile_known_schedule_reviews({"execution": stakeholder}), 0)
+        connect.assert_not_called()
+
+    def test_discovery_exception_is_persisted_without_scan_candidates(self) -> None:
+        """A deactivated schedule cannot disappear through an early return."""
+        issue = TrackerItem(
+            tag="TAG", scan_name="Customer Monthly", status="Unknown", result="Unknown",
+            launched_date=None, next_scan_date=None, nws=False, recent_nws="",
+            removed_nws="", manual=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate",
+            fceb=False, schedule_id=2, qualys_errors="lastScan.launchedDate",
+            scan_execution_key="schedule-review:2",
+        )
+
+        def discover(**kwargs):
+            """Return only a schedule issue, as the real discovery output does."""
+            kwargs["discovery_issues"].append(issue)
+            return {}
+
+        with patch.multiple(
+            service, tracker_search_window=DEFAULT, search_schedules=DEFAULT,
+            search_scans=DEFAULT, update_tracker=DEFAULT,
+        ) as mocks:
+            mocks["tracker_search_window"].return_value = (datetime(2026, 9, 1), set())
+            mocks["search_schedules"].side_effect = discover
+            mocks["update_tracker"].return_value = 1
+            self.assertEqual(service.refresh_daily_tracker(object()), 1)
+            mocks["search_scans"].assert_not_called()
+            self.assertEqual(mocks["update_tracker"].call_args.kwargs["tracker_items"], [issue])
+
+    def test_discovery_exception_preflight_never_writes(self) -> None:
+        """Report schedule exceptions without assigning or persisting anything."""
+        issue = TrackerItem(
+            tag="TAG", scan_name="Customer Monthly", status="Unknown", result="Unknown",
+            launched_date=None, next_scan_date=None, nws=False, recent_nws="",
+            removed_nws="", manual=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate",
+            fceb=False, schedule_id=2, qualys_errors="lastScan.launchedDate",
+            scan_execution_key="schedule-review:2",
+        )
+
+        def discover(**kwargs):
+            """Capture an unresolved schedule without fabricating a scan."""
+            kwargs["discovery_issues"].append(issue)
+            return {}
+
+        with patch.multiple(
+            service, tracker_search_window=DEFAULT, search_schedules=DEFAULT,
+            search_scans=DEFAULT, update_tracker=DEFAULT,
+        ) as mocks, patch("builtins.print") as output:
+            mocks["tracker_search_window"].return_value = (datetime(2026, 9, 1), set())
+            mocks["search_schedules"].side_effect = discover
+            self.assertEqual(service.refresh_daily_tracker(object(), preflight_only=True), 1)
+            mocks["update_tracker"].assert_not_called()
+            mocks["search_scans"].assert_not_called()
+            self.mock_reconciliation.assert_not_called()
+            self.assertIn("1 manual exceptions; no writes", output.call_args.args[0])
+
+    def test_missing_next_date_notes_flow_to_completed_tracker_item(self) -> None:
+        """Completed scans remain manual when their schedule lacks a next date."""
+        from was_reports.tracker.item_builder import create_tracker_items
+
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, None, "2026-09-03T12:00:00Z", 2, "MONTHLY", "TAG",
+            discovery_notes=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "nextLaunchDate",
+        )
+        scan = etree.fromstring(
+            b"<WasScan><name>Customer Run #2</name><status>FINISHED</status>"
+            b"<summary><resultsStatus>SUCCESSFUL</resultsStatus></summary></WasScan>"
+        )
+        with patch("was_reports.tracker.item_builder.stakeholder_flags", return_value=("", False)):
+            item = create_tracker_items(object(), {"run": [scan]}, {"run": stakeholder}, set())[0]
+        self.assertEqual(item.status, "Finished")
+        self.assertEqual(item.result, "Successful")
+        self.assertIsNone(item.next_scan_date)
+        self.assertEqual(item.manual, stakeholder.discovery_notes)
+        self.assertIn("nextLaunchDate", item.qualys_errors)
 
     @patch("was_reports.tracker.service.close")
     @patch("was_reports.tracker.service.connect")
@@ -391,6 +523,7 @@ class TrackerServiceTests(unittest.TestCase):
             input_date=input_date,
             previous_schedule_ids={1},
             stakeholder_tag="CROSSFEED",
+            discovery_issues=[],
         )
         mock_search_scans.assert_called_once_with(
             client=client,

@@ -1,5 +1,7 @@
 """Offline regression tests for combined, secret-safe analyst summaries."""
 
+import csv
+import io
 import unittest
 from unittest.mock import patch
 
@@ -614,7 +616,61 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertNotIn("legacy_password", query)
         self.assertNotIn("active IS TRUE", query)
         self.assertNotIn("BTRIM(tracker.qualys_error)", query)
-        self.assertNotIn("COALESCE(tracker.status", query)
+        self.assertNotIn("UPPER(BTRIM(COALESCE(tracker.status", query)
+        self.assertIn("= 'Resolved'", query)
+
+    @patch.object(summaries, "_execute")
+    def test_schedule_review_manual_query_preserves_unresolved_exceptions(
+        self, execute
+    ):
+        """Newer same-tag scans cannot hide recent unresolved schedule work."""
+        execute.return_value = []
+
+        summaries._tracker_rows(batch_id="batch", days_back=3)
+
+        query = " ".join(execute.call_args.args[0].split())
+        self.assertIn(
+            "AND (COALESCE(tracker.scan_execution_key, '') "
+            "LIKE 'schedule-review:%%' OR NOT EXISTS (", query
+        )
+        self.assertIn(
+            "COALESCE(tracker.scan_start_date, tracker.data_pull_date) "
+            ">= CURRENT_DATE - (%s - 1) AND (", query
+        )
+        self.assertIn("newer.tag = tracker.tag", query)
+        self.assertIn("NOT LIKE 'legacy-import:%%'", query)
+        self.assertEqual(execute.call_args.args[1], ("batch", "batch", 3))
+
+    @patch.object(summaries, "_execute")
+    def test_schedule_review_exports_manual_row_with_unknown_dates(self, execute):
+        """Unknown execution dates stay blank while manual reasons remain visible."""
+        values = [None] * len(summaries.TRACKER_EXPORT_FIELDS)
+        row_values = {
+            "id": 44,
+            "tag": "TGSBIN",
+            "schedule_id": "1146951",
+            "data_pull_date": "2026-09-29",
+            "report_scan_notes": (
+                "MANUAL: Missing required Qualys schedule field: "
+                "lastScan.launchedDate"
+            ),
+            "qualys_error": "Missing lastScan.launchedDate",
+        }
+        for field, value in row_values.items():
+            values[summaries.TRACKER_EXPORT_FIELDS.index(field)] = value
+        execute.return_value = [tuple(values + [False, False])]
+
+        rows = summaries._tracker_rows(batch_id="batch")
+        exported = list(csv.DictReader(io.StringIO(summaries.summary_csv(rows))))
+
+        self.assertTrue(rows[0]["open_manual"])
+        self.assertEqual(exported[0]["tag"], "TGSBIN")
+        self.assertEqual(exported[0]["scan_start_date"], "")
+        self.assertEqual(exported[0]["next_scan_date"], "")
+        self.assertEqual(exported[0]["qualys_error"], row_values["qualys_error"])
+        self.assertEqual(
+            exported[0]["report_scan_notes"], row_values["report_scan_notes"]
+        )
 
     @patch.object(summaries, "_execute")
     def test_tracker_rows_marks_current_batch_and_stakeholder_manual(

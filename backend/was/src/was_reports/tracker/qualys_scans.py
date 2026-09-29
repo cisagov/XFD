@@ -7,6 +7,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from dataclasses import replace
 import logging
+import hashlib
+import json
 import unicodedata
 import requests
 
@@ -22,6 +24,8 @@ from was_reports.data.daily_report_tracker import (
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 from was_reports.tracker.models import (
     scan_time_bounds,
+    MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
+    TrackerItem,
     QualysScan,
     TrackerStakeholder,
     scheduled_execution_key,
@@ -202,16 +206,113 @@ def schedule_tag_id(schedule: etree._Element) -> int:
     return int(unique_tag_ids[0])
 
 
+def schedule_field_note(fields: list[str]) -> str:
+    """Describe absent or invalid schedule fields without response contents."""
+    return MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + ", ".join(dict.fromkeys(fields))
+
+
+def schedule_review_key(schedule: etree._Element, schedule_id: int | None) -> str:
+    """Identify review records from limited nonsecret schedule metadata."""
+    if schedule_id is not None:
+        return "schedule-review:{}".format(schedule_id)
+    identity = tuple(
+        (schedule.findtext(path) or "").strip()
+        for path in ("name", "./lastScan/id", "./lastScan/launchedDate", "id")
+    )
+    digest = hashlib.sha256(json.dumps(identity, ensure_ascii=True).encode("utf-8")).hexdigest()
+    return "schedule-review:unidentified:{}".format(digest)
+
+
+def schedule_review_item(
+    schedule: etree._Element,
+    schedule_id: int | None,
+    tag: str,
+    fields: list[str],
+    next_scan_date: str | None,
+    tag_id: int | None,
+) -> TrackerItem:
+    """Keep an unresolved schedule visible without inventing an execution."""
+    return TrackerItem(
+        tag=tag,
+        scan_name=(
+            schedule.findtext("./lastScan/name")
+            or schedule.findtext("name")
+            or ""
+        ),
+        status="Unknown",
+        result="Unknown",
+        launched_date=None,
+        next_scan_date=next_scan_date,
+        nws=False,
+        recent_nws="",
+        removed_nws="",
+        manual=schedule_field_note(fields),
+        fceb=False,
+        schedule_id=schedule_id,
+        qualys_errors=", ".join(dict.fromkeys(fields)),
+        tag_id=tag_id,
+        scan_execution_key=schedule_review_key(schedule, schedule_id),
+    )
+
+
+def valid_schedule_timestamp(value: str | None) -> bool:
+    """Require an actual timezone-aware date before deriving execution identity."""
+    if not value:
+        return False
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return timestamp.tzinfo is not None
+    except ValueError:
+        return False
+
+
+def recover_schedule_scan(
+    client: QualysClient, schedule: etree._Element,
+) -> etree._Element | None:
+    """Retrieve only the scan explicitly identified by a schedule's lastScan."""
+    identifier = (schedule.findtext("./lastScan/id") or "").strip()
+    if not identifier.isascii() or not identifier.isdigit():
+        return None
+    try:
+        response = client.request(QualysRequest(
+            endpoint="/get/was/wasscan/{}".format(identifier), http_method="get"
+        ))
+        detail = parse_xml(response, "schedule scan detail").find("./data/WasScan")
+        if detail is None or (detail.findtext("id") or "").strip() != identifier:
+            return None
+        if not valid_schedule_timestamp(detail.findtext("launchedDate")):
+            return None
+        return detail
+    except (requests.RequestException, ValueError, RuntimeError, AttributeError):
+        LOGGER.warning("Unable to recover required Qualys schedule field: lastScan.launchedDate.")
+        return None
+
+
+def schedule_is_adhoc(schedule_name: str, tag: str) -> bool:
+    """Limit primary schedule fallback to explicitly marked ad hoc schedules."""
+    normalized_name = normalize_schedule_name(schedule_name).lower()
+    name_marked = any(
+        marker in normalized_name for marker in ("adhoc", "ad-hoc", "ad_hoc")
+    )
+    tag_suffix = tag.lower().partition("_ad")[2]
+    tag_marked = "_ad" in tag.lower() and (
+        not tag_suffix or tag_suffix.isdigit() or tag_suffix == "hoc"
+    )
+    return name_marked or tag_marked
+
+
 def search_schedules(
     client: QualysClient,
     input_date: datetime,
     previous_schedule_ids: set[int],
     stakeholder_tag: str | None = None,
+    discovery_issues: list[TrackerItem] | None = None,
 ) -> dict[str, TrackerStakeholder]:
-    """Return recent schedules without suppressing recurring executions."""
+    """Return executions and optionally retain unresolved schedule review rows."""
     input_date_text = input_date.strftime("%Y-%m-%dT%H:%M:%SZ")
     LOGGER.info("Tracker schedule search starts after %s", input_date_text)
     stakeholders: dict[str, TrackerStakeholder] = {}
+    issue_keys: set[str] = set()
     offset = 1
     while True:
         LOGGER.info("Fetching Qualys schedules from offset %d", offset)
@@ -224,60 +325,84 @@ def search_schedules(
         )
         root = parse_xml(response_xml, "schedule search")
         for schedule in root.findall("./data/WasScanSchedule"):
-            schedule_id_text = schedule.findtext("id")
-            schedule_name = schedule.findtext("name")
-            if not schedule_id_text or not schedule_name:
-                LOGGER.warning("Skipping an incomplete Qualys schedule record.")
+            last_scan_status = (schedule.findtext("./lastScan/status") or "").strip().upper()
+            last_scan_result = (schedule.findtext("./lastScan/summary/resultsStatus") or "").strip().upper()
+            if last_scan_status in ("RUNNING", "PROCESSING") or last_scan_result == "PROCESSING":
                 continue
-            schedule_id = int(schedule_id_text)
-            tag, stakeholder_name = parse_stakeholder_schedule_name(schedule_name)
+            fields: list[str] = []
+            identifier = (schedule.findtext("id") or "").strip()
+            schedule_id = None
+            if identifier.isascii() and identifier.isdigit():
+                try:
+                    schedule_id = int(identifier)
+                except ValueError:
+                    pass
+            if schedule_id is None:
+                fields.append("id")
+            schedule_name = schedule.findtext("name") or ""
+            tag = ""
+            stakeholder_name = ""
+            try:
+                tag, stakeholder_name = parse_stakeholder_schedule_name(schedule_name)
+            except ValueError:
+                fields.append("name (stakeholder tag/name)")
             if stakeholder_tag is not None and tag != stakeholder_tag:
                 continue
+            tag_id = None
+            try:
+                tag_id = schedule_tag_id(schedule)
+            except (LookupError, ValueError):
+                fields.append("target.tags.included.tagList (single tag ID)")
             launched_date = schedule.findtext("./lastScan/launchedDate")
-            if not launched_date:
-                last_scan_status = (
-                    schedule.findtext("./lastScan/status") or ""
-                ).strip().upper()
-                if last_scan_status != "RUNNING":
-                    LOGGER.warning(
-                        "Skipping Qualys schedule %s (%s) for tag %s because it has "
-                        "no actual launch timestamp.",
-                        schedule_id,
-                        normalize_schedule_name(schedule_name),
-                        tag,
-                    )
-                continue
-            cadence = schedule.findtext("./scheduling/occurrenceType") or ""
+            latest_scan_name = schedule.findtext("./lastScan/name") or ""
+            if not valid_schedule_timestamp(launched_date):
+                detail = recover_schedule_scan(client, schedule)
+                if detail is not None:
+                    last_scan_status = (detail.findtext("status") or "").strip().upper()
+                    detail_result = (detail.findtext("./summary/resultsStatus") or "").strip().upper()
+                    if last_scan_status in ("RUNNING", "PROCESSING") or detail_result == "PROCESSING":
+                        continue
+                    launched_date = detail.findtext("launchedDate")
+                    latest_scan_name = detail.findtext("name") or latest_scan_name
+                else:
+                    fields.append("lastScan.launchedDate")
             next_scan_date = schedule.findtext("nextLaunchDate")
-            if not next_scan_date:
-                try:
-                    next_scan_date = next_scan_date_for_adhoc(
-                        client=client,
-                        tag=tag,
-                        stakeholder_name=stakeholder_name,
-                    )
-                except LookupError:
-                    LOGGER.warning(
-                        "Skipping Qualys schedule %s (%s) for tag %s because "
-                        "neither it nor its primary schedule has a next launch date.",
-                        schedule_id,
-                        normalize_schedule_name(schedule_name),
-                        tag,
-                    )
-                    continue
+            if not valid_schedule_timestamp(next_scan_date):
+                next_scan_date = None
+                if tag and schedule_is_adhoc(schedule_name, tag):
+                    try:
+                        recovered_next = next_scan_date_for_adhoc(client, tag, stakeholder_name)
+                        if valid_schedule_timestamp(recovered_next):
+                            next_scan_date = recovered_next
+                    except (LookupError, requests.RequestException, ValueError, RuntimeError, AttributeError):
+                        pass
+                if next_scan_date is None:
+                    fields.append("nextLaunchDate")
+            if fields:
+                LOGGER.warning("Qualys schedule %s requires manual review for fields: %s", schedule_id, ", ".join(fields))
+            required_execution_fields = [field for field in fields if field != "nextLaunchDate"]
+            if required_execution_fields:
+                review_key = schedule_review_key(schedule, schedule_id)
+                if discovery_issues is not None and review_key not in issue_keys:
+                    discovery_issues.append(schedule_review_item(
+                        schedule, schedule_id, tag, fields, next_scan_date, tag_id,
+                    ))
+                    issue_keys.add(review_key)
+                continue
             execution_key = scheduled_execution_key(schedule_id, launched_date)
             if execution_key not in stakeholders:
                 stakeholders[execution_key] = TrackerStakeholder(
                     name=stakeholder_name,
-                    tag_id=schedule_tag_id(schedule),
+                    tag_id=tag_id,
                     next_scan_date=next_scan_date,
                     launched_date=launched_date,
                     schedule_id=schedule_id,
-                    cadence=cadence,
+                    cadence=schedule.findtext("./scheduling/occurrenceType") or "",
                     tag=tag,
                     schedule_name=normalize_schedule_name(schedule_name),
-                    latest_scan_name=schedule.findtext("./lastScan/name") or "",
-                    latest_scan_status=schedule.findtext("./lastScan/status") or "",
+                    latest_scan_name=latest_scan_name,
+                    latest_scan_status=last_scan_status,
+                    discovery_notes=schedule_field_note(fields) if fields else "",
                 )
         count = response_count(root)
         if not response_has_more_records(root):
@@ -288,10 +413,7 @@ def search_schedules(
                 "{}.".format(offset)
             )
         offset += count
-    LOGGER.info(
-        "Found %d tracker schedule candidates",
-        len(stakeholders),
-    )
+    LOGGER.info("Found %d tracker schedule candidates", len(stakeholders))
     return stakeholders
 
 

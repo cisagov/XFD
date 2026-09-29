@@ -26,6 +26,7 @@ from was_reports.data.daily_report_tracker import (
     mark_tracker_report_manual,
     record_tracker_digest_failure,
 )
+from was_reports.tracker.models import RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX
 
 
 class FakeCursor:
@@ -86,6 +87,28 @@ class FakeConnection:
 
 class DailyReportTrackerTests(unittest.TestCase):
     """Validate daily report tracker persistence helpers."""
+
+    def test_resolved_schedule_exception_is_not_open_manual_work(self) -> None:
+        """Only the explicit schedule resolution marker closes manual work."""
+        self.assertIsNone(
+            manual_work_classification(
+                None,
+                RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX + "tracker row 42.",
+                "nextLaunchDate",
+                "Resolved",
+                True,
+            )
+        )
+        self.assertEqual(
+            manual_work_classification(
+                None,
+                "MANUAL: Investigate missing metadata",
+                "nextLaunchDate",
+                "Resolved",
+                False,
+            ),
+            MANUAL_WORK,
+        )
 
     def test_manual_work_classification_separates_legacy_sent_notes(self) -> None:
         """An unreconciled sent marker is not actionable manual generation."""

@@ -325,10 +325,10 @@ class TrackerQualysScansTests(unittest.TestCase):
 
                 self.assertEqual(candidates, {})
                 warning.assert_called_once()
-                self.assertIn("no actual launch timestamp", warning.call_args.args[0])
+                self.assertIn("manual review", warning.call_args.args[0])
 
-    def test_schedule_without_any_next_launch_date_is_skipped(self) -> None:
-        """Continue schedule discovery when an ad hoc next date is unavailable."""
+    def test_schedule_without_any_next_launch_date_becomes_review(self) -> None:
+        """Keep an unresolved ad hoc schedule visible when the next date is absent."""
         client = Mock()
         client.request.side_effect = [
             (
@@ -340,18 +340,229 @@ class TrackerQualysScansTests(unittest.TestCase):
             "<ServiceResponse><data></data></ServiceResponse>",
         ]
 
-        with self.assertLogs(
-            "was_reports.tracker.qualys_scans",
-            level="WARNING",
-        ) as captured_logs:
-            candidates = search_schedules(client, datetime(2026, 9, 1), set())
+        issues = []
+        candidates = search_schedules(
+            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+        )
 
         self.assertEqual(candidates, {})
         self.assertEqual(client.request.call_count, 2)
-        self.assertIn(
-            "neither it nor its primary schedule has a next launch date",
-            captured_logs.output[0],
+        self.assertEqual(len(issues), 1)
+        self.assertIn("nextLaunchDate", issues[0].qualys_errors)
+        self.assertEqual(issues[0].scan_execution_key, "schedule-review:2")
+
+    def schedule_response(
+        self,
+        launched: str = "2026-09-03T00:00:00Z",
+        next_date: str = "2026-10-03T00:00:00Z",
+        status: str = "FINISHED",
+        scan_id: str = "",
+        name: str = "WAVS - TAG - Customer - Monthly",
+        tag_id: str = "9",
+        schedule_id: str = "2",
+    ) -> str:
+        """Build a schedule response for discovery boundary cases."""
+        return (
+            "<ServiceResponse><data><WasScanSchedule><id>{}</id><name>{}</name>"
+            "<lastScan><id>{}</id><name>Customer Run #71</name><status>{}</status>"
+            "<launchedDate>{}</launchedDate></lastScan><nextLaunchDate>{}</nextLaunchDate>"
+            "<target><tags><included><tagList><list><Tag><id>{}</id></Tag>"
+            "</list></tagList></included></tags></target>"
+            "</WasScanSchedule></data></ServiceResponse>"
+        ).format(schedule_id, name, scan_id, status, launched, next_date, tag_id)
+
+    def test_completed_schedule_missing_next_date_is_manual_candidate(self) -> None:
+        """Disabled normal schedules retain their known execution without fallback."""
+        client = Mock()
+        client.request.return_value = self.schedule_response(
+            next_date="", name="WAVS - TAG_ADMIN - Customer - Monthly",
         )
+        issues = []
+        candidates = search_schedules(
+            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+        )
+        candidate = next(iter(candidates.values()))
+        self.assertIsNone(candidate.next_scan_date)
+        self.assertEqual(candidate.discovery_notes,
+                         "MANUAL: Missing required Qualys schedule field: nextLaunchDate")
+        self.assertEqual(candidate.launched_date, "2026-09-03T00:00:00Z")
+        self.assertEqual(issues, [])
+        client.request.assert_called_once()
+
+    def test_adhoc_schedule_retains_primary_next_date_fallback(self) -> None:
+        """Explicit ad hoc markers still allow the primary schedule lookup."""
+        client = Mock()
+        client.request.side_effect = [
+            self.schedule_response(next_date="", name="WAVS - TAG_AD - Customer - Ad-Hoc"),
+            "<ServiceResponse><data><WasScanSchedule>"
+            "<nextLaunchDate>2026-10-04T00:00:00Z</nextLaunchDate>"
+            "</WasScanSchedule></data></ServiceResponse>",
+        ]
+        candidates = search_schedules(client, datetime(2026, 9, 1), set())
+        candidate = next(iter(candidates.values()))
+        self.assertEqual(candidate.next_scan_date, "2026-10-04T00:00:00Z")
+        self.assertEqual(candidate.discovery_notes, "")
+        self.assertEqual(client.request.call_count, 2)
+
+    def test_missing_actual_date_creates_stable_unknown_review(self) -> None:
+        """No identity-bearing timestamp is invented for an unresolved schedule."""
+        client = Mock()
+        client.request.return_value = self.schedule_response(launched="", next_date="")
+        keys = []
+        for iteration in range(2):
+            with self.subTest(iteration=iteration):
+                issues = []
+                self.assertEqual(search_schedules(
+                    client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+                ), {})
+                self.assertEqual(len(issues), 1)
+                item = issues[0]
+                self.assertIsNone(item.launched_date)
+                self.assertIsNone(item.next_scan_date)
+                self.assertEqual(item.status, "Unknown")
+                self.assertEqual(item.result, "Unknown")
+                self.assertEqual(item.qualys_errors, "lastScan.launchedDate, nextLaunchDate")
+                self.assertEqual(item.tag, "TAG")
+                self.assertEqual(item.scan_name, "Customer Run #71")
+                keys.append(item.scan_execution_key)
+        self.assertEqual(keys, ["schedule-review:2", "schedule-review:2"])
+
+    def test_actual_date_recovers_from_matching_scan_id(self) -> None:
+        """An explicit matching scan ID safely recovers actual execution metadata."""
+        client = Mock()
+        client.request.side_effect = [
+            self.schedule_response(launched="", scan_id="71"),
+            "<ServiceResponse><data><WasScan><id>71</id><name>Recovered Run #71</name>"
+            "<status>FINISHED</status><launchedDate>2026-09-02T20:00:00-04:00</launchedDate>"
+            "</WasScan></data></ServiceResponse>",
+        ]
+        issues = []
+        candidates = search_schedules(
+            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+        )
+        candidate = next(iter(candidates.values()))
+        self.assertEqual(candidate.latest_scan_name, "Recovered Run #71")
+        self.assertEqual(candidate.latest_scan_status, "FINISHED")
+        self.assertEqual(next(iter(candidates)), "schedule:2:2026-09-03T00:00:00+00:00")
+        self.assertEqual(issues, [])
+        self.assertEqual(client.request.call_args.args[0].endpoint, "/get/was/wasscan/71")
+
+    def test_recovery_mismatched_or_naive_detail_remains_manual(self) -> None:
+        """Never substitute a different scan or a timezone-free timestamp."""
+        for identifier, launched in (("72", "2026-09-03T00:00:00Z"),
+                                     ("71", "2026-09-03T00:00:00")):
+            with self.subTest(identifier=identifier, launched=launched):
+                client = Mock()
+                client.request.side_effect = [
+                    self.schedule_response(launched="", scan_id="71"),
+                    "<ServiceResponse><data><WasScan><id>{}</id>"
+                    "<launchedDate>{}</launchedDate></WasScan></data></ServiceResponse>"
+                    .format(identifier, launched),
+                ]
+                issues = []
+                self.assertEqual(search_schedules(
+                    client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+                ), {})
+                self.assertIn("lastScan.launchedDate", issues[0].qualys_errors)
+
+    def test_running_and_processing_never_create_review_issues(self) -> None:
+        """Incomplete running scans stay deferred even when all dates are absent."""
+        for status in ("RUNNING", "PROCESSING"):
+            with self.subTest(status=status):
+                client = Mock()
+                client.request.return_value = self.schedule_response(
+                    launched="", next_date="", status=status, scan_id="71",
+                )
+                issues = []
+                self.assertEqual(search_schedules(
+                    client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+                ), {})
+                self.assertEqual(issues, [])
+                client.request.assert_called_once()
+
+    def test_recovery_request_failure_has_safe_manual_note(self) -> None:
+        """A detail request failure cannot discard a schedule or leak response data."""
+        client = Mock()
+        client.request.side_effect = [
+            self.schedule_response(launched="", scan_id="71"),
+            RuntimeError("sensitive-response-payload"),
+        ]
+        issues = []
+        with self.assertLogs("was_reports.tracker.qualys_scans", level="WARNING") as logs:
+            self.assertEqual(search_schedules(
+                client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+            ), {})
+        self.assertIn("lastScan.launchedDate", issues[0].manual)
+        self.assertNotIn("sensitive-response-payload", str(logs.output))
+        self.assertNotIn("sensitive-response-payload", issues[0].qualys_errors)
+
+    def test_bad_schedule_metadata_does_not_abort_following_records(self) -> None:
+        """Malformed metadata is isolated and stable identifiable rows stay visible."""
+        client = Mock()
+        bad_name = self.schedule_response(name="invalid-name")
+        bad_tag = self.schedule_response(tag_id="")
+        invalid_id = self.schedule_response(schedule_id="not-an-id")
+        valid = self.schedule_response(schedule_id="3")
+        records = [etree.fromstring(value.encode()).find("./data/WasScanSchedule")
+                   for value in (bad_name, bad_tag, invalid_id, valid)]
+        root = etree.Element("ServiceResponse")
+        data = etree.SubElement(root, "data")
+        data.extend(records)
+        client.request.return_value = etree.tostring(root, encoding="unicode")
+        issues = []
+        candidates = search_schedules(
+            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(len(issues), 2)
+        self.assertEqual(issues[0].tag, "")
+        self.assertIn("name", issues[0].qualys_errors)
+
+    def test_unidentified_schedule_preserves_stable_manual_review(self) -> None:
+        """Absent or malformed IDs are visible without a fabricated schedule ID."""
+        for identifier in ("", "invalid-id"):
+            with self.subTest(identifier=identifier):
+                client = Mock()
+                client.request.return_value = self.schedule_response(schedule_id=identifier)
+                keys = []
+                for iteration in range(2):
+                    issues = []
+                    self.assertEqual(search_schedules(
+                        client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+                    ), {})
+                    self.assertEqual(len(issues), 1)
+                    item = issues[0]
+                    self.assertIsNone(item.schedule_id)
+                    self.assertIsNone(item.launched_date)
+                    self.assertEqual(item.tag, "TAG")
+                    self.assertEqual(item.qualys_errors, "id")
+                    self.assertEqual(item.status, "Unknown")
+                    self.assertTrue(item.scan_execution_key.startswith("schedule-review:unidentified:"))
+                    self.assertNotIn(identifier or "invalid-id", item.scan_execution_key)
+                    keys.append(item.scan_execution_key)
+                self.assertEqual(keys[0], keys[1])
+
+    def test_unidentified_schedule_obeys_tag_and_running_filters(self) -> None:
+        """Unrelated or still running malformed schedules do not create exceptions."""
+        for status, requested_tag in (("FINISHED", "OTHER"), ("RUNNING", None)):
+            with self.subTest(status=status, requested_tag=requested_tag):
+                client = Mock()
+                client.request.return_value = self.schedule_response(schedule_id="", status=status)
+                issues = []
+                self.assertEqual(search_schedules(
+                    client, datetime(2026, 9, 1), set(), stakeholder_tag=requested_tag,
+                    discovery_issues=issues,
+                ), {})
+                self.assertEqual(issues, [])
+
+    def test_global_schedule_search_failure_still_propagates(self) -> None:
+        """An operation-level request failure cannot be turned into a fake row."""
+        client = Mock()
+        client.request.side_effect = RuntimeError("global search failure")
+        issues = []
+        with self.assertRaises(RuntimeError):
+            search_schedules(client, datetime(2026, 9, 1), set(), discovery_issues=issues)
+        self.assertEqual(issues, [])
 
     def test_only_latest_execution_for_same_schedule(self) -> None:
         """Older finished runs are excluded before evaluating completion."""

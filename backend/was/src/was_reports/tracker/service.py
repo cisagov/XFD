@@ -4,6 +4,7 @@
 import logging
 from collections import Counter
 from datetime import date, timedelta
+import hashlib
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -11,9 +12,13 @@ from was_reports.data.special_cases import list_active_special_case_names
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.item_builder import create_tracker_items
 from was_reports.tracker.models import (
+    MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
+    RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX,
     QualysScan,
+    TrackerItem,
     TrackerStakeholder,
-    is_missing_qualys_field_manual,
+    is_recoverable_qualys_manual,
+    scheduled_execution_key,
 )
 from was_reports.tracker.update_service import convert_qualys_date
 from was_reports.tracker.qualys_scans import (
@@ -250,7 +255,7 @@ def pending_scan_groups(
                 and result.upper() not in {"PROCESSING", "RUNNING"}
             )
             deletion_pending = delete_apps and notes == "QUALYS DELETION REQUIRED"
-            recoverable_manual = is_missing_qualys_field_manual(notes)
+            recoverable_manual = is_recoverable_qualys_manual(notes)
             if sent or linked or (
                 completed and not deletion_pending and not recoverable_manual
             ):
@@ -282,6 +287,109 @@ def active_no_deletion_tags() -> set[str]:
         close(conn)
 
 
+def finish_schedule_discovery_issues(
+    client: QualysClient,
+    discovery_issues: list[TrackerItem],
+    preflight_only: bool,
+) -> int:
+    """Keep schedule exceptions visible even when no scan candidates remain."""
+    if not discovery_issues:
+        return 0
+    if preflight_only:
+        print("Schedule discovery preflight: {} manual exceptions; no writes.".format(
+            len(discovery_issues)
+        ))
+        return len(discovery_issues)
+    persisted_count = update_tracker(
+        client=client, tracker_items=discovery_issues, delete_apps=False,
+    )
+    LOGGER.info(
+        "Persisted %d inserted/updated manual schedule exceptions from %d candidates.",
+        persisted_count, len(discovery_issues),
+    )
+    return persisted_count
+
+
+def reconcile_known_schedule_reviews(stakeholders: dict[str, TrackerStakeholder]) -> int:
+    """Close unclaimed schedule exceptions when their execution already exists."""
+    candidates = {
+        stakeholder.schedule_id: stakeholder
+        for stakeholder in stakeholders.values()
+        if not stakeholder.discovery_notes
+    }
+    if not candidates:
+        return 0
+    conn = connect()
+    resolved_count = 0
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT schedule_id FROM was_daily_report_tracker "
+                "WHERE schedule_id = ANY(%s) "
+                "AND scan_execution_key = 'schedule-review:' || schedule_id::text "
+                "AND report_scan_notes LIKE %s AND report_sent_date IS NULL "
+                "AND NOT EXISTS (SELECT 1 FROM was_report_runs "
+                "WHERE source_tracker_id = was_daily_report_tracker.id)",
+                (list(candidates), "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX)),
+            )
+            review_schedules = {row[0] for row in cursor.fetchall()}
+        for schedule_id, stakeholder in candidates.items():
+            if schedule_id not in review_schedules:
+                continue
+            execution_key = scheduled_execution_key(schedule_id, stakeholder.launched_date)
+            lock_key = int.from_bytes(
+                hashlib.sha256("tracker-schedule:{}".format(schedule_id).encode()).digest()[:8],
+                "big", signed=True,
+            )
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_key,))
+                acquired = cursor.fetchone()[0]
+            if not acquired:
+                conn.rollback()
+                continue
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT review.id, review.report_scan_notes, actual.id "
+                        "FROM was_daily_report_tracker review "
+                        "JOIN was_daily_report_tracker actual ON actual.schedule_id = review.schedule_id "
+                        "WHERE review.scan_execution_key = %s AND actual.scan_execution_key = %s "
+                        "AND review.report_scan_notes LIKE %s "
+                        "AND review.report_sent_date IS NULL "
+                        "AND NOT EXISTS (SELECT 1 FROM was_report_runs WHERE source_tracker_id = review.id) "
+                        "FOR UPDATE OF review",
+                        ("schedule-review:{}".format(schedule_id), execution_key,
+                         "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX)),
+                    )
+                    review = cursor.fetchone()
+                    if review is not None:
+                        review_id, notes, actual_id = review
+                        resolved_notes = "{}tracker row {}. Previous diagnosis: {}".format(
+                            RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX, actual_id, notes,
+                        )
+                        cursor.execute(
+                            "UPDATE was_daily_report_tracker SET status = 'Resolved', "
+                            "result = 'Schedule metadata restored', template = NULL, "
+                            "report_scan_notes = %s WHERE id = %s AND report_sent_date IS NULL "
+                            "AND report_scan_notes = %s "
+                            "AND NOT EXISTS (SELECT 1 FROM was_report_runs "
+                            "WHERE source_tracker_id = was_daily_report_tracker.id)",
+                            (resolved_notes, review_id, notes),
+                        )
+                        resolved_count += cursor.rowcount
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT pg_advisory_unlock(%s)", (lock_key,))
+                conn.commit()
+    finally:
+        close(conn)
+    return resolved_count
+
+
 def refresh_daily_tracker(
     client: QualysClient,
     delete_apps: bool = False,
@@ -296,11 +404,13 @@ def refresh_daily_tracker(
     input_date, previous_schedule_ids = tracker_search_window(
         lookback_days=tracker_lookback_days
     )
+    discovery_issues: list[TrackerItem] = []
     stakeholders = search_schedules(
         client=client,
         input_date=input_date,
         previous_schedule_ids=previous_schedule_ids,
         stakeholder_tag=stakeholder_tag,
+        discovery_issues=discovery_issues,
     )
     if not stakeholders:
         if preflight_only:
@@ -312,8 +422,10 @@ def refresh_daily_tracker(
             )
         else:
             LOGGER.info("No recent Qualys schedules found.")
-        return 0
+        return finish_schedule_discovery_issues(client, discovery_issues, preflight_only)
 
+    if not preflight_only:
+        reconcile_known_schedule_reviews(stakeholders)
     stakeholders = pending_schedules(stakeholders, counts=counts, delete_apps=delete_apps)
     if not stakeholders:
         if preflight_only:
@@ -323,7 +435,7 @@ def refresh_daily_tracker(
                     counts["discovered_schedules"], counts["early_excluded_schedules"]
                 )
             )
-        return 0
+        return finish_schedule_discovery_issues(client, discovery_issues, preflight_only)
     history_groups = {}
     scan_groups = search_scans(
         client=client,
@@ -367,7 +479,9 @@ def refresh_daily_tracker(
             )
         )
         print_discovery_breakdown(scan_groups, pending_groups, stakeholders)
-        return len(pending_groups)
+        return len(pending_groups) + finish_schedule_discovery_issues(
+            client, discovery_issues, preflight_only=True,
+        )
     tracker_items = create_tracker_items(
         client=client,
         scan_groups=pending_groups,
@@ -375,6 +489,7 @@ def refresh_daily_tracker(
         keep_nws_tags=active_no_deletion_tags(),
         previous_scan_groups=history_groups,
     )
+    tracker_items.extend(discovery_issues)
     persisted_count = update_tracker(
         client=client,
         tracker_items=tracker_items,

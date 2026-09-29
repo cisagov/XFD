@@ -508,7 +508,9 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
     """Read batch rows plus recent manual and delivery-reconciliation work."""
     if days_back is not None and days_back < 1:
         raise ValueError("Days back must be at least 1.")
-    manual_candidate = """(tracker.report_sent_date IS NULL AND
+    manual_candidate = """(tracker.report_sent_date IS NULL
+        AND NOT (COALESCE(tracker.status, '') = 'Resolved'
+                 AND COALESCE(tracker.scan_execution_key, '') LIKE 'schedule-review:%%') AND
         (stakeholders.manual_report IS TRUE
          OR NULLIF(BTRIM(tracker.report_scan_notes),'') IS NOT NULL))"""
     fields = [
@@ -531,7 +533,8 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
         if days_back is not None:
             recent_manual = """({} AND COALESCE(tracker.scan_start_date,
                 tracker.data_pull_date) >= CURRENT_DATE - (%s - 1)
-                AND NOT EXISTS (
+                AND (COALESCE(tracker.scan_execution_key, '')
+                    LIKE 'schedule-review:%%' OR NOT EXISTS (
                     SELECT 1 FROM was_daily_report_tracker newer
                     WHERE newer.tag = tracker.tag
                       AND COALESCE(newer.scan_execution_key, '')
@@ -545,7 +548,7 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
                           COALESCE(tracker.data_pull_date, DATE '0001-01-01'),
                           tracker.id
                       )
-                ))""".format(
+                )))""".format(
                 manual_candidate
             )
             parameters.append(days_back)

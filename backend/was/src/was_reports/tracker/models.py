@@ -9,11 +9,23 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 MISSING_QUALYS_FIELD_NOTE_PREFIX = "MANUAL: Missing required Qualys scan field: "
+MISSING_QUALYS_SCHEDULE_NOTE_PREFIX = "MANUAL: Missing required Qualys schedule field: "
+RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX = "RESOLVED: Qualys schedule metadata restored; "
 
 
 def is_missing_qualys_field_manual(notes: str | None) -> bool:
     """Identify an enrichment failure that a later refresh can recover."""
     return bool(notes and notes.startswith(MISSING_QUALYS_FIELD_NOTE_PREFIX))
+
+
+def is_missing_qualys_schedule_manual(notes: str | None) -> bool:
+    """Identify a schedule metadata exception without treating it as a scan."""
+    return bool(notes and notes.startswith(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX))
+
+
+def is_recoverable_qualys_manual(notes: str | None) -> bool:
+    """Return whether complete scan or schedule data can resolve manual work."""
+    return is_missing_qualys_field_manual(notes) or is_missing_qualys_schedule_manual(notes)
 
 
 @dataclass(frozen=True)
@@ -22,7 +34,7 @@ class TrackerStakeholder:
 
     name: str
     tag_id: int
-    next_scan_date: str
+    next_scan_date: str | None
     launched_date: str
     schedule_id: int
     cadence: str
@@ -32,6 +44,7 @@ class TrackerStakeholder:
     latest_scan_status: str = ""
     scan_started_at: datetime | None = None
     scan_ended_at: datetime | None = None
+    discovery_notes: str = ""
 
 
 def scheduled_execution_key(schedule_id: int, launched_date: str) -> str:
@@ -52,14 +65,14 @@ class TrackerItem:
     scan_name: str
     status: str
     result: str
-    launched_date: str
-    next_scan_date: str
+    launched_date: str | None
+    next_scan_date: str | None
     nws: bool
     recent_nws: str
     removed_nws: str
     manual: str
     fceb: bool
-    schedule_id: int
+    schedule_id: int | None
     qualys_errors: str
     tag_id: int | None = None
     scan_execution_key: str | None = None

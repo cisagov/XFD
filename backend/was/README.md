@@ -1727,6 +1727,20 @@ same execution key, provided no report run is linked and no report has been sent
 Running scans, processing results, and temporary request failures remain held
 for a later refresh.
 
+Missing `nextLaunchDate` also produces a manual row, with a null next scan date.
+If the actual execution cannot be recovered from the schedule or its referenced
+scan, the refresh records a schedule review with unknown execution dates and
+the specific missing fields. A stable schedule review key prevents repeated
+refreshes from creating duplicate exceptions. Records without a usable schedule
+ID use a key derived from identifying metadata. These exceptions remain visible
+in tracker exports, including schedules for retired stakeholders.
+
+When schedule metadata is restored, an unclaimed, unsent schedule review can
+become the actual execution row. If that execution is already tracked, the
+review is marked resolved and retained for audit. Running scans remain held;
+an API failure that prevents listing schedules still fails the refresh because
+the affected schedules cannot be identified.
+
 ```bash
 docker run --rm \
   --env-file .env \

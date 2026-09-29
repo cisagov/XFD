@@ -96,7 +96,7 @@ class TrackerExecutionIdentityTests(unittest.TestCase):
         """Existing exact execution-key handling takes precedence over migration."""
         conn = MagicMock()
         conn.cursor.return_value.__enter__.return_value.fetchone.return_value = (
-            99, "Finished", "Successful", "",
+            99, "Finished", "Successful", "", "same-key",
         )
         self.assertEqual(
             update_execution(Mock(), tracker_item(), False,

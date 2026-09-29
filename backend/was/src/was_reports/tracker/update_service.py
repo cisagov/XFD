@@ -31,8 +31,10 @@ from was_reports.qualys.qualys_client import QualysClient
 from was_reports.qualys.report_data import count_webapps
 from was_reports.tracker.assignments import round_robin_assignee
 from was_reports.tracker.models import (
+    MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
     TrackerItem,
-    is_missing_qualys_field_manual,
+    is_missing_qualys_schedule_manual,
+    is_recoverable_qualys_manual,
     scheduled_execution_key,
 )
 from was_reports.tracker.qualys_scans import normalize_schedule_name
@@ -68,8 +70,10 @@ def combined_email_value(
     return tech_poc_email or distro_email
 
 
-def convert_qualys_date(scan_date: str) -> date:
+def convert_qualys_date(scan_date: str | None) -> date | None:
     """Convert a Qualys UTC datetime string to an Eastern calendar date."""
+    if scan_date is None:
+        return None
     utc_datetime = datetime.fromisoformat(scan_date.replace("Z", "+00:00"))
     if utc_datetime.tzinfo is None:
         raise ValueError("Qualys timestamp must include a timezone.")
@@ -111,21 +115,33 @@ def tracker_result_fields(
 
 def update_stakeholder_scan_metadata(
     tag: str,
-    last_scan: str,
-    next_scan: str,
+    last_scan: str | None,
+    next_scan: str | None,
     app_count: int,
     tag_id: int | None = None,
 ) -> None:
     """Update stakeholder scan metadata while preserving tracker completion."""
+    if last_scan is None:
+        return
     last_scan_datetime = datetime.fromisoformat(last_scan.replace("Z", "+00:00"))
-    next_scan_datetime = datetime.fromisoformat(next_scan.replace("Z", "+00:00"))
-    if last_scan_datetime.tzinfo is None or next_scan_datetime.tzinfo is None:
+    next_scan_datetime = (
+        datetime.fromisoformat(next_scan.replace("Z", "+00:00"))
+        if next_scan is not None
+        else None
+    )
+    if last_scan_datetime.tzinfo is None or (
+        next_scan_datetime is not None and next_scan_datetime.tzinfo is None
+    ):
         raise ValueError("Qualys timestamps must include a timezone.")
     try:
         update_scan_metadata_for_tag(
             tag=tag,
             last_scanned=int(last_scan_datetime.timestamp()),
-            next_scheduled=int(next_scan_datetime.timestamp()),
+            next_scheduled=(
+                int(next_scan_datetime.timestamp())
+                if next_scan_datetime is not None
+                else None
+            ),
             num_web_apps=app_count,
             web_apps_last_updated=int(time.time()),
             qualys_tag_id=tag_id,
@@ -136,6 +152,17 @@ def update_stakeholder_scan_metadata(
             tag,
             exception_details(error),
         )
+
+
+def is_schedule_review_item(item: TrackerItem) -> bool:
+    """Recognize explicit schedule investigations without fabricated execution IDs."""
+    if item.launched_date is not None or not is_missing_qualys_schedule_manual(item.manual):
+        return False
+    execution_key = item.scan_execution_key or ""
+    if item.schedule_id is None:
+        prefix = "schedule-review:unidentified:"
+        return execution_key.startswith(prefix) and len(execution_key) > len(prefix)
+    return execution_key == "schedule-review:{}".format(item.schedule_id)
 
 
 def build_tracker_row(
@@ -156,18 +183,20 @@ def build_tracker_row(
         )
         report_scan_notes = report_scan_notes or "MANUAL"
 
-    try:
-        num_apps = count_webapps(client, item.tag)
-    except (AttributeError, LookupError, ValueError) as error:
-        num_apps = 0
-        no_error = False
-        report_scan_notes = report_scan_notes or "MANUAL"
-        LOGGER.error(
-            "Unable to count Qualys web applications for %s; " "marking it manual: %s",
-            item.tag,
-            exception_details(error),
-        )
-
+    num_apps = 0
+    schedule_review = is_schedule_review_item(item)
+    if not schedule_review:
+        try:
+            num_apps = count_webapps(client, item.tag)
+        except (AttributeError, LookupError, ValueError) as error:
+            num_apps = 0
+            no_error = False
+            report_scan_notes = report_scan_notes or "MANUAL"
+            LOGGER.error(
+                "Unable to count Qualys web applications for %s; " "marking it manual: %s",
+                item.tag,
+                exception_details(error),
+            )
     nws, template, report_scan_notes = tracker_result_fields(
         item=item,
         num_apps=num_apps,
@@ -175,13 +204,14 @@ def build_tracker_row(
         report_scan_notes=report_scan_notes,
     )
     assignee = upsert_assignee(name=assignee_name, conn=conn)
-    update_stakeholder_scan_metadata(
-        tag=item.tag,
-        last_scan=item.launched_date,
-        next_scan=item.next_scan_date,
-        app_count=num_apps,
-        tag_id=item.tag_id,
-    )
+    if item.launched_date is not None:
+        update_stakeholder_scan_metadata(
+            tag=item.tag,
+            last_scan=item.launched_date,
+            next_scan=item.next_scan_date,
+            app_count=num_apps,
+            tag_id=item.tag_id,
+        )
 
     return DailyReportTrackerRow(
         data_pull_date=data_pull_date,
@@ -237,6 +267,8 @@ def has_legacy_execution_overlap(item: TrackerItem, conn: connection) -> bool:
     second report, even if multiple legitimate launches occurred that day.
     The scan day, not the historical pull day, determines the overlap.
     """
+    if item.launched_date is None:
+        return False
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -280,6 +312,7 @@ def has_live_numbered_run_overlap(
             WHERE schedule_id = %s
               AND scan_execution_key IS NOT NULL
               AND scan_execution_key NOT LIKE 'legacy-import:%%'
+              AND scan_execution_key NOT LIKE 'schedule-review:%%'
               AND scan_execution_key <> %s
             """,
             (item.schedule_id, execution_key),
@@ -300,6 +333,10 @@ def update_tracker(
     eligible_items = []
     for item in tracker_items:
         if (
+            is_schedule_review_item(item)
+            and item.status not in {"Running", "Processing"}
+            and item.result.upper() not in {"PROCESSING", "RUNNING"}
+        ) or (
             item.status in {"Finished", "Error"}
             and item.result
             and item.result.upper() not in {"PROCESSING", "RUNNING"}
@@ -320,13 +357,16 @@ def update_tracker(
         assignees = active_assignees(conn)
         effective_pull_date = data_pull_date or date.today()
         for item_index, item in enumerate(tracker_items):
-            execution_key = scheduled_execution_key(
+            execution_key = item.scan_execution_key or scheduled_execution_key(
                 item.schedule_id, item.launched_date
             )
+            lock_identity = (
+                "tracker-schedule:{}".format(item.schedule_id)
+                if item.schedule_id is not None
+                else "tracker-execution:{}".format(execution_key)
+            )
             lock_key = int.from_bytes(
-                hashlib.sha256(
-                    "tracker-schedule:{}".format(item.schedule_id).encode()
-                ).digest()[:8],
+                hashlib.sha256(lock_identity.encode()).digest()[:8],
                 "big",
                 signed=True,
             )
@@ -372,15 +412,36 @@ def update_execution(
 ) -> int:
     """Return one for a persisted execution, zero for a safely skipped claim."""
     claim_required_deletion = False
+    promote_schedule_review = False
+    review_key = (
+        "schedule-review:{}".format(item.schedule_id)
+        if item.schedule_id is not None
+        else None
+    )
     with conn.cursor() as cursor:
         cursor.execute(
-            "SELECT id, status, result, report_scan_notes FROM was_daily_report_tracker "
-            "WHERE scan_execution_key = %s FOR UPDATE",
-            (execution_key,),
+            "SELECT id, status, result, report_scan_notes, scan_execution_key "
+            "FROM was_daily_report_tracker "
+            "WHERE scan_execution_key = %s OR "
+            "(scan_execution_key = %s AND %s "
+            "AND report_scan_notes LIKE %s) "
+            "ORDER BY (scan_execution_key = %s) DESC LIMIT 1 FOR UPDATE",
+            (
+                execution_key, review_key,
+                item.schedule_id is not None and item.launched_date is not None,
+                "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX), execution_key,
+            ),
         )
         existing = cursor.fetchone()
         if existing:
-            row_id, status, result, notes = existing
+            row_id, status, result, notes, stored_execution_key = existing
+            promote_schedule_review = bool(
+                item.schedule_id is not None
+                and item.launched_date is not None
+                and execution_key != review_key
+                and stored_execution_key == review_key
+                and is_missing_qualys_schedule_manual(notes)
+            )
             claim_required_deletion = (
                 delete_apps and notes == "QUALYS DELETION REQUIRED"
             )
@@ -391,7 +452,7 @@ def update_execution(
                 and result
                 and result.upper() not in {"RUNNING", "PROCESSING"}
                 and not claim_required_deletion
-                and not is_missing_qualys_field_manual(notes)
+                and not is_recoverable_qualys_manual(notes)
             ):
                 return 0
             cursor.execute(
@@ -402,7 +463,14 @@ def update_execution(
             )
             if cursor.fetchone()[0]:
                 return 0
-    if not existing and has_live_numbered_run_overlap(item, execution_key, conn):
+    schedule_review = (
+        is_schedule_review_item(item) and execution_key == item.scan_execution_key
+    )
+    if (
+        (not existing or promote_schedule_review)
+        and not schedule_review
+        and has_live_numbered_run_overlap(item, execution_key, conn)
+    ):
         LOGGER.warning(
             "Holding tracker execution for %s: the numbered schedule run already "
             "exists under a different execution key; reconciliation is required.",
@@ -429,7 +497,7 @@ def update_execution(
     )
     if claim_required_deletion and not permitted:
         return 0
-    if applications and not item.fceb and not permitted:
+    if applications and not item.fceb and not permitted and not item.manual:
         row = replace(
             row,
             template="Action Required",
@@ -463,6 +531,11 @@ def update_execution(
                 "qualys_error",
                 "tag_id",
             )
+            if promote_schedule_review:
+                update_columns += (
+                    "tag", "poc", "poc_email", "customer_notes", "legacy_password",
+                    "scan_execution_key",
+                )
             cursor.execute(
                 sql.SQL(
                     "UPDATE was_daily_report_tracker SET {} WHERE id = %s "

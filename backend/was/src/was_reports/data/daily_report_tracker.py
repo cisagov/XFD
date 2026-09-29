@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
+# First-Party Libraries
+from was_reports.tracker.models import RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX
+
 if TYPE_CHECKING:
     # Third-Party Libraries
     from psycopg2.extensions import connection
@@ -47,6 +50,10 @@ def manual_work_classification(
 ) -> str | None:
     """Classify explicit manual work without treating scan errors as manual."""
     if report_sent_date is not None:
+        return None
+    if status == "Resolved" and (report_scan_notes or "").startswith(
+        RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX
+    ):
         return None
     if is_legacy_sent_note(report_scan_notes):
         return DELIVERY_RECONCILIATION
@@ -1139,6 +1146,9 @@ def list_tracker_table_rows(
                 tracker.result,
                 CASE
                     WHEN tracker.report_sent_date IS NOT NULL THEN 'SENT'
+                    WHEN tracker.status = 'Resolved'
+                      AND COALESCE(tracker.scan_execution_key, '') LIKE 'schedule-review:%%'
+                        THEN 'RESOLVED'
                     WHEN stakeholders.manual_report IS TRUE
                       OR NULLIF(BTRIM(tracker.report_scan_notes), '')
                          IS NOT NULL
