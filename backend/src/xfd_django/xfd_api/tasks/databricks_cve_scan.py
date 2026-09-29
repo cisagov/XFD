@@ -79,7 +79,7 @@ def parse_databricks_row(row: dict[str, Any]) -> dict[str, Any]:
         "source_json": cna.get("source"),
         "adp_json": None,
         "published_at": parse_iso8601(cna.get("datePublic")),
-        "modified_at": parse_iso8601(cna.get("date_updated")),
+        "modified_at": parse_iso8601(row.get("date_updated")),
         "state": None,
         "date_reserved": None,
         "assigner_org_id": None,
