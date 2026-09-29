@@ -8,6 +8,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+MISSING_QUALYS_FIELD_NOTE_PREFIX = "MANUAL: Missing required Qualys scan field: "
+
+
+def is_missing_qualys_field_manual(notes: str | None) -> bool:
+    """Identify an enrichment failure that a later refresh can recover."""
+    return bool(notes and notes.startswith(MISSING_QUALYS_FIELD_NOTE_PREFIX))
+
 
 @dataclass(frozen=True)
 class TrackerStakeholder:

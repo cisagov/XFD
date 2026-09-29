@@ -14,6 +14,7 @@ import requests
 from was_reports.data.stakeholders import get_stakeholder_details_by_tag
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.models import (
+    MISSING_QUALYS_FIELD_NOTE_PREFIX,
     QualysScan,
     TrackerItem,
     TrackerStakeholder,
@@ -29,12 +30,73 @@ QUALYS_ERROR_RESULTS = frozenset({"SCAN_INTERNAL_ERROR", "SCAN_RESULTS_INVALID"}
 INACCESSIBLE_RESULTS = frozenset({"NO_WEB_SERVICE", "NO_HOST_ALIVE"})
 
 
+class MissingQualysFieldError(AttributeError):
+    """Identify a missing required field without exposing response contents."""
+
+    def __init__(self, field_path: str) -> None:
+        """Retain the required XML path for tracker notes and diagnostics."""
+        self.field_path = field_path
+        super().__init__("Qualys scan field {} is missing.".format(field_path))
+
+
 def element_text(scan: QualysScan, path: str) -> str:
     """Return required text from a Qualys scan element."""
     value = scan.findtext(path)
-    if value is None:
-        raise AttributeError("Qualys scan field {} is missing.".format(path))
+    if value is None or not value.strip():
+        field_path = path.removeprefix("./")
+        if field_path.startswith("summary/") and scan.find("summary") is None:
+            field_path = "summary"
+        raise MissingQualysFieldError(field_path)
     return value
+
+
+def missing_field_tracker_item(
+    scans: list[QualysScan],
+    stakeholder: TrackerStakeholder,
+    tag: str,
+    execution_key: str,
+    field_path: str,
+) -> TrackerItem:
+    """Keep a completed execution visible as manual without inventing results."""
+    statuses = [scan.findtext("status") or "" for scan in scans]
+    results = [scan.findtext("./summary/resultsStatus") or "" for scan in scans]
+    status = "Error" if any(value != "FINISHED" for value in statuses) else "Finished"
+    result = (
+        combined_status_and_result(statuses, results)[1]
+        if all(value.strip() for value in results)
+        else "Unknown"
+    )
+    scan_name = (
+        scans[0].findtext("name")
+        or stakeholder.latest_scan_name
+        or stakeholder.schedule_name
+    ).split(" Slice", 1)[0]
+    scan_started_at, scan_ended_at = scan_time_bounds(scans)
+    scan_started_at = stakeholder.scan_started_at or scan_started_at
+    scan_ended_at = stakeholder.scan_ended_at or scan_ended_at
+    if scan_started_at is None or (
+        scan_ended_at is not None and scan_ended_at < scan_started_at
+    ):
+        scan_ended_at = None
+    return TrackerItem(
+        tag=tag,
+        scan_name=scan_name,
+        status=status,
+        result=result,
+        launched_date=stakeholder.launched_date,
+        next_scan_date=stakeholder.next_scan_date,
+        nws=False,
+        recent_nws="",
+        removed_nws="",
+        manual="{}{}.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX, field_path),
+        fceb=False,
+        schedule_id=stakeholder.schedule_id,
+        tag_id=stakeholder.tag_id,
+        qualys_errors="Missing required Qualys scan field: {}".format(field_path),
+        scan_execution_key=execution_key,
+        scan_started_at=scan_started_at,
+        scan_ended_at=scan_ended_at,
+    )
 
 
 def combined_status_and_result(
@@ -246,6 +308,23 @@ def create_tracker_items(
             ValueError,
             requests.HTTPError,
         ) as error:
+            if isinstance(error, MissingQualysFieldError) and scans and all(
+                scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
+                and scan.findtext("./summary/resultsStatus") not in {"PROCESSING", "RUNNING"}
+                for scan in scans
+            ):
+                tracker_items.append(
+                    missing_field_tracker_item(
+                        scans, stakeholder, tag, execution_key, error.field_path
+                    )
+                )
+                LOGGER.error(
+                    "Unable to consolidate Qualys scans for %s; marking the "
+                    "completed execution manual because required field %s is missing.",
+                    tag,
+                    error.field_path,
+                )
+                continue
             LOGGER.error(
                 "Unable to consolidate Qualys scans for %s; holding the "
                 "execution "

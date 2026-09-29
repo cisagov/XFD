@@ -1716,6 +1716,17 @@ command provides durable operator-visible failure summaries from
 Run the Qualys daily tracker update and write tracker rows to Postgres. This
 default command is non-destructive and does not delete Qualys web applications:
 
+Completed executions with missing required Qualys fields are saved as manual
+tracker rows. `report_scan_notes` identifies the missing field, and `qualys_error`
+retains the same diagnosis. Missing `summary` and missing `summary/resultsStatus`
+are distinguished; unavailable scan results are recorded as `Unknown`. Known
+scan names, execution identities, and actual timestamps are preserved. These
+rows are excluded from automated report generation and remain visible as manual
+work. A later refresh can replace the manual row with complete data under the
+same execution key, provided no report run is linked and no report has been sent.
+Running scans, processing results, and temporary request failures remain held
+for a later refresh.
+
 ```bash
 docker run --rm \
   --env-file .env \

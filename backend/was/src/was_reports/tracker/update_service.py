@@ -30,7 +30,11 @@ from was_reports.qualys.qualys_admin import delete_webapp
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.qualys.report_data import count_webapps
 from was_reports.tracker.assignments import round_robin_assignee
-from was_reports.tracker.models import TrackerItem, scheduled_execution_key
+from was_reports.tracker.models import (
+    TrackerItem,
+    is_missing_qualys_field_manual,
+    scheduled_execution_key,
+)
 from was_reports.tracker.qualys_scans import normalize_schedule_name
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import exception_details
@@ -150,14 +154,14 @@ def build_tracker_row(
             "Stakeholder tag %s is absent from Postgres; marking it manual.",
             item.tag,
         )
-        report_scan_notes = "MANUAL"
+        report_scan_notes = report_scan_notes or "MANUAL"
 
     try:
         num_apps = count_webapps(client, item.tag)
     except (AttributeError, LookupError, ValueError) as error:
         num_apps = 0
         no_error = False
-        report_scan_notes = "MANUAL"
+        report_scan_notes = report_scan_notes or "MANUAL"
         LOGGER.error(
             "Unable to count Qualys web applications for %s; " "marking it manual: %s",
             item.tag,
@@ -387,6 +391,7 @@ def update_execution(
                 and result
                 and result.upper() not in {"RUNNING", "PROCESSING"}
                 and not claim_required_deletion
+                and not is_missing_qualys_field_manual(notes)
             ):
                 return 0
             cursor.execute(

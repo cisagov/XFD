@@ -10,7 +10,11 @@ from lxml import etree
 
 # First-Party Libraries
 from was_reports.tracker import service
-from was_reports.tracker.models import TrackerItem, TrackerStakeholder
+from was_reports.tracker.models import (
+    MISSING_QUALYS_FIELD_NOTE_PREFIX,
+    TrackerItem,
+    TrackerStakeholder,
+)
 
 
 class TrackerServiceTests(unittest.TestCase):
@@ -236,6 +240,49 @@ class TrackerServiceTests(unittest.TestCase):
             result = service.pending_scan_groups(group, {"current": stakeholder})
             self.assertEqual(len(result), expected_count)
         connection.set_session.assert_called_with(readonly=True)
+
+    @patch("was_reports.tracker.service.close")
+    @patch("was_reports.tracker.service.connect")
+    def test_missing_field_manual_retries_only_before_claim_or_delivery(
+        self, mock_connect, mock_close
+    ) -> None:
+        """Retry missing-field rows without reclaiming delivered or linked work."""
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
+            2, "MONTHLY", "TAG",
+        )
+        scan = etree.fromstring(
+            b"<WasScan><name>Customer Run #2 Slice 1</name></WasScan>"
+        )
+        scan_groups = {"current": [scan]}
+        connection = mock_connect.return_value
+        cursor = connection.cursor.return_value.__enter__.return_value
+        missing_notes = MISSING_QUALYS_FIELD_NOTE_PREFIX + "summary"
+        cases = (
+            ("recoverable", missing_notes, None, False, True),
+            ("linked", missing_notes, None, True, False),
+            ("sent", missing_notes, date(2026, 9, 4), False, False),
+            ("linked_and_sent", missing_notes, date(2026, 9, 4), True, False),
+            ("ordinary_manual", "MANUAL: Review required.", None, False, False),
+        )
+        for case_name, notes, sent, linked, expected_pending in cases:
+            with self.subTest(case=case_name):
+                cursor.fetchall.return_value = [
+                    (
+                        2, date(2026, 9, 3), "current", "Customer Run #2",
+                        "Error", "Missing required Qualys scan field", sent,
+                        notes, linked,
+                    )
+                ]
+                counts = {}
+                result = service.pending_scan_groups(
+                    scan_groups, {"current": stakeholder}, counts=counts
+                )
+                self.assertEqual(result, scan_groups if expected_pending else {})
+                self.assertEqual(counts["pending_runs"], int(expected_pending))
+                self.assertEqual(counts["recorded_runs"], int(not expected_pending))
+        connection.set_session.assert_called_with(readonly=True)
+        connection.commit.assert_not_called()
 
     @patch("was_reports.tracker.service.update_tracker")
     @patch("was_reports.tracker.service.create_tracker_items")

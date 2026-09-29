@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 # Third-Party Libraries
 from lxml import etree
+import requests
 
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
@@ -15,7 +16,11 @@ from was_reports.tracker.item_builder import (
     combined_status_and_result,
     create_tracker_items,
 )
-from was_reports.tracker.models import TrackerItem, TrackerStakeholder
+from was_reports.tracker.models import (
+    MISSING_QUALYS_FIELD_NOTE_PREFIX,
+    TrackerItem,
+    TrackerStakeholder,
+)
 from was_reports.tracker.update_service import (
     build_tracker_row,
     combined_email_value,
@@ -167,7 +172,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 self.assertEqual(item.qualys_errors, "")
 
     def test_customer_list_results_still_require_webapp_url(self) -> None:
-        """Hold NWS and Qualys-error results when their customer URL is absent."""
+        """Record terminal scans as manual when their required URL is absent."""
         stakeholder = TrackerStakeholder(
             "Customer",
             1,
@@ -197,18 +202,161 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                         Mock(), {"run": [scan]}, {"run": stakeholder}, set()
                     )[0]
 
-                self.assertEqual(item.status, "")
-                self.assertEqual(item.result, "")
-                self.assertEqual(item.manual, "MANUAL")
-                self.assertEqual(item.qualys_errors, "AttributeError")
+                self.assertEqual(item.scan_name, "Customer Run #1")
+                self.assertEqual(item.status, "Error" if status == "ERROR" else "Finished")
+                self.assertTrue(item.result)
+                self.assertEqual(
+                    item.manual,
+                    "{}target/webApp/url.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX),
+                )
+                self.assertIn("target/webApp/url", item.qualys_errors)
                 self.assertIn(
-                    "holding the execution for a later refresh", logs.output[0]
+                    "marking the completed execution manual", logs.output[0]
                 )
                 with patch(
-                    "was_reports.tracker.update_service.connect"
-                ) as mock_connect:
+                    "was_reports.tracker.update_service.connect",
+                    return_value=MagicMock(),
+                ), patch(
+                    "was_reports.tracker.update_service.active_assignees",
+                    return_value=["Analyst"],
+                ), patch(
+                    "was_reports.tracker.update_service.update_execution",
+                    return_value=1,
+                ) as update:
+                    self.assertEqual(update_tracker(Mock(), [item], False), 1)
+                self.assertEqual(update.call_args.args[1], item)
+
+    def test_missing_summary_is_inserted_with_manual_reason(self) -> None:
+        """Persist known scan identity and timing without guessing a result."""
+        scan = etree.fromstring(
+            b"<WasScan><name>Customer Run #1 Slice 1</name><status>FINISHED</status>"
+            b"<launchedDate>2026-09-01T00:00:00Z</launchedDate>"
+            b"<endScanDate>2026-09-01T01:00:00Z</endScanDate></WasScan>"
+        )
+        stakeholder = TrackerStakeholder(
+            "Customer", 9, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
+            1, "MONTHLY", "TAG",
+        )
+        with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
+            item = create_tracker_items(
+                Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+            )[0]
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [(True,), None, (17,)]
+        details = Mock(
+            was_report_poc="POC", tech_poc_email=None, distro_email=None,
+            comments=None, report_password=None,
+        )
+        with patch("was_reports.tracker.update_service.connect", return_value=conn), \
+                patch("was_reports.tracker.update_service.active_assignees",
+                      return_value=["Analyst"]), \
+                patch("was_reports.tracker.update_service.resolve_stakeholder_details",
+                      return_value=details), \
+                patch("was_reports.tracker.update_service.count_webapps", return_value=1), \
+                patch("was_reports.tracker.update_service.upsert_assignee",
+                      return_value=Mock(id=1, name="Analyst")), \
+                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata"), \
+                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
+                      return_value=False):
+            self.assertEqual(update_tracker(Mock(), [item], False), 1)
+        insert = next(
+            call for call in cursor.execute.call_args_list
+            if "INSERT INTO was_daily_report_tracker" in str(call.args[0])
+        )
+        names = [field.name for field in fields(DailyReportTrackerRow) if field.name != "id"]
+        values = dict(zip(names, insert.args[1]))
+        self.assertEqual(values["scan_name"], "Customer Run #1")
+        self.assertEqual(values["status"], "Finished")
+        self.assertEqual(values["result"], "Unknown")
+        self.assertEqual(values["report_scan_notes"], "{}summary.".format(
+            MISSING_QUALYS_FIELD_NOTE_PREFIX
+        ))
+        self.assertEqual(values["qualys_error"], "Missing required Qualys scan field: summary")
+        self.assertEqual(values["scan_execution_key"], "schedule:1:2026-09-01T00:00:00+00:00")
+        self.assertEqual(values["tag_id"], 9)
+        self.assertEqual(values["scan_started_at"], datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertEqual(values["scan_ended_at"], datetime(2026, 9, 1, 1, tzinfo=timezone.utc))
+        self.assertIsNone(values["template"])
+
+    def test_missing_result_field_distinguishes_present_summary(self) -> None:
+        """Name the missing child field rather than blaming a present summary."""
+        for summary in ("<summary/>", "<summary><resultsStatus> </resultsStatus></summary>"):
+            with self.subTest(summary=summary):
+                scan = etree.fromstring((
+                    "<WasScan><name>Customer Run #1</name><status>FINISHED</status>"
+                    "{}</WasScan>".format(summary)
+                ).encode("utf-8"))
+                stakeholder = TrackerStakeholder(
+                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
+                    1, "MONTHLY", "TAG",
+                )
+                with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
+                    item = create_tracker_items(
+                        Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+                    )[0]
+                self.assertIn("summary/resultsStatus", item.manual)
+                self.assertIn("summary/resultsStatus", item.qualys_errors)
+                self.assertEqual(item.result, "Unknown")
+
+    def test_missing_fields_on_nonterminal_scans_remain_unclaimed(self) -> None:
+        """Missing fields cannot make running or unknown executions terminal."""
+        for status in ("RUNNING", "PROCESSING", "", "UNKNOWN"):
+            with self.subTest(status=status):
+                scan = etree.fromstring((
+                    "<WasScan><name>Customer Run #1</name><status>{}</status></WasScan>"
+                    .format(status)
+                ).encode("utf-8"))
+                stakeholder = TrackerStakeholder(
+                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
+                    1, "MONTHLY", "TAG",
+                )
+                with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
+                    item = create_tracker_items(
+                        Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+                    )[0]
+                with patch("was_reports.tracker.update_service.connect") as connect, \
+                        self.assertLogs("was_reports.tracker.update_service", level="WARNING"):
                     self.assertEqual(update_tracker(Mock(), [item], False), 0)
-                mock_connect.assert_not_called()
+                connect.assert_not_called()
+
+    def test_missing_field_does_not_override_processing_result(self) -> None:
+        """A terminal status with processing results must remain unclaimed."""
+        scan = etree.fromstring(
+            b"<WasScan><status>FINISHED</status>"
+            b"<summary><resultsStatus>PROCESSING</resultsStatus></summary></WasScan>"
+        )
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
+            1, "MONTHLY", "TAG",
+        )
+        with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
+            item = create_tracker_items(
+                Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+            )[0]
+        self.assertEqual(item.status, "")
+        self.assertEqual(item.result, "")
+
+    def test_http_failure_is_held_without_exposing_response(self) -> None:
+        """Request failures cannot be relabeled as missing-field manuals."""
+        scan = etree.fromstring(
+            b"<WasScan><name>Customer Run #1</name><status>FINISHED</status>"
+            b"<summary><resultsStatus>SUCCESSFUL</resultsStatus></summary></WasScan>"
+        )
+        stakeholder = TrackerStakeholder(
+            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
+            1, "MONTHLY", "TAG",
+        )
+        with patch("was_reports.tracker.item_builder.create_multiscan",
+                   side_effect=requests.HTTPError("private response contents")), \
+                self.assertLogs("was_reports.tracker.item_builder", level="ERROR") as logs:
+            item = create_tracker_items(
+                Mock(), {"run": [scan]}, {"run": stakeholder}, set()
+            )[0]
+        self.assertEqual(item.status, "")
+        self.assertEqual(item.result, "")
+        self.assertNotIn("private response contents", "".join(logs.output))
+        self.assertIn("holding the execution for a later refresh", logs.output[0])
 
     def setUp(self) -> None:
         """Keep legacy database inspection isolated from update flow tests."""
@@ -589,6 +737,67 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         ):
             self.assertNotIn(protected_field, update_sql)
         conn.commit.assert_called_once()
+
+    def test_missing_field_manual_can_recover_in_the_same_row(self) -> None:
+        """Replace an unclaimed missing-field manual with a complete result."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        note = "{}summary.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX)
+        cursor.fetchone.side_effect = [(17, "Finished", "Unknown", note), (False,)]
+        cursor.rowcount = 1
+        item = replace(self.removal_item(False), removed_nws="")
+        with patch("was_reports.tracker.update_service.build_tracker_row",
+                   return_value=DailyReportTrackerRow(
+                       status="Finished", result="Successful", report_scan_notes="",
+                   )), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+            self.assertEqual(update_execution(
+                Mock(), item, False, date.today(), "Analyst", conn, "execution",
+            ), 1)
+        query, values = cursor.execute.call_args.args
+        self.assertIn("UPDATE was_daily_report_tracker", str(query))
+        self.assertIn("NOT EXISTS (SELECT 1 FROM was_report_runs", str(query))
+        self.assertEqual(values[1:4], ["Finished", "Successful", ""])
+        self.assertEqual(values[-2:], [17, note])
+        delete.assert_not_called()
+        conn.commit.assert_called_once()
+
+    def test_missing_field_manual_claim_prevents_recovery(self) -> None:
+        """Keep a manual row intact when a report claim or sent marker exists."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [
+            (17, "Finished", "Unknown", "{}summary.".format(
+                MISSING_QUALYS_FIELD_NOTE_PREFIX
+            )),
+            (True,),
+        ]
+        with patch("was_reports.tracker.update_service.build_tracker_row") as build:
+            self.assertEqual(update_execution(
+                Mock(), self.removal_item(False), False, date.today(), "Analyst",
+                conn, "execution",
+            ), 0)
+        build.assert_not_called()
+        self.assertNotIn("UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list))
+
+    def test_missing_field_manual_retains_reason_when_app_count_is_missing(self) -> None:
+        """A second enrichment failure must not erase the original diagnosis."""
+        note = "{}summary.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX)
+        item = replace(self.removal_item(False), manual=note, removed_nws="")
+        details = Mock(
+            was_report_poc=None, tech_poc_email=None, distro_email=None,
+            comments=None, report_password=None,
+        )
+        with patch("was_reports.tracker.update_service.resolve_stakeholder_details",
+                   return_value=details), \
+                patch("was_reports.tracker.update_service.count_webapps",
+                      side_effect=AttributeError("missing count")), \
+                patch("was_reports.tracker.update_service.upsert_assignee",
+                      return_value=Mock(id=1, name="Analyst")), \
+                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata"), \
+                self.assertLogs("was_reports.tracker.update_service", level="ERROR"):
+            row = build_tracker_row(Mock(), item, "Analyst", MagicMock(), date.today())
+        self.assertEqual(row.report_scan_notes, note)
+        self.assertIsNone(row.template)
 
     def test_update_count_excludes_skipped_claims(self) -> None:
         """Only committed inserted or updated executions contribute to the count."""

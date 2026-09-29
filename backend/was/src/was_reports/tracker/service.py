@@ -10,7 +10,11 @@ from datetime import date, timedelta
 from was_reports.data.special_cases import list_active_special_case_names
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.item_builder import create_tracker_items
-from was_reports.tracker.models import QualysScan, TrackerStakeholder
+from was_reports.tracker.models import (
+    QualysScan,
+    TrackerStakeholder,
+    is_missing_qualys_field_manual,
+)
 from was_reports.tracker.update_service import convert_qualys_date
 from was_reports.tracker.qualys_scans import (
     DEFAULT_TRACKER_LOOKBACK_DAYS,
@@ -246,7 +250,10 @@ def pending_scan_groups(
                 and result.upper() not in {"PROCESSING", "RUNNING"}
             )
             deletion_pending = delete_apps and notes == "QUALYS DELETION REQUIRED"
-            if sent or linked or (completed and not deletion_pending):
+            recoverable_manual = is_missing_qualys_field_manual(notes)
+            if sent or linked or (
+                completed and not deletion_pending and not recoverable_manual
+            ):
                 recorded = True
                 recorded_count += 1
                 break
