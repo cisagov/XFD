@@ -140,9 +140,8 @@ checkUserExpiration:
       Resource: '*'
     - Effect: Allow
       Action:
-        - cognito-idp:AdminDisableUser
-        - cognito-idp:ListUsers
-        - cognito-idp:AdminSetUserPassword
+
+
       Resource: '*'
     - Effect: Allow
       Action:
