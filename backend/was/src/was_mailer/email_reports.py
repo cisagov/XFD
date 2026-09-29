@@ -5,6 +5,7 @@ import argparse
 from contextlib import nullcontext
 from datetime import date
 from functools import partial
+import hashlib
 import logging
 from pathlib import Path
 import sys
@@ -77,6 +78,18 @@ def send_message(ses_client, message) -> str:
     return response["MessageId"]
 
 
+def reconciliation_recipient_scope(override_recipients: Optional[str]) -> str:
+    """Return a non-sensitive scope for the recipients of one held retry."""
+    if override_recipients is None:
+        return "stored-customer"
+    normalized_recipients = approved_analyst_recipients(override_recipients)
+    canonical_recipients = ",".join(
+        sorted(recipient.strip().lower() for recipient in normalized_recipients)
+    )
+    digest = hashlib.sha256(canonical_recipients.encode("utf-8")).hexdigest()
+    return "test-sha256:{}".format(digest)
+
+
 def send_report_run_email(
     report_run_id: int,
     source_email: str,
@@ -88,6 +101,8 @@ def send_report_run_email(
     storage_mode: Optional[str] = None,
     local_output_directory: Optional[str] = None,
     allow_held: bool = False,
+    held_reconciliation_token: Optional[str] = None,
+    held_reconciliation_scope: Optional[str] = None,
     delivery_purpose: str = "customer",
     preserve_customer_template: bool = False,
 ) -> Optional[str]:
@@ -96,6 +111,22 @@ def send_report_run_email(
         if delivery_purpose != "analyst":
             raise ValueError("Template replay requires analyst delivery purpose.")
         override_recipients = ",".join(approved_analyst_recipients(override_recipients))
+    if (held_reconciliation_token is None) != (
+        held_reconciliation_scope is None
+    ):
+        raise ValueError(
+            "Held reconciliation token and recipient scope are both required."
+        )
+    if held_reconciliation_token is not None:
+        if dry_run or delivery_purpose != "customer":
+            raise ValueError(
+                "Held reconciliation authority is limited to one customer retry."
+            )
+        expected_scope = reconciliation_recipient_scope(override_recipients)
+        if held_reconciliation_scope != expected_scope:
+            raise ValueError(
+                "Held reconciliation recipient scope does not match the retry."
+            )
     if dry_run:
         report_run_email = get_report_run_email_by_id(report_run_id)
         delivery_claimed = False
@@ -104,6 +135,8 @@ def send_report_run_email(
             report_run_id=report_run_id,
             include_previous_failure=include_previous_failure,
             allow_held=allow_held,
+            held_reconciliation_token=held_reconciliation_token,
+            held_reconciliation_scope=held_reconciliation_scope,
             delivery_purpose=delivery_purpose,
         )
         delivery_claimed = report_run_email is not None
@@ -212,6 +245,7 @@ def send_report_run_email(
                         delivery_attempted
                         or report_run_email.delivery_purpose == "analyst"
                         or allow_held
+                        or held_reconciliation_token is not None
                     ),
                 )
             except Exception as persistence_error:
@@ -531,9 +565,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             override_recipients=args.test_recipients,
             dry_run=args.dry_run,
             include_previous_failure=args.include_previous_failures,
-            # Standalone holds represent uncertain delivery, not archive-only runs.
-            # Preserve the existing explicit retry policy for other purposes.
-            allow_held=args.delivery_purpose != "standalone",
+            # Initial analyst/on-demand runs are intentionally archived as held.
+            # The data claim admits only held rows without a previous error.
+            # Uncertain customer deliveries require the reconciliation command.
+            allow_held=args.delivery_purpose == "analyst",
             delivery_purpose=args.delivery_purpose,
         )
     return 0

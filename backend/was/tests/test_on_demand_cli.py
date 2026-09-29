@@ -288,9 +288,10 @@ class OnDemandClaimTests(unittest.TestCase):
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None
         report_runs.claim_report_run_email(8, connection)
-        self.assertNotIn("held", cursor.execute.call_args.args[1][-2])
+        self.assertNotIn("held", cursor.execute.call_args.args[1][5])
         report_runs.claim_report_run_email(8, connection, allow_held=True)
-        self.assertIn("held", cursor.execute.call_args.args[1][-2])
+        self.assertIn("held", cursor.execute.call_args.args[1][5])
+        self.assertIn("delivery_purpose = 'analyst'", cursor.execute.call_args.args[0])
 
     def test_failed_explicit_send_stays_held(self) -> None:
         """Prevent failed test emails from entering automated recipient queues."""
@@ -304,7 +305,7 @@ class OnDemandClaimTests(unittest.TestCase):
             hold_for_manual_retry=True,
             email_claim_token="token",
         )
-        self.assertEqual(cursor.execute.call_args.args[1][1], "held")
+        self.assertEqual(cursor.execute.call_args.args[1][3], "held")
 
     def test_ready_listing_excludes_held_even_when_retrying(self) -> None:
         """Bulk retries must not send held on-demand reports to customer lists."""

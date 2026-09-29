@@ -218,13 +218,14 @@ class StandaloneEmailRetryTests(unittest.TestCase):
                 expected_statuses = ["pending"]
                 if include_previous_failures:
                     expected_statuses.append("failed")
-                self.assertEqual(parameters[-2], expected_statuses)
+                self.assertEqual(parameters[5], expected_statuses)
                 self.assertEqual(parameters[-1], "standalone")
                 connection.commit.assert_called_once()
 
-    def test_other_explicit_delivery_purposes_keep_held_retry_policy(self):
-        """Retain customer and analyst explicit held-run retry behavior."""
-        for delivery_purpose in ("customer", "analyst"):
+    def test_direct_mailer_only_allows_initial_analyst_hold(self):
+        """Block uncertain customer holds and retain initial analyst delivery."""
+        expected = {"customer": False, "analyst": True}
+        for delivery_purpose, allow_held in expected.items():
             with self.subTest(delivery_purpose=delivery_purpose), ExitStack() as stack:
                 stack.enter_context(patch.object(email_reports, "configure_logging"))
                 stack.enter_context(patch.object(
@@ -238,7 +239,14 @@ class StandaloneEmailRetryTests(unittest.TestCase):
                     "--source-email", "sender@example.gov",
                     "--delivery-purpose", delivery_purpose,
                 ]), 0)
-                self.assertTrue(send_report.call_args.kwargs["allow_held"])
+                self.assertEqual(
+                    send_report.call_args.kwargs["allow_held"],
+                    allow_held,
+                )
+                self.assertNotIn(
+                    "held_reconciliation_token",
+                    send_report.call_args.kwargs,
+                )
                 self.assertEqual(
                     send_report.call_args.kwargs["delivery_purpose"], delivery_purpose
                 )

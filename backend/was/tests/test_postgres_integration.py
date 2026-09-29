@@ -291,8 +291,8 @@ class PostgresIntegrationTests(unittest.TestCase):
             )
         )
 
-    def test_recovered_email_rejects_old_sender_completion(self) -> None:
-        """Only a replacement claim can record delivery after explicit recovery."""
+    def test_recovered_email_rejects_old_sender_and_blind_retry(self) -> None:
+        """An expired uncertain send stays held until external reconciliation."""
         run = report_runs.create_report_run("TEST", None, self.connection)
         report_runs.complete_report_run(
             run.id,
@@ -314,6 +314,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         replacement = report_runs.claim_report_run_email(
             run.id, self.connection, allow_held=True
         )
+        self.assertIsNone(replacement)
         with self.assertRaises(report_runs.ActiveReportOperationError):
             report_runs.mark_report_run_emailed(
                 run.id,
@@ -321,11 +322,91 @@ class PostgresIntegrationTests(unittest.TestCase):
                 self.connection,
                 email_claim_token=original.email_claim_token,
             )
-        report_runs.mark_report_run_emailed(
-            run.id,
-            "new",
+
+    def test_held_customer_retry_requires_fresh_scoped_authorization(self) -> None:
+        """Consume each reconciliation token and block tracker-only races."""
+        tracker_id = self.tracker_row("held-retry")
+        run = report_runs.create_report_run(
+            "TEST",
+            None,
             self.connection,
-            email_claim_token=replacement.email_claim_token,
+            source_tracker_id=tracker_id,
+        )
+        report_runs.complete_report_run(
+            run.id,
+            self.connection,
+            output_path="s3://test/report.pdf",
+            generation_token=run.generation_token,
+        )
+        original_claim = report_runs.claim_report_run_email(
+            run.id,
+            self.connection,
+        )
+        report_runs.mark_report_run_email_failed(
+            run.id,
+            "uncertain response",
+            self.connection,
+            hold_for_manual_retry=True,
+            email_claim_token=original_claim.email_claim_token,
+        )
+
+        authorization_token = (
+            report_runs.confirm_held_report_email_not_delivered(
+                run.id,
+                "external event confirms non-delivery",
+                "stored-customer",
+                self.connection,
+            )
+        )
+        retry_claim = report_runs.claim_report_run_email(
+            run.id,
+            self.connection,
+            held_reconciliation_token=authorization_token,
+            held_reconciliation_scope="stored-customer",
+        )
+        self.assertIsNotNone(retry_claim)
+        self.assertNotEqual(
+            authorization_token,
+            retry_claim.email_claim_token,
+        )
+        report_runs.mark_report_run_email_failed(
+            run.id,
+            "second uncertain response",
+            self.connection,
+            hold_for_manual_retry=True,
+            email_claim_token=retry_claim.email_claim_token,
+        )
+        self.assertIsNone(
+            report_runs.claim_report_run_email(
+                run.id,
+                self.connection,
+                held_reconciliation_token=authorization_token,
+                held_reconciliation_scope="stored-customer",
+            )
+        )
+        with self.assertRaises(KeyError):
+            tracker.mark_manual_tracker_report_sent(
+                tracker_id,
+                date.today(),
+                self.connection,
+            )
+
+        replacement_authorization = (
+            report_runs.confirm_held_report_email_not_delivered(
+                run.id,
+                "new external event confirms non-delivery",
+                "stored-customer",
+                self.connection,
+            )
+        )
+        self.assertNotEqual(authorization_token, replacement_authorization)
+        self.assertIsNotNone(
+            report_runs.claim_report_run_email(
+                run.id,
+                self.connection,
+                held_reconciliation_token=replacement_authorization,
+                held_reconciliation_scope="stored-customer",
+            )
         )
 
     def test_digest_claim_race_and_exact_row_completion(self) -> None:

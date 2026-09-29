@@ -470,8 +470,9 @@ starts is treated as an uncertain delivery, including a response-parsing error
 that occurs before an SES message ID is available. The report run is held for
 manual reconciliation rather than being retried automatically. Failures before
 the SES request starts remain safely retryable for an ordinary, unheld customer
-delivery. Existing held deliveries and analyst deliveries retain their stricter
-hold policy.
+delivery. A generic direct customer-mailer invocation cannot claim a held run.
+Use the guarded delivery-reconciliation command after checking external SES or
+mailbox evidence.
 
 For local batch development without AWS access, explicitly select local storage
 and mount an output directory:
@@ -1691,6 +1692,9 @@ It requires explicit confirmation internally and will not overwrite an existing
 sent date. In the interactive menu, this operation displays manual tracker rows
 first, with optional assignee, date-window, and row-limit filters, so the
 operator can select the correct tracker row ID without leaving the workflow.
+Do not use this tracker-only command for a linked held `was_report_runs` email.
+Use `make reconcile-email-delivery` so run, tracker, and batch-attempt state are
+changed together.
 
 ### View Persisted Report Errors
 
@@ -1924,6 +1928,60 @@ make logs-errors LOG_BATCH_ID="<batch-uuid>"
 make logs-tag LOG_BATCH_ID="<batch-uuid>" LOG_TAG="CUSTOMER_TAG"
 ```
 
+## Reconcile Held Email Delivery
+
+An SES response error after the send request starts has an uncertain outcome.
+The report run remains `held`, and its unsent daily tracker row appears as
+`MANUAL`. Inspect the exact report run first:
+
+```bash
+make reconcile-email-delivery REPORT_RUN_ID=3703
+```
+
+If SES or mailbox evidence confirms that the original email was delivered,
+preview and then record delivery without sending another email:
+
+```bash
+make reconcile-email-delivery REPORT_RUN_ID=3703 \
+  RECONCILIATION_ACTION=confirm-delivered \
+  RECONCILIATION_REFERENCE="approved non-sensitive evidence reference"
+
+make reconcile-email-delivery REPORT_RUN_ID=3703 \
+  RECONCILIATION_ACTION=confirm-delivered \
+  RECONCILIATION_REFERENCE="approved non-sensitive evidence reference" \
+  APPLY=1 RECONCILIATION_CONFIRM=DELIVERY_CONFIRMED
+```
+
+This changes the held run to sent, stamps its linked tracker and batch attempt,
+and does not call SES.
+
+If evidence confirms that the original request was not delivered, preview and
+then make one controlled retry to approved functional-test recipients:
+
+```bash
+make reconcile-email-delivery REPORT_RUN_ID=3703 \
+  RECONCILIATION_ACTION=retry-confirmed-undelivered \
+  RECONCILIATION_REFERENCE="approved non-sensitive evidence reference" \
+  TEST_RECIPIENTS="analyst@example.gov"
+
+make reconcile-email-delivery REPORT_RUN_ID=3703 \
+  RECONCILIATION_ACTION=retry-confirmed-undelivered \
+  RECONCILIATION_REFERENCE="approved non-sensitive evidence reference" \
+  TEST_RECIPIENTS="analyst@example.gov" APPLY=1 \
+  RECONCILIATION_CONFIRM=NONDELIVERY_CONFIRMED_RETRY
+```
+
+Sending to stored customer recipients requires the additional explicit setting
+`USE_STORED_CUSTOMER_RECIPIENTS=1` and confirmation value
+`NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS`. The command records the evidence while
+the run remains held, creates a one-time authorization bound to the selected
+recipient scope, then consumes that authorization in an atomic claim that also
+locks and rechecks the linked unsent tracker row. Concurrent commands cannot
+both claim it. If the retry outcome is uncertain again, the run returns to held
+and the consumed authorization cannot be reused. New external evidence and a
+new explicit confirmation are required. An SES response parser failure cannot
+prove whether SES accepted the original request.
+
 ## Test-Only Report Resends And Manual Retries
 
 Use `make test-report-replay` to test existing PDFs and explicitly approved
@@ -2055,7 +2113,8 @@ explicitly linked tracker row sent, so use a designated test row for testing.
 On-demand reports start with `email_status=held`. Scheduled/bulk mailers do
 not pick them up, including when an explicit email attempt fails. This prevents
 test reports from being sent accidentally to the customer's stored recipients.
-Use the explicit mailer command to send or retry an already archived report:
+Use the explicit mailer command for the initial send of an already archived
+on-demand report:
 
 ```bash
 docker run --rm --env-file .env --entrypoint was-mailer was-reporting \
@@ -2070,9 +2129,10 @@ claimed email runs cannot be sent again by this command. Re-running generation
 after completion intentionally creates a different run and can send another
 email; it is not an email-retry operation. Concurrent on-demand claims for the
 same tag serialize through a stakeholder-row lock and reject an existing active
-run. Existing scheduled batch eligibility is unchanged. A crashed run left in
-`running` or an uncertain email left in `sending` needs operator reconciliation,
-not blind regeneration or database status resets.
+run. Existing scheduled batch eligibility is unchanged. A previous email error
+prevents the direct mailer from reclaiming the held run. A crashed run left in
+`running` or an uncertain email left in `sending` or `held` needs the guarded
+reconciliation workflow, not blind regeneration or database status resets.
 
 The lower-level `was-report-on-demand` CLI defaults to archive-only and requires
 `--send-email` plus `--test-recipients` containing only email-enabled
@@ -2080,9 +2140,11 @@ functional-test addresses to send. `was-reports` remains local-PDF-only. The on-
 S3 even if `WAS_REPORT_STORAGE=local`; the bucket and IAM permissions must be
 configured. The updated container enables unbuffered output and a writable
 Matplotlib cache. Persisted `delivery_purpose=analyst` enforces analyst-only
-recipients in the direct mailer as well as the menu. The internal `allow_held`
-claim option changes eligibility only; it does not override the stored purpose or select a different
-customer template. The operator-confirmed database changes are complete; deploy
+recipients in the direct mailer as well as the menu. An initial held analyst run
+must have no previous email error. Reconciled held customer runs use a separate
+claim path that requires a one-time token bound to the selected recipient
+scope. Neither claim path changes the stored delivery purpose or customer
+template. The operator-confirmed database changes are complete; deploy
 against the comprehensive schema documented above. Verify schema readiness
 separately for any other environment.
 

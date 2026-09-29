@@ -28,6 +28,11 @@ MANUAL_TRACKER_IDS ?=
 TARGETS_REMOVED_TRACKER_IDS ?=
 RECOVERY_CAUSE ?=
 RECOVERY_CONFIRM ?=
+REPORT_RUN_ID ?=
+RECONCILIATION_ACTION ?= inspect
+RECONCILIATION_REFERENCE ?=
+RECONCILIATION_CONFIRM ?=
+USE_STORED_CUSTOMER_RECIPIENTS ?= 0
 LOG_BATCH_ID ?=
 LOG_TAG ?=
 LOG_LIMIT ?= 200
@@ -46,11 +51,13 @@ INPUT_CSV ?=
 INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports logs-latest logs-summary logs-errors logs-tag
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag
 
 export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
 export CAPACITY_ACTION CAPACITY_CONTINUE_RUN_ID CAPACITY_EXPECTED_CANDIDATES
 export CAPACITY_RUN_ID CAPACITY_WORKLOAD_LABEL ENV_FILE IMAGE OUTPUT_DIR PYTHON
+export RECONCILIATION_ACTION RECONCILIATION_CONFIRM RECONCILIATION_REFERENCE
+export REPORT_RUN_ID USE_STORED_CUSTOMER_RECIPIENTS
 export TEST_RECIPIENTS TMUX_LINES TMUX_SESSION TMUX_STOP_WAIT_SECONDS
 export TRACKER_LOOKBACK_DAYS
 export WAS_TMUX_LAUNCH
@@ -266,6 +273,31 @@ recover-manual-reports:
 	esac; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" -v "$(OUTPUT_DIR):/output" \
 	  --entrypoint python $(IMAGE) -m was_reports.commands.recover_manual_reports "$$@"
+
+reconcile-email-delivery:
+	@test -n "$${REPORT_RUN_ID}" || (echo 'REPORT_RUN_ID is required.' >&2; exit 2)
+	@test "$${RECONCILIATION_ACTION}" = 'inspect' -o "$${RECONCILIATION_ACTION}" = 'confirm-delivered' -o "$${RECONCILIATION_ACTION}" = 'retry-confirmed-undelivered' || (echo 'RECONCILIATION_ACTION must be inspect, confirm-delivered, or retry-confirmed-undelivered.' >&2; exit 2)
+	@set -- "$${RECONCILIATION_ACTION}" --report-run-id "$${REPORT_RUN_ID}"; \
+	if [ "$${RECONCILIATION_ACTION}" != 'inspect' ]; then \
+	  test -n "$${RECONCILIATION_REFERENCE}" || { echo 'RECONCILIATION_REFERENCE is required.' >&2; exit 2; }; \
+	  set -- "$$@" --evidence-reference "$${RECONCILIATION_REFERENCE}"; \
+	fi; \
+	if [ "$${RECONCILIATION_ACTION}" = 'retry-confirmed-undelivered' ]; then \
+	  case "$${USE_STORED_CUSTOMER_RECIPIENTS}" in \
+	    0) test -n "$${TEST_RECIPIENTS}" -a "$${TEST_RECIPIENTS}" != 'operator@example.gov' || { echo 'Set TEST_RECIPIENTS to approved functional-test recipients, or explicitly set USE_STORED_CUSTOMER_RECIPIENTS=1.' >&2; exit 2; }; \
+	       set -- "$$@" --test-recipients "$${TEST_RECIPIENTS}" ;; \
+	    1) set -- "$$@" --use-stored-customer-recipients ;; \
+	    *) echo 'USE_STORED_CUSTOMER_RECIPIENTS must be 0 or 1.' >&2; exit 2 ;; \
+	  esac; \
+	fi; \
+	case "$${APPLY}" in \
+	  0) ;; \
+	  1) test -n "$${RECONCILIATION_CONFIRM}" || { echo 'APPLY=1 requires RECONCILIATION_CONFIRM.' >&2; exit 2; }; \
+	     set -- "$$@" --apply --confirm "$${RECONCILIATION_CONFIRM}" ;; \
+	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; \
+	esac; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" \
+	  --entrypoint was-reconcile-delivery "$(IMAGE)" "$$@"
 
 .PHONY: on-demand-report
 

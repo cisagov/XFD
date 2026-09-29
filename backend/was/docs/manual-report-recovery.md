@@ -63,6 +63,11 @@ structured sent date with the existing command:
 make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-22
 ```
 
+This tracker-only command is for historical delivery performed outside the
+structured report-run workflow. For a linked report run whose email status is
+`held`, use `make reconcile-email-delivery REPORT_RUN_ID=<id>` so the report
+run, tracker, and batch attempt are reconciled together.
+
 Do not use recovery to bypass `manual_report`, explicit operator notes,
 unresolved Qualys operation failures, held delivery, or uncertain Qualys
 report creation. A completed scan containing Qualys error webapps is part of

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import logging
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -26,6 +26,12 @@ EMAIL_SENDING = "sending"
 EMAIL_SENT = "sent"
 EMAIL_FAILED = "failed"
 EMAIL_HELD = "held"
+EMAIL_RECONCILIATION_PREFIX = "Manual email reconciliation:"
+EMAIL_RETRY_AUTHORIZATION_PREFIX = "{} retry authorized:".format(
+    EMAIL_RECONCILIATION_PREFIX
+)
+MAX_EMAIL_RECONCILIATION_EVIDENCE_LENGTH = 500
+MAX_EMAIL_RECONCILIATION_SCOPE_LENGTH = 100
 DEFAULT_REPORT_RUN_STALE_SECONDS = 300
 DEFAULT_EMAIL_CLAIM_STALE_SECONDS = 300
 LOGGER = logging.getLogger(__name__)
@@ -84,6 +90,23 @@ class ReportRunError:
     completed_at: datetime | None
     error_message: str | None
     email_error: str | None
+
+
+@dataclass(frozen=True)
+class HeldEmailReconciliationPreview:
+    """Current state and eligibility for one held-email reconciliation."""
+
+    report_run_id: int
+    stakeholder_tag: str
+    report_status: str
+    email_status: str
+    delivery_purpose: str
+    emailed_at: datetime | None
+    email_claimed_at: datetime | None
+    source_tracker_id: int | None
+    tracker_report_sent_date: date | None
+    eligible: bool
+    ineligible_reason: str | None
 
 
 @dataclass(frozen=True)
@@ -1366,18 +1389,85 @@ def claim_report_run_email(
     conn: connection,
     include_previous_failure: bool = False,
     allow_held: bool = False,
+    held_reconciliation_token: str | None = None,
+    held_reconciliation_scope: str | None = None,
     delivery_purpose: str = "customer",
 ) -> ReportRunEmail | None:
     """Atomically claim one completed report run for email delivery."""
     if delivery_purpose not in {"customer", "analyst", "standalone"}:
         raise ValueError("Unknown delivery purpose.")
+    if (held_reconciliation_token is None) != (
+        held_reconciliation_scope is None
+    ):
+        raise ValueError(
+            "Held reconciliation token and recipient scope are both required."
+        )
+    if held_reconciliation_token is not None:
+        if delivery_purpose != "customer" or allow_held or include_previous_failure:
+            raise ValueError(
+                "Held reconciliation authority is limited to one customer retry."
+            )
+        held_reconciliation_scope = _validated_email_reconciliation_scope(
+            held_reconciliation_scope
+        )
     email_claim_token = str(uuid4())
     allowed_email_statuses = [EMAIL_PENDING]
     if allow_held:
         allowed_email_statuses.append(EMAIL_HELD)
     if include_previous_failure:
         allowed_email_statuses.append(EMAIL_FAILED)
-    query = """
+    if held_reconciliation_token is not None:
+        authorization_note = _email_retry_authorization_note(
+            held_reconciliation_token,
+            held_reconciliation_scope,
+        )
+        query = """
+        WITH eligible_run AS (
+            SELECT runs.id
+            FROM was_report_runs AS runs
+            JOIN was_daily_report_tracker AS tracker
+              ON tracker.id = runs.source_tracker_id
+            WHERE runs.id = %s
+              AND runs.status = %s
+              AND runs.delivery_purpose = 'customer'
+              AND (
+                    runs.output_path IS NOT NULL
+                 OR runs.artifact_type = 'notification'
+              )
+              AND runs.emailed_at IS NULL
+              AND runs.email_message_id IS NULL
+              AND runs.email_status = %s
+              AND runs.email_claimed_at IS NULL
+              AND runs.email_claim_token = %s
+              AND position(%s in COALESCE(runs.email_error, '')) > 0
+              AND tracker.report_sent_date IS NULL
+            FOR UPDATE OF runs, tracker
+        ),
+        claimed AS (
+            UPDATE was_report_runs AS runs
+            SET email_status = %s,
+                email_claim_token = %s,
+                email_claimed_at = NOW(),
+                updated_at = NOW()
+            FROM eligible_run
+            WHERE runs.id = eligible_run.id
+            RETURNING runs.id, runs.stakeholder_tag, runs.output_path,
+                      runs.source_tracker_id, runs.artifact_type,
+                      runs.email_claim_token, runs.delivery_purpose,
+                      runs.standalone_target_id
+        )
+        """
+        parameters: list[object] = [
+            report_run_id,
+            COMPLETED,
+            EMAIL_HELD,
+            held_reconciliation_token,
+            authorization_note,
+            EMAIL_SENDING,
+            email_claim_token,
+        ]
+    else:
+        query = """
         WITH claimed AS (
             UPDATE was_report_runs
             SET email_status = %s,
@@ -1393,10 +1483,32 @@ def claim_report_run_email(
               )
               AND emailed_at IS NULL
               AND COALESCE(email_status, %s) = ANY(%s)
+              AND (
+                    COALESCE(email_status, %s) <> %s
+                 OR (
+                        %s
+                    AND delivery_purpose = 'analyst'
+                    AND NULLIF(BTRIM(email_error), '') IS NULL
+                 )
+              )
               AND delivery_purpose = %s
             RETURNING id, stakeholder_tag, output_path, source_tracker_id,
                       artifact_type, email_claim_token, delivery_purpose, standalone_target_id
         )
+        """
+        parameters = [
+            EMAIL_SENDING,
+            email_claim_token,
+            report_run_id,
+            COMPLETED,
+            EMAIL_PENDING,
+            allowed_email_statuses,
+            EMAIL_PENDING,
+            EMAIL_HELD,
+            allow_held,
+            delivery_purpose,
+        ]
+    query += """
         SELECT
             claimed.id,
             COALESCE(claimed.stakeholder_tag, standalone.tag),
@@ -1429,15 +1541,6 @@ def claim_report_run_email(
         LEFT JOIN was_assignees AS assignees
           ON assignees.id = tracker.assignee_id
     """
-    parameters: list[object] = [
-        EMAIL_SENDING,
-        email_claim_token,
-        report_run_id,
-        COMPLETED,
-        EMAIL_PENDING,
-        allowed_email_statuses,
-        delivery_purpose,
-    ]
     try:
         with conn.cursor() as cursor:
             cursor.execute(query, tuple(parameters))
@@ -1488,6 +1591,8 @@ def claim_report_run_email_by_id(
     report_run_id: int,
     include_previous_failure: bool = False,
     allow_held: bool = False,
+    held_reconciliation_token: str | None = None,
+    held_reconciliation_scope: str | None = None,
     delivery_purpose: str = "customer",
 ) -> ReportRunEmail | None:
     """Atomically claim one report email using a managed connection."""
@@ -1501,6 +1606,8 @@ def claim_report_run_email_by_id(
             conn=conn,
             include_previous_failure=include_previous_failure,
             allow_held=allow_held,
+            held_reconciliation_token=held_reconciliation_token,
+            held_reconciliation_scope=held_reconciliation_scope,
             delivery_purpose=delivery_purpose,
         )
     finally:
@@ -1546,7 +1653,12 @@ def mark_report_run_emailed(
                     UPDATE was_report_runs
                     SET emailed_at = NOW(),
                         email_message_id = %s,
-                        email_error = NULL,
+                        email_error = CASE
+                            WHEN position(
+                                %s in COALESCE(email_error, '')
+                            ) > 0 THEN email_error
+                            ELSE NULL
+                        END,
                         email_status = %s,
                         email_claimed_at = NULL,
                         updated_at = NOW()
@@ -1563,11 +1675,21 @@ def mark_report_run_emailed(
                     WHERE tracker.id = emailed_run.source_tracker_id
                       AND emailed_run.delivery_purpose = 'customer'
                     RETURNING tracker.id
+                ),
+                updated_attempts AS (
+                    UPDATE was_batch_report_attempts AS attempts
+                    SET sent = TRUE,
+                        error = NULL,
+                        sent_recorded_at = NOW()
+                    FROM emailed_run
+                    WHERE attempts.report_run_id = emailed_run.id
+                    RETURNING attempts.report_run_id
                 )
                 SELECT id FROM emailed_run
                 """,
                 (
                     message_id,
+                    EMAIL_RECONCILIATION_PREFIX,
                     EMAIL_SENT,
                     report_run_id,
                     EMAIL_SENDING,
@@ -1599,7 +1721,11 @@ def mark_report_run_email_failed(
             cursor.execute(
                 """
                 UPDATE was_report_runs
-                SET email_error = %s,
+                SET email_error = CASE
+                        WHEN position(%s in COALESCE(email_error, '')) > 0
+                            THEN concat_ws(E'\\n', email_error, %s)
+                        ELSE %s
+                    END,
                     email_status = %s,
                     email_claimed_at = NULL,
                     updated_at = NOW()
@@ -1609,6 +1735,8 @@ def mark_report_run_email_failed(
                 RETURNING id, source_tracker_id, delivery_purpose
                 """,
                 (
+                    EMAIL_RECONCILIATION_PREFIX,
+                    error_message,
                     error_message,
                     EMAIL_HELD if hold_for_manual_retry else EMAIL_FAILED,
                     report_run_id,
@@ -1631,6 +1759,324 @@ def mark_report_run_email_failed(
     except Exception:
         conn.rollback()
         raise
+
+
+def _email_reconciliation_note(outcome: str, explanation: str) -> str:
+    """Return one normalized operator reconciliation audit note."""
+    normalized_explanation = " ".join(explanation.split())
+    if not normalized_explanation:
+        raise ValueError("Email reconciliation evidence is required.")
+    if len(normalized_explanation) > MAX_EMAIL_RECONCILIATION_EVIDENCE_LENGTH:
+        raise ValueError(
+            "Email reconciliation evidence must be {} characters or fewer.".format(
+                MAX_EMAIL_RECONCILIATION_EVIDENCE_LENGTH
+            )
+        )
+    return "{} {}: {}".format(
+        EMAIL_RECONCILIATION_PREFIX,
+        outcome,
+        normalized_explanation,
+    )
+
+
+def _validated_email_reconciliation_scope(scope: str | None) -> str:
+    """Validate a recipient scope without retaining recipient addresses."""
+    if scope is None or len(scope) > MAX_EMAIL_RECONCILIATION_SCOPE_LENGTH:
+        raise ValueError("A valid email reconciliation recipient scope is required.")
+    if scope == "stored-customer":
+        return scope
+    prefix = "test-sha256:"
+    if not scope.startswith(prefix):
+        raise ValueError("Unknown email reconciliation recipient scope.")
+    digest = scope[len(prefix):]
+    if len(digest) != 64 or any(
+        character not in "0123456789abcdef" for character in digest
+    ):
+        raise ValueError("Invalid test-recipient scope fingerprint.")
+    return scope
+
+
+def _email_retry_authorization_note(token: str, recipient_scope: str) -> str:
+    """Return the exact one-time retry authorization audit marker."""
+    return "{} token={}; scope={}".format(
+        EMAIL_RETRY_AUTHORIZATION_PREFIX,
+        token,
+        recipient_scope,
+    )
+
+
+def inspect_held_report_email_reconciliation(
+    report_run_id: int,
+    conn: connection,
+) -> HeldEmailReconciliationPreview:
+    """Read the current guarded reconciliation state for one report run."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                runs.id,
+                runs.stakeholder_tag,
+                runs.status,
+                runs.email_status,
+                runs.delivery_purpose,
+                runs.emailed_at,
+                runs.email_claimed_at,
+                runs.source_tracker_id,
+                tracker.id,
+                tracker.report_sent_date,
+                runs.email_message_id IS NOT NULL
+            FROM was_report_runs AS runs
+            LEFT JOIN was_daily_report_tracker AS tracker
+              ON tracker.id = runs.source_tracker_id
+            WHERE runs.id = %s
+            """,
+            (report_run_id,),
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise LookupError("WAS report run {} was not found.".format(report_run_id))
+
+    ineligible_reason = None
+    if row[4] != "customer":
+        ineligible_reason = "Report run is not a customer delivery."
+    elif row[2] != COMPLETED:
+        ineligible_reason = "Report generation is not completed."
+    elif row[3] != EMAIL_HELD:
+        ineligible_reason = "Email delivery is not held for reconciliation."
+    elif row[5] is not None:
+        ineligible_reason = "Email delivery is already recorded."
+    elif row[10]:
+        ineligible_reason = "An email message identifier is already recorded."
+    elif row[6] is not None:
+        ineligible_reason = "An email delivery claim is active."
+    elif row[7] is None or row[8] is None:
+        ineligible_reason = "The customer report run has no linked tracker row."
+    elif row[9] is not None:
+        ineligible_reason = "The linked tracker is already marked sent."
+
+    return HeldEmailReconciliationPreview(
+        report_run_id=row[0],
+        stakeholder_tag=row[1],
+        report_status=row[2],
+        email_status=row[3],
+        delivery_purpose=row[4],
+        emailed_at=row[5],
+        email_claimed_at=row[6],
+        source_tracker_id=row[7],
+        tracker_report_sent_date=row[9],
+        eligible=ineligible_reason is None,
+        ineligible_reason=ineligible_reason,
+    )
+
+
+def confirm_held_report_email_delivered(
+    report_run_id: int,
+    reconciliation_reference: str,
+    conn: connection,
+) -> None:
+    """Reconcile confirmed delivery without issuing another email request.
+
+    The report run and its linked customer tracker are changed by one guarded
+    statement.  A held run cannot be reconciled while another sender owns it,
+    after a delivery was recorded, or after either row changed state.
+    """
+    reconciliation_note = _email_reconciliation_note(
+        "delivery confirmed",
+        reconciliation_reference,
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH eligible_run AS (
+                    SELECT runs.id, runs.source_tracker_id
+                    FROM was_report_runs AS runs
+                    JOIN was_daily_report_tracker AS tracker
+                      ON tracker.id = runs.source_tracker_id
+                    WHERE runs.id = %s
+                      AND runs.status = %s
+                      AND runs.delivery_purpose = 'customer'
+                      AND runs.email_status = %s
+                      AND runs.emailed_at IS NULL
+                      AND runs.email_message_id IS NULL
+                      AND runs.email_claimed_at IS NULL
+                      AND tracker.report_sent_date IS NULL
+                    FOR UPDATE OF runs, tracker
+                ),
+                updated_tracker AS (
+                    UPDATE was_daily_report_tracker AS tracker
+                    SET report_sent_date = CURRENT_DATE,
+                        updated_at = NOW()
+                    FROM eligible_run
+                    WHERE tracker.id = eligible_run.source_tracker_id
+                    RETURNING tracker.id
+                ),
+                reconciled_run AS (
+                    UPDATE was_report_runs AS runs
+                    SET emailed_at = NOW(),
+                        email_status = %s,
+                        email_error = concat_ws(
+                            E'\\n', NULLIF(runs.email_error, ''), %s
+                        ),
+                        email_claim_token = NULL,
+                        email_claimed_at = NULL,
+                        updated_at = NOW()
+                    FROM eligible_run, updated_tracker
+                    WHERE runs.id = eligible_run.id
+                    RETURNING runs.id
+                ),
+                updated_attempts AS (
+                    UPDATE was_batch_report_attempts AS attempts
+                    SET sent = TRUE,
+                        error = NULL,
+                        sent_recorded_at = NOW()
+                    FROM reconciled_run
+                    WHERE attempts.report_run_id = reconciled_run.id
+                    RETURNING attempts.report_run_id
+                )
+                SELECT id FROM reconciled_run
+                """,
+                (
+                    report_run_id,
+                    COMPLETED,
+                    EMAIL_HELD,
+                    EMAIL_SENT,
+                    reconciliation_note,
+                ),
+            )
+            if cursor.fetchone() is None:
+                raise ActiveReportOperationError(
+                    "Held WAS report email was not eligible for delivered "
+                    "reconciliation."
+                )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def confirm_held_report_email_not_delivered(
+    report_run_id: int,
+    reason: str,
+    recipient_scope: str,
+    conn: connection,
+) -> str:
+    """Authorize one explicit retry while retaining the held safety state."""
+    normalized_scope = _validated_email_reconciliation_scope(recipient_scope)
+    authorization_token = str(uuid4())
+    reconciliation_note = _email_reconciliation_note(
+        "non-delivery confirmed",
+        reason,
+    )
+    authorization_note = _email_retry_authorization_note(
+        authorization_token,
+        normalized_scope,
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH eligible_run AS (
+                    SELECT runs.id
+                    FROM was_report_runs AS runs
+                    JOIN was_daily_report_tracker AS tracker
+                      ON tracker.id = runs.source_tracker_id
+                    WHERE runs.id = %s
+                      AND runs.status = %s
+                      AND runs.delivery_purpose = 'customer'
+                      AND runs.email_status = %s
+                      AND runs.emailed_at IS NULL
+                      AND runs.email_message_id IS NULL
+                      AND runs.email_claimed_at IS NULL
+                      AND tracker.report_sent_date IS NULL
+                    FOR UPDATE OF runs, tracker
+                )
+                UPDATE was_report_runs AS runs
+                SET email_error = concat_ws(
+                        E'\\n', NULLIF(runs.email_error, ''), %s, %s
+                    ),
+                    email_claim_token = %s,
+                    email_claimed_at = NULL,
+                    updated_at = NOW()
+                FROM eligible_run
+                WHERE runs.id = eligible_run.id
+                RETURNING runs.email_claim_token
+                """,
+                (
+                    report_run_id,
+                    COMPLETED,
+                    EMAIL_HELD,
+                    reconciliation_note,
+                    authorization_note,
+                    authorization_token,
+                ),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                raise ActiveReportOperationError(
+                    "Held WAS report email was not eligible for non-delivery "
+                    "reconciliation."
+                )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return row[0]
+
+
+def confirm_held_report_email_delivered_by_id(
+    report_run_id: int,
+    reconciliation_reference: str,
+) -> None:
+    """Reconcile confirmed delivery using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        confirm_held_report_email_delivered(
+            report_run_id=report_run_id,
+            reconciliation_reference=reconciliation_reference,
+            conn=conn,
+        )
+    finally:
+        close(conn)
+
+
+def inspect_held_report_email_reconciliation_by_id(
+    report_run_id: int,
+) -> HeldEmailReconciliationPreview:
+    """Inspect held-email reconciliation using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        conn.set_session(readonly=True)
+        return inspect_held_report_email_reconciliation(report_run_id, conn)
+    finally:
+        close(conn)
+
+
+def confirm_held_report_email_not_delivered_by_id(
+    report_run_id: int,
+    reason: str,
+    recipient_scope: str,
+) -> str:
+    """Reconcile confirmed non-delivery using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return confirm_held_report_email_not_delivered(
+            report_run_id=report_run_id,
+            reason=reason,
+            recipient_scope=recipient_scope,
+            conn=conn,
+        )
+    finally:
+        close(conn)
 
 
 def mark_report_run_emailed_by_id(

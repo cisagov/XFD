@@ -17,6 +17,7 @@ from was_reports.qualys import report_data
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.reporting import detail_reports
 from was_reports.utils.logging_config import exception_details
+from was_reports.utils.operation_cancellation import cancellable_sleep
 from was_reports.utils.operation_lease import (
     OperationLeaseLostError,
     check_operation_ownership,
@@ -24,6 +25,8 @@ from was_reports.utils.operation_lease import (
 from was_reports.utils.qualys_config import QualysCredentials
 
 DETAIL_REPORT_WEBAPP_LIMIT = 35
+WEBAPP_COUNT_MAX_ATTEMPTS = 3
+WEBAPP_COUNT_RETRY_SECONDS = 5.0
 LOGGER = logging.getLogger(__name__)
 
 
@@ -55,6 +58,38 @@ def report_request_name(
     )
 
 
+def count_webapps_with_retry(
+    client: QualysClient,
+    stakeholder_tag: str,
+) -> int:
+    """Return a positive web application count after bounded zero retries."""
+    for attempt_number in range(1, WEBAPP_COUNT_MAX_ATTEMPTS + 1):
+        web_application_count = report_data.count_webapps(
+            client,
+            stakeholder_tag,
+        )
+        if web_application_count > 0:
+            return web_application_count
+        if attempt_number < WEBAPP_COUNT_MAX_ATTEMPTS:
+            LOGGER.warning(
+                "Qualys returned zero web applications for stakeholder tag %s "
+                "on attempt %s of %s; retrying in %s seconds.",
+                stakeholder_tag,
+                attempt_number,
+                WEBAPP_COUNT_MAX_ATTEMPTS,
+                WEBAPP_COUNT_RETRY_SECONDS,
+            )
+            cancellable_sleep(WEBAPP_COUNT_RETRY_SECONDS)
+
+    raise LookupError(
+        "Qualys returned zero web applications for stakeholder tag {} after "
+        "{} attempts; manual review is required.".format(
+            stakeholder_tag,
+            WEBAPP_COUNT_MAX_ATTEMPTS,
+        )
+    )
+
+
 def retrieve_report_source_data(
     client: QualysClient,
     stakeholder_tag: str,
@@ -75,13 +110,7 @@ def retrieve_report_source_data(
     tag_id: str | None = None,
 ) -> ReportSourceData:
     """Retrieve the Qualys XML report and optional detail PDF artifact."""
-    web_application_count = report_data.count_webapps(client, stakeholder_tag)
-    if web_application_count < 1:
-        raise LookupError(
-            "No Qualys web applications found for stakeholder tag {}.".format(
-                stakeholder_tag
-            )
-        )
+    web_application_count = count_webapps_with_retry(client, stakeholder_tag)
 
     tag_id = tag_id or report_data.get_tag_id(client, stakeholder_tag)
     detail_pdf_path = None

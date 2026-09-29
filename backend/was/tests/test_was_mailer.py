@@ -1112,6 +1112,63 @@ class DeliveryPolicyTests(unittest.TestCase):
         self.assertNotIn(b"Analyst Copy", message_bytes)
         finish.assert_called_once_with(1, "message", email_claim_token="token")
 
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.touch_report_email_claim_by_id", return_value=True)
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_reconciled_hold_uses_dedicated_atomic_claim(
+        self,
+        claim,
+        touch,
+        finish,
+    ) -> None:
+        """Forward explicit reconciliation authority to the data claim."""
+        claim.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+            template="All NWS",
+            delivery_purpose="customer",
+            email_claim_token="token",
+        )
+        client = Mock()
+        client.send_raw_email.return_value = {"MessageId": "message"}
+
+        email_reports.send_report_run_email(
+            1,
+            "sender@example.gov",
+            held_reconciliation_token="authorization-token",
+            held_reconciliation_scope="stored-customer",
+            ses_client=client,
+        )
+
+        self.assertEqual(
+            claim.call_args.kwargs["held_reconciliation_token"],
+            "authorization-token",
+        )
+        self.assertEqual(
+            claim.call_args.kwargs["held_reconciliation_scope"],
+            "stored-customer",
+        )
+        self.assertFalse(claim.call_args.kwargs["allow_held"])
+        finish.assert_called_once_with(1, "message", email_claim_token="token")
+
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_reconciled_hold_rejects_recipient_scope_mismatch(self, claim) -> None:
+        """Do not claim a held run when its authorization targets another scope."""
+        with self.assertRaisesRegex(ValueError, "scope does not match"):
+            email_reports.send_report_run_email(
+                1,
+                "sender@example.gov",
+                held_reconciliation_token="authorization-token",
+                held_reconciliation_scope="test-sha256:" + ("a" * 64),
+            )
+
+        claim.assert_not_called()
+
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
     def test_direct_analyst_delivery_requires_explicit_recipients(self, claim, failed):

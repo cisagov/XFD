@@ -763,6 +763,65 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn("report_status = %s", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7, "MANUAL", 25))
 
+    def test_list_tracker_table_rows_classifies_held_delivery_as_manual(
+        self,
+    ) -> None:
+        """Expose a linked held customer delivery as manual reconciliation."""
+        held_note = "MANUAL: Email delivery outcome is held for reconciliation."
+        conn = FakeConnection(
+            fetchall_rows=[
+                (
+                    7,
+                    date(2026, 9, 29),
+                    "NEWGI",
+                    "Scan 1",
+                    "Analyst",
+                    "Finished",
+                    "Successful",
+                    "MANUAL",
+                    None,
+                    held_note,
+                    date(2026, 10, 29),
+                )
+            ]
+        )
+
+        rows = list_tracker_table_rows(conn=conn, days_back=7)
+
+        self.assertEqual(rows[0].report_status, "MANUAL")
+        self.assertEqual(rows[0].notes, held_note)
+        query = conn.cursor_instance.query
+        self.assertIn("EXISTS (", query)
+        self.assertIn("held_run.source_tracker_id = tracker.id", query)
+        self.assertIn("held_run.status = 'completed'", query)
+        self.assertIn("held_run.delivery_purpose = 'customer'", query)
+        self.assertIn("held_run.email_status = 'held'", query)
+        self.assertIn("held_run.emailed_at IS NULL", query)
+        self.assertNotIn("JOIN was_report_runs", query)
+
+    def test_list_tracker_table_rows_keeps_sent_and_resolved_precedence(
+        self,
+    ) -> None:
+        """Check sent and resolved classifications precede held delivery."""
+        conn = FakeConnection(fetchall_rows=[])
+
+        list_tracker_table_rows(conn=conn, days_back=7)
+
+        query = conn.cursor_instance.query
+        sent_position = query.index(
+            "WHEN tracker.report_sent_date IS NOT NULL THEN 'SENT'"
+        )
+        resolved_position = query.index("WHEN tracker.status = 'Resolved'")
+        held_position = query.index("OR EXISTS (")
+        manual_position = query.index("THEN 'MANUAL'")
+        self.assertLess(sent_position, resolved_position)
+        self.assertLess(resolved_position, held_position)
+        self.assertLess(held_position, manual_position)
+        self.assertIn(
+            "MANUAL: Email delivery outcome is held for reconciliation.",
+            query,
+        )
+
     def test_list_tracker_table_rows_supports_no_row_limit(self) -> None:
         """Return every matching tracker row when no limit is requested."""
         conn = FakeConnection(fetchall_rows=[])
@@ -795,6 +854,16 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn("report_sent_date IS NULL", conn.cursor_instance.query)
         self.assertIn("RETURNING tracker.id", conn.cursor_instance.query)
         self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
+        self.assertIn("NOT EXISTS (", conn.cursor_instance.query)
+        self.assertIn(
+            "linked_run.source_tracker_id = tracker.id",
+            conn.cursor_instance.query,
+        )
+        self.assertIn("linked_run.status = 'running'", conn.cursor_instance.query)
+        self.assertIn(
+            "linked_run.email_status IN ('sending', 'held')",
+            conn.cursor_instance.query,
+        )
 
 
 class DigestLifecycleTests(unittest.TestCase):

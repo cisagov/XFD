@@ -228,7 +228,7 @@ class TrackerExportTests(unittest.TestCase):
         query, args = cursor.execute.call_args.args
         self.assertIn("WITH RECURSIVE", query)
         self.assertIn("UNION", query)
-        self.assertNotIn("LIKE", query)
+        self.assertNotIn("tracker.tag LIKE", query)
         self.assertNotIn("CURRENT_DATE", query)
         self.assertNotIn(" LIMIT ", query)
         self.assertEqual(args, ("PARENT_1", "PARENT_1"))

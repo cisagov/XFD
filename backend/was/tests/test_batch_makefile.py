@@ -128,3 +128,31 @@ class BatchMakefileTests(unittest.TestCase):
             result.stdout,
         )
         self.assertIn('--test-recipients "analyst@example.gov"', result.stdout)
+
+    def test_delivery_reconciliation_uses_guarded_entrypoint(self) -> None:
+        """Keep held delivery recovery behind its dedicated command."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make",
+                "-n",
+                "-C",
+                str(directory),
+                "reconcile-email-delivery",
+                "REPORT_RUN_ID=3703",
+                "RECONCILIATION_ACTION=retry-confirmed-undelivered",
+                "RECONCILIATION_REFERENCE=reviewed-evidence",
+                "TEST_RECIPIENTS=analyst@example.gov",
+                "APPLY=1",
+                "RECONCILIATION_CONFIRM=NONDELIVERY_CONFIRMED_RETRY",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+
+        self.assertIn("--entrypoint was-reconcile-delivery", result.stdout)
+        self.assertIn("--test-recipients", result.stdout)
+        self.assertIn("--apply --confirm", result.stdout)
+        self.assertNotIn("--entrypoint was-mailer", result.stdout)

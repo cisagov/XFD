@@ -270,12 +270,28 @@ error line. Reconcile the external outcome and persisted run first. Use the
 [manual recovery runbook](manual-report-recovery.md) only for its supported,
 explicitly reviewed failure categories.
 
+For a held SES delivery, use `make reconcile-email-delivery
+REPORT_RUN_ID=<id>` to inspect the linked run and tracker. The guarded command
+supports only two applied outcomes:
+
+- `confirm-delivered` records externally verified delivery without calling SES.
+- `retry-confirmed-undelivered` records externally verified non-delivery and
+  makes one atomically claimed retry. Test recipients are required unless the
+  operator explicitly selects stored customer recipients and supplies the
+  stronger customer-send confirmation.
+
+The ordinary batch and direct customer mailer cannot claim uncertain held
+deliveries. Each confirmed non-delivery creates a one-time retry authorization
+bound to the selected recipient scope. The atomic claim consumes it and
+rechecks that the linked tracker is still unsent. A repeated uncertain outcome
+returns to held and requires new external evidence and confirmation.
+
 An SES response-parsing failure after the delivery request starts is a held,
 uncertain outcome even when no message ID was returned. Confirm the SES outcome
 before changing that report run or attempting another delivery. A failure that
 occurs before the SES request starts remains retryable for an ordinary, unheld
-customer delivery. Existing held deliveries and analyst deliveries retain their
-stricter hold policy.
+customer delivery. Initial held analyst delivery is allowed only when no prior
+email error exists.
 
 ## Capacity testing
 

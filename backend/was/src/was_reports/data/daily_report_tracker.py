@@ -613,6 +613,15 @@ def mark_manual_tracker_report_sent(
                 WHERE tracker.id = %s
                   AND stakeholders.tag = tracker.tag
                   AND tracker.report_sent_date IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM was_report_runs AS linked_run
+                      WHERE linked_run.source_tracker_id = tracker.id
+                        AND (
+                              linked_run.status = 'running'
+                           OR linked_run.email_status IN ('sending', 'held')
+                        )
+                  )
                   AND (
                         stakeholders.manual_report IS TRUE
                      OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
@@ -1154,11 +1163,40 @@ def list_tracker_table_rows(
                          IS NOT NULL
                       OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
                       OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
+                      OR EXISTS (
+                            SELECT 1
+                            FROM was_report_runs AS held_run
+                            WHERE held_run.source_tracker_id = tracker.id
+                              AND held_run.status = 'completed'
+                              AND held_run.delivery_purpose = 'customer'
+                              AND held_run.email_status = 'held'
+                              AND held_run.emailed_at IS NULL
+                         )
                         THEN 'MANUAL'
                     ELSE 'PENDING'
                 END AS report_status,
                 tracker.report_sent_date,
-                tracker.report_scan_notes,
+                CASE
+                    WHEN NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
+                        THEN tracker.report_scan_notes
+                    WHEN tracker.report_sent_date IS NULL
+                      AND NOT (
+                            COALESCE(tracker.status, '') = 'Resolved'
+                        AND COALESCE(tracker.scan_execution_key, '')
+                            LIKE 'schedule-review:%%'
+                      )
+                      AND EXISTS (
+                            SELECT 1
+                            FROM was_report_runs AS held_run
+                            WHERE held_run.source_tracker_id = tracker.id
+                              AND held_run.status = 'completed'
+                              AND held_run.delivery_purpose = 'customer'
+                              AND held_run.email_status = 'held'
+                              AND held_run.emailed_at IS NULL
+                      )
+                        THEN 'MANUAL: Email delivery outcome is held for reconciliation.'
+                    ELSE tracker.report_scan_notes
+                END AS report_scan_notes,
                 tracker.next_scan_date
             FROM was_daily_report_tracker AS tracker
             LEFT JOIN was_assignees AS assignees

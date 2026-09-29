@@ -419,6 +419,191 @@ class ReportRunTests(unittest.TestCase):
                 self.assertTrue(conn.rolled_back)
                 self.assertFalse(conn.committed)
 
+    def test_confirm_held_email_delivered_updates_run_and_tracker_atomically(
+        self,
+    ) -> None:
+        """Record confirmed delivery without invoking or claiming the mailer."""
+        conn = FakeConnection(row=(7,))
+
+        report_runs.confirm_held_report_email_delivered(
+            7,
+            "SES event 2026-09-29T17:00:00Z",
+            conn,
+        )
+
+        query = conn.cursor_instance.query
+        self.assertIn("FOR UPDATE OF runs, tracker", query)
+        self.assertIn("UPDATE was_daily_report_tracker", query)
+        self.assertIn("report_sent_date = CURRENT_DATE", query)
+        self.assertIn("runs.delivery_purpose = 'customer'", query)
+        self.assertIn("runs.email_claimed_at IS NULL", query)
+        self.assertIn("email_claim_token = NULL", query)
+        self.assertIn("UPDATE was_batch_report_attempts", query)
+        self.assertIn("attempts.report_run_id = reconciled_run.id", query)
+        self.assertIn("SET sent = TRUE", query)
+        self.assertNotIn("SET email_message_id", query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                7,
+                report_runs.COMPLETED,
+                report_runs.EMAIL_HELD,
+                report_runs.EMAIL_SENT,
+                "Manual email reconciliation: delivery confirmed: "
+                "SES event 2026-09-29T17:00:00Z",
+            ),
+        )
+        self.assertTrue(conn.committed)
+        self.assertFalse(conn.rolled_back)
+
+    def test_inspect_held_email_reconciliation_reports_eligibility(self) -> None:
+        """Preview reconciliation without changing transaction state."""
+        conn = FakeConnection(
+            row=(
+                7,
+                "TAG1",
+                report_runs.COMPLETED,
+                report_runs.EMAIL_HELD,
+                "customer",
+                None,
+                None,
+                42,
+                42,
+                None,
+                False,
+            )
+        )
+
+        preview = report_runs.inspect_held_report_email_reconciliation(7, conn)
+
+        self.assertTrue(preview.eligible)
+        self.assertIsNone(preview.ineligible_reason)
+        self.assertEqual(preview.source_tracker_id, 42)
+        self.assertEqual(conn.cursor_instance.parameters, (7,))
+        self.assertFalse(conn.committed)
+        self.assertFalse(conn.rolled_back)
+
+    def test_inspect_held_email_reconciliation_explains_active_claim(self) -> None:
+        """Explain why an active sender prevents operator reconciliation."""
+        claimed_at = datetime(2026, 9, 29, tzinfo=timezone.utc)
+        conn = FakeConnection(
+            row=(
+                7,
+                "TAG1",
+                report_runs.COMPLETED,
+                report_runs.EMAIL_HELD,
+                "customer",
+                None,
+                claimed_at,
+                42,
+                42,
+                None,
+                False,
+            )
+        )
+
+        preview = report_runs.inspect_held_report_email_reconciliation(7, conn)
+
+        self.assertFalse(preview.eligible)
+        self.assertEqual(
+            preview.ineligible_reason,
+            "An email delivery claim is active.",
+        )
+
+    @patch.object(report_runs, "uuid4", return_value="authorization-token")
+    def test_confirm_held_email_not_delivered_releases_retry_safely(
+        self,
+        uuid,
+    ) -> None:
+        """Authorize an explicit retry while retaining the held safety state."""
+        conn = FakeConnection(row=("authorization-token",))
+
+        token = report_runs.confirm_held_report_email_not_delivered(
+            7,
+            "  SES event history confirms   rejection  ",
+            "stored-customer",
+            conn,
+        )
+
+        self.assertEqual(token, "authorization-token")
+        uuid.assert_called_once_with()
+        query = conn.cursor_instance.query
+        self.assertNotIn("SET email_status", query)
+        self.assertIn("NULLIF(runs.email_error, '')", query)
+        self.assertIn("runs.email_claimed_at IS NULL", query)
+        self.assertIn("email_claim_token = %s", query)
+        self.assertIn("tracker.report_sent_date IS NULL", query)
+        self.assertIn("FOR UPDATE OF runs, tracker", query)
+        self.assertNotIn("SET report_sent_date", query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                7,
+                report_runs.COMPLETED,
+                report_runs.EMAIL_HELD,
+                "Manual email reconciliation: non-delivery confirmed: "
+                "SES event history confirms rejection",
+                "Manual email reconciliation: retry authorized: "
+                "token=authorization-token; scope=stored-customer",
+                "authorization-token",
+            ),
+        )
+        self.assertTrue(conn.committed)
+        self.assertFalse(conn.rolled_back)
+
+    def test_held_email_reconciliation_rejects_changed_state(self) -> None:
+        """Roll back when the run, claim, delivery, or tracker state changed."""
+        operations = [
+            (
+                report_runs.confirm_held_report_email_delivered,
+                (7, "delivery evidence",),
+            ),
+            (
+                report_runs.confirm_held_report_email_not_delivered,
+                (7, "non-delivery evidence", "stored-customer"),
+            ),
+        ]
+        for operation, arguments in operations:
+            with self.subTest(operation=operation.__name__):
+                conn = FakeConnection(row=None)
+                with self.assertRaises(report_runs.ActiveReportOperationError):
+                    operation(*arguments, conn)
+                self.assertIn("runs.email_status = %s", conn.cursor_instance.query)
+                self.assertIn(
+                    "runs.email_claimed_at IS NULL",
+                    conn.cursor_instance.query,
+                )
+                self.assertIn(
+                    "tracker.report_sent_date IS NULL",
+                    conn.cursor_instance.query,
+                )
+                self.assertTrue(conn.rolled_back)
+                self.assertFalse(conn.committed)
+
+    def test_held_email_reconciliation_requires_audit_evidence(self) -> None:
+        """Reject blank evidence before beginning a database transaction."""
+        conn = FakeConnection(row=(7,))
+
+        with self.assertRaises(ValueError):
+            report_runs.confirm_held_report_email_delivered(7, " \n ", conn)
+
+        self.assertIsNone(conn.cursor_instance.query)
+        self.assertFalse(conn.committed)
+        self.assertFalse(conn.rolled_back)
+
+    def test_held_email_reconciliation_limits_audit_evidence(self) -> None:
+        """Reject an oversized operator reference before opening a transaction."""
+        conn = FakeConnection(row=(7,))
+
+        with self.assertRaises(ValueError):
+            report_runs.confirm_held_report_email_delivered(
+                7,
+                "x" * (report_runs.MAX_EMAIL_RECONCILIATION_EVIDENCE_LENGTH + 1),
+                conn,
+            )
+
+        self.assertIsNone(conn.cursor_instance.query)
+
     def test_heartbeats_cannot_refresh_reclaimed_runs(self) -> None:
         """Require the owner token for generation and email heartbeats."""
         for operation, token_name in [
@@ -718,6 +903,7 @@ class ReportRunTests(unittest.TestCase):
             conn.cursor_instance.parameters,
             (
                 "message-id",
+                report_runs.EMAIL_RECONCILIATION_PREFIX,
                 report_runs.EMAIL_SENT,
                 7,
                 report_runs.EMAIL_SENDING,
@@ -725,6 +911,14 @@ class ReportRunTests(unittest.TestCase):
             ),
         )
         self.assertIn("report_sent_date = CURRENT_DATE", conn.cursor_instance.query)
+        self.assertIn(
+            "UPDATE was_batch_report_attempts",
+            conn.cursor_instance.query,
+        )
+        self.assertIn(
+            "attempts.report_run_id = emailed_run.id",
+            conn.cursor_instance.query,
+        )
 
     def test_mark_report_run_email_failed_records_error(self) -> None:
         """Record email delivery failure metadata."""
@@ -741,6 +935,8 @@ class ReportRunTests(unittest.TestCase):
         self.assertEqual(
             conn.cursor_instance.parameters,
             (
+                report_runs.EMAIL_RECONCILIATION_PREFIX,
+                "delivery failed",
                 "delivery failed",
                 report_runs.EMAIL_FAILED,
                 7,
@@ -917,9 +1113,102 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.COMPLETED,
                 report_runs.EMAIL_PENDING,
                 [report_runs.EMAIL_PENDING],
+                report_runs.EMAIL_PENDING,
+                report_runs.EMAIL_HELD,
+                False,
                 "customer",
             ),
         )
+
+    @patch.object(report_runs, "uuid4", return_value="send-claim-token")
+    def test_reconciled_held_claim_requires_one_time_scoped_token(
+        self,
+        uuid,
+    ) -> None:
+        """Only an exact one-time token and recipient scope can claim a hold."""
+        blocked_connection = FakeConnection(row=None)
+
+        report_runs.claim_report_run_email(
+            report_run_id=7,
+            conn=blocked_connection,
+            allow_held=False,
+        )
+
+        blocked_parameters = blocked_connection.cursor_instance.parameters
+        self.assertFalse(blocked_parameters[8])
+        self.assertNotIn(report_runs.EMAIL_HELD, blocked_parameters[5])
+
+        authorized_connection = FakeConnection(row=None)
+        report_runs.claim_report_run_email(
+            report_run_id=7,
+            conn=authorized_connection,
+            held_reconciliation_token="authorization-token",
+            held_reconciliation_scope="stored-customer",
+        )
+        authorized_parameters = authorized_connection.cursor_instance.parameters
+        self.assertEqual(authorized_parameters[3], "authorization-token")
+        self.assertEqual(
+            authorized_parameters[4],
+            "Manual email reconciliation: retry authorized: "
+            "token=authorization-token; scope=stored-customer",
+        )
+        self.assertEqual(authorized_parameters[6], "send-claim-token")
+        uuid.assert_called()
+        self.assertIn(
+            "delivery_purpose = 'customer'",
+            authorized_connection.cursor_instance.query,
+        )
+        self.assertIn(
+            "runs.email_claim_token = %s",
+            authorized_connection.cursor_instance.query,
+        )
+        self.assertIn(
+            "tracker.report_sent_date IS NULL",
+            authorized_connection.cursor_instance.query,
+        )
+        self.assertIn(
+            "FOR UPDATE OF runs, tracker",
+            authorized_connection.cursor_instance.query,
+        )
+
+    def test_initial_held_claim_rejects_rows_with_a_previous_error(self) -> None:
+        """Initial analyst delivery cannot retry an uncertain held send."""
+        conn = FakeConnection(row=None)
+
+        report_runs.claim_report_run_email(
+            report_run_id=7,
+            conn=conn,
+            allow_held=True,
+            delivery_purpose="analyst",
+        )
+
+        self.assertIn(
+            "NULLIF(BTRIM(email_error), '') IS NULL",
+            conn.cursor_instance.query,
+        )
+        self.assertIn("delivery_purpose = 'analyst'", conn.cursor_instance.query)
+        self.assertTrue(conn.cursor_instance.parameters[8])
+
+    def test_reconciled_held_claim_requires_complete_valid_authority(self) -> None:
+        """Reject missing or malformed one-time retry authority."""
+        invalid_arguments = [
+            {"held_reconciliation_token": "token"},
+            {"held_reconciliation_scope": "stored-customer"},
+            {
+                "held_reconciliation_token": "token",
+                "held_reconciliation_scope": "test-sha256:not-a-digest",
+            },
+        ]
+        for arguments in invalid_arguments:
+            with self.subTest(arguments=arguments):
+                conn = FakeConnection(row=None)
+                with self.assertRaises(ValueError):
+                    report_runs.claim_report_run_email(
+                        report_run_id=7,
+                        conn=conn,
+                        **arguments,
+                    )
+                self.assertIsNone(conn.cursor_instance.query)
 
     def test_claim_report_run_email_rejects_existing_claim(self) -> None:
         """Return no email when another mailer already owns the run."""

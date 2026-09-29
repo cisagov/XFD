@@ -4,7 +4,7 @@
 from contextlib import ExitStack
 from pathlib import Path
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import call, Mock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -521,15 +521,79 @@ class ReportRetrievalTests(unittest.TestCase):
 
         report_id_recorder.assert_called_once_with("xml", "xml-new")
 
+    @patch("was_reports.reporting.report_retrieval.cancellable_sleep")
     @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
-    def test_retrieve_source_data_rejects_empty_tag(
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_detail_pdf_report"
+    )
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")
+    def test_retrieve_source_data_retries_zero_count_before_creation(
         self,
+        mock_download_xml,
+        mock_create_xml_report,
+        mock_create_detail_report,
+        mock_get_tag_id,
         mock_count_webapps,
+        mock_cancellable_sleep,
     ) -> None:
-        """Stop before report creation when the tag has no web applications."""
+        """Proceed after a transient zero without creating a report too early."""
+        mock_get_tag_id.return_value = "tag-123"
+        mock_create_xml_report.return_value = "xml-789"
+        mock_download_xml.return_value = Path("/output/report.xml")
+
+        def count_webapps(_client: object, _stakeholder_tag: str) -> int:
+            """Return a transient zero while checking the creation boundary."""
+            mock_create_detail_report.assert_not_called()
+            mock_create_xml_report.assert_not_called()
+            if mock_count_webapps.call_count == 1:
+                return 0
+            return 35
+
+        mock_count_webapps.side_effect = count_webapps
+
+        source_data = report_retrieval.retrieve_report_source_data(
+            client=self.client,
+            stakeholder_tag="TAG",
+            credentials=self.credentials,
+            resource_root=self.resource_root,
+            output_directory=self.output_directory,
+            python_executable="python3",
+            report_waiter=Mock(),
+        )
+
+        self.assertEqual(source_data.web_application_count, 35)
+        self.assertEqual(mock_count_webapps.call_count, 2)
+        mock_cancellable_sleep.assert_called_once_with(
+            report_retrieval.WEBAPP_COUNT_RETRY_SECONDS
+        )
+        mock_create_detail_report.assert_not_called()
+        mock_create_xml_report.assert_called_once()
+
+    @patch("was_reports.reporting.report_retrieval.cancellable_sleep")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
+    @patch("was_reports.reporting.report_retrieval.report_data.get_tag_id")
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_detail_pdf_report"
+    )
+    @patch(
+        "was_reports.reporting.report_retrieval.report_data.create_webapp_xml_report"
+    )
+    def test_retrieve_source_data_rejects_persistent_zero_count(
+        self,
+        mock_create_xml_report,
+        mock_create_detail_report,
+        mock_get_tag_id,
+        mock_count_webapps,
+        mock_cancellable_sleep,
+    ) -> None:
+        """Record a specific manual failure after bounded zero-count retries."""
         mock_count_webapps.return_value = 0
 
-        with self.assertRaises(LookupError):
+        with self.assertRaises(LookupError) as error_context:
             report_retrieval.retrieve_report_source_data(
                 client=self.client,
                 stakeholder_tag="TAG",
@@ -539,6 +603,50 @@ class ReportRetrievalTests(unittest.TestCase):
                 python_executable="python3",
                 report_waiter=Mock(),
             )
+
+        self.assertEqual(
+            str(error_context.exception),
+            "Qualys returned zero web applications for stakeholder tag TAG "
+            "after 3 attempts; manual review is required.",
+        )
+        self.assertEqual(
+            mock_count_webapps.call_count,
+            report_retrieval.WEBAPP_COUNT_MAX_ATTEMPTS,
+        )
+        self.assertEqual(
+            mock_cancellable_sleep.call_args_list,
+            [
+                call(report_retrieval.WEBAPP_COUNT_RETRY_SECONDS),
+                call(report_retrieval.WEBAPP_COUNT_RETRY_SECONDS),
+            ],
+        )
+        mock_get_tag_id.assert_not_called()
+        mock_create_detail_report.assert_not_called()
+        mock_create_xml_report.assert_not_called()
+
+    @patch("was_reports.reporting.report_retrieval.cancellable_sleep")
+    @patch("was_reports.reporting.report_retrieval.report_data.count_webapps")
+    def test_retrieve_source_data_does_not_retry_count_exception(
+        self,
+        mock_count_webapps,
+        mock_cancellable_sleep,
+    ) -> None:
+        """Leave request exception retries to the shared Qualys client."""
+        mock_count_webapps.side_effect = RuntimeError("Qualys request failed")
+
+        with self.assertRaises(RuntimeError):
+            report_retrieval.retrieve_report_source_data(
+                client=self.client,
+                stakeholder_tag="TAG",
+                credentials=self.credentials,
+                resource_root=self.resource_root,
+                output_directory=self.output_directory,
+                python_executable="python3",
+                report_waiter=Mock(),
+            )
+
+        mock_count_webapps.assert_called_once_with(self.client, "TAG")
+        mock_cancellable_sleep.assert_not_called()
 
     @patch("was_reports.reporting.report_retrieval.report_data.delete_report")
     @patch("was_reports.reporting.report_retrieval.detail_reports.download_report_xml")

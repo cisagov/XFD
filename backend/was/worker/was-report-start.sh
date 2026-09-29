@@ -2,7 +2,7 @@
 # Start the WAS report process inside the container.
 set -euo pipefail
 
-if [ "${1:-}" = "was-report-on-demand" ] || [ "${1:-}" = "was-mailer" ]; then
+if [ "${1:-}" = "was-report-on-demand" ] || [ "${1:-}" = "was-mailer" ] || [ "${1:-}" = "was-reconcile-delivery" ]; then
   exec "$@"
 fi
 
