@@ -284,6 +284,39 @@ locals {
   ]) : null
 }
 
+data "aws_subnet" "open_cti_lz" {
+  count = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  id    = data.aws_ssm_parameter.subnet_backend_id[0].value
+}
+
+resource "aws_ebs_volume" "open_cti_data" {
+  count             = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  availability_zone = data.aws_subnet.open_cti_lz[0].availability_zone
+  size              = var.open_cti_ebs_volume_size
+  type              = "gp3"
+  encrypted         = true
+  kms_key_id        = aws_kms_key.key.arn
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [availability_zone]
+  }
+
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Name    = "open-cti-data"
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_volume_attachment" "open_cti_data" {
+  count       = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.open_cti_data[0].id
+  instance_id = aws_instance.open_cti[0].id
+}
+
 resource "aws_instance" "open_cti" {
   count = var.create_open_cti_instance ? 1 : 0
   # stage-cd (is_dmz): must match the already-running commercial-partition instance being
@@ -301,6 +334,12 @@ resource "aws_instance" "open_cti" {
   # resources' comments for why this branch can't reuse the data-source adoption pattern.
   subnet_id              = var.is_dmz ? data.aws_subnet.open_cti[0].id : data.aws_ssm_parameter.subnet_backend_id[0].value
   vpc_security_group_ids = var.is_dmz ? [data.aws_security_group.open_cti[0].id] : [aws_security_group.open_cti_lz[0].id]
+
+  # LZ (!is_dmz) ONLY -- pins the instance's current private IP so an AMI refresh
+  # (destroy-then-create via `-replace`) reattaches the same IP instead of a new one from the
+  # subnet. Left unset (null) on stage-cd (is_dmz): that instance is adopted, not replaced, and its
+  # real IP isn't pinned here.
+  private_ip = var.is_dmz ? null : "10.236.34.5"
 
   iam_instance_profile = aws_iam_instance_profile.open_cti[0].id
 

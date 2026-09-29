@@ -25,14 +25,12 @@ from pe_source.flare_ident_refresh.flare_ident_refresh import (
     check_ip_list_reachable,
     check_ip_reachable,
     create_domain_ident,
-    create_exec_ident,
     create_flare_identifer,
     create_ident_group,
     create_ip_ident,
     create_keyword_ident,
     delete_flare_identifier,
     delete_ident_list,
-    format_exec_data,
     get_flare_token,
     get_ident_by_group_id,
     get_ident_group_info,
@@ -451,29 +449,6 @@ class IpReachabilityTests(unittest.TestCase):
 class IdentifierFormattingTests(unittest.TestCase):
     """Verify formatting and identifier payload construction."""
 
-    def test_format_exec_data_formats_hyphenated_names(self):
-        """Executive names should be converted into Flare name fields."""
-        result = format_exec_data(
-            [
-                "jane-smith doe-jones",
-                "john public",
-            ]
-        )
-
-        self.assertEqual(
-            result,
-            [
-                {
-                    "first_name": "Jane Smith",
-                    "last_name": "Doe Jones",
-                },
-                {
-                    "first_name": "John",
-                    "last_name": "Public",
-                },
-            ],
-        )
-
     @patch("{}.create_flare_identifer".format(MODULE))
     def test_create_keyword_ident_builds_payloads(self, mock_create):
         """Each keyword should receive the expected Flare payload."""
@@ -526,36 +501,6 @@ class IdentifierFormattingTests(unittest.TestCase):
                     "leak",
                 ],
                 "type": "domain",
-            }
-        )
-
-    @patch("{}.create_flare_identifer".format(MODULE))
-    def test_create_exec_ident_builds_payload(self, mock_create):
-        """An executive should receive strict first and last name fields."""
-        create_exec_ident(
-            [
-                {
-                    "first_name": "Jane",
-                    "last_name": "Doe",
-                }
-            ],
-            123,
-        )
-
-        mock_create.assert_called_once_with(
-            {
-                "assets_group_id": 123,
-                "data": {
-                    "first_name": "Jane",
-                    "last_name": "Doe",
-                    "is_strict": True,
-                },
-                "name": "Jane Doe",
-                "search_types": [
-                    "illicit_networks",
-                    "open_web",
-                ],
-                "type": "name",
             }
         )
 
@@ -651,12 +596,10 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             patch("{}.create_ident_group".format(MODULE)),
             patch("{}.get_ident_group_info".format(MODULE)),
             patch("{}.org_root_domains".format(MODULE)),
-            patch("{}.get_execs_by_org_uid".format(MODULE)),
             patch("{}.get_resp_ips_by_org_abbrv".format(MODULE)),
             patch("{}.get_ident_by_group_id".format(MODULE)),
             patch("{}.create_keyword_ident".format(MODULE)),
             patch("{}.create_domain_ident".format(MODULE)),
-            patch("{}.create_exec_ident".format(MODULE)),
             patch("{}.create_ip_ident".format(MODULE)),
             patch("{}.delete_ident_list".format(MODULE)),
             patch("{}.time.sleep".format(MODULE)),
@@ -673,12 +616,10 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             mock_create_group,
             mock_get_group,
             mock_get_roots,
-            mock_get_execs,
             mock_get_ips,
             mock_get_identifiers,
             mock_create_keyword,
             mock_create_domain,
-            mock_create_exec,
             mock_create_ip,
             mock_delete,
             mock_sleep,
@@ -691,14 +632,6 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             "id": 123,
         }
         mock_get_roots.return_value = [{"root_domain": "new.example.gov"}]
-        mock_get_execs.return_value = pd.DataFrame(
-            [
-                {
-                    "first_name": "Jane",
-                    "last_name": "Doe",
-                }
-            ]
-        )
         mock_get_ips.return_value = pd.DataFrame(
             [
                 {
@@ -737,11 +670,9 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             "create_group": mock_create_group,
             "get_group": mock_get_group,
             "get_roots": mock_get_roots,
-            "get_execs": mock_get_execs,
             "get_ips": mock_get_ips,
             "create_keyword": mock_create_keyword,
             "create_domain": mock_create_domain,
-            "create_exec": mock_create_exec,
             "create_ip": mock_create_ip,
             "delete": mock_delete,
             "sleep": mock_sleep,
@@ -754,7 +685,6 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
         mocks["group_exists"].assert_called_once_with("A_ORG")
         mocks["get_group"].assert_called_once_with("A_ORG")
         mocks["get_roots"].assert_called_once_with("uid-a")
-        mocks["get_execs"].assert_called_once_with("uid-a")
         mocks["get_ips"].assert_called_once_with("A_ORG")
 
         mocks["create_keyword"].assert_called_once_with(
@@ -765,21 +695,12 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             ["new.example.gov"],
             123,
         )
-        mocks["create_exec"].assert_called_once_with(
-            [
-                {
-                    "first_name": "Jane",
-                    "last_name": "Doe",
-                }
-            ],
-            123,
-        )
         mocks["create_ip"].assert_called_once_with(
             ["192.0.2.1"],
             123,
         )
 
-        self.assertEqual(mocks["delete"].call_count, 4)
+        self.assertEqual(mocks["delete"].call_count, 3)
         deleted_values = {
             delete_call.args[0][0] for delete_call in mocks["delete"].call_args_list
         }
@@ -788,7 +709,6 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
             {
                 "old agency",
                 "old.example.gov",
-                "old person",
                 "192.0.2.2",
             },
         )

@@ -653,6 +653,12 @@ variable "open_cti_root_volume_size" {
   default     = 1000
 }
 
+variable "open_cti_ebs_volume_size" {
+  description = "Size in GiB of the additional EBS data volume attached to the OpenCTI EC2 instance (LZ only), holding /var/lib/docker/volumes. Same pattern as var.db_accessor_ebs_volume_size."
+  type        = number
+  default     = 1000
+}
+
 variable "open_cti_subnet_id" {
   description = "Subnet ID the existing OpenCTI EC2 instance is in."
   type        = string

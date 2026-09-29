@@ -747,7 +747,6 @@ def query_darkweb(org_uid, start_date, end_date, table):
         "vw_darkweb_inviteonlymarkets",
         "vw_darkweb_socmedia_mostactposts",
         "vw_darkweb_mostactposts",
-        "vw_darkweb_execalerts",
         "vw_darkweb_assetalerts",
         "vw_darkweb_threatactors",
         "vw_darkweb_potentialthreats",
@@ -817,7 +816,6 @@ def query_darkweb_asset_alerts(org_uid, start_date, end_date, table):
         WHERE
             a.organizations_uid = %(org_uid)s AND
             a.date between %(start_date)s AND %(end_date)s AND
-            a.alert_name !~~ '%%executive%%'::text AND
             a.site IS NOT NULL AND
             a.site <> 'NaN'::text
         ) q1

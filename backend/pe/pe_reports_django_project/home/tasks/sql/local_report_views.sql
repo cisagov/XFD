@@ -129,19 +129,7 @@ CREATE VIEW vw_darkweb_assetalerts AS
     a.title AS "Title",
     count(*) AS "Events"
    FROM alerts a
-  WHERE ((a.alert_name !~~ '%executive%'::text) AND (a.site IS NOT NULL) AND (a.site <> 'NaN'::text))
-  GROUP BY a.site, a.title, a.organizations_uid
-  ORDER BY (count(*)) DESC;
-
-
-CREATE VIEW vw_darkweb_execalerts AS
- SELECT a.organizations_uid,
-    max(a.date) AS date,
-    a.site AS "Site",
-    a.title AS "Title",
-    count(*) AS "Events"
-   FROM alerts a
-  WHERE ((a.alert_name ~~ '%executive%'::text) AND (a.site IS NOT NULL) AND (a.site <> 'NaN'::text))
+  WHERE (a.site IS NOT NULL) AND (a.site <> 'NaN'::text)
   GROUP BY a.site, a.title, a.organizations_uid
   ORDER BY (count(*)) DESC;
 
