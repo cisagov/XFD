@@ -13,14 +13,15 @@ from was_reports.utils.env import load_env_file, require_env
 
 def days_back_value(value: str):
     """Accept an explicit unlimited window or a positive calendar-day count."""
+    guidance = "Use all or an integer of at least 1; 1 means today only."
     if value.lower() == "all":
         return None
     try:
         count = int(value)
     except ValueError as error:
-        raise argparse.ArgumentTypeError("Use all or a positive day count.") from error
+        raise argparse.ArgumentTypeError(guidance) from error
     if count <= 0:
-        raise argparse.ArgumentTypeError("Use all or a positive day count.")
+        raise argparse.ArgumentTypeError(guidance)
     return count
 
 
@@ -37,6 +38,14 @@ def parse_args(argv=None):
     parser.add_argument("--lookback-days", type=int, default=3)
     parser.add_argument("--max-seconds", type=int, default=28800)
     parser.add_argument("--test-recipients")
+    parser.add_argument(
+        "--delete-apps",
+        action="store_true",
+        help=(
+            "Delete eligible consecutively inaccessible Qualys web applications. "
+            "This destructive option is reserved for customer production runs."
+        ),
+    )
     parser.add_argument("--apply", action="store_true")
     arguments = parser.parse_args(argv)
     if not 1 <= arguments.workers <= 30:
@@ -45,6 +54,8 @@ def parse_args(argv=None):
         parser.error("Lookback and execution windows must be positive.")
     if arguments.test_recipients is not None and not arguments.test_recipients.strip():
         parser.error("An explicit test-recipient override cannot be empty.")
+    if arguments.delete_apps and arguments.test_recipients is not None:
+        parser.error("--delete-apps cannot be combined with --test-recipients.")
     arguments.run_id = str(arguments.run_id or uuid4())
     arguments.run_mode = "production"
     arguments.workload_label = "recent-scan-batch"
@@ -105,6 +116,13 @@ def main(argv=None):
             if arguments.test_recipients else None
         )
         print("Report batch ID: {}".format(arguments.run_id))
+        print(
+            "Qualys web application deletion: {}.".format(
+                "enabled for eligible customer production rows"
+                if arguments.delete_apps
+                else "disabled"
+            )
+        )
         if not arguments.apply:
             print("Configuration checks passed. No refresh, writes, or sends.")
             return 0

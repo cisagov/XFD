@@ -131,6 +131,10 @@ make recent-scan-batch BATCH_WORKERS=30 \
   TRACKER_LOOKBACK_DAYS=3 BATCH_DAYS_BACK=7
 ```
 
+`BATCH_DAYS_BACK` must be `all` or an integer of at least `1`. A value of `1`
+means today only, `2` means today and yesterday, and `7` means today plus the
+previous six calendar days. `0` is invalid.
+
 This command assigns the batch ID before launch and starts the coordinator in a
 detached `tmux` session. The command prints the batch ID, exact session name,
 manifest path, and status, console, attach, graceful-stop, and structured-log
@@ -159,7 +163,11 @@ delivery and Qualys state before deciding how to recover an interrupted run.
 The coordinator refreshes the tracker once, records a workload snapshot, sends
 the tracker summary, launches separate worker containers, performs the final
 delivery pass, and sends the final analyst summary. Customer delivery uses the
-normal stakeholder recipients.
+normal stakeholder recipients. This true customer production path explicitly
+enables the guarded Qualys deletion flow for eligible non-FCEB web applications
+that were inaccessible in two consecutive scans. Before deletion, the tracker
+commits a `MANUAL QUALYS DELETION PENDING` claim. An interrupted or failed
+deletion stays manual and requires reconciliation rather than automatic replay.
 
 Both analyst notifications use semantic HTML tables with a matching plain-text
 table fallback. Time measurements use two decimal places, and final elapsed real
@@ -177,7 +185,103 @@ make recent-scan-batch-assignee-test BATCH_WORKERS=30 \
 ```
 
 Do not treat the recipient override as database isolation. This command still
-uses the production database and production coordinator rules.
+uses the production database and production coordinator rules. However, the
+recipient override keeps the tracker refresh non-destructive. It does not delete
+Qualys web applications, and any eligible removal remains manual. Capacity and
+other test workflows are also non-destructive.
+
+## Retained tmux session cleanup
+
+Completed batch panes remain available for diagnosis until a guarded cleanup
+removes them. Always preview cleanup first:
+
+```bash
+make recent-scan-batch-cleanup
+make capacity-cleanup
+```
+
+Each command is scoped to its own WAS workflow and ignores running panes. The
+first applied cleanup archives a dead pane and records when cleanup first
+observed it. A later applied cleanup can remove a successful pane only after
+that observation is at least 24 hours old by default. Override that threshold
+only for an intentional, reviewed cleanup:
+
+```bash
+make recent-scan-batch-cleanup TMUX_CLEANUP_RETENTION_HOURS=48
+```
+
+After reviewing the dry-run output, apply cleanup for eligible successful
+sessions:
+
+```bash
+make recent-scan-batch-cleanup TMUX_CLEANUP_APPLY=1
+make capacity-cleanup TMUX_CLEANUP_APPLY=1
+```
+
+Failed dead sessions are retained unless the operator explicitly acknowledges
+their removal. Record and investigate the failure, then repeat the dry run with
+the acknowledgement before applying it:
+
+```bash
+make recent-scan-batch-cleanup \
+  TMUX_SESSION="was-production-<batch-UUID>" \
+  TMUX_CLEANUP_ACKNOWLEDGE_FAILURES=1
+make recent-scan-batch-cleanup \
+  TMUX_SESSION="was-production-<batch-UUID>" \
+  TMUX_CLEANUP_APPLY=1 TMUX_CLEANUP_ACKNOWLEDGE_FAILURES=1
+```
+
+Failure acknowledgement applies only to the exact validated session named by
+`TMUX_SESSION`; it never approves every failed session in a workflow. Use
+`capacity-cleanup` and an exact `was-capacity-<batch-UUID>` session instead when
+reviewing capacity sessions. Before an exact session is removed, cleanup
+archives its retained console and metadata under:
+
+```text
+local-output/tmux-archives/<session>/console.log
+local-output/tmux-archives/<session>/metadata.json
+```
+
+Archive directories are created with mode `0700`, and archive files use mode
+`0600`. Console output can contain operational recipient information, so handle
+these archives under the same access and retention controls as batch logs.
+Confirm that both archive files exist after applied cleanup. Removing a tmux
+session does not stop or reconcile worker containers, settle Qualys activity,
+confirm email delivery, or repair database state. Complete those checks through
+their dedicated operational and recovery workflows.
+
+The repository includes an hourly systemd timer that applies this two-pass
+cleanup to both production and capacity sessions. The timer never acknowledges
+failed sessions. After deploying the same reviewed revision to the EC2 host,
+install and verify it with:
+
+```bash
+cd "$HOME/code/cd_WAS_update/backend/was"
+sudo install -m 0644 systemd/was-tmux-cleanup.service \
+  /etc/systemd/system/was-tmux-cleanup.service
+sudo install -m 0644 systemd/was-tmux-cleanup.timer \
+  /etc/systemd/system/was-tmux-cleanup.timer
+sudo systemctl daemon-reload
+sudo systemctl start was-tmux-cleanup.service
+systemctl status was-tmux-cleanup.service --no-pager
+journalctl -u was-tmux-cleanup.service -n 100 --no-pager
+sudo systemctl enable --now was-tmux-cleanup.timer
+systemctl status was-tmux-cleanup.timer --no-pager
+systemctl list-timers was-tmux-cleanup.timer --no-pager
+```
+
+The initial service run must show that it inspected both production and
+capacity workflows. A nonzero service result caused by an unacknowledged failed
+session is an intentional alert: review that exact session and its archive
+before using the acknowledgement workflow. Permission, tmux socket, archive,
+or malformed-state errors are operational failures and must be corrected before
+the timer is considered verified.
+
+Disable the automation without deleting its evidence archives with:
+
+```bash
+sudo systemctl disable --now was-tmux-cleanup.timer
+```
 
 ## Common operational Make commands
 
@@ -187,11 +291,13 @@ The following table is an index, not authorization to run a mutating command.
 | --- | --- | --- |
 | Menu | `make menu` | Depends on the selected menu action |
 | Tracker preflight | `make recent-scan-batch-preflight` | Read-only database selection |
-| Production batch | `make recent-scan-batch` | Qualys, database, S3, and SES writes |
+| Production batch | `make recent-scan-batch` | Guarded eligible Qualys web-application deletion, database, S3, and SES writes |
 | Production batch status | `make recent-scan-batch-status TMUX_SESSION="..."` | Read-only tmux state |
 | Production batch console | `make recent-scan-batch-console TMUX_SESSION="..."` | Read-only retained output |
 | Graceful production stop | `make recent-scan-batch-stop TMUX_SESSION="..."` | Interrupts the selected coordinator and starts cleanup |
-| Controlled recipient batch | `make recent-scan-batch-assignee-test TEST_RECIPIENTS="..."` | Production workflow with recipient override |
+| Preview production tmux cleanup | `make recent-scan-batch-cleanup` | Read-only eligible-session review |
+| Apply production tmux cleanup | `make recent-scan-batch-cleanup TMUX_CLEANUP_APPLY=1` | Archives and removes eligible successful sessions |
+| Controlled recipient batch | `make recent-scan-batch-assignee-test TEST_RECIPIENTS="..."` | Production database, S3, and SES writes with recipient override; no Qualys web-application deletion |
 | Refresh report tracker | `make update-tracker` | Qualys reads and tracker writes |
 | Preview tracker rows | `make tracker-table DAYS_BACK=7` | Read-only |
 | Preview manual queue | `make tracker-table REPORT_STATUS=manual DAYS_BACK=7` | Read-only |
@@ -207,7 +313,9 @@ The following table is an index, not authorization to run a mutating command.
 | Test replay preview | `make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="..."` | Read-only preview |
 | Targets Removed test preview | `make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123" TEST_RECIPIENTS="..."` | Read-only preview |
 | Capacity isolation checks | `make capacity-start TEST_RECIPIENTS="..."` | Read-only checks |
-| Capacity test | `make capacity-start APPLY=1 BATCH_WORKERS=30 TEST_RECIPIENTS="..."` | Test database, Qualys, capacity S3 prefix, and SES writes |
+| Capacity test | `make capacity-start APPLY=1 BATCH_WORKERS=30 TEST_RECIPIENTS="..."` | Test database, non-destructive Qualys access, capacity S3 prefix, and SES writes |
+| Preview capacity tmux cleanup | `make capacity-cleanup` | Read-only eligible-session review |
+| Apply capacity tmux cleanup | `make capacity-cleanup TMUX_CLEANUP_APPLY=1` | Archives and removes eligible successful sessions |
 
 Commands with `APPLY=1`, `--confirm`, email delivery, tracker imports, or Qualys
 deletion have additional safeguards documented in their focused runbooks. Do

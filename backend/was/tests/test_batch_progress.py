@@ -96,6 +96,18 @@ class BatchProgressTests(unittest.TestCase):
         self.assertEqual(summary.pdf_reports, 0)
         self.assertEqual(summary.notification_only, 1)
 
+    def test_preflight_summary_names_single_day_as_today_only(self) -> None:
+        """Make the minimum numeric report window unambiguous to operators."""
+        logger = logging.getLogger("was-tests.batch-progress-today")
+        summary = summarize_candidates([])
+
+        with self.assertLogs(logger, level="INFO") as captured:
+            log_preflight_summary(logger, summary, days_back=1)
+
+        output = "\n".join(captured.output)
+        self.assertIn("from today only", output)
+        self.assertNotIn("last 1 calendar days", output)
+
     def test_log_candidate_progress_reports_phase_and_fraction(self) -> None:
         """Show each worker's current candidate and its partition total."""
         logger = logging.getLogger("was-tests.batch-progress")

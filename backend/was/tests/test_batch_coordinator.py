@@ -1,5 +1,6 @@
 """Production entrypoint safety and shared-engine regression coverage."""
 
+import argparse
 import os
 import unittest
 from unittest.mock import MagicMock, patch
@@ -17,15 +18,34 @@ class BatchCoordinatorTests(unittest.TestCase):
         self.assertEqual(arguments.worker_backend, "docker")
         self.assertEqual(arguments.days_back, 7)
         self.assertFalse(arguments.apply)
+        self.assertFalse(arguments.delete_apps)
+        self.assertEqual(batch_coordinator.days_back_value("1"), 1)
         self.assertIsNone(batch_coordinator.parse_args(["--days-back", "all"]).days_back)
+
+    def test_invalid_window_explains_minimum_and_today(self):
+        """Tell operators that one is the minimum and represents today only."""
+        expected = "Use all or an integer of at least 1; 1 means today only."
+        for value in ("0", "-1", "invalid"):
+            with self.subTest(value=value):
+                with self.assertRaises(argparse.ArgumentTypeError) as context:
+                    batch_coordinator.days_back_value(value)
+                self.assertEqual(str(context.exception), expected)
 
     def test_invalid_workers_and_windows(self):
         """Invalid execution configuration fails before connecting."""
         for option in (["--workers", "31"], ["--days-back", "0"],
                        ["--lookback-days", "0"], ["--max-seconds", "0"],
-                       ["--test-recipients", ""], ["--test-recipients", "   "]):
+                       ["--test-recipients", ""], ["--test-recipients", "   "],
+                       ["--delete-apps", "--test-recipients", "analyst@example.gov"]):
             with self.subTest(option=option), self.assertRaises(SystemExit):
                 batch_coordinator.parse_args(option)
+
+    def test_delete_apps_requires_explicit_production_authorization(self):
+        """Expose deletion only through an explicit non-test production option."""
+        arguments = batch_coordinator.parse_args(["--delete-apps"])
+
+        self.assertTrue(arguments.delete_apps)
+        self.assertIsNone(arguments.test_recipients)
 
     def test_capacity_environment_rejected_before_connect(self):
         """An inherited capacity scope never reaches the production database."""
@@ -91,9 +111,13 @@ class BatchCoordinatorTests(unittest.TestCase):
 
     def test_apply_uses_shared_engine_and_validated_override(self):
         """Production and analyst test runs invoke the same capacity-tested engine."""
-        for recipients in (None, "analyst@example.gov"):
+        for recipients, delete_apps in ((None, True), ("analyst@example.gov", False)):
             connection = MagicMock()
-            options = ["--apply"] + (["--test-recipients", recipients] if recipients else [])
+            options = ["--apply"]
+            if recipients:
+                options.extend(["--test-recipients", recipients])
+            if delete_apps:
+                options.append("--delete-apps")
             with patch.object(batch_coordinator, "load_env_file"), patch.object(
                 batch_coordinator, "guard_database", return_value=connection
             ), patch.object(batch_coordinator.capacity_test, "verify_worker_backend"), patch.object(
@@ -103,6 +127,7 @@ class BatchCoordinatorTests(unittest.TestCase):
             ) as execute:
                 self.assertEqual(batch_coordinator.main(options), 0)
             self.assertEqual(execute.call_args.args[0].run_mode, "production")
+            self.assertEqual(execute.call_args.args[0].delete_apps, delete_apps)
             self.assertEqual(execute.call_args.args[1], recipients)
             self.assertEqual(approved.call_count, int(recipients is not None))
             connection.close.assert_called_once()

@@ -20,14 +20,15 @@ LOGGER = logging.getLogger(__name__)
 
 def parse_window(value: str) -> int | None:
     """Accept a positive calendar-date count or explicit unlimited history."""
+    guidance = "Use all or an integer of at least 1; 1 means today only."
     if value.strip().lower() == "all":
         return None
     try:
         days_back = int(value)
     except ValueError as error:
-        raise argparse.ArgumentTypeError("Use a positive integer or all.") from error
+        raise argparse.ArgumentTypeError(guidance) from error
     if days_back < 1:
-        raise argparse.ArgumentTypeError("Use a positive integer or all.")
+        raise argparse.ArgumentTypeError(guidance)
     return days_back
 
 

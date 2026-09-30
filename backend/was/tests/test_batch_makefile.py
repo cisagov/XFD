@@ -24,18 +24,24 @@ class BatchMakefileTests(unittest.TestCase):
         directory = Path(__file__).resolve().parents[1]
         result = subprocess.run(
             [
-                "make", "-n", "-C", str(directory),
+                "make", "-s", "-C", str(directory),
                 "_recent-scan-batch-foreground",
                 "BATCH_RUN_ID=00000000-0000-0000-0000-000000000000",
+                "PYTHON=/bin/echo",
                 "WAS_TMUX_LAUNCH=1",
             ],
             capture_output=True, text=True, check=True, timeout=15,
         )
         self.assertIn("was_reports.commands.batch_coordinator", result.stdout)
-        self.assertIn('--workers "30" --worker-backend docker', result.stdout)
-        self.assertIn('--worker-image "was-reporting"', result.stdout)
-        self.assertIn('--lookback-days "3" --apply', result.stdout)
-        self.assertIn('--run-id "00000000-0000-0000-0000-000000000000"', result.stdout)
+        self.assertIn("--workers 30 --worker-backend docker", result.stdout)
+        self.assertIn("--worker-image was-reporting", result.stdout)
+        self.assertIn("--lookback-days 3 --apply", result.stdout)
+        self.assertIn(
+            "--run-id 00000000-0000-0000-0000-000000000000",
+            result.stdout,
+        )
+        self.assertIn("--delete-apps", result.stdout)
+        self.assertNotIn("--test-recipients", result.stdout)
         self.assertNotIn("worker_pids=", result.stdout)
         self.assertNotIn("--send-assignee-digests", result.stdout)
 
@@ -63,7 +69,9 @@ class BatchMakefileTests(unittest.TestCase):
     def test_assignee_test_inherits_default_and_explicit_windows(self) -> None:
         """Dry-run expansion forwards seven days by default and honors overrides."""
         directory = Path(__file__).resolve().parents[1]
-        for override, expected in ((None, "7"), ("30", "30"), ("all", "all")):
+        for override, expected in (
+            (None, "7"), ("1", "1"), ("30", "30"), ("all", "all")
+        ):
             with self.subTest(override=override):
                 command = [
                     "make", "-n", "-C", str(directory),
@@ -76,8 +84,27 @@ class BatchMakefileTests(unittest.TestCase):
                     command, capture_output=True, text=True, check=True, timeout=15
                 )
                 self.assertIn('BATCH_DAYS_BACK="{}"'.format(expected), result.stdout)
+                self.assertIn("web application deletion is disabled", result.stdout)
+                self.assertIn("1 means today only", result.stdout)
                 self.assertIn("was_reports.commands.tmux_batch start", result.stdout)
                 self.assertNotIn("previous 30 calendar days", result.stdout)
+
+    def test_assignee_internal_target_does_not_authorize_deletion(self) -> None:
+        """Keep the recipient-override coordinator refresh non-destructive."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make", "-s", "-C", str(directory),
+                "_recent-scan-batch-foreground",
+                "BATCH_TEST_RECIPIENTS=preview@example.invalid",
+                "PYTHON=/bin/echo",
+                "WAS_TMUX_LAUNCH=1",
+            ],
+            capture_output=True, text=True, check=True, timeout=15,
+        )
+
+        self.assertIn("--test-recipients preview@example.invalid", result.stdout)
+        self.assertNotIn("--delete-apps", result.stdout)
 
     def test_log_diagnostics_remain_make_only_and_read_batch_files(self) -> None:
         """Expose summary, error, and tag filters without adding menu operations."""
@@ -102,6 +129,28 @@ class BatchMakefileTests(unittest.TestCase):
                 )
                 self.assertIn("was_reports.commands.log_diagnostics", result.stdout)
                 self.assertIn(expected, result.stdout)
+
+    def test_failed_tmux_cleanup_acknowledges_one_exact_session(self) -> None:
+        """Scope failed-pane cleanup acknowledgement to one validated session."""
+        directory = Path(__file__).resolve().parents[1]
+        session = "was-production-5cb98f63-7a8e-4ff4-aac5-461732f50204"
+        result = subprocess.run(
+            [
+                "make",
+                "-n",
+                "-C",
+                str(directory),
+                "recent-scan-batch-cleanup",
+                "TMUX_CLEANUP_ACKNOWLEDGE_FAILURES=1",
+                "TMUX_SESSION={}".format(session),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+        self.assertIn("--acknowledge-failures", result.stdout)
+        self.assertIn('--session "{}"'.format(session), result.stdout)
 
     def test_targets_removed_test_requires_explicit_rows_and_assignee(self) -> None:
         """Route a reviewed Targets Removed test through isolated replay."""

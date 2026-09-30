@@ -3,7 +3,7 @@ REPO_ROOT ?= ../..
 ROOT_PYTHON ?= ./cd_WAS_update/bin/python
 IMAGE ?= was-reporting
 ENV_FILE ?= .env
-OUTPUT_DIR ?= $(PWD)/local-output
+OUTPUT_DIR ?= $(CURDIR)/local-output
 DOCKER_HOST_USER ?= --user "$$(id -u):$$(id -g)"
 TRACKER_CSV ?= $(OUTPUT_DIR)/was-daily-tracker.csv
 STAKEHOLDER_CSV ?= $(OUTPUT_DIR)/was-stakeholders.csv
@@ -45,6 +45,9 @@ CAPACITY_CONTINUE_RUN_ID ?=
 TMUX_SESSION ?=
 TMUX_LINES ?= 200
 TMUX_STOP_WAIT_SECONDS ?= 60
+TMUX_CLEANUP_APPLY ?= 0
+TMUX_CLEANUP_ACKNOWLEDGE_FAILURES ?= 0
+TMUX_CLEANUP_RETENTION_HOURS ?= 24
 WAS_TMUX_LAUNCH ?= 0
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
@@ -59,6 +62,8 @@ export CAPACITY_RUN_ID CAPACITY_WORKLOAD_LABEL ENV_FILE IMAGE OUTPUT_DIR PYTHON
 export RECONCILIATION_ACTION RECONCILIATION_CONFIRM RECONCILIATION_REFERENCE
 export REPORT_RUN_ID USE_STORED_CUSTOMER_RECIPIENTS
 export TEST_RECIPIENTS TMUX_LINES TMUX_SESSION TMUX_STOP_WAIT_SECONDS
+export TMUX_CLEANUP_ACKNOWLEDGE_FAILURES TMUX_CLEANUP_APPLY
+export TMUX_CLEANUP_RETENTION_HOURS
 export TRACKER_LOOKBACK_DAYS
 export WAS_TMUX_LAUNCH
 
@@ -106,7 +111,7 @@ stakeholders-help:
 .PHONY: recent-scan-batch-preflight recent-scan-batch-preflight-local
 
 .PHONY: capacity-test capacity-start capacity-continue capacity-start-over capacity-database-reset
-.PHONY: _capacity-tmux-start _capacity-test-foreground capacity-status capacity-attach capacity-console capacity-stop
+.PHONY: _capacity-tmux-start _capacity-test-foreground capacity-status capacity-attach capacity-console capacity-stop capacity-cleanup
 
 capacity-start:
 	$(MAKE) capacity-test CAPACITY_ACTION=start
@@ -173,6 +178,18 @@ capacity-console:
 capacity-stop:
 	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch stop --workflow capacity
 
+capacity-cleanup:
+	@set -- cleanup --workflow capacity --working-directory "$(CURDIR)" \
+	  --retention-hours "$(TMUX_CLEANUP_RETENTION_HOURS)"; \
+	case "$(TMUX_CLEANUP_APPLY)" in 0) ;; 1) set -- "$$@" --apply ;; \
+	  *) echo 'TMUX_CLEANUP_APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
+	case "$(TMUX_CLEANUP_ACKNOWLEDGE_FAILURES)" in 0) ;; \
+	  1) test -n "$(TMUX_SESSION)" || { \
+	    echo 'Set TMUX_SESSION to the exact failed capacity session.' >&2; exit 2; \
+	  }; set -- "$$@" --acknowledge-failures --session "$(TMUX_SESSION)" ;; \
+	  *) echo 'TMUX_CLEANUP_ACKNOWLEDGE_FAILURES must be 0 or 1.' >&2; exit 2 ;; esac; \
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch "$$@"
+
 .PHONY: report-alignment-diagnostic-local
 
 report-alignment-diagnostic-local:
@@ -185,7 +202,7 @@ recent-scan-batch-preflight:
 recent-scan-batch-preflight-local:
 	PYTHONPATH=src $(PYTHON) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
 
-.PHONY: _recent-scan-batch-foreground recent-scan-batch-status recent-scan-batch-attach recent-scan-batch-console recent-scan-batch-stop
+.PHONY: _recent-scan-batch-foreground recent-scan-batch-status recent-scan-batch-attach recent-scan-batch-console recent-scan-batch-stop recent-scan-batch-cleanup tmux-cleanup
 
 recent-scan-batch:
 	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch start \
@@ -200,6 +217,8 @@ _recent-scan-batch-foreground:
 	if [ -n "$(BATCH_RUN_ID)" ]; then set -- "$$@" --run-id "$(BATCH_RUN_ID)"; fi; \
 	if [ -n "$(BATCH_TEST_RECIPIENTS)" ]; then \
 	  set -- "$$@" --test-recipients "$(BATCH_TEST_RECIPIENTS)"; \
+	else \
+	  set -- "$$@" --delete-apps; \
 	fi; \
 	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.batch_coordinator "$$@"
 
@@ -215,10 +234,32 @@ recent-scan-batch-console:
 recent-scan-batch-stop:
 	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch stop --workflow production
 
+recent-scan-batch-cleanup:
+	@set -- cleanup --workflow production --working-directory "$(CURDIR)" \
+	  --retention-hours "$(TMUX_CLEANUP_RETENTION_HOURS)"; \
+	case "$(TMUX_CLEANUP_APPLY)" in 0) ;; 1) set -- "$$@" --apply ;; \
+	  *) echo 'TMUX_CLEANUP_APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
+	case "$(TMUX_CLEANUP_ACKNOWLEDGE_FAILURES)" in 0) ;; \
+	  1) test -n "$(TMUX_SESSION)" || { \
+	    echo 'Set TMUX_SESSION to the exact failed production session.' >&2; exit 2; \
+	  }; set -- "$$@" --acknowledge-failures --session "$(TMUX_SESSION)" ;; \
+	  *) echo 'TMUX_CLEANUP_ACKNOWLEDGE_FAILURES must be 0 or 1.' >&2; exit 2 ;; esac; \
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch "$$@"
+
+tmux-cleanup:
+	@production_status=0; capacity_status=0; \
+	$(MAKE) recent-scan-batch-cleanup || production_status=$$?; \
+	$(MAKE) capacity-cleanup || capacity_status=$$?; \
+	if [ "$$production_status" -ne 0 ] || [ "$$capacity_status" -ne 0 ]; then \
+	  echo 'One or more tmux cleanup workflows failed.' >&2; exit 1; \
+	fi
+
 recent-scan-batch-assignee-test:
 	@test -n "$(TEST_RECIPIENTS)" -a "$(TEST_RECIPIENTS)" != 'operator@example.gov' || (echo 'Set TEST_RECIPIENTS to an email-enabled WAS functional-test recipient.' >&2; exit 2)
 	@echo 'All batch reports and digests will be sent only to $(TEST_RECIPIENTS).'
-	@echo 'Report lookback: $(BATCH_DAYS_BACK) calendar days (all removes the date limit).'
+	@echo 'Qualys web application deletion is disabled for this recipient-override test.'
+	@echo 'BATCH_DAYS_BACK must be all or an integer of at least 1; 1 means today only.'
+	@echo 'Selected report lookback: $(BATCH_DAYS_BACK) calendar days (all removes the date limit).'
 	$(MAKE) recent-scan-batch BATCH_WORKERS="$(BATCH_WORKERS)" BATCH_TEST_RECIPIENTS="$(TEST_RECIPIENTS)" BATCH_DAYS_BACK="$(BATCH_DAYS_BACK)"
 
 recent-scan-batch-test:

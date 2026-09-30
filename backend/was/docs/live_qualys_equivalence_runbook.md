@@ -312,7 +312,10 @@ make recent-scan-batch-assignee-test \
 This is a live operation. It refreshes the tracker, calls Qualys, generates and
 encrypts reports, archives them to S3, sends SES email, and records successful
 tracker rows as sent. It does not use customer POC addresses, but it processes
-the complete eligible workload in the selected window. Use it only when that
+the complete eligible workload in the selected window. Its recipient override
+keeps the tracker refresh non-destructive: it does not delete Qualys web
+applications, and eligible removals remain manual for reconciliation. Capacity
+and other test workflows are also non-destructive. Use it only when that
 workload and all test recipients have been approved.
 
 After controlled coordinator validation, the production command is:
@@ -324,6 +327,13 @@ make recent-scan-batch
 The production command uses normal customer recipients. `BATCH_WORKERS`
 defaults to 30, `BATCH_DAYS_BACK` defaults to seven calendar dates including
 today, and `TRACKER_LOOKBACK_DAYS` defaults to three days for tracker discovery.
+Unlike the controlled recipient and capacity/test workflows, this true customer
+production path explicitly enables guarded deletion for eligible non-FCEB web
+applications that were inaccessible in two consecutive scans. The flow commits
+a `MANUAL QUALYS DELETION PENDING` claim before deletion. Interrupted or failed
+deletions stay manual and require reconciliation rather than automatic replay.
+Numeric `BATCH_DAYS_BACK` values must be integers of at least `1`; `1` means
+today only, and `0` is invalid.
 Changing those values changes operational scope and must be intentional.
 
 Each coordinated run writes a batch identifier and process-specific logs under

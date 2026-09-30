@@ -140,6 +140,28 @@ class CapacityTestTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertFalse(result["capacity_pass"])
 
+    def test_authorized_production_refresh_deletes_webapps(self):
+        """Explicit production authorization enables guarded tracker deletion."""
+        result, status = self.execute_mock_trial(
+            sent=1,
+            run_mode="production",
+            delete_apps=True,
+        )
+        self.assertEqual(status, 0)
+        self.assertFalse(result["capacity_pass"])
+
+    def test_non_authorized_and_capacity_refreshes_do_not_delete_webapps(self):
+        """Missing authorization and capacity mode keep tracker refresh safe."""
+        for run_mode, delete_apps in (("production", False), ("capacity", True)):
+            with self.subTest(run_mode=run_mode, delete_apps=delete_apps):
+                result, status = self.execute_mock_trial(
+                    sent=1,
+                    run_mode=run_mode,
+                    delete_apps=delete_apps,
+                )
+                self.assertEqual(status, 0)
+                self.assertEqual(result["capacity_pass"], run_mode == "capacity")
+
     def test_fresh_snapshot_includes_existing_pending_delivery_in_both_modes(self):
         """Ready customer deliveries join the manifest, excluding standalone runs."""
         self.ready_deliveries.return_value = [
@@ -508,10 +530,12 @@ class CapacityTestTests(unittest.TestCase):
 
     def execute_mock_trial(self, sent, worker_status=0, summary_status=0,
                            tracker_ids=None, continuing=False, delivery_error=False, backend="process",
-                           cleanup_error=False, worker_count=1, run_mode="capacity", expected_count=1):
+                           cleanup_error=False, worker_count=1, run_mode="capacity", expected_count=1,
+                           delete_apps=False):
         """Exercise real orchestration with bounded process and database mocks."""
         arguments = self.arguments(apply=True)
         arguments.run_mode = run_mode
+        arguments.delete_apps = delete_apps
         arguments.workers = worker_count
         arguments.worker_backend = backend
         arguments.expected_candidates = expected_count
@@ -572,15 +596,25 @@ class CapacityTestTests(unittest.TestCase):
             for phase in phases.call_args_list:
                 if "was_reports.commands.update_tracker_cli" not in phase.args[0]:
                     self.assertEqual("--test-recipients" in phase.args[0], run_mode == "capacity")
+            tracker_refresh_commands = [
+                phase.args[0]
+                for phase in phases.call_args_list
+                if "was_reports.commands.update_tracker_cli" in phase.args[0]
+            ]
+            if continuing:
+                self.assertEqual(tracker_refresh_commands, [])
+            else:
+                self.assertEqual(len(tracker_refresh_commands), 1)
+                self.assertEqual(
+                    "--delete-apps" in tracker_refresh_commands[0],
+                    run_mode == "production" and delete_apps,
+                )
             if backend == "docker":
                 workers.assert_not_called()
                 self.assertEqual(worker.stop.call_count, worker_count)
                 self.assertEqual([call.kwargs["worker_index"] for call in docker_workers.call_args_list],
                                  list(range(worker_count)))
                 self.assertEqual(docker_workers.call_args.kwargs["output_directory"], arguments.output_root.resolve())
-            if continuing:
-                self.assertFalse(any("was_reports.commands.update_tracker_cli" in call.args[0]
-                                     for call in phases.call_args_list))
             result = json.loads((Path(directory) / "result.json").read_text())
             return result, status
 

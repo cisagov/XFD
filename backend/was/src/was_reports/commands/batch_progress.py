@@ -59,7 +59,9 @@ def log_preflight_summary(
 ) -> None:
     """Log the selected date scope and report composition before processing."""
     date_scope = "all eligible tracker history"
-    if days_back is not None:
+    if days_back == 1:
+        date_scope = "today only"
+    elif days_back is not None:
         date_scope = "the last {} calendar days".format(days_back)
 
     logger.info(

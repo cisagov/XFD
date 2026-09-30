@@ -848,9 +848,13 @@ The capacity commands require the project Python environment
 and the rebuilt image. It runs the coordinator on the host and each worker in
 its own container, without mounting the Docker socket into a container.
 `make recent-scan-batch` uses that same phase engine and worker launcher with
-the production database and normal customer delivery. The assignee-test target
-uses the production workflow with an explicit recipient override; it is not
-an isolated capacity test. Both host workflows save their selected workload
+the production database and normal customer delivery. Its tracker refresh uses
+the guarded Qualys deletion flow for eligible non-FCEB web applications that
+were inaccessible in two consecutive scans. The assignee-test target uses the
+production database with an explicit recipient override, but its tracker refresh
+is non-destructive and does not delete Qualys web applications. It is not an
+isolated capacity test. Capacity workflows are also non-destructive. Both host
+workflows save their selected workload
 and include completed tracker reports still awaiting delivery. Existing
 running or sending operations require reconciliation before a new run.
 
@@ -1202,6 +1206,10 @@ make recent-scan-batch TRACKER_LOOKBACK_DAYS=5 BATCH_DAYS_BACK=14
 make recent-scan-batch BATCH_DAYS_BACK=all
 ```
 
+Numeric `BATCH_DAYS_BACK` values must be integers of at least `1`. A value of
+`1` means today only, `2` means today and yesterday, and `7` means today plus
+the previous six calendar days. `0` is invalid.
+
 `BATCH_DAYS_BACK=all` removes the report-generation and delivery date guardrail
 for existing tracker data; it does not discover every historical execution or
 override newest-row selection. Use it only for an intentional historical
@@ -1243,7 +1251,9 @@ does not use customer email addresses. Recipient validation requires every
 submitted address to belong to an email-enabled `was_assignees` row. The row may
 be inactive so development testers remain outside daily operations. This is a
 live test that generates reports, archives them to S3, sends SES email, and
-updates successful tracker rows as sent. As a safety guardrail, report
+updates successful tracker rows as sent. Its recipient override also selects a
+non-destructive tracker refresh: it never deletes Qualys web applications, and
+eligible removals remain manual for reconciliation. As a safety guardrail, report
 generation and completed-report retries are limited to
 tracker rows within `BATCH_DAYS_BACK`, defaulting to the same seven calendar dates
 as the production batch and counts-only preview. Set `BATCH_DAYS_BACK=30` for an
@@ -1348,16 +1358,19 @@ Tracker templates control delivery behavior:
 - `All NWS` and `FCEB All NWS` send a notification without generating or
   attaching a PDF.
 - FCEB web applications are never automatically removed for NWS results.
-- Non-FCEB removal candidates require an explicitly destructive tracker refresh.
-  If deletion is disabled, the row is marked for analyst action and no email
+- A true customer production `make recent-scan-batch` run explicitly enables
+  guarded deletion for eligible non-FCEB applications that were inaccessible
+  in two consecutive scans. Assignee-test and capacity/test workflows keep
+  deletion disabled; those rows are marked for analyst action and no email
   claims that a target was removed.
 - A `Targets Removed` row is stored only after the Qualys deletion calls return
   successfully. A separate destructive-action audit record remains deferred to
   its approved future sprint.
 - Opt-in deletion first commits a `MANUAL QUALYS DELETION PENDING` tracker
   claim. Interrupted or failed deletions require reconciliation, not automatic
-  replay. A non-destructive `QUALYS DELETION REQUIRED` row can be processed by
-  a subsequent explicit deletion refresh before reporting has started.
+  replay. A non-destructive `QUALYS DELETION REQUIRED` row from an assignee-test
+  or capacity/test run can be processed by a subsequent true production or
+  explicit deletion refresh before reporting has started.
 - Historical date-only rows with the same schedule and Eastern scan date
   require reconciliation instead of guessing an execution timestamp and
   generating a duplicate report. Already-finished keyed rows are not reinserted.
@@ -1911,6 +1924,9 @@ make recent-scan-batch BATCH_WORKERS=30
 make recent-scan-batch-assignee-test TEST_RECIPIENTS="analyst@example.gov"
 make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
 make recent-scan-batch-preflight
+make recent-scan-batch-cleanup
+make recent-scan-batch-cleanup TMUX_CLEANUP_APPLY=1
+make tmux-cleanup TMUX_CLEANUP_APPLY=1
 make report-alignment-diagnostic-local
 make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"
@@ -1922,6 +1938,8 @@ make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123,456" \
   TEST_RECIPIENTS="analyst@example.gov"
 make capacity-start TEST_RECIPIENTS="analyst@example.gov"
 make capacity-continue APPLY=1 TEST_RECIPIENTS="analyst@example.gov"
+make capacity-cleanup
+make capacity-cleanup TMUX_CLEANUP_APPLY=1
 make logs-latest
 make logs-summary LOG_BATCH_ID="<batch-uuid>"
 make logs-errors LOG_BATCH_ID="<batch-uuid>"

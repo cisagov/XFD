@@ -15,10 +15,14 @@ class BatchPreflightTests(unittest.TestCase):
     def test_window_values(self) -> None:
         """Allow deliberate unlimited history and reject invalid bounds."""
         self.assertIsNone(batch_preflight.parse_window("all"))
+        self.assertEqual(batch_preflight.parse_window("1"), 1)
         self.assertEqual(batch_preflight.parse_window("7"), 7)
+        expected = "Use all or an integer of at least 1; 1 means today only."
         for value in ("0", "-1", "invalid"):
-            with self.assertRaises(argparse.ArgumentTypeError):
-                batch_preflight.parse_window(value)
+            with self.subTest(value=value):
+                with self.assertRaises(argparse.ArgumentTypeError) as context:
+                    batch_preflight.parse_window(value)
+                self.assertEqual(str(context.exception), expected)
 
     @patch.object(batch_preflight, "close")
     @patch.object(batch_preflight, "connect")

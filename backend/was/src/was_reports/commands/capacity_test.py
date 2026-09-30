@@ -474,12 +474,20 @@ def execute_trial(arguments, recipients, output_directory):
                                 run_id=arguments.run_id, workers=arguments.workers,
                                 workload_label=arguments.workload_label)
             else:
+                tracker_refresh_command = command(
+                    "was_reports.commands.update_tracker_cli",
+                    "--lookback-days",
+                    str(arguments.lookback_days),
+                )
+                delete_apps_authorized = (
+                    run_mode == "production"
+                    and getattr(arguments, "delete_apps", False)
+                    and recipients is None
+                )
+                if delete_apps_authorized:
+                    tracker_refresh_command.append("--delete-apps")
                 run_phase(
-                    command(
-                        "was_reports.commands.update_tracker_cli",
-                        "--lookback-days",
-                        str(arguments.lookback_days),
-                    ),
+                    tracker_refresh_command,
                     check=True,
                     timeout=remaining(),
                     environment=phase_environment("tracker", "tracker_refresh"),
