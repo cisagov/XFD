@@ -14,13 +14,9 @@ import uuid
 from django.conf import settings
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
-
-# from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from itsdangerous import URLSafeTimedSerializer
 import jwt
-
-# from .helpers import user_to_dict
 from xfd_mini_dl.models import (
     ApiKey,
     Notification,
