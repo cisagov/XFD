@@ -9,7 +9,7 @@ from xml.etree import ElementTree
 from zipfile import ZipFile
 
 from was_mailer.authoritative_email_sections import SECTIONS, SOURCE_ZIP_SHA256
-from was_mailer.customer_email_templates import section_names, substitute_values
+from was_mailer.customer_email_templates import SENDER_CHANGE_NOTICE, section_names, substitute_values
 from was_mailer.message import customer_report_body, report_email_subject
 
 CONTACT_ADDRESS = "vulnerability@cisa.dhs.gov"
@@ -176,6 +176,35 @@ class FormattedTextCollector(HTMLParser):
 
 
 class AuthoritativeEmailTests(unittest.TestCase):
+    def test_sender_change_notice_is_first_in_every_customer_template(self) -> None:
+        expected = (
+            "Notice: WAS reports now come from this email address: reports@cyber.dhs.gov. "
+            'Please reference the email, "Cyber Hygiene (CyHy) WAS Report Email Address Change", '
+            "sent from vulnerability@cisa.dhs.gov on 9/30/26. "
+            "Inquiries should still be sent to vulnerability@cisa.dhs.gov."
+        )
+        for template in CUSTOMER_TEMPLATES:
+            with self.subTest(template=template):
+                arguments = (
+                    "TAG", "Sample POC", template, "Sample Analyst",
+                    "https://example.gov", "2,1,1", "https://removed.example.gov",
+                    "https://error.example.gov", None, None,
+                )
+                plain = customer_report_body(*arguments)
+                self.assertTrue(plain.startswith(expected + "\n\n"))
+                self.assertEqual(plain.count(expected), 1)
+                rendered = customer_report_body(*arguments, html=True)
+                collector = FormattedTextCollector()
+                collector.feed(rendered)
+                compact = "".join(expected.split())
+                visible = "".join(character for character, _ in collector.characters)
+                self.assertTrue(visible.startswith(compact))
+                self.assertEqual(visible.count(compact), 1)
+                self.assertTrue(all(
+                    "italic" in styles
+                    for _, styles in collector.characters[:len(compact)]
+                ))
+
     """Protect source wording, flowchart branches, formatting, and escaping."""
 
     def test_source_docx_text_matches_every_component_except_approved_removals(
@@ -453,7 +482,7 @@ class AuthoritativeEmailTests(unittest.TestCase):
         )
         self.assertTrue(
             body.startswith(
-                "WAS Results for TAG\n\n"
+                SENDER_CHANGE_NOTICE + "\n\nWAS Results for TAG\n\n"
                 + NO_REPLY_NOTICE
                 + "\n\nSample POC,\n"
             )

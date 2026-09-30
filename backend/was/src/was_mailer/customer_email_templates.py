@@ -7,6 +7,14 @@ from was_mailer.authoritative_email_sections import SECTIONS
 ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
 FCEB_TEMPLATES = frozenset({"FCEB Action Required", "FCEB All NWS"})
 
+# Operator-approved September 30 sender-change notice, shared by every template.
+SENDER_CHANGE_NOTICE = (
+    "Notice: WAS reports now come from this email address: reports@cyber.dhs.gov. "
+    'Please reference the email, "Cyber Hygiene (CyHy) WAS Report Email Address Change", '
+    "sent from vulnerability@cisa.dhs.gov on 9/30/26. "
+    "Inquiries should still be sent to vulnerability@cisa.dhs.gov."
+)
+
 # September 23 correction restores the source questions address verbatim.
 # The signature address remains reports@cyber.dhs.gov in the source sections.
 
@@ -76,6 +84,14 @@ def render_sections(
         SECTIONS[name]["html" if html else "text"] for name in names
     )
     body = substitute_values(source, values, html)
+    if html:
+        notice = escape(SENDER_CHANGE_NOTICE).replace(
+            "vulnerability@cisa.dhs.gov",
+            "<strong>vulnerability@cisa.dhs.gov</strong>",
+        )
+        body = "<div><em>{}</em></div><br>\n{}".format(notice, body)
+    else:
+        body = SENDER_CHANGE_NOTICE + "\n\n" + body
     if html:
         return (
             '<!doctype html><html lang="en"><head><meta charset="utf-8"></head><body '

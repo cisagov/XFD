@@ -134,9 +134,11 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
+        from was_mailer.customer_email_templates import SENDER_CHANGE_NOTICE
+
         self.assertTrue(
             body.startswith(
-                "WAS Results for TAG1\n\n"
+                SENDER_CHANGE_NOTICE + "\n\nWAS Results for TAG1\n\n"
                 "Please do not reply to this email as it is not monitored. "
                 "If you have questions, please email "
                 "vulnerability@cisa.dhs.gov.\n\nCustomer Name,\n"
