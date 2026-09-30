@@ -42,7 +42,7 @@ environment variables use values that are stored in SSM.
 
 ### Authentication
 
-A user logs with login.gov.
+A user logs in with login.gov.
 
 The REST API then verifies the credential and issues the user a JWT. The user uses this server-provided JWT
 to authenticate any future requests to the Crossfeed API by passing the JWT in the `Authorization` header.
