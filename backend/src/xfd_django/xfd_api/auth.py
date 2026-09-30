@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 import logging
-import os
 import re
 from typing import Optional
 import uuid
@@ -15,7 +14,6 @@ from django.conf import settings
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
-from itsdangerous import URLSafeTimedSerializer
 import jwt
 from xfd_mini_dl.models import (
     ApiKey,
@@ -30,7 +28,6 @@ JWT_SECRET = settings.JWT_SECRET
 SECRET_KEY = settings.SECRET_KEY
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_TIMEOUT_HOURS = settings.JWT_TIMEOUT_HOURS
-OAUTH_META_SECRET = os.getenv("CSRF_SECRET", "super-secret")
 
 
 LOGGER = logging.getLogger(__name__)
@@ -39,8 +36,6 @@ LOGGER = logging.getLogger(__name__)
 LOGIN_BLOCKED_EXCLUSIONS = ["globalAdmin", "regionalAdmin"]
 
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
-serializer = URLSafeTimedSerializer(OAUTH_META_SECRET)
-IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
 def validate_json_serialization(user_object, label="user_object"):
