@@ -17,7 +17,7 @@ from fastapi import Depends, HTTPException, Request, Security, status
 
 # from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer
 import jwt
 
 # from .helpers import user_to_dict
@@ -282,89 +282,6 @@ def update_login_block_status(user: User) -> None:
         active_maintenance and user.user_type not in LOGIN_BLOCKED_EXCLUSIONS
     )
     user.save()
-
-
-def sign_oauth_data(state: str, code_verifier: str) -> str:
-    """Sign oath data."""
-    return serializer.dumps(
-        {"state": state, "code_verifier": code_verifier}, salt="oauth"
-    )
-
-
-def verify_oauth_data(token: str, max_age: int = 300):
-    """Verify oauth data."""
-    try:
-        return serializer.loads(token, salt="oauth", max_age=max_age)
-    except (BadSignature, SignatureExpired):
-        return None
-
-
-async def process_user(decoded_token):
-    """Process a user based on decoded token information."""
-    okta_id = decoded_token["sub"]
-    email = decoded_token["email"]
-
-    user = User.objects.filter(okta_id=okta_id).first()
-
-    if not user:
-        # Look for legacy user by email with null okta_id
-        user = User.objects.filter(email=email, okta_id__isnull=True).first()
-
-        if user:
-            # Assign new okta_id to legacy user
-            user.okta_id = okta_id
-            user.first_name = user.first_name or decoded_token.get("given_name")
-            user.last_name = user.last_name or decoded_token.get("family_name")
-            user.invite_pending = False
-        else:
-            # Create new user if no match found
-            user = User(
-                email=email,
-                okta_id=okta_id,
-                first_name=decoded_token.get("given_name"),
-                last_name=decoded_token.get("family_name"),
-                user_type="standard",
-                invite_pending=True,
-                can_select_own_state=True,
-            )
-
-    # Update common fields
-    user.last_logged_in = datetime.now()
-    user.last_notified_30 = None
-    user.cognito_username = decoded_token.get("cognito:username")
-    user.cognito_use_case_description = decoded_token.get("nickname")
-    user.cognito_email_verified = decoded_token.get("email_verified")
-    user.cognito_groups = decoded_token.get("cognito:groups")
-
-    update_login_block_status(user)
-    user.save()
-
-    if user:
-        # TODO: Uncomment if we want to fully block logins during maintenance windows.
-        # Safeguard for preventing logins by returning 403 if login_blocked_by_maintenance.
-        # if user.login_blocked_by_maintenance:
-        #     raise HTTPException(
-        #         status_code=403, detail="Login is currently blocked due to maintenance."
-        #     )
-        if not JWT_SECRET:
-            LOGGER.error("JWT_SECRET is not defined in settings.")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # Generate JWT token
-        signed_token = jwt.encode(
-            {
-                "id": str(user.id),
-                "email": user.email,
-                "exp": datetime.utcnow() + timedelta(hours=int(JWT_TIMEOUT_HOURS)),
-            },
-            JWT_SECRET,
-            algorithm=JWT_ALGORITHM,
-        )
-
-        process_resp = {"token": signed_token, "user": user_to_dict(user)}
-        validate_json_serialization(process_resp["user"], label="User Dict")
-        return process_resp
-    else:
-        raise HTTPException(status_code=400, detail="User not found")
 
 
 def is_global_write_admin(current_user) -> bool:
