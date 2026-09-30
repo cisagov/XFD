@@ -94,13 +94,13 @@ const ScansWidget: React.FC = () => {
   const detailsRegionRef = useRef<HTMLDivElement | null>(null);
 
   const fetchScanSummaries = useCallback(async () => {
-    const result = await apiGet(ENDPOINTS.METRICS_SCANS);
+    const result = await apiGet<ScanSummaries>(ENDPOINTS.METRICS_SCANS);
     setScanSummaries(result || null);
   }, [apiGet]);
 
   const fetchScanDetails = useCallback(
     async (scanId: string) => {
-      const result = await apiGet(
+      const result = await apiGet<ScanDetails>(
         ENDPOINTS.METRICS_SCAN.replace('{scan_id}', scanId)
       );
       setScanDetails(result || null);
