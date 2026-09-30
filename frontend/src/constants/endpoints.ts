@@ -24,6 +24,8 @@ export const ENDPOINTS = {
   ORGANIZATION_UPDATE: '/update_organization/{organization_id}',
   ORGANIZATION_UPSERT: '/organizations_upsert',
   ORGANIZATIONS: '/organizations',
+  ORGANIZATIONS_CHECK_DOMAIN_VERIFICATION:
+    '/organizations/{organization_id}/checkDomainVerification',
   ORGANIZATIONS_REGION: '/organizations/region_id/{region_id}',
   ORGANIZATIONS_SEARCH: '/v2/organizations/search',
   ORGANIZATIONS_SEARCH_ES: '/search/organizations',
