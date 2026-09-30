@@ -109,10 +109,7 @@ from .api_methods.was_sync import (
     paginate_queryset,
 )
 from .api_methods.xpanse_sync import xpanse_sync_post
-from .auth import (  # handle_okta_callback,; sign_oauth_data,
-    get_current_active_user,
-    get_current_active_user_unsafe,
-)
+from .auth import get_current_active_user, get_current_active_user_unsafe
 from .auth_saml import router as saml_router
 from .schema_models import organization_schema as OrganizationSchema
 from .schema_models import scan as scanSchema
