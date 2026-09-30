@@ -134,7 +134,14 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
-        self.assertTrue(body.startswith("WAS Results for TAG1\n\nCustomer Name,\n"))
+        self.assertTrue(
+            body.startswith(
+                "WAS Results for TAG1\n\n"
+                "Please do not reply to this email as it is not monitored. "
+                "If you have questions, please email "
+                "vulnerability@cisa.dhs.gov.\n\nCustomer Name,\n"
+            )
+        )
 
     def test_test_delivery_notice_keeps_original_recipients_out_of_headers(self):
         """Expose intended customer addresses only in redirected test bodies."""
@@ -296,13 +303,19 @@ class WasMailerTests(unittest.TestCase):
         self.assertIn("Attached is a report containing the results", body)
         self.assertIn("Appendix C: Attachments", body)
         self.assertNotIn("update your WAS report password", body)
-        self.assertIn("If you have questions, please email at vulnerability@cisa.dhs.gov.", body)
+        self.assertIn(
+            "Please do not reply to this email as it is not monitored. "
+            "If you have questions, please email vulnerability@cisa.dhs.gov.",
+            body,
+        )
         self.assertNotIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
-        self.assertIn("reports@cyber.dhs.gov", body)
+        self.assertIn("reports@cyber.dhs.gov (Not monitored)", body)
         self.assertLess(
-            body.index("Important Note:"),
             body.index(
-                "If you have questions, please email at vulnerability@cisa.dhs.gov"
+                "Please do not reply to this email as it is not monitored."
+            ),
+            body.index(
+                "Important Note:"
             ),
         )
         self.assertIn("Your next scan is scheduled for", body)
@@ -322,7 +335,9 @@ class WasMailerTests(unittest.TestCase):
             html_body,
         )
         self.assertIn(
-            "<strong>vulnerability@cisa.dhs.gov</strong>",
+            "<em>Please do not reply to this email as it is not monitored. "
+            "If you have questions, please email "
+            "<strong>vulnerability@cisa.dhs.gov</strong>.</em>",
             html_body,
         )
 
@@ -447,7 +462,10 @@ class WasMailerTests(unittest.TestCase):
             "Cybersecurity and Infrastructure Security Agency (CISA)",
             plain_body,
         )
-        self.assertIn("Email: reports@cyber.dhs.gov", plain_body)
+        self.assertIn(
+            "Email: reports@cyber.dhs.gov (Not monitored)",
+            plain_body,
+        )
         self.assertIn(
             "<strong>Individual Analyst</strong>",
             html_body,

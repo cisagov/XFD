@@ -19,12 +19,25 @@ FAQ_SENTENCE = (
     "A helpful list of scan report and WAS FAQs can be found here: "
     + CYBER_HYGIENE_URL
 )
+NO_REPLY_NOTICE = (
+    "Please do not reply to this email as it is not monitored. "
+    "If you have questions, please email vulnerability@cisa.dhs.gov."
+)
+OLD_QUESTIONS_NOTICE = (
+    "If you have questions, please email at vulnerability@cisa.dhs.gov."
+)
+SIGNATURE_ADDRESS = "reports@cyber.dhs.gov"
+SIGNATURE_MONITORING_LABEL = " (Not monitored)"
 APPROVED_TEXT_REMOVALS = {
     "report_not_generated": "\n\nFor your reference, a helpful list of scan "
     "report and WAS FAQs can be found here: "
     + CYBER_HYGIENE_URL
     + "\n",
     "results_part1": " " + FAQ_SENTENCE,
+}
+NOTICE_HEADINGS = {
+    "report_not_generated": "WAS Report for <tag> could not be generated",
+    "results_part1": "WAS Results for <tag>",
 }
 CUSTOMER_TEMPLATES = (
     "Results",
@@ -60,6 +73,48 @@ def add_bold_style(characters: list, text: str) -> None:
             for character, styles in characters[match:end]
         ]
         start = end
+
+
+def insert_formatted_text_after(
+    characters: list,
+    anchor: str,
+    text: str,
+    styles: frozenset,
+) -> None:
+    """Insert an approved formatted phrase after a visible source phrase."""
+    visible_text = "".join(character for character, unused_styles in characters)
+    insert_at = visible_text.index(
+        "".join(character for character in anchor if not character.isspace())
+    ) + len("".join(character for character in anchor if not character.isspace()))
+    inserted = [
+        (character, styles) for character in text if not character.isspace()
+    ]
+    characters[insert_at:insert_at] = inserted
+
+
+def apply_approved_text_changes(name: str, expected_text: str) -> str:
+    """Apply approved review wording changes to source DOCX text."""
+    if name in APPROVED_TEXT_REMOVALS:
+        expected_text = expected_text.replace(APPROVED_TEXT_REMOVALS[name], "")
+    if name in NOTICE_HEADINGS:
+        heading = NOTICE_HEADINGS[name]
+        expected_text = expected_text.replace(
+            heading + "\n\n",
+            heading + "\n\n" + NO_REPLY_NOTICE + "\n\n",
+            1,
+        )
+    if name == "results_part2":
+        expected_text = expected_text.replace(
+            "\n\n" + OLD_QUESTIONS_NOTICE,
+            "",
+            1,
+        )
+        expected_text = expected_text.replace(
+            SIGNATURE_ADDRESS,
+            SIGNATURE_ADDRESS + SIGNATURE_MONITORING_LABEL,
+            1,
+        )
+    return expected_text
 
 
 class TextCollector(HTMLParser):
@@ -161,10 +216,7 @@ class AuthoritativeEmailTests(unittest.TestCase):
                             text = "  " * depth + "- " + text
                         paragraphs.append(text)
                     expected_text = "\n".join(paragraphs)
-                    if name in APPROVED_TEXT_REMOVALS:
-                        expected_text = expected_text.replace(
-                            APPROVED_TEXT_REMOVALS[name], ""
-                        )
+                    expected_text = apply_approved_text_changes(name, expected_text)
                     self.assertEqual(section["text"], expected_text)
 
     def test_html_preserves_every_source_word(self) -> None:
@@ -216,13 +268,28 @@ class AuthoritativeEmailTests(unittest.TestCase):
                             expected,
                             APPROVED_TEXT_REMOVALS[name],
                         )
+                    if name in NOTICE_HEADINGS:
+                        insert_formatted_text_after(
+                            expected,
+                            NOTICE_HEADINGS[name],
+                            NO_REPLY_NOTICE,
+                            frozenset({"italic"}),
+                        )
+                    if name == "results_part2":
+                        remove_formatted_text(expected, OLD_QUESTIONS_NOTICE)
+                        insert_formatted_text_after(
+                            expected,
+                            SIGNATURE_ADDRESS,
+                            SIGNATURE_MONITORING_LABEL,
+                            frozenset(),
+                        )
                     add_bold_style(expected, CONTACT_ADDRESS)
                     collector = FormattedTextCollector()
                     collector.feed(section["html"])
                     self.assertEqual(collector.characters, expected)
 
     def test_review_changes_apply_to_every_customer_template(self) -> None:
-        """Remove the FAQ and bold every HTML contact-address occurrence."""
+        """Apply approved FAQ, contact, no-reply, and signature changes."""
         for template in CUSTOMER_TEMPLATES:
             with self.subTest(template=template):
                 arguments = (
@@ -243,6 +310,12 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 for body in (plain_body, html_body):
                     self.assertNotIn(FAQ_WORDING, body)
                     self.assertNotIn(CYBER_HYGIENE_URL, body)
+                    self.assertNotIn(OLD_QUESTIONS_NOTICE, body)
+                self.assertEqual(plain_body.count(NO_REPLY_NOTICE), 1)
+                self.assertIn(
+                    SIGNATURE_ADDRESS + SIGNATURE_MONITORING_LABEL,
+                    plain_body,
+                )
 
                 plain_occurrences = plain_body.count(CONTACT_ADDRESS)
                 self.assertGreater(plain_occurrences, 0)
@@ -250,6 +323,25 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 collector.feed(html_body)
                 visible_text = "".join(
                     character for character, unused_styles in collector.characters
+                )
+                self.assertEqual(
+                    visible_text.count(
+                        "".join(
+                            character
+                            for character in NO_REPLY_NOTICE
+                            if not character.isspace()
+                        )
+                    ),
+                    1,
+                )
+                self.assertIn(
+                    "".join(
+                        character
+                        for character in SIGNATURE_ADDRESS
+                        + SIGNATURE_MONITORING_LABEL
+                        if not character.isspace()
+                    ),
+                    visible_text,
                 )
                 self.assertEqual(
                     visible_text.count(CONTACT_ADDRESS),
@@ -268,6 +360,29 @@ class AuthoritativeEmailTests(unittest.TestCase):
                         )
                     )
                     search_start = address_end
+
+                notice_start = visible_text.index(
+                    "".join(
+                        character
+                        for character in NO_REPLY_NOTICE
+                        if not character.isspace()
+                    )
+                )
+                notice_end = notice_start + len(
+                    "".join(
+                        character
+                        for character in NO_REPLY_NOTICE
+                        if not character.isspace()
+                    )
+                )
+                self.assertTrue(
+                    all(
+                        "italic" in styles
+                        for unused_character, styles in collector.characters[
+                            notice_start:notice_end
+                        ]
+                    )
+                )
 
     def test_flowchart_orders_conditional_sections(self) -> None:
         """Qualys errors precede NWS, warning, removals, and shared closing."""
@@ -336,7 +451,13 @@ class AuthoritativeEmailTests(unittest.TestCase):
             1790006400,
             1790611200,
         )
-        self.assertTrue(body.startswith("WAS Results for TAG\n\nSample POC,\n"))
+        self.assertTrue(
+            body.startswith(
+                "WAS Results for TAG\n\n"
+                + NO_REPLY_NOTICE
+                + "\n\nSample POC,\n"
+            )
+        )
         self.assertIn(
             "scan that began at September 21, 2026 at 12:00 PM Eastern Time.", body
         )
@@ -344,16 +465,14 @@ class AuthoritativeEmailTests(unittest.TestCase):
             "Your next scan is scheduled for September 28, 2026 at 12:00 PM Eastern Time.",
             body,
         )
-        self.assertIn(
-            "If you have questions, please email at vulnerability@cisa.dhs.gov.", body
-        )
+        self.assertEqual(body.count(NO_REPLY_NOTICE), 1)
         self.assertIn(
             "Regards,\n\nSample Analyst\nWeb Application Scanning (WAS)", body
         )
         self.assertNotIn("<last_scan_date>", body)
 
-    def test_restored_questions_address_preserves_signature(self) -> None:
-        """Restore the source questions address in both MIME bodies, not the signature."""
+    def test_no_reply_guidance_preserves_contact_and_signature_addresses(self) -> None:
+        """Keep the questions and signature addresses in their approved roles."""
         for html in (False, True):
             body = customer_report_body(
                 "TAG", "Sample POC", "Targets Removed", "Sample Analyst",
@@ -361,10 +480,10 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 None, None, html=html,
             )
             expected_questions_sentence = (
-                "If you have questions, please email at "
+                "If you have questions, please email "
                 "<strong>vulnerability@cisa.dhs.gov</strong>."
                 if html
-                else "If you have questions, please email at "
+                else "If you have questions, please email "
                 "vulnerability@cisa.dhs.gov."
             )
             self.assertIn(expected_questions_sentence, body)
@@ -376,7 +495,13 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 else "updated list of targets to vulnerability@cisa.dhs.gov."
             )
             self.assertIn(expected_targets_sentence, body)
-            self.assertIn("reports@cyber.dhs.gov", body)
+            if html:
+                self.assertIn("reports@cyber.dhs.gov</a> (Not monitored)", body)
+            else:
+                self.assertIn(
+                    "reports@cyber.dhs.gov (Not monitored)",
+                    body,
+                )
 
     def test_all_nws_keeps_authoritative_policy_and_closing(self) -> None:
         """Honor the user's explicit verbatim decision for both All NWS variants."""
@@ -394,5 +519,8 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 None,
             )
             self.assertIn("will be removed from the scan target list", body)
-            self.assertIn("Email: reports@cyber.dhs.gov", body)
+            self.assertIn(
+                "Email: reports@cyber.dhs.gov (Not monitored)",
+                body,
+            )
             self.assertNotIn("Attached is a report", body)

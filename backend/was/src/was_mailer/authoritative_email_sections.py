@@ -3,8 +3,10 @@
 Source: WAS_EMAIL_templates_Newest9_21.zip. Each entry records the original
 DOCX SHA-256. Dynamic angle-bracket placeholders are replaced during composition.
 The September 29 review removed the FAQ link and required the vulnerability
-contact address to be bold in HTML. Do not otherwise rewrite customer wording
-without an updated approved source document.
+contact address to be bold in HTML. The September 30 review added a no-reply
+notice below each customer message heading and marked the signature mailbox as
+not monitored. Do not otherwise rewrite customer wording without an updated
+approved source document.
 """
 
 SOURCE_ZIP_SHA256 = "262796c823b7bf5b17897ca427755756fa710663fd1c9339bbecd28546739c2f"
@@ -80,6 +82,9 @@ SECTIONS = {
         "sha256": "52809a02748c0b8867eb2f5ca0b5624299ed677803d18661f686d71a04057861",
         "text": "WAS Report for <tag> could not be generated\n"
         "\n"
+        "Please do not reply to this email as it is not monitored. If you "
+        "have questions, please email vulnerability@cisa.dhs.gov.\n"
+        "\n"
         "<poc_names>,\n"
         "\n"
         "A Web Application Scanning (WAS) vulnerability "
@@ -108,6 +113,9 @@ SECTIONS = {
         "html": '<div><span style="font-size:15pt"><strong>WAS '
         "Report for &lt;tag&gt; could not be "
         "generated</strong></span></div>\n"
+        "<div><em>Please do not reply to this email as it is not monitored. "
+        "If you have questions, please email "
+        "<strong>vulnerability@cisa.dhs.gov</strong>.</em></div>\n"
         "<div><br></div>\n"
         "<div>&lt;poc_names&gt;,<br><br>A Web Application "
         "Scanning (WAS) vulnerability report <u>could not be "
@@ -141,6 +149,9 @@ SECTIONS = {
         "sha256": "81d3730eb35d5f486bd24c4ad9866b7c2d33f12d803a49e75b90bab8e1bfeb78",
         "text": "WAS Results for <tag>\n"
         "\n"
+        "Please do not reply to this email as it is not monitored. If you "
+        "have questions, please email vulnerability@cisa.dhs.gov.\n"
+        "\n"
         "<poc_names>,\n"
         "\n"
         "Attached is a report containing the results from your most "
@@ -162,6 +173,9 @@ SECTIONS = {
         "left of the attachment name.",
         "html": '<div><span style="font-size:15pt"><strong>WAS Results for '
         "&lt;tag&gt;</strong></span></div>\n"
+        "<div><em>Please do not reply to this email as it is not monitored. "
+        "If you have questions, please email "
+        "<strong>vulnerability@cisa.dhs.gov</strong>.</em></div>\n"
         "<div><br></div>\n"
         "<div>&lt;poc_names&gt;,<br><br>Attached is a report "
         "containing the results from your most recent Web "
@@ -191,24 +205,20 @@ SECTIONS = {
         "sha256": "9748d38d43e6645e068bcdfad460ef9c923fe4e98646b65f6a8debd8004456c7",
         "text": "Your next scan is scheduled for <next_scan_date>.\n"
         "\n"
-        "If you have questions, please email at "
-        "vulnerability@cisa.dhs.gov.\n"
-        "\n"
         "Regards,\n"
         "\n"
         "<assignee_name>\n"
         "Web Application Scanning (WAS)\n"
         "Cybersecurity and Infrastructure Security Agency (CISA)\n"
-        "Email: reports@cyber.dhs.gov\n"
+        "Email: reports@cyber.dhs.gov (Not monitored)\n"
         "<cisa_logo>",
         "html": "<div>Your next scan is scheduled for "
-        "<strong>&lt;next_scan_date&gt;</strong>.<br><br>If you "
-        "have questions, please email at "
-        "<strong>vulnerability@cisa.dhs.gov</strong>.<br><br>Regards,<br><br><strong>&lt;assignee_name&gt;</strong><br>Web "
+        "<strong>&lt;next_scan_date&gt;</strong>.<br><br>Regards,<br><br><strong>&lt;assignee_name&gt;</strong><br>Web "
         "Application Scanning (WAS)<br>Cybersecurity and "
         "Infrastructure Security Agency (CISA)<br>Email: <a "
         'style="color:#467886;text-decoration:underline" '
-        'href="mailto:reports@cyber.dhs.gov">reports@cyber.dhs.gov</a></div>\n'
+        'href="mailto:reports@cyber.dhs.gov">reports@cyber.dhs.gov</a> '
+        "(Not monitored)</div>\n"
         "<div>&lt;cisa_logo&gt;</div>",
     },
     "targets_removed": {
