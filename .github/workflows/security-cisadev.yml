@@ -10,7 +10,7 @@ on:
 jobs:
   backend:
     if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
-    runs-on: [self-hosted, xfd-runner-group]
+    runs-on: [self-hosted, xfd-app-runners]
     defaults:
       run:
         working-directory: ./backend
@@ -26,7 +26,7 @@ jobs:
 
   frontend:
     if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
-    runs-on: [self-hosted, xfd-runner-group]
+    runs-on: [self-hosted, xfd-app-runners]
     defaults:
       run:
         working-directory: ./frontend
@@ -42,7 +42,7 @@ jobs:
 
   docs:
     if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
-    runs-on: [self-hosted, xfd-runner-group]
+    runs-on: [self-hosted, xfd-app-runners]
     defaults:
       run:
         working-directory: ./docs
@@ -58,7 +58,7 @@ jobs:
 
   backend_python:
     if: vars.ENABLE_CISADEV_WORKFLOWS == 'true'
-    runs-on: [self-hosted, xfd-runner-group]
+    runs-on: [self-hosted, xfd-app-runners]
     defaults:
       run:
         working-directory: ./backend
