@@ -226,6 +226,19 @@ CREATE TABLE was_special_cases (
 CREATE INDEX was_special_cases_active_idx
     ON was_special_cases (active);
 
+-- These established stakeholder tags must never enter automatic inaccessible-
+-- application deletion.  Keep the authoritative schema self-contained so a
+-- database created from this file has the same required safeguards as the
+-- working WAS environments.
+INSERT INTO was_special_cases (value)
+VALUES
+    ('CROSSFEED'),
+    ('CBOE'),
+    ('SCCCS')
+ON CONFLICT (value) DO UPDATE SET
+    active = TRUE,
+    updated_at = NOW();
+
 ALTER TABLE was_report_runs
     ADD COLUMN source_tracker_id BIGINT
     REFERENCES was_daily_report_tracker(id);

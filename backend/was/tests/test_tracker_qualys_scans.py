@@ -1165,6 +1165,35 @@ class TrackerQualysScansTests(unittest.TestCase):
         self.assertEqual(fields[4], "")
         mock_previous.assert_not_called()
 
+    @patch(
+        "was_reports.tracker.item_builder.stakeholder_flags", return_value=("", False)
+    )
+    @patch("was_reports.tracker.item_builder.get_previous_nws")
+    def test_mixed_case_exempt_tag_is_not_eligible_for_removal(
+        self, mock_previous, mock_flags
+    ) -> None:
+        """Match mixed-case Qualys tags to normalized deletion exemptions."""
+        scan = etree.fromstring(
+            b"<WasScan><status>FINISHED</status><summary><resultsStatus>NO_WEB_SERVICE</resultsStatus>"
+            b"</summary><target><webApp><url>https://example.gov</url></webApp></target></WasScan>"
+        )
+
+        fields = create_multiscan(
+            Mock(),
+            "CrossFeed",
+            "Customer",
+            "Customer Run #2",
+            [scan],
+            "2026-09-02T00:00:00Z",
+            {"CROSSFEED"},
+            {"Customer Run #1": ["https://example.gov"]},
+        )
+
+        self.assertTrue(fields[2])
+        self.assertIn("https://example.gov", fields[3])
+        self.assertEqual(fields[4], "")
+        mock_previous.assert_not_called()
+
     def test_normalize_schedule_name_replaces_unicode_dash(self) -> None:
         """Normalize schedule punctuation without regular expressions."""
         normalized = normalize_schedule_name("WAVS – TAG -- Customer")

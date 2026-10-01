@@ -94,6 +94,24 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.assertIn("was_reports.commands.batch_runner:main", setup_source)
         self.assertIn("was_mailer.email_reports:main", setup_source)
 
+    def test_authoritative_schema_defines_required_special_cases(self) -> None:
+        """Keep required deletion exemptions in the authoritative database SQL."""
+        schema_source = (
+            WAS_ROOT / "schema" / "stakeholders_table_creation.sql"
+        ).read_text(encoding="utf-8")
+        special_cases_section = schema_source.split(
+            "CREATE TABLE was_special_cases", 1
+        )[1].split("ALTER TABLE was_report_runs", 1)[0]
+
+        self.assertIn(
+            "INSERT INTO was_special_cases (value)",
+            special_cases_section,
+        )
+        for value in ("CROSSFEED", "CBOE", "SCCCS"):
+            self.assertIn("('{}')".format(value), special_cases_section)
+        self.assertIn("ON CONFLICT (value) DO UPDATE SET", special_cases_section)
+        self.assertIn("active = TRUE", special_cases_section)
+
     def test_requirements_exclude_historical_only_dependencies(self) -> None:
         """Keep historical GUI, workbook, and Mongo packages out of runtime."""
         requirements = {

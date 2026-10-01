@@ -12,6 +12,7 @@ from typing import cast
 import requests
 
 # First-Party Libraries
+from was_reports.data.special_cases import normalize_special_case_value
 from was_reports.data.stakeholders import get_stakeholder_details_by_tag
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.models import (
@@ -207,6 +208,10 @@ def create_multiscan(
     previous_urls: list[str] = []
     previous_checked = False
     is_adhoc = any(marker in tag.lower() for marker in ADHOC_MARKERS)
+    normalized_tag = normalize_special_case_value(tag)
+    normalized_keep_nws_tags = {
+        normalize_special_case_value(value) for value in keep_nws_tags
+    }
 
     for scan in scans:
         result = element_text(scan, "./summary/resultsStatus")
@@ -224,7 +229,7 @@ def create_multiscan(
         if result not in INACCESSIBLE_RESULTS:
             continue
         recent_nws.append(cast(str, webapp_url))
-        if tag in keep_nws_tags:
+        if normalized_tag in normalized_keep_nws_tags:
             continue
         prior_run = previous_run_name(scan_name)
         if prior_run and not previous_checked and not is_adhoc:

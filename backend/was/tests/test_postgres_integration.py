@@ -84,6 +84,21 @@ class PostgresIntegrationTests(unittest.TestCase):
             cursor.execute("SELECT COUNT(*) FROM was_standalone_report_targets")
             self.assertEqual(cursor.fetchone()[0], 1)
 
+    def test_authoritative_schema_seeds_active_special_cases(self) -> None:
+        """Create all required deletion exemptions from the authoritative SQL."""
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT value, active FROM was_special_cases "
+                "WHERE value = ANY(%s) ORDER BY value",
+                (["CROSSFEED", "CBOE", "SCCCS"],),
+            )
+            rows = cursor.fetchall()
+
+        self.assertEqual(
+            rows,
+            [("CBOE", True), ("CROSSFEED", True), ("SCCCS", True)],
+        )
+
     def test_standalone_claim_does_not_require_stakeholder(self) -> None:
         """Standalone delivery resolves its target and cannot join the daily queue."""
         with self.connection.cursor() as cursor:
@@ -829,7 +844,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         with patch.object(
             update_service, "build_tracker_row", return_value=row
         ), patch.object(
-            update_service, "delete_webapp", side_effect=verify_pending
+            update_service, "delete_validated_webapp", side_effect=verify_pending
         ) as delete:
             self.assertEqual(
                 update_service.update_execution(
