@@ -156,7 +156,9 @@ def update_stakeholder_scan_metadata(
 
 def is_schedule_review_item(item: TrackerItem) -> bool:
     """Recognize explicit schedule investigations without fabricated execution IDs."""
-    if item.launched_date is not None or not is_missing_qualys_schedule_manual(item.manual):
+    if item.launched_date is not None or not is_missing_qualys_schedule_manual(
+        item.manual
+    ):
         return False
     execution_key = item.scan_execution_key or ""
     if item.schedule_id is None:
@@ -193,7 +195,8 @@ def build_tracker_row(
             no_error = False
             report_scan_notes = report_scan_notes or "MANUAL"
             LOGGER.error(
-                "Unable to count Qualys web applications for %s; " "marking it manual: %s",
+                "Unable to count Qualys web applications for %s; "
+                "marking it manual: %s",
                 item.tag,
                 exception_details(error),
             )
@@ -427,9 +430,11 @@ def update_execution(
             "AND report_scan_notes LIKE %s) "
             "ORDER BY (scan_execution_key = %s) DESC LIMIT 1 FOR UPDATE",
             (
-                execution_key, review_key,
+                execution_key,
+                review_key,
                 item.schedule_id is not None and item.launched_date is not None,
-                "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX), execution_key,
+                "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX),
+                execution_key,
             ),
         )
         existing = cursor.fetchone()
@@ -515,7 +520,7 @@ def update_execution(
     column_names = [field.name for field in fields(preliminary) if field.name != "id"]
     with conn.cursor() as cursor:
         if existing:
-            update_columns = (
+            update_columns: tuple[str, ...] = (
                 "scan_name",
                 "status",
                 "result",
@@ -533,7 +538,11 @@ def update_execution(
             )
             if promote_schedule_review:
                 update_columns += (
-                    "tag", "poc", "poc_email", "customer_notes", "legacy_password",
+                    "tag",
+                    "poc",
+                    "poc_email",
+                    "customer_notes",
+                    "legacy_password",
                     "scan_execution_key",
                 )
             cursor.execute(

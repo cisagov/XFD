@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 from typing import List
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
 
@@ -82,6 +83,7 @@ def write_safe_tracker_csv(
     rows: List[DailyReportTrackerRow], output_path: Path
 ) -> None:
     """Write a formula-safe export without the legacy password column."""
+    # Third-Party Libraries
     from was_reports.reporting.report_transformer import spreadsheet_safe_field
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

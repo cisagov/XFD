@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
 # Third-Party Libraries
-from lxml import objectify
+# Parsing is size bounded and uses an entity- and network-disabled parser.
+from lxml import objectify  # nosec B410
 
 VULNERABILITY_HEADER = (
     "VULN_ID,NAME,QID,SEVERITY,BASE CVSS,CWE,CVE,FIRST DETECTION,"

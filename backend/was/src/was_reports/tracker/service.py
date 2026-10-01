@@ -1,10 +1,11 @@
 """Application service for refreshing the WAS daily tracker."""
 
 # Standard Python Libraries
-import logging
 from collections import Counter
 from datetime import date, timedelta
 import hashlib
+import logging
+from typing import Any
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -20,7 +21,6 @@ from was_reports.tracker.models import (
     is_recoverable_qualys_manual,
     scheduled_execution_key,
 )
-from was_reports.tracker.update_service import convert_qualys_date
 from was_reports.tracker.qualys_scans import (
     DEFAULT_TRACKER_LOOKBACK_DAYS,
     normalize_schedule_name,
@@ -28,7 +28,7 @@ from was_reports.tracker.qualys_scans import (
     search_schedules,
     tracker_search_window,
 )
-from was_reports.tracker.update_service import update_tracker
+from was_reports.tracker.update_service import convert_qualys_date, update_tracker
 from was_reports.utils.database import close, connect
 
 LOGGER = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def pending_schedules(
     counts: dict[str, int] | None = None,
     delete_apps: bool = False,
     *,
-    tracker_rows: list[tuple[object, ...]] | None = None,
+    tracker_rows: list[tuple[Any, ...]] | None = None,
 ) -> dict[str, TrackerStakeholder]:
     """Exclude positively handled latest executions before fetching scan slices.
 
@@ -91,9 +91,20 @@ def pending_schedules(
     delivered = set()
     unresolved = set()
     deletion_required = set()
-    for schedule_id, start_day, name, status, result, sent, notes, linked, emailed in rows:
+    for (
+        schedule_id,
+        start_day,
+        name,
+        status,
+        result,
+        sent,
+        notes,
+        linked,
+        emailed,
+    ) in rows:
         identity = (
-            schedule_id, start_day,
+            schedule_id,
+            start_day,
             normalize_schedule_name((name or "").split(" Slice", 1)[0]),
         )
         if delete_apps and (notes or "").strip() == "QUALYS DELETION REQUIRED":
@@ -101,20 +112,29 @@ def pending_schedules(
         if sent or emailed:
             delivered.add(identity)
         elif (
-            status in {"Finished", "Error"} and result and result.strip()
-            and result.strip().upper() not in {"PROCESSING", "RUNNING", "FAILED", "ERROR"}
-            and not (notes or "").strip() and not linked
+            status in {"Finished", "Error"}
+            and result
+            and result.strip()
+            and result.strip().upper()
+            not in {"PROCESSING", "RUNNING", "FAILED", "ERROR"}
+            and not (notes or "").strip()
+            and not linked
         ):
             handled.add(identity)
         else:
             unresolved.add(identity)
     excluded = {
-        group_key for group_key, identity in identities.items()
+        group_key
+        for group_key, identity in identities.items()
         if identity not in deletion_required
-        and (identity in delivered or (identity in handled and identity not in unresolved))
+        and (
+            identity in delivered
+            or (identity in handled and identity not in unresolved)
+        )
     }
     pending = {
-        group_key: stakeholder for group_key, stakeholder in stakeholders.items()
+        group_key: stakeholder
+        for group_key, stakeholder in stakeholders.items()
         if group_key not in excluded
     }
     if counts is not None:
@@ -124,7 +144,9 @@ def pending_schedules(
     LOGGER.info(
         "Early tracker execution check: %d schedules discovered; %d handled "
         "executions excluded before scan search; %d require scan search.",
-        len(stakeholders), len(excluded), len(pending),
+        len(stakeholders),
+        len(excluded),
+        len(pending),
     )
     return pending
 
@@ -256,8 +278,10 @@ def pending_scan_groups(
             )
             deletion_pending = delete_apps and notes == "QUALYS DELETION REQUIRED"
             recoverable_manual = is_recoverable_qualys_manual(notes)
-            if sent or linked or (
-                completed and not deletion_pending and not recoverable_manual
+            if (
+                sent
+                or linked
+                or (completed and not deletion_pending and not recoverable_manual)
             ):
                 recorded = True
                 recorded_count += 1
@@ -296,21 +320,28 @@ def finish_schedule_discovery_issues(
     if not discovery_issues:
         return 0
     if preflight_only:
-        print("Schedule discovery preflight: {} manual exceptions; no writes.".format(
-            len(discovery_issues)
-        ))
+        print(
+            "Schedule discovery preflight: {} manual exceptions; no writes.".format(
+                len(discovery_issues)
+            )
+        )
         return len(discovery_issues)
     persisted_count = update_tracker(
-        client=client, tracker_items=discovery_issues, delete_apps=False,
+        client=client,
+        tracker_items=discovery_issues,
+        delete_apps=False,
     )
     LOGGER.info(
         "Persisted %d inserted/updated manual schedule exceptions from %d candidates.",
-        persisted_count, len(discovery_issues),
+        persisted_count,
+        len(discovery_issues),
     )
     return persisted_count
 
 
-def reconcile_known_schedule_reviews(stakeholders: dict[str, TrackerStakeholder]) -> int:
+def reconcile_known_schedule_reviews(
+    stakeholders: dict[str, TrackerStakeholder]
+) -> int:
     """Close unclaimed schedule exceptions when their execution already exists."""
     candidates = {
         stakeholder.schedule_id: stakeholder
@@ -336,10 +367,15 @@ def reconcile_known_schedule_reviews(stakeholders: dict[str, TrackerStakeholder]
         for schedule_id, stakeholder in candidates.items():
             if schedule_id not in review_schedules:
                 continue
-            execution_key = scheduled_execution_key(schedule_id, stakeholder.launched_date)
+            execution_key = scheduled_execution_key(
+                schedule_id, stakeholder.launched_date
+            )
             lock_key = int.from_bytes(
-                hashlib.sha256("tracker-schedule:{}".format(schedule_id).encode()).digest()[:8],
-                "big", signed=True,
+                hashlib.sha256(
+                    "tracker-schedule:{}".format(schedule_id).encode()
+                ).digest()[:8],
+                "big",
+                signed=True,
             )
             with conn.cursor() as cursor:
                 cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_key,))
@@ -358,14 +394,21 @@ def reconcile_known_schedule_reviews(stakeholders: dict[str, TrackerStakeholder]
                         "AND review.report_sent_date IS NULL "
                         "AND NOT EXISTS (SELECT 1 FROM was_report_runs WHERE source_tracker_id = review.id) "
                         "FOR UPDATE OF review",
-                        ("schedule-review:{}".format(schedule_id), execution_key,
-                         "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX)),
+                        (
+                            "schedule-review:{}".format(schedule_id),
+                            execution_key,
+                            "{}%".format(MISSING_QUALYS_SCHEDULE_NOTE_PREFIX),
+                        ),
                     )
                     review = cursor.fetchone()
                     if review is not None:
                         review_id, notes, actual_id = review
-                        resolved_notes = "{}tracker row {}. Previous diagnosis: {}".format(
-                            RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX, actual_id, notes,
+                        resolved_notes = (
+                            "{}tracker row {}. Previous diagnosis: {}".format(
+                                RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX,
+                                actual_id,
+                                notes,
+                            )
                         )
                         cursor.execute(
                             "UPDATE was_daily_report_tracker SET status = 'Resolved', "
@@ -400,7 +443,7 @@ def refresh_daily_tracker(
     """Refresh recent Qualys scan results into Postgres tracker rows."""
     if preflight_only and delete_apps:
         raise ValueError("Preflight cannot be combined with webapp deletion.")
-    counts = {}
+    counts: dict[str, int] = {}
     input_date, previous_schedule_ids = tracker_search_window(
         lookback_days=tracker_lookback_days
     )
@@ -422,11 +465,15 @@ def refresh_daily_tracker(
             )
         else:
             LOGGER.info("No recent Qualys schedules found.")
-        return finish_schedule_discovery_issues(client, discovery_issues, preflight_only)
+        return finish_schedule_discovery_issues(
+            client, discovery_issues, preflight_only
+        )
 
     if not preflight_only:
         reconcile_known_schedule_reviews(stakeholders)
-    stakeholders = pending_schedules(stakeholders, counts=counts, delete_apps=delete_apps)
+    stakeholders = pending_schedules(
+        stakeholders, counts=counts, delete_apps=delete_apps
+    )
     if not stakeholders:
         if preflight_only:
             print(
@@ -435,8 +482,10 @@ def refresh_daily_tracker(
                     counts["discovered_schedules"], counts["early_excluded_schedules"]
                 )
             )
-        return finish_schedule_discovery_issues(client, discovery_issues, preflight_only)
-    history_groups = {}
+        return finish_schedule_discovery_issues(
+            client, discovery_issues, preflight_only
+        )
+    history_groups: dict[str, list[QualysScan]] = {}
     scan_groups = search_scans(
         client=client,
         stakeholders=stakeholders,
@@ -480,7 +529,9 @@ def refresh_daily_tracker(
         )
         print_discovery_breakdown(scan_groups, pending_groups, stakeholders)
         return len(pending_groups) + finish_schedule_discovery_issues(
-            client, discovery_issues, preflight_only=True,
+            client,
+            discovery_issues,
+            preflight_only=True,
         )
     tracker_items = create_tracker_items(
         client=client,

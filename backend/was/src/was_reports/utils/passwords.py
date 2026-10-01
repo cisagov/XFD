@@ -5,6 +5,7 @@ import secrets
 import string
 from typing import Iterable
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.utils.env import getenv
 
@@ -12,7 +13,8 @@ BANNED_PASSWORD_CHARACTERS = frozenset([",", "-"])
 DEFAULT_PASSWORD_LENGTH = 24
 MINIMUM_PASSWORD_LENGTH = 16
 CUSTOMER_PASSWORD_REQUIREMENTS = (
-    "at least 16 characters with an uppercase letter, lowercase letter, "
+    # This is customer-facing policy text, not a hardcoded password value.
+    "at least 16 characters with an uppercase letter, lowercase letter, "  # nosec B105
     "number, and special character; spaces, commas, and hyphens are not allowed"
 )
 PASSWORD_CHARACTER_SET = "".join(
@@ -53,9 +55,7 @@ def _validate_password_characters(value: str, allowed_characters: str) -> None:
 
     for character in value:
         if character not in allowed_characters:
-            raise ValueError(
-                "report_password contains an unsupported character."
-            )
+            raise ValueError("report_password contains an unsupported character.")
 
 
 def validate_report_password(value: str) -> None:

@@ -16,7 +16,6 @@ from psycopg2.extras import execute_values
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import configure_logging
 from was_reports.utils.passwords import DEFAULT_PASSWORD_LENGTH
-from was_reports.utils.states import validate_state_code
 from was_reports.utils.stakeholder_validation import (
     REQUIRED_STAKEHOLDER_FIELDS,
     STAKEHOLDER_DATE_FIELDS,
@@ -25,7 +24,7 @@ from was_reports.utils.stakeholder_validation import (
     validate_email_value,
     validate_stakeholder_tag,
 )
-
+from was_reports.utils.states import validate_state_code
 
 SOURCE_TO_DATABASE = (
     ("Tag", "tag"),
@@ -90,7 +89,8 @@ INTEGER_DATABASE_COLUMNS = frozenset(
         "onboarding_date",
     }
 )
-DEFAULT_NULL_TOKEN = "\\N"
+# PostgreSQL's COPY null marker is data syntax, not a credential.
+DEFAULT_NULL_TOKEN = "\\N"  # nosec B105
 LOGGER = logging.getLogger(__name__)
 
 
@@ -310,14 +310,11 @@ def import_prepared_rows(
         )
         for row in prepared_rows
     ]
-    query = """
-        INSERT INTO was_stakeholders ({})
-        VALUES %s
-        ON CONFLICT (tag) DO NOTHING
-        RETURNING tag
-    """.format(
-        ", ".join(columns)
-    )
+    # Column names come only from the fixed SOURCE_TO_DATABASE mapping.
+    query = (
+        "INSERT INTO was_stakeholders ({}) "  # nosec B608
+        "VALUES %s ON CONFLICT (tag) DO NOTHING RETURNING tag"
+    ).format(", ".join(columns))
 
     conn = connect()
     try:

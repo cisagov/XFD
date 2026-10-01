@@ -162,29 +162,31 @@ def print_summary(
     roles = Counter(_display_value(record, "role") for record in records)
     print("Batch ID: {}".format(batch_directory.name))
     print("Log directory: {}".format(batch_directory))
-    print("Structured records: {}; malformed records: {}".format(len(records), malformed))
+    print(
+        "Structured records: {}; malformed records: {}".format(len(records), malformed)
+    )
     print(
         "Levels: {}".format(
             ", ".join(
-                "{}={}".format(name, count)
-                for name, count in sorted(levels.items())
-            ) or "none"
+                "{}={}".format(name, count) for name, count in sorted(levels.items())
+            )
+            or "none"
         )
     )
     print(
         "Roles: {}".format(
             ", ".join(
-                "{}={}".format(name, count)
-                for name, count in sorted(roles.items())
-            ) or "none"
+                "{}={}".format(name, count) for name, count in sorted(roles.items())
+            )
+            or "none"
         )
     )
     print(
         "Events: {}".format(
             ", ".join(
-                "{}={}".format(name, count)
-                for name, count in sorted(events.items())
-            ) or "none"
+                "{}={}".format(name, count) for name, count in sorted(events.items())
+            )
+            or "none"
         )
     )
     failures = [
@@ -228,7 +230,9 @@ def main(argv=None) -> int:
             if _display_value(record, "tag").upper() == requested_tag
         ]
     print("Batch ID: {}".format(batch_directory.name))
-    print("Matching records: {}; malformed records: {}".format(len(selected), malformed))
+    print(
+        "Matching records: {}; malformed records: {}".format(len(selected), malformed)
+    )
     print_records(selected, arguments.limit)
     return 0
 

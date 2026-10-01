@@ -1,5 +1,6 @@
 """Durable, combined analyst notifications for a multi-process WAS batch."""
 
+# Standard Python Libraries
 import argparse
 from collections import Counter
 import csv
@@ -12,11 +13,10 @@ import logging
 import math
 import statistics
 
+# Third-Party Libraries
 from was_mailer.message import approved_analyst_recipients
 from was_mailer.ses_client import create_ses_client
-from was_reports.data.assignees import (
-    list_functional_test_recipient_emails_from_db,
-)
+from was_reports.data.assignees import list_functional_test_recipient_emails_from_db
 from was_reports.data.daily_report_tracker import (
     DELIVERY_RECONCILIATION,
     MANUAL_WORK,
@@ -29,9 +29,9 @@ from was_reports.data.manual_recovery import (
     QUALYS_READ_TIMEOUT,
 )
 from was_reports.reporting.report_transformer import spreadsheet_safe_field
-from was_reports.utils.database import connect
-from was_reports.utils.capacity_telemetry import emit_metric
 from was_reports.utils.capacity_scope import capacity_tracker_ids
+from was_reports.utils.capacity_telemetry import emit_metric
+from was_reports.utils.database import connect
 from was_reports.utils.env import getenv
 
 LOGGER = logging.getLogger(__name__)
@@ -90,19 +90,14 @@ def _format_elapsed(value):
     hours, remainder = divmod(hundredths, 360000)
     minutes, remainder = divmod(remainder, 6000)
     seconds, fraction = divmod(remainder, 100)
-    return "{}:{:02d}:{:02d}.{:02d}".format(
-        hours, minutes, seconds, fraction
-    )
+    return "{}:{:02d}:{:02d}.{:02d}".format(hours, minutes, seconds, fraction)
 
 
 def _text_table(caption, headers, rows):
     """Render a readable plain-text table for non-HTML email clients."""
     lines = [caption, " | ".join(str(header) for header in headers)]
     lines.append(" | ".join("---" for _header in headers))
-    lines.extend(
-        " | ".join(str(value) for value in row)
-        for row in rows
-    )
+    lines.extend(" | ".join(str(value) for value in row) for row in rows)
     return "\n".join(lines)
 
 
@@ -135,25 +130,17 @@ def _summary_content(title, tables, notes=()):
     """Return matching plain-text and accessible HTML summary bodies."""
     text_parts = [title]
     text_parts.extend(
-        _text_table(caption, headers, rows)
-        for caption, headers, rows in tables
+        _text_table(caption, headers, rows) for caption, headers, rows in tables
     )
     text_parts.extend(str(note) for note in notes if note)
     html_parts = [
         "<html><body>",
-        '<h1 style="font-size:20px;color:#000000;">{}</h1>'.format(
-            escape(str(title))
-        ),
+        '<h1 style="font-size:20px;color:#000000;">{}</h1>'.format(escape(str(title))),
     ]
     html_parts.extend(
-        _html_table(caption, headers, rows)
-        for caption, headers, rows in tables
+        _html_table(caption, headers, rows) for caption, headers, rows in tables
     )
-    html_parts.extend(
-        "<p>{}</p>".format(escape(str(note)))
-        for note in notes
-        if note
-    )
+    html_parts.extend("<p>{}</p>".format(escape(str(note))) for note in notes if note)
     html_parts.append("</body></html>")
     return "\n\n".join(text_parts) + "\n", "".join(html_parts)
 
@@ -169,11 +156,17 @@ def start_batch(
     """Create the shared batch context once without resetting phase claims."""
     if not batch_id or len(batch_id) > 200:
         raise ValueError("A batch ID of at most 200 characters is required.")
-    worker_count = int(worker_count if worker_count is not None else getenv("WAS_REPORT_WORKERS", "1"))
+    worker_count = int(
+        worker_count if worker_count is not None else getenv("WAS_REPORT_WORKERS", "1")
+    )
     run_mode = run_mode or getenv("WAS_RUN_MODE", "production")
-    workload_label = workload_label if workload_label is not None else getenv("WAS_WORKLOAD_LABEL")
+    workload_label = (
+        workload_label if workload_label is not None else getenv("WAS_WORKLOAD_LABEL")
+    )
     if worker_count < 1 or run_mode not in {"production", "capacity"}:
-        raise ValueError("Positive worker count and production/capacity run mode required.")
+        raise ValueError(
+            "Positive worker count and production/capacity run mode required."
+        )
     if workload_label is not None and len(workload_label) > 200:
         raise ValueError("Workload label must be at most 200 characters.")
     root_batch_id = root_batch_id or batch_id
@@ -204,9 +197,7 @@ def finish_batch(batch_id, outcome="completed", active_duration_seconds=None):
     if outcome not in {"completed", "failed"}:
         raise ValueError("Batch outcome must be completed or failed.")
     active_duration = (
-        None
-        if active_duration_seconds is None
-        else _duration(active_duration_seconds)
+        None if active_duration_seconds is None else _duration(active_duration_seconds)
     )
     _execute(
         "UPDATE was_batch_runs SET finished_at=now(), outcome=%s, "
@@ -324,7 +315,9 @@ def record_report_attempt(
     if artifact_type not in {None, "pdf", "notification"}:
         raise ValueError("Artifact type must be pdf or notification.")
     delivery_duration = (
-        None if delivery_duration_seconds is None else _duration(delivery_duration_seconds)
+        None
+        if delivery_duration_seconds is None
+        else _duration(delivery_duration_seconds)
     )
     _execute(
         """INSERT INTO was_batch_report_attempts
@@ -531,39 +524,37 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
         recent_manual = manual_candidate
         parameters = [batch_id, batch_id]
         if days_back is not None:
-            recent_manual = """({} AND COALESCE(tracker.scan_start_date,
-                tracker.data_pull_date) >= CURRENT_DATE - (%s - 1)
-                AND (COALESCE(tracker.scan_execution_key, '')
-                    LIKE 'schedule-review:%%' OR NOT EXISTS (
-                    SELECT 1 FROM was_daily_report_tracker newer
-                    WHERE newer.tag = tracker.tag
-                      AND COALESCE(newer.scan_execution_key, '')
-                          NOT LIKE 'legacy-import:%%'
-                      AND ROW(
-                          COALESCE(newer.scan_start_date, DATE '0001-01-01'),
-                          COALESCE(newer.data_pull_date, DATE '0001-01-01'),
-                          newer.id
-                      ) > ROW(
-                          COALESCE(tracker.scan_start_date, DATE '0001-01-01'),
-                          COALESCE(tracker.data_pull_date, DATE '0001-01-01'),
-                          tracker.id
-                      )
-                )))""".format(
-                manual_candidate
-            )
+            # The inserted clause is a fixed internal SQL fragment, never input.
+            recent_manual = (
+                "({} AND COALESCE(tracker.scan_start_date, "  # nosec B608
+                "tracker.data_pull_date) >= CURRENT_DATE - (%s - 1) "
+                "AND (COALESCE(tracker.scan_execution_key, '') "
+                "LIKE 'schedule-review:%%' OR NOT EXISTS ("
+                "SELECT 1 FROM was_daily_report_tracker newer "
+                "WHERE newer.tag = tracker.tag "
+                "AND COALESCE(newer.scan_execution_key, '') "
+                "NOT LIKE 'legacy-import:%%' AND ROW("
+                "COALESCE(newer.scan_start_date, DATE '0001-01-01'), "
+                "COALESCE(newer.data_pull_date, DATE '0001-01-01'), newer.id) "
+                "> ROW(COALESCE(tracker.scan_start_date, DATE '0001-01-01'), "
+                "COALESCE(tracker.data_pull_date, DATE '0001-01-01'), "
+                "tracker.id))))"
+            ).format(manual_candidate)
             parameters.append(days_back)
-        condition = """(tracker.id IN (SELECT tracker_id
-            FROM was_batch_report_attempts WHERE batch_id=%s) OR {})""".format(
-            recent_manual
-        )
-    query = """SELECT {}, stakeholders.manual_report, {}
-        FROM was_daily_report_tracker tracker
-        LEFT JOIN was_stakeholders stakeholders ON stakeholders.tag=tracker.tag
-        LEFT JOIN was_assignees assignees ON assignees.id=tracker.assignee_id
-        WHERE {} ORDER BY LOWER(COALESCE(assignees.name, tracker.assignee,
-        'Unassigned')), tracker.id""".format(
-        ",".join(fields), current_batch_expression, condition
-    )
+        # Both clauses are fixed internal SQL assembled above.
+        condition = (
+            "(tracker.id IN (SELECT tracker_id "  # nosec B608
+            "FROM was_batch_report_attempts WHERE batch_id=%s) OR {})"
+        ).format(recent_manual)
+    # Selected fields and conditions come only from fixed internal allowlists.
+    query = (
+        "SELECT {}, stakeholders.manual_report, {} "  # nosec B608
+        "FROM was_daily_report_tracker tracker "
+        "LEFT JOIN was_stakeholders stakeholders ON stakeholders.tag=tracker.tag "
+        "LEFT JOIN was_assignees assignees ON assignees.id=tracker.assignee_id "
+        "WHERE {} ORDER BY LOWER(COALESCE(assignees.name, tracker.assignee, "
+        "'Unassigned')), tracker.id"
+    ).format(",".join(fields), current_batch_expression, condition)
     results = []
     for values in _execute(query, tuple(parameters), True):
         row = dict(zip(TRACKER_EXPORT_FIELDS, values))
@@ -597,10 +588,9 @@ def manual_reason_category(row):
         return "Qualys scan error"
     if row.get("stakeholder_manual"):
         return "Stakeholder configured for manual reporting"
-    if (
-        str(row.get("scan_execution_key") or "").startswith("legacy-import:")
-        or note.upper().startswith("LEGACY REPORT SENT DATE VALUE:")
-    ):
+    if str(row.get("scan_execution_key") or "").startswith(
+        "legacy-import:"
+    ) or note.upper().startswith("LEGACY REPORT SENT DATE VALUE:"):
         return "Legacy imported manual marker"
     return "Other or unclassified"
 
@@ -639,9 +629,7 @@ def manual_work_statistics(rows):
     manuals = [row for row in rows if row.get("open_manual")]
     categories = Counter(manual_reason_category(row) for row in manuals)
     current_batch = sum(bool(row.get("current_batch_attempt")) for row in manuals)
-    reconciliation_count = sum(
-        bool(row.get("delivery_reconciliation")) for row in rows
-    )
+    reconciliation_count = sum(bool(row.get("delivery_reconciliation")) for row in rows)
     return {
         "total": len(manuals),
         "current_batch": current_batch,
@@ -691,7 +679,11 @@ def _deliver(
     """Claim once before SES; hold uncertain delivery permanently for review."""
     recipients = _recipients(override_recipients)
     if not recipients:
-        LOGGER.info("No email-enabled analysts; skipping %s summary for batch %s.", phase, batch_id)
+        LOGGER.info(
+            "No email-enabled analysts; skipping %s summary for batch %s.",
+            phase,
+            batch_id,
+        )
         return False
     message = EmailMessage()
     message["From"] = source_email
@@ -711,7 +703,8 @@ def _deliver(
         return True
     prefix = "tracker" if phase == "tracker" else "final"
     claimed = _execute(
-        "UPDATE was_batch_runs SET {0}_summary_status='sending', updated_at=now() "
+        # Prefix is restricted above to one of two fixed column-name prefixes.
+        "UPDATE was_batch_runs SET {0}_summary_status='sending', updated_at=now() "  # nosec B608
         "WHERE batch_id=%s AND {0}_summary_status='pending' RETURNING batch_id".format(
             prefix
         ),
@@ -722,11 +715,13 @@ def _deliver(
         return False
     try:
         # Lazy import avoids cycles with the compatibility mailer entry point.
+        # Third-Party Libraries
         from was_mailer.email_reports import send_message
 
         message_id = send_message(create_ses_client(), message)
         _execute(
-            "UPDATE was_batch_runs SET {0}_summary_status='sent', "
+            # Prefix is restricted to one of two fixed column-name prefixes.
+            "UPDATE was_batch_runs SET {0}_summary_status='sent', "  # nosec B608
             "{0}_summary_message_id=%s, updated_at=now() WHERE batch_id=%s".format(
                 prefix
             ),
@@ -734,7 +729,8 @@ def _deliver(
         )
     except Exception as error:
         _execute(
-            "UPDATE was_batch_runs SET {0}_summary_status='held', updated_at=now() "
+            # Prefix is restricted to one of two fixed column-name prefixes.
+            "UPDATE was_batch_runs SET {}_summary_status='held', updated_at=now() "  # nosec B608
             "WHERE batch_id=%s".format(prefix),
             (batch_id,),
         )
@@ -760,10 +756,7 @@ def send_tracker_summary(
     if not result:
         raise ValueError("Unknown analyst batch ID.")
     duration, error, updated, mode, workload, parent_batch_id, root_batch_id = result[0]
-    continuation = (
-        mode == "capacity"
-        and parent_batch_id is not None
-    )
+    continuation = mode == "capacity" and parent_batch_id is not None
     tracker_source = batch_id
     tracker_refresh = "Completed in this batch"
     if continuation:
@@ -791,7 +784,9 @@ def send_tracker_summary(
                 ("Tracker source batch", tracker_source),
                 (
                     "Tracker time",
-                    _format_seconds(duration) if duration is not None else "Not recorded",
+                    _format_seconds(duration)
+                    if duration is not None
+                    else "Not recorded",
                 ),
                 ("Rows updated", updated if updated is not None else "Not recorded"),
                 ("Error", _safe_error(error) or "none"),
@@ -867,9 +862,13 @@ def send_batch_summary(
         float(row[0]) for row in attempts if row[4] == "pdf" and float(row[0]) > 0
     )
     median = statistics.median(durations) if durations else None
-    percentile95 = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
+    percentile95 = (
+        durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
+    )
     pdfs = sum(bool(row[1]) and row[4] == "pdf" for row in attempts)
-    notifications = sum((bool(row[1]) or bool(row[2])) and row[4] == "notification" for row in attempts)
+    notifications = sum(
+        (bool(row[1]) or bool(row[2])) and row[4] == "notification" for row in attempts
+    )
     error_codes = {_safe_error(row[3]) for row in attempts if row[3]}
     if tracker_error:
         error_codes.add(_safe_error(tracker_error))
@@ -934,9 +933,7 @@ def send_batch_summary(
                 batch_rows.append(
                     (
                         "Workload status",
-                        "; ".join(
-                            "{}={}".format(key, progress[key]) for key in keys
-                        ),
+                        "; ".join("{}={}".format(key, progress[key]) for key in keys),
                     )
                 )
         except (TypeError, ValueError):
@@ -1017,11 +1014,7 @@ def send_batch_summary(
             pdf_rows,
         ),
         (
-            (
-                "Current continuation delivery timing"
-                if continuation
-                else "Delivery"
-            ),
+            ("Current continuation delivery timing" if continuation else "Delivery"),
             ("Metric", "Value"),
             delivery_rows,
         ),
@@ -1099,8 +1092,11 @@ def main(argv=None):
     parser.add_argument("--days-back", default="7")
     parser.add_argument("--test-recipients")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--outcome", choices=("completed", "failed"),
-                        default=getenv("WAS_BATCH_OUTCOME", "completed"))
+    parser.add_argument(
+        "--outcome",
+        choices=("completed", "failed"),
+        default=getenv("WAS_BATCH_OUTCOME", "completed"),
+    )
     arguments = parser.parse_args(argv)
     if not arguments.batch_id or not arguments.source_email:
         parser.error("--batch-id and --source-email are required.")

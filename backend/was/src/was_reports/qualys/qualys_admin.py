@@ -4,8 +4,11 @@
 from typing import Iterable
 
 # Third-Party Libraries
-from lxml import etree
-from lxml.builder import E
+# lxml is required for response types; all parsing uses the hardened helper below.
+from lxml import etree  # nosec B410
+
+# E only constructs escaped outbound XML and never parses input.
+from lxml.builder import E  # nosec B410
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
@@ -16,14 +19,37 @@ def _serialize_xml(root: etree._Element) -> str:
     return etree.tostring(root, encoding="unicode")
 
 
+def _parse_xml(response_xml: str, error_message: str) -> etree._Element:
+    """Parse one Qualys response without resolving DTDs or external entities."""
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        no_network=True,
+        load_dtd=False,
+        dtd_validation=False,
+        attribute_defaults=False,
+        huge_tree=False,
+    )
+    try:
+        # The parser disables DTD loading, entity resolution, and network access.
+        root = etree.fromstring(  # nosec B320
+            response_xml.encode("utf-8"),
+            parser=parser,
+        )
+    except etree.XMLSyntaxError as error:
+        raise RuntimeError(error_message) from error
+    if root.getroottree().docinfo.doctype:
+        raise RuntimeError(
+            "{} DOCTYPE declarations are prohibited.".format(error_message)
+        )
+    return root
+
+
 def _parse_response(response_xml: str, operation: str) -> etree._Element:
     """Validate a Qualys mutation response and return its parsed root."""
-    try:
-        root = etree.fromstring(response_xml.encode("utf-8"))
-    except etree.XMLSyntaxError as error:
-        raise RuntimeError(
-            "Qualys returned invalid XML for {}.".format(operation)
-        ) from error
+    root = _parse_xml(
+        response_xml,
+        "Qualys returned invalid XML for {}.".format(operation),
+    )
 
     response_code = root.findtext("responseCode")
     if response_code != "SUCCESS":
@@ -56,12 +82,10 @@ def find_webapp_id(client: QualysClient, webapp_url: str) -> str:
             http_method="POST",
         )
     )
-    try:
-        root = etree.fromstring(response_xml.encode("utf-8"))
-    except etree.XMLSyntaxError as error:
-        raise RuntimeError(
-            "Qualys returned invalid XML while finding the web application."
-        ) from error
+    root = _parse_xml(
+        response_xml,
+        "Qualys returned invalid XML while finding the web application.",
+    )
 
     webapp_id = root.findtext("./data/WebApp/id")
     if not webapp_id:

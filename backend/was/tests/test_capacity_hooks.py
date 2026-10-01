@@ -1,11 +1,13 @@
 """Check capacity instrumentation at report delivery and batch boundaries."""
 
+# Standard Python Libraries
 from contextlib import ExitStack
 from datetime import date
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 from was_mailer import email_reports
 from was_reports.commands import batch_runner
 from was_reports.data.daily_report_tracker import TrackerReportCandidate

@@ -5,6 +5,7 @@ import argparse
 import sys
 from typing import Sequence
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_mailer.email_reports import (
     reconciliation_recipient_scope,
@@ -22,9 +23,7 @@ from was_reports.utils.logging_config import configure_logging
 
 DELIVERY_CONFIRMED = "DELIVERY_CONFIRMED"
 NONDELIVERY_CONFIRMED_RETRY = "NONDELIVERY_CONFIRMED_RETRY"
-NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS = (
-    "NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS"
-)
+NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS = "NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS"
 
 
 def positive_integer(value: str) -> int:
@@ -158,9 +157,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Inspect or perform one guarded held-delivery reconciliation."""
     configure_logging()
     arguments = parse_args(argv)
-    preview = inspect_held_report_email_reconciliation_by_id(
-        arguments.report_run_id
-    )
+    preview = inspect_held_report_email_reconciliation_by_id(arguments.report_run_id)
     print(_preview_text(preview))
     if arguments.command == "inspect":
         return 0 if preview.eligible else 2
@@ -180,9 +177,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
     if arguments.confirm != required_confirmation:
-        raise ValueError(
-            "--apply requires --confirm {}.".format(required_confirmation)
-        )
+        raise ValueError("--apply requires --confirm {}.".format(required_confirmation))
 
     if arguments.command == "confirm-delivered":
         confirm_held_report_email_delivered_by_id(

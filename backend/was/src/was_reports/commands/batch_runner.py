@@ -10,18 +10,14 @@ import os
 from pathlib import Path
 import subprocess  # nosec B404
 import sys
-from time import monotonic
 from tempfile import TemporaryDirectory, gettempdir
-from typing import List, Optional
+from time import monotonic
+from typing import List, Optional, cast
 from uuid import uuid4
 
 # Third-Party Libraries
 from requests.exceptions import ReadTimeout
-
-from was_mailer.email_reports import (
-    send_ready_report_emails,
-    send_report_run_email,
-)
+from was_mailer.email_reports import send_ready_report_emails, send_report_run_email
 from was_mailer.message import AnalystRecipientError, approved_analyst_recipients
 
 # First-Party Libraries
@@ -58,25 +54,25 @@ from was_reports.storage.s3_reports import (
     resolve_storage_mode,
     upload_report,
 )
-from was_reports.utils.env import getenv, require_env
 from was_reports.utils.capacity_scope import capacity_tracker_ids
+from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import (
     bind_logging_context,
     configure_logging,
     exception_details,
     reset_logging_context,
 )
-from was_reports.utils.passwords import ExistingReportPasswordError
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    raise_if_operation_cancelled,
+)
 from was_reports.utils.operation_lease import (
     OperationLeaseLostError,
     check_operation_ownership,
     operation_heartbeat,
 )
-from was_reports.utils.operation_cancellation import (
-    OperationCancelledError,
-    raise_if_operation_cancelled,
-)
 from was_reports.utils.outputs import expected_pdf_output_path
+from was_reports.utils.passwords import ExistingReportPasswordError
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
@@ -458,8 +454,7 @@ def run_recent_scan_reports(
                 )
             )
     capacity_continuation = (
-        tracker_scope is not None
-        and os.environ.get("WAS_CAPACITY_CONTINUATION") == "1"
+        tracker_scope is not None and os.environ.get("WAS_CAPACITY_CONTINUATION") == "1"
     )
     if capacity_continuation:
         candidate_ids = {candidate.id for candidate in candidates}
@@ -471,7 +466,8 @@ def run_recent_scan_reports(
             days_back=days_back,
         )
         candidates.extend(
-            candidate for candidate in manual_candidates
+            candidate
+            for candidate in manual_candidates
             if candidate.id in tracker_scope
             and candidate.id not in candidate_ids
             and candidate.report_run_status == "failed"
@@ -489,6 +485,7 @@ def run_recent_scan_reports(
     if send_assignee_digests and not dry_run_email:
         analyst_batch_id = analyst_batch_id or str(uuid4())
     if analyst_batch_id and not dry_run_email:
+        # Third-Party Libraries
         from was_reports.reporting import analyst_summaries
 
         analyst_summaries.start_batch(analyst_batch_id, worker_count=worker_count)
@@ -496,13 +493,16 @@ def run_recent_scan_reports(
     try:
         if analyst_batch_id and send_assignee_digests and not dry_run_email:
             analyst_summaries.send_tracker_summary(
-                analyst_batch_id, candidate_ids=[candidate.id for candidate in candidates],
+                analyst_batch_id,
+                candidate_ids=[candidate.id for candidate in candidates],
                 source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
                 override_recipients=test_recipients,
             )
         if send_email and not include_manual and retry_ready_emails:
             raise_if_operation_cancelled()
-            retry_options = {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+            retry_options = (
+                {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+            )
             sent_count += send_ready_report_emails(
                 source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
                 override_recipients=test_recipients,
@@ -543,7 +543,8 @@ def run_recent_scan_reports(
                         delivery_started = monotonic()
                         message_id = send_report_run_email(
                             report_run_id=candidate.report_run_id,
-                            source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                            source_email=source_email
+                            or require_env("WAS_EMAIL_SOURCE"),
                             override_recipients=test_recipients,
                             dry_run=dry_run_email,
                             include_previous_failure=True,
@@ -572,7 +573,8 @@ def run_recent_scan_reports(
                     )
                 elif capacity_continuation and candidate.report_run_status == "failed":
                     report_run = retry_failed_report_run_for_tracker_by_id(
-                        candidate.id, safe_only=True,
+                        candidate.id,
+                        safe_only=True,
                     )
                 else:
                     report_run = create_report_run_for_tracker(
@@ -627,7 +629,9 @@ def run_recent_scan_reports(
                             delivery_started = monotonic()
                             message_id = send_report_run_email(
                                 report_run_id=report_run.id,
-                                source_email=(source_email or require_env("WAS_EMAIL_SOURCE")),
+                                source_email=(
+                                    source_email or require_env("WAS_EMAIL_SOURCE")
+                                ),
                                 override_recipients=test_recipients,
                                 dry_run=dry_run_email,
                             )
@@ -699,7 +703,9 @@ def run_recent_scan_reports(
                     failed_count += 1
                     failure_summary = summarize_report_failure(exception)
                     if not completion_attempted:
-                        record_generation_failure(report_run, failure_summary, exception)
+                        record_generation_failure(
+                            report_run, failure_summary, exception
+                        )
                     else:
                         LOGGER.error(
                             "Report completion is uncertain for run %s; retaining artifacts: "
@@ -725,7 +731,8 @@ def run_recent_scan_reports(
                         delivery_started = monotonic()
                         message_id = send_report_run_email(
                             report_run_id=report_run.id,
-                            source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                            source_email=source_email
+                            or require_env("WAS_EMAIL_SOURCE"),
                             override_recipients=test_recipients,
                             dry_run=dry_run_email,
                         )
@@ -751,19 +758,31 @@ def run_recent_scan_reports(
                     if analyst_batch_id and attempted and not dry_run_email:
                         active_error = sys.exc_info()[1]
                         analyst_summaries.record_report_attempt(
-                            analyst_batch_id, candidate.id,
-                            duration_seconds=(monotonic() - attempt_started
-                                              if attempt_started is not None
-                                              else generation_duration),
-                            generated=(notification_completed
-                                       or generated_count > before_generated),
+                            analyst_batch_id,
+                            candidate.id,
+                            duration_seconds=(
+                                monotonic() - cast(float, attempt_started)
+                                if attempt_started is not None
+                                else generation_duration
+                            ),
+                            generated=(
+                                notification_completed
+                                or generated_count > before_generated
+                            ),
                             sent=sent_count > before_sent,
-                            error=(attempt_error or (type(active_error).__name__
-                                                     if active_error else None)),
+                            error=(
+                                attempt_error
+                                or (
+                                    type(active_error).__name__
+                                    if active_error
+                                    else None
+                                )
+                            ),
                             report_run_id=attempt_report_run_id,
                             delivery_duration_seconds=(
                                 monotonic() - delivery_started
-                                if delivery_started is not None else None
+                                if delivery_started is not None
+                                else None
                             ),
                             artifact_type=(
                                 "notification"
@@ -816,7 +835,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         description="Generate WAS reports for stakeholders whose schedule is due."
     )
     parser.add_argument(
-        "--analyst-batch-id", default=os.environ.get("WAS_ANALYST_BATCH_ID"),
+        "--analyst-batch-id",
+        default=os.environ.get("WAS_ANALYST_BATCH_ID"),
         help="Shared analyst-summary identity for all stages of one batch.",
     )
     parser.add_argument(
@@ -960,9 +980,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         test_recipients = args.test_recipients
         if test_recipients is not None:
             try:
-                test_recipients = ",".join(
-                    approved_analyst_recipients(test_recipients)
-                )
+                test_recipients = ",".join(approved_analyst_recipients(test_recipients))
             except AnalystRecipientError as error:
                 LOGGER.warning("Batch analyst recipient validation failed.")
                 print("Error: {}".format(error), file=sys.stderr)
@@ -985,9 +1003,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             resolved_days_back = DEFAULT_RECENT_SCAN_DAYS_BACK
         if (args.worker_count is None) != (args.worker_index is None):
-            raise ValueError(
-                "Worker count and worker index must be provided together."
-            )
+            raise ValueError("Worker count and worker index must be provided together.")
         if args.worker_count is not None:
             if args.worker_count < 1 or args.worker_count > 30:
                 raise ValueError("Worker count must be between 1 and 30.")
@@ -1000,9 +1016,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "Report limit cannot be combined with parallel worker partitions."
                 )
             if not args.skip_tracker_refresh:
-                raise ValueError(
-                    "Parallel workers require --skip-tracker-refresh."
-                )
+                raise ValueError("Parallel workers require --skip-tracker-refresh.")
             if args.send_assignee_digests:
                 raise ValueError(
                     "Parallel workers cannot send assignee digests individually."
@@ -1016,7 +1030,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             LOGGER.info("Recovering interrupted report operations before batch work.")
             recover_stale_report_operations_in_db()
         analyst_batch_id = args.analyst_batch_id
-        if args.send_assignee_digests and not args.dry_run_email and not args.preflight_only:
+        if (
+            args.send_assignee_digests
+            and not args.dry_run_email
+            and not args.preflight_only
+        ):
             analyst_batch_id = analyst_batch_id or str(uuid4())
         if not args.skip_tracker_refresh and not args.preflight_only:
             LOGGER.info("Updating the WAS daily report tracker.")
@@ -1032,13 +1050,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                     **tracker_options,
                 )
             except Exception:
-                if args.send_assignee_digests and analyst_batch_id and not args.dry_run_email:
+                if (
+                    args.send_assignee_digests
+                    and analyst_batch_id
+                    and not args.dry_run_email
+                ):
+                    # Third-Party Libraries
                     from was_reports.reporting import analyst_summaries
 
                     analyst_summaries.finish_batch(analyst_batch_id, outcome="failed")
                     analyst_summaries.send_batch_summary(
                         analyst_batch_id,
-                        source_email=args.source_email or require_env("WAS_EMAIL_SOURCE"),
+                        source_email=args.source_email
+                        or require_env("WAS_EMAIL_SOURCE"),
                         override_recipients=test_recipients,
                         days_back=resolved_days_back,
                     )
@@ -1064,7 +1088,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "generation, or email delivery."
             )
             return 0
-        summary_options = {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+        summary_options = (
+            {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+        )
         summary = run_recent_scan_reports(
             resource_root=args.resource_root,
             python_executable=args.python_executable,

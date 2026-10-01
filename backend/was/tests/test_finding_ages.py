@@ -1,10 +1,11 @@
 """Tests for Qualys maximum finding-age retrieval."""
 
 # Standard Python Libraries
-import unittest
 from datetime import datetime, timezone
+import unittest
 from unittest.mock import Mock
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys import finding_ages
 
@@ -14,7 +15,9 @@ CURRENT_TIME = datetime(2026, 8, 27, 13, 0, tzinfo=timezone.utc)
 def finding_response(first_detected: str) -> str:
     """Return a minimal Qualys finding response."""
     return """<ServiceResponse><data><Finding><firstDetectedDate>{}</firstDetectedDate>
-</Finding></data></ServiceResponse>""".format(first_detected)
+</Finding></data></ServiceResponse>""".format(
+        first_detected
+    )
 
 
 class FindingAgeTests(unittest.TestCase):
@@ -65,6 +68,19 @@ class FindingAgeTests(unittest.TestCase):
 
         self.assertEqual(result.critical_days, 0)
         self.assertEqual(result.urgent_days, 20)
+
+    def test_parse_rejects_doctype_and_external_entity(self) -> None:
+        """Reject malicious response XML before resolving an external entity."""
+        response = (
+            '<!DOCTYPE ServiceResponse [<!ENTITY secret SYSTEM "file:///etc/passwd">]>'
+            "<ServiceResponse><data><Finding><firstDetectedDate>"
+            "&secret;</firstDetectedDate></Finding></data></ServiceResponse>"
+        )
+
+        with self.assertRaisesRegex(
+            ValueError, "Qualys returned unsafe or invalid finding XML."
+        ):
+            finding_ages.parse_first_detected(response)
 
 
 if __name__ == "__main__":

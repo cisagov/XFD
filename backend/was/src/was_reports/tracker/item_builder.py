@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 # Standard Python Libraries
-import logging
 from datetime import datetime
+import logging
+from typing import cast
 
 # Third-Party Libraries
 import requests
@@ -18,8 +19,8 @@ from was_reports.tracker.models import (
     QualysScan,
     TrackerItem,
     TrackerStakeholder,
-    scheduled_execution_key,
     scan_time_bounds,
+    scheduled_execution_key,
 )
 from was_reports.tracker.qualys_scans import get_previous_nws
 from was_reports.utils.logging_config import exception_details
@@ -88,17 +89,27 @@ def missing_field_tracker_item(
         nws=False,
         recent_nws="",
         removed_nws="",
-        manual="\n".join(filter(None, (
-            "{}{}.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX, field_path),
-            stakeholder.discovery_notes,
-        ))),
+        manual="\n".join(
+            filter(
+                None,
+                (
+                    "{}{}.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX, field_path),
+                    stakeholder.discovery_notes,
+                ),
+            )
+        ),
         fceb=False,
         schedule_id=stakeholder.schedule_id,
         tag_id=stakeholder.tag_id,
-        qualys_errors="\n".join(filter(None, (
-            "Missing required Qualys scan field: {}".format(field_path),
-            stakeholder.discovery_notes.removeprefix("MANUAL: "),
-        ))),
+        qualys_errors="\n".join(
+            filter(
+                None,
+                (
+                    "Missing required Qualys scan field: {}".format(field_path),
+                    stakeholder.discovery_notes.removeprefix("MANUAL: "),
+                ),
+            )
+        ),
         scan_execution_key=execution_key,
         scan_started_at=scan_started_at,
         scan_ended_at=scan_ended_at,
@@ -134,7 +145,11 @@ def combined_status_and_result(
         return "Error", "Scan Incomplete"
     for result, label in priority:
         if result in results:
-            status = "Error" if "ERROR" in statuses or result in QUALYS_ERROR_RESULTS else "Finished"
+            status = (
+                "Error"
+                if "ERROR" in statuses or result in QUALYS_ERROR_RESULTS
+                else "Finished"
+            )
             if status == "Error" and result == "SUCCESSFUL":
                 return "Error", "Scan Incomplete"
             return status, label
@@ -208,7 +223,7 @@ def create_multiscan(
 
         if result not in INACCESSIBLE_RESULTS:
             continue
-        recent_nws.append(webapp_url)
+        recent_nws.append(cast(str, webapp_url))
         if tag in keep_nws_tags:
             continue
         prior_run = previous_run_name(scan_name)
@@ -297,16 +312,27 @@ def create_tracker_items(
                     nws=result_fields[2],
                     recent_nws=result_fields[3],
                     removed_nws=result_fields[4],
-                    manual="\n".join(filter(None, (
-                        stakeholder.discovery_notes, result_fields[5],
-                    ))),
+                    manual="\n".join(
+                        filter(
+                            None,
+                            (
+                                stakeholder.discovery_notes,
+                                result_fields[5],
+                            ),
+                        )
+                    ),
                     fceb=result_fields[6],
                     schedule_id=stakeholder.schedule_id,
                     tag_id=stakeholder.tag_id,
-                    qualys_errors="\n".join(filter(None, (
-                        stakeholder.discovery_notes.removeprefix("MANUAL: "),
-                        result_fields[7],
-                    ))),
+                    qualys_errors="\n".join(
+                        filter(
+                            None,
+                            (
+                                stakeholder.discovery_notes.removeprefix("MANUAL: "),
+                                result_fields[7],
+                            ),
+                        )
+                    ),
                     scan_execution_key=execution_key,
                     scan_started_at=scan_started_at,
                     scan_ended_at=scan_ended_at,
@@ -319,10 +345,15 @@ def create_tracker_items(
             ValueError,
             requests.HTTPError,
         ) as error:
-            if isinstance(error, MissingQualysFieldError) and scans and all(
-                scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
-                and scan.findtext("./summary/resultsStatus") not in {"PROCESSING", "RUNNING"}
-                for scan in scans
+            if (
+                isinstance(error, MissingQualysFieldError)
+                and scans
+                and all(
+                    scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
+                    and scan.findtext("./summary/resultsStatus")
+                    not in {"PROCESSING", "RUNNING"}
+                    for scan in scans
+                )
             ):
                 tracker_items.append(
                     missing_field_tracker_item(

@@ -1,10 +1,11 @@
 """Tests for packaged WAS report templates and assets."""
 
 # Standard Python Libraries
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import unittest
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.resources import (
     REQUIRED_RESOURCE_PATHS,
@@ -27,9 +28,7 @@ class ReportResourceTests(unittest.TestCase):
 
     def test_legacy_creator_is_not_a_packaged_resource(self) -> None:
         """Keep the legacy report creator outside the future resource root."""
-        self.assertFalse(
-            (report_resource_root() / "WAS_report_creator.py").exists()
-        )
+        self.assertFalse((report_resource_root() / "WAS_report_creator.py").exists())
 
     def test_missing_resources_raise_clear_error(self) -> None:
         """Report every missing resource before report generation starts."""

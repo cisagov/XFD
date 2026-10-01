@@ -109,9 +109,7 @@ class WasMailerTests(unittest.TestCase):
         html_body = message.get_body(preferencelist=("html",)).get_content()
         self.assertIn('src="cid:cisa-logo"', html_body)
         inline_images = [
-            part
-            for part in message.walk()
-            if part.get_content_type() == "image/png"
+            part for part in message.walk() if part.get_content_type() == "image/png"
         ]
         self.assertEqual(len(inline_images), 1)
         self.assertEqual(
@@ -134,6 +132,7 @@ class WasMailerTests(unittest.TestCase):
             )
 
         body = message.get_body(preferencelist=("plain",)).get_content()
+        # Third-Party Libraries
         from was_mailer.customer_email_templates import SENDER_CHANGE_NOTICE
 
         self.assertTrue(
@@ -148,8 +147,11 @@ class WasMailerTests(unittest.TestCase):
     def test_test_delivery_notice_keeps_original_recipients_out_of_headers(self):
         """Expose intended customer addresses only in redirected test bodies."""
         message = build_report_email(
-            source_email="sender@example.gov", recipients=["tester@example.gov"],
-            stakeholder_tag="TAG1", template="All NWS", report_path=None,
+            source_email="sender@example.gov",
+            recipients=["tester@example.gov"],
+            stakeholder_tag="TAG1",
+            template="All NWS",
+            report_path=None,
             test_original_recipients=["poc@example.gov", "team@example.gov"],
         )
         for content_type in ("plain", "html"):
@@ -166,10 +168,16 @@ class WasMailerTests(unittest.TestCase):
 
     def test_test_delivery_notice_escapes_html_and_handles_missing_contacts(self):
         """Treat preview addresses as text and label unavailable customer contacts."""
-        for originals, expected in (([], "Not available"), (["<unsafe>&"], "&lt;unsafe&gt;&amp;")):
+        for originals, expected in (
+            ([], "Not available"),
+            (["<unsafe>&"], "&lt;unsafe&gt;&amp;"),
+        ):
             message = build_report_email(
-                source_email="sender@example.gov", recipients=["tester@example.gov"],
-                stakeholder_tag="TAG1", template="All NWS", report_path=None,
+                source_email="sender@example.gov",
+                recipients=["tester@example.gov"],
+                stakeholder_tag="TAG1",
+                template="All NWS",
+                report_path=None,
                 test_original_recipients=originals,
             )
             body = message.get_body(preferencelist=("html",)).get_content()
@@ -179,8 +187,11 @@ class WasMailerTests(unittest.TestCase):
     def test_production_email_has_no_test_delivery_notice(self):
         """Leave approved customer template bodies unchanged without test metadata."""
         message = build_report_email(
-            source_email="sender@example.gov", recipients=["customer@example.gov"],
-            stakeholder_tag="TAG1", template="All NWS", report_path=None,
+            source_email="sender@example.gov",
+            recipients=["customer@example.gov"],
+            stakeholder_tag="TAG1",
+            template="All NWS",
+            report_path=None,
         )
         for content_type in ("plain", "html"):
             body = message.get_body(preferencelist=(content_type,)).get_content()
@@ -201,8 +212,11 @@ class WasMailerTests(unittest.TestCase):
             for purpose in ("customer", "analyst"):
                 with self.subTest(purpose=purpose):
                     claim.return_value = ReportRunEmail(
-                        id=1, stakeholder_tag="TAG1", output_path=str(report_path),
-                        report_password=None, was_report_poc="Customer",
+                        id=1,
+                        stakeholder_tag="TAG1",
+                        output_path=str(report_path),
+                        report_password=None,
+                        was_report_poc="Customer",
                         tech_poc_email="poc@example.gov; shared@example.gov",
                         distro_email="shared@example.gov, team@example.gov",
                         delivery_purpose=purpose,
@@ -210,9 +224,13 @@ class WasMailerTests(unittest.TestCase):
                     client = Mock()
                     client.send_raw_email.return_value = {"MessageId": "message"}
                     email_reports.send_report_run_email(
-                        1, "sender@example.gov", override_recipients="tester@example.gov",
-                        ses_client=client, storage_mode="local",
-                        local_output_directory=directory, delivery_purpose=purpose,
+                        1,
+                        "sender@example.gov",
+                        override_recipients="tester@example.gov",
+                        ses_client=client,
+                        storage_mode="local",
+                        local_output_directory=directory,
+                        delivery_purpose=purpose,
                     )
                     message = BytesParser(policy=policy.default).parsebytes(
                         client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
@@ -221,7 +239,8 @@ class WasMailerTests(unittest.TestCase):
                     if purpose == "customer":
                         self.assertIn("TEST DELIVERY ONLY", body)
                         self.assertIn(
-                            "poc@example.gov; shared@example.gov; team@example.gov", body
+                            "poc@example.gov; shared@example.gov; team@example.gov",
+                            body,
                         )
                         self.assertEqual(body.count("shared@example.gov"), 1)
                     else:
@@ -310,15 +329,13 @@ class WasMailerTests(unittest.TestCase):
             "If you have questions, please email vulnerability@cisa.dhs.gov.",
             body,
         )
-        self.assertNotIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
+        self.assertNotIn(
+            "If you have questions, please email at reports@cisa.dhs.gov.", body
+        )
         self.assertIn("reports@cyber.dhs.gov (Not monitored)", body)
         self.assertLess(
-            body.index(
-                "Please do not reply to this email as it is not monitored."
-            ),
-            body.index(
-                "Important Note:"
-            ),
+            body.index("Please do not reply to this email as it is not monitored."),
+            body.index("Important Note:"),
         )
         self.assertIn("Your next scan is scheduled for", body)
         self.assertNotIn("This may be due to:", body)
@@ -755,6 +772,7 @@ class WasMailerTests(unittest.TestCase):
         mock_mark_failed,
     ) -> None:
         """Hold an SES response parsing failure without logging its payload."""
+
         class ResponseParserError(Exception):
             """Represent SES accepting a request before response parsing fails."""
 
@@ -1213,10 +1231,14 @@ class DeliveryPolicyTests(unittest.TestCase):
             )
         claim.assert_not_called()
 
-    @patch("was_mailer.message.list_functional_test_recipient_emails_from_db",
-           return_value=["analyst@example.gov"])
-    @patch("was_mailer.email_reports.approved_analyst_recipients",
-           return_value=["analyst@example.gov"])
+    @patch(
+        "was_mailer.message.list_functional_test_recipient_emails_from_db",
+        return_value=["analyst@example.gov"],
+    )
+    @patch(
+        "was_mailer.email_reports.approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
     @patch("was_mailer.email_reports.touch_report_email_claim_by_id", return_value=True)
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
@@ -1225,16 +1247,25 @@ class DeliveryPolicyTests(unittest.TestCase):
     ):
         """Use the customer body but only approved analyst recipients."""
         claim.return_value = ReportRunEmail(
-            id=2, stakeholder_tag="TAG1", output_path=None,
-            report_password=None, distro_email="customer@example.gov",
-            tech_poc_email=None, was_report_poc="Customer",
-            template="All NWS", delivery_purpose="analyst", email_claim_token="token",
+            id=2,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email=None,
+            was_report_poc="Customer",
+            template="All NWS",
+            delivery_purpose="analyst",
+            email_claim_token="token",
         )
         client = Mock()
         client.send_raw_email.return_value = {"MessageId": "message"}
         email_reports.send_report_run_email(
-            2, "sender@example.gov", override_recipients="analyst@example.gov",
-            delivery_purpose="analyst", preserve_customer_template=True,
+            2,
+            "sender@example.gov",
+            override_recipients="analyst@example.gov",
+            delivery_purpose="analyst",
+            preserve_customer_template=True,
             ses_client=client,
         )
         message_bytes = client.send_raw_email.call_args.kwargs["RawMessage"]["Data"]
@@ -1244,10 +1275,14 @@ class DeliveryPolicyTests(unittest.TestCase):
         self.assertNotIn(b"Analyst Copy", message_bytes)
         finish.assert_called_once_with(2, "message", email_claim_token="token")
 
-    @patch("was_mailer.message.list_functional_test_recipient_emails_from_db",
-           return_value=["analyst@example.gov"])
-    @patch("was_mailer.email_reports.approved_analyst_recipients",
-           return_value=["analyst@example.gov"])
+    @patch(
+        "was_mailer.message.list_functional_test_recipient_emails_from_db",
+        return_value=["analyst@example.gov"],
+    )
+    @patch(
+        "was_mailer.email_reports.approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
     @patch("was_mailer.email_reports.touch_report_email_claim_by_id", return_value=True)
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
@@ -1301,14 +1336,19 @@ class DeliveryPolicyTests(unittest.TestCase):
         finish.assert_called_once_with(3, "message", email_claim_token="token")
 
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
-    @patch("was_mailer.email_reports.approved_analyst_recipients",
-           side_effect=AnalystRecipientError("Recipient not enabled"))
+    @patch(
+        "was_mailer.email_reports.approved_analyst_recipients",
+        side_effect=AnalystRecipientError("Recipient not enabled"),
+    )
     def test_replay_rejects_disabled_recipient_before_claim(self, validate, claim):
         """An unapproved recipient cannot cause a replay claim or send."""
         with self.assertRaises(AnalystRecipientError):
             email_reports.send_report_run_email(
-                2, "sender@example.gov", override_recipients="disabled@example.gov",
-                delivery_purpose="analyst", preserve_customer_template=True,
+                2,
+                "sender@example.gov",
+                override_recipients="disabled@example.gov",
+                delivery_purpose="analyst",
+                preserve_customer_template=True,
             )
         claim.assert_not_called()
 
@@ -1422,7 +1462,9 @@ class DeliveryPolicyTests(unittest.TestCase):
             SimpleNamespace(id=2, source_tracker_id=12),
         ]
         send.side_effect = [RuntimeError("private message"), "message"]
-        self.assertEqual(email_reports.send_ready_report_emails("sender@example.gov"), 1)
+        self.assertEqual(
+            email_reports.send_ready_report_emails("sender@example.gov"), 1
+        )
         self.assertEqual(record.call_count, 2)
         self.assertEqual(record.call_args_list[0].kwargs["error"], "RuntimeError")
         self.assertFalse(record.call_args_list[0].kwargs["sent"])

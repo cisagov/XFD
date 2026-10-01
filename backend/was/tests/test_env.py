@@ -2,11 +2,12 @@
 
 # Standard Python Libraries
 import os
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.utils import env
 

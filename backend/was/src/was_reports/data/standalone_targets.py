@@ -1,11 +1,14 @@
 """Explicit standalone targets; never enroll or update a stakeholder."""
 
+# Standard Python Libraries
 from dataclasses import dataclass, field
+from typing import cast
 from uuid import uuid4
 
+# Third-Party Libraries
 from was_mailer.message import approved_analyst_recipients
 from was_reports.data.report_runs import ActiveReportOperationError, ReportRun
-from was_reports.utils.database import connect, close
+from was_reports.utils.database import close, connect
 from was_reports.utils.passwords import generate_report_password
 
 
@@ -103,7 +106,7 @@ def create_standalone_request(
                 cursor.fetchone()[0], tag, "running", generation_token=token
             )
         conn.commit()
-        return StandaloneRequest(run, password, recipient)
+        return StandaloneRequest(run, password, cast(str, recipient))
     except Exception:
         conn.rollback()
         raise

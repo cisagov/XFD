@@ -12,14 +12,15 @@ import logging
 import random
 import shlex
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-from xml.etree import ElementTree
 
 # Third-Party Libraries
+from defusedxml import ElementTree
+from defusedxml.common import DefusedXmlException
 import requests
-from was_reports.utils.env import getenv
 from was_reports.utils.capacity_telemetry import emit_metric
+from was_reports.utils.env import getenv
 from was_reports.utils.logging_config import exception_details
 from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
@@ -188,8 +189,8 @@ def sanitized_qualys_payload(payload: str | None) -> str | None:
     if payload is None:
         return None
     try:
-        root = ElementTree.fromstring(payload)
-    except ElementTree.ParseError:
+        root = ElementTree.fromstring(payload, forbid_dtd=True)
+    except (ElementTree.ParseError, DefusedXmlException):
         payload_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         return "<invalid-xml sha256={}>".format(payload_hash)
 
@@ -245,9 +246,9 @@ def _prepared_request(error: Exception) -> requests.PreparedRequest | None:
     if not isinstance(error, requests.RequestException):
         return None
     if error.request is not None:
-        return error.request
+        return cast(requests.PreparedRequest, error.request)
     if error.response is not None:
-        return error.response.request
+        return cast(requests.PreparedRequest, error.response.request)
     return None
 
 

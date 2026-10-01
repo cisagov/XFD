@@ -40,18 +40,30 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         """Persist real timing separately from parent-based identity and scan day."""
         started = datetime(2026, 8, 30, 23, tzinfo=timezone.utc)
         ended = datetime(2026, 9, 1, 1, tzinfo=timezone.utc)
-        item = replace(self.removal_item(False), scan_started_at=started, scan_ended_at=ended)
-        stakeholder = Mock(
-            was_report_poc="POC", tech_poc_email=None, distro_email=None,
-            comments=None, report_password=None,
+        item = replace(
+            self.removal_item(False), scan_started_at=started, scan_ended_at=ended
         )
-        with patch("was_reports.tracker.update_service.resolve_stakeholder_details",
-                   return_value=stakeholder), \
-                patch("was_reports.tracker.update_service.count_webapps", return_value=2), \
-                patch("was_reports.tracker.update_service.upsert_assignee",
-                      return_value=Mock(id=1, name="Analyst")), \
-                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata"):
-            row = build_tracker_row(Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2))
+        stakeholder = Mock(
+            was_report_poc="POC",
+            tech_poc_email=None,
+            distro_email=None,
+            comments=None,
+            report_password=None,
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=stakeholder,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ):
+            row = build_tracker_row(
+                Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2)
+            )
         self.assertEqual(row.scan_started_at, started)
         self.assertEqual(row.scan_ended_at, ended)
         self.assertEqual(row.scan_start_date, date(2026, 8, 31))
@@ -61,24 +73,41 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         """Future refreshes bind start and end on both persistence branches."""
         started = datetime(2026, 9, 1, tzinfo=timezone.utc)
         ended = datetime(2026, 9, 1, 1, tzinfo=timezone.utc)
-        row = DailyReportTrackerRow(tag="TAG", scan_started_at=started, scan_ended_at=ended)
-        item = replace(self.removal_item(False), removed_nws="", scan_started_at=started,
-                       scan_ended_at=ended)
+        row = DailyReportTrackerRow(
+            tag="TAG", scan_started_at=started, scan_ended_at=ended
+        )
+        item = replace(
+            self.removal_item(False),
+            removed_nws="",
+            scan_started_at=started,
+            scan_ended_at=ended,
+        )
         for existing in (False, True):
             with self.subTest(existing=existing):
                 conn = MagicMock()
                 cursor = conn.cursor.return_value.__enter__.return_value
                 cursor.fetchone.side_effect = (
                     [(17, "Running", "PROCESSING", "", "schedule-review:1"), (False,)]
-                    if existing else [None, (17,)]
+                    if existing
+                    else [None, (17,)]
                 )
                 cursor.rowcount = 1
-                with patch("was_reports.tracker.update_service.build_tracker_row",
-                           return_value=row), \
-                        patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
-                              return_value=False):
-                    count = update_execution(Mock(), item, False, date(2026, 9, 2),
-                                             "Analyst", conn, "stable-parent-key")
+                with patch(
+                    "was_reports.tracker.update_service.build_tracker_row",
+                    return_value=row,
+                ), patch(
+                    "was_reports.tracker.update_service.has_live_numbered_run_overlap",
+                    return_value=False,
+                ):
+                    count = update_execution(
+                        Mock(),
+                        item,
+                        False,
+                        date(2026, 9, 2),
+                        "Analyst",
+                        conn,
+                        "stable-parent-key",
+                    )
                 self.assertEqual(count, 1)
                 query, parameters = cursor.execute.call_args.args
                 self.assertIn("scan_started_at", str(query))
@@ -90,25 +119,42 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                     bindings = dict(zip(names, parameters))
                     self.assertEqual(bindings["scan_started_at"], started)
                     self.assertEqual(bindings["scan_ended_at"], ended)
-                    self.assertEqual(bindings["scan_execution_key"], "stable-parent-key")
+                    self.assertEqual(
+                        bindings["scan_execution_key"], "stable-parent-key"
+                    )
 
     def test_missing_schedule_dates_preserve_manual_without_metadata(self) -> None:
         """Persist unknown dates without altering stakeholder execution metadata."""
         note = "MANUAL: Missing required Qualys schedule field: lastScan/launchedDate."
         item = replace(
-            self.removal_item(False), launched_date=None, next_scan_date=None,
-            status="Unknown", result="Unknown", manual=note, removed_nws="",
+            self.removal_item(False),
+            launched_date=None,
+            next_scan_date=None,
+            status="Unknown",
+            result="Unknown",
+            manual=note,
+            removed_nws="",
             qualys_errors="Missing required Qualys schedule field: lastScan/launchedDate.",
             scan_execution_key="schedule-review:1",
         )
-        details = Mock(was_report_poc=None, tech_poc_email=None, distro_email=None,
-                       comments=None, report_password=None)
-        with patch("was_reports.tracker.update_service.resolve_stakeholder_details",
-                   return_value=details), \
-                patch("was_reports.tracker.update_service.count_webapps", return_value=2) as count, \
-                patch("was_reports.tracker.update_service.upsert_assignee",
-                      return_value=Mock(id=1, name="Analyst")), \
-                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata") as metadata:
+        details = Mock(
+            was_report_poc=None,
+            tech_poc_email=None,
+            distro_email=None,
+            comments=None,
+            report_password=None,
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=details,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ) as count, patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata:
             row = build_tracker_row(Mock(), item, "Analyst", MagicMock(), date.today())
         self.assertIsNone(row.scan_start_date)
         self.assertIsNone(row.next_scan_date)
@@ -119,61 +165,110 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         count.assert_not_called()
         self.assertIsNone(row.template)
 
-    def test_unidentified_schedule_review_persists_nullable_identity_without_enrichment(self) -> None:
+    def test_unidentified_schedule_review_persists_nullable_identity_without_enrichment(
+        self,
+    ) -> None:
         """Unknown schedule records persist their stable review key without inventing IDs."""
         item = replace(
-            self.removal_item(False), tag="", launched_date=None, next_scan_date=None,
-            schedule_id=None, status="Unknown", result="Unknown", removed_nws="",
+            self.removal_item(False),
+            tag="",
+            launched_date=None,
+            next_scan_date=None,
+            schedule_id=None,
+            status="Unknown",
+            result="Unknown",
+            removed_nws="",
             manual="MANUAL: Missing required Qualys schedule field: id.",
             scan_execution_key="schedule-review:unidentified:stablehash",
         )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [(True,), None, (17,)]
-        details = Mock(was_report_poc=None, tech_poc_email=None, distro_email=None,
-                       comments=None, report_password=None)
-        with patch("was_reports.tracker.update_service.connect", return_value=conn), \
-                patch("was_reports.tracker.update_service.active_assignees", return_value=["Analyst"]), \
-                patch("was_reports.tracker.update_service.resolve_stakeholder_details", return_value=details), \
-                patch("was_reports.tracker.update_service.count_webapps") as count, \
-                patch("was_reports.tracker.update_service.upsert_assignee", return_value=Mock(id=1, name="Analyst")), \
-                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata") as metadata, \
-                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap") as overlap:
+        details = Mock(
+            was_report_poc=None,
+            tech_poc_email=None,
+            distro_email=None,
+            comments=None,
+            report_password=None,
+        )
+        with patch(
+            "was_reports.tracker.update_service.connect", return_value=conn
+        ), patch(
+            "was_reports.tracker.update_service.active_assignees",
+            return_value=["Analyst"],
+        ), patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=details,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps"
+        ) as count, patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata, patch(
+            "was_reports.tracker.update_service.has_live_numbered_run_overlap"
+        ) as overlap:
             self.assertEqual(update_tracker(Mock(), [item], False), 1)
         count.assert_not_called()
         metadata.assert_not_called()
         overlap.assert_not_called()
-        insert_call = next(call for call in cursor.execute.call_args_list if "INSERT INTO" in str(call.args[0]))
-        names = [field.name for field in fields(DailyReportTrackerRow) if field.name != "id"]
+        insert_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "INSERT INTO" in str(call.args[0])
+        )
+        names = [
+            field.name for field in fields(DailyReportTrackerRow) if field.name != "id"
+        ]
         values = dict(zip(names, insert_call.args[1]))
         self.assertIsNone(values["schedule_id"])
         self.assertIsNone(values["scan_start_date"])
         self.assertEqual(values["scan_execution_key"], item.scan_execution_key)
 
-    def test_unidentified_review_lock_uses_stable_key_not_shared_null_schedule(self) -> None:
+    def test_unidentified_review_lock_uses_stable_key_not_shared_null_schedule(
+        self,
+    ) -> None:
         """Different unidentified records do not share a lock while repeats do."""
         base = replace(
-            self.removal_item(False), schedule_id=None, launched_date=None,
-            status="Unknown", result="Unknown",
+            self.removal_item(False),
+            schedule_id=None,
+            launched_date=None,
+            status="Unknown",
+            result="Unknown",
             manual="MANUAL: Missing required Qualys schedule field: id.",
         )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = (True,)
-        items = [replace(base, scan_execution_key="schedule-review:unidentified:{}".format(value))
-                 for value in ("first", "second", "first")]
-        with patch("was_reports.tracker.update_service.connect", return_value=conn), \
-                patch("was_reports.tracker.update_service.active_assignees", return_value=["Analyst"]), \
-                patch("was_reports.tracker.update_service.update_execution", return_value=1):
+        items = [
+            replace(
+                base, scan_execution_key="schedule-review:unidentified:{}".format(value)
+            )
+            for value in ("first", "second", "first")
+        ]
+        with patch(
+            "was_reports.tracker.update_service.connect", return_value=conn
+        ), patch(
+            "was_reports.tracker.update_service.active_assignees",
+            return_value=["Analyst"],
+        ), patch(
+            "was_reports.tracker.update_service.update_execution", return_value=1
+        ):
             self.assertEqual(update_tracker(Mock(), items, False), 3)
-        locks = [call.args[1][0] for call in cursor.execute.call_args_list
-                 if "pg_try_advisory_lock" in str(call.args[0])]
+        locks = [
+            call.args[1][0]
+            for call in cursor.execute.call_args_list
+            if "pg_try_advisory_lock" in str(call.args[0])
+        ]
         self.assertEqual(locks[0], locks[2])
         self.assertNotEqual(locks[0], locks[1])
 
     def test_missing_next_date_clears_stale_next_metadata(self) -> None:
         """Keep the actual last launch while clearing an absent next date."""
-        with patch("was_reports.tracker.update_service.update_scan_metadata_for_tag") as metadata:
+        with patch(
+            "was_reports.tracker.update_service.update_scan_metadata_for_tag"
+        ) as metadata:
             update_stakeholder_scan_metadata("TAG", "2026-09-01T00:00:00Z", None, 2)
         self.assertEqual(metadata.call_args.kwargs["last_scanned"], 1788220800)
         self.assertIsNone(metadata.call_args.kwargs["next_scheduled"])
@@ -182,13 +277,21 @@ class TrackerUpdateServiceTests(unittest.TestCase):
     def test_schedule_review_manual_admitted_with_explicit_identity(self) -> None:
         """Schedule exceptions enter the tracker without invented execution dates."""
         item = replace(
-            self.removal_item(False), launched_date=None, status="Unknown", result="Unknown",
+            self.removal_item(False),
+            launched_date=None,
+            status="Unknown",
+            result="Unknown",
             manual="MANUAL: Missing required Qualys schedule field: lastScan/launchedDate.",
             scan_execution_key="schedule-review:1",
         )
-        with patch("was_reports.tracker.update_service.connect", return_value=MagicMock()), \
-                patch("was_reports.tracker.update_service.active_assignees", return_value=["Analyst"]), \
-                patch("was_reports.tracker.update_service.update_execution", return_value=1) as update:
+        with patch(
+            "was_reports.tracker.update_service.connect", return_value=MagicMock()
+        ), patch(
+            "was_reports.tracker.update_service.active_assignees",
+            return_value=["Analyst"],
+        ), patch(
+            "was_reports.tracker.update_service.update_execution", return_value=1
+        ) as update:
             self.assertEqual(update_tracker(Mock(), [item], False), 1)
         self.assertEqual(update.call_args.args[-1], "schedule-review:1")
 
@@ -197,62 +300,115 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         note = "MANUAL: Missing required Qualys schedule field: lastScan/launchedDate."
-        cursor.fetchone.side_effect = [(17, "Unknown", "Unknown", note, "schedule-review:1"), (False,)]
+        cursor.fetchone.side_effect = [
+            (17, "Unknown", "Unknown", note, "schedule-review:1"),
+            (False,),
+        ]
         cursor.rowcount = 1
-        item = replace(self.removal_item(False), removed_nws="", scan_name="Customer Run #1")
+        item = replace(
+            self.removal_item(False), removed_nws="", scan_name="Customer Run #1"
+        )
         cursor.fetchall.return_value = []
-        with patch("was_reports.tracker.update_service.build_tracker_row",
-                   return_value=DailyReportTrackerRow(
-                       tag="RECOVERED", poc="Contact", poc_email="contact@example.test",
-                       customer_notes="Rebuilt customer notes", legacy_password="STATIC PASSWORD",
-                       report_scan_notes="",
-                   )):
-            self.assertEqual(update_execution(Mock(), item, False, date.today(),
-                                              "Analyst", conn, "actual-key"), 1)
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(
+                tag="RECOVERED",
+                poc="Contact",
+                poc_email="contact@example.test",
+                customer_notes="Rebuilt customer notes",
+                legacy_password="STATIC PASSWORD",
+                report_scan_notes="",
+            ),
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(), item, False, date.today(), "Analyst", conn, "actual-key"
+                ),
+                1,
+            )
         query, values = cursor.execute.call_args.args
-        overlap_queries = [str(call.args[0]) for call in cursor.execute.call_args_list
-                           if "SELECT scan_name" in str(call.args[0])]
+        overlap_queries = [
+            str(call.args[0])
+            for call in cursor.execute.call_args_list
+            if "SELECT scan_name" in str(call.args[0])
+        ]
         self.assertEqual(len(overlap_queries), 1)
         self.assertIn("NOT LIKE 'schedule-review:%%'", overlap_queries[0])
         self.assertIn("scan_execution_key", str(query))
         self.assertIn("NOT EXISTS (SELECT 1 FROM was_report_runs", str(query))
-        self.assertEqual(values[-8:], [
-            "RECOVERED", "Contact", "contact@example.test", "Rebuilt customer notes",
-            "STATIC PASSWORD", "actual-key", 17, note,
-        ])
+        self.assertEqual(
+            values[-8:],
+            [
+                "RECOVERED",
+                "Contact",
+                "contact@example.test",
+                "Rebuilt customer notes",
+                "STATIC PASSWORD",
+                "actual-key",
+                17,
+                note,
+            ],
+        )
 
-    def test_schedule_review_promotion_holds_conflicting_numbered_execution(self) -> None:
+    def test_schedule_review_promotion_holds_conflicting_numbered_execution(
+        self,
+    ) -> None:
         """An unrelated recorded numbered run prevents promotion into a duplicate run."""
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         note = "MANUAL: Missing required Qualys schedule field: lastScan/launchedDate."
         cursor.fetchone.side_effect = [
-            (17, "Unknown", "Unknown", note, "schedule-review:1"), (False,),
+            (17, "Unknown", "Unknown", note, "schedule-review:1"),
+            (False,),
         ]
-        item = replace(self.removal_item(False), removed_nws="", scan_name="Customer Run #1")
-        with patch("was_reports.tracker.update_service.build_tracker_row") as build, \
-                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
-                      return_value=True) as overlap, \
-                self.assertLogs("was_reports.tracker.update_service", level="WARNING"):
-            self.assertEqual(update_execution(Mock(), item, False, date.today(),
-                                              "Analyst", conn, "actual-key"), 0)
+        item = replace(
+            self.removal_item(False), removed_nws="", scan_name="Customer Run #1"
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row"
+        ) as build, patch(
+            "was_reports.tracker.update_service.has_live_numbered_run_overlap",
+            return_value=True,
+        ) as overlap, self.assertLogs(
+            "was_reports.tracker.update_service", level="WARNING"
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(), item, False, date.today(), "Analyst", conn, "actual-key"
+                ),
+                0,
+            )
         overlap.assert_called_once_with(item, "actual-key", conn)
         build.assert_not_called()
-        self.assertNotIn("UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list))
+        self.assertNotIn(
+            "UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list)
+        )
 
-    def test_actual_key_schedule_manual_is_not_treated_as_review_promotion(self) -> None:
+    def test_actual_key_schedule_manual_is_not_treated_as_review_promotion(
+        self,
+    ) -> None:
         """Schedule notes alone do not trigger identity or contact rewriting."""
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         note = "MANUAL: Missing required Qualys schedule field: nextLaunchDate."
-        cursor.fetchone.side_effect = [(17, "Finished", "Successful", note, "actual-key"), (False,)]
+        cursor.fetchone.side_effect = [
+            (17, "Finished", "Successful", note, "actual-key"),
+            (False,),
+        ]
         cursor.rowcount = 1
         item = replace(self.removal_item(False), removed_nws="")
-        with patch("was_reports.tracker.update_service.build_tracker_row",
-                   return_value=DailyReportTrackerRow(report_scan_notes="")), \
-                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap") as overlap:
-            self.assertEqual(update_execution(Mock(), item, False, date.today(),
-                                              "Analyst", conn, "actual-key"), 1)
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(report_scan_notes=""),
+        ), patch(
+            "was_reports.tracker.update_service.has_live_numbered_run_overlap"
+        ) as overlap:
+            self.assertEqual(
+                update_execution(
+                    Mock(), item, False, date.today(), "Analyst", conn, "actual-key"
+                ),
+                1,
+            )
         overlap.assert_not_called()
         query = str(cursor.execute.call_args.args[0])
         self.assertNotIn("scan_execution_key", query)
@@ -263,16 +419,36 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         note = "MANUAL: Missing required Qualys schedule field: lastScan/launchedDate."
-        cursor.fetchone.side_effect = [(17, "Unknown", "Unknown", note, "schedule-review:1"), (False,)]
+        cursor.fetchone.side_effect = [
+            (17, "Unknown", "Unknown", note, "schedule-review:1"),
+            (False,),
+        ]
         cursor.rowcount = 1
         item = replace(
-            self.removal_item(False), launched_date=None, removed_nws="",
-            manual=note, status="Unknown", result="Unknown", scan_execution_key="schedule-review:1",
+            self.removal_item(False),
+            launched_date=None,
+            removed_nws="",
+            manual=note,
+            status="Unknown",
+            result="Unknown",
+            scan_execution_key="schedule-review:1",
         )
-        with patch("was_reports.tracker.update_service.build_tracker_row",
-                   return_value=DailyReportTrackerRow(report_scan_notes=note)):
-            self.assertEqual(update_execution(Mock(), item, False, date.today(),
-                                              "Analyst", conn, "schedule-review:1"), 1)
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(report_scan_notes=note),
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    item,
+                    False,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "schedule-review:1",
+                ),
+                1,
+            )
         query, values = cursor.execute.call_args.args
         self.assertIn("UPDATE was_daily_report_tracker", str(query))
         self.assertNotIn("scan_execution_key", str(query))
@@ -281,12 +457,17 @@ class TrackerUpdateServiceTests(unittest.TestCase):
     def test_schedule_manual_does_not_admit_running_candidate(self) -> None:
         """A schedule field diagnosis cannot manufacture a completed running scan."""
         item = replace(
-            self.removal_item(False), status="Running", result="Processing",
+            self.removal_item(False),
+            status="Running",
+            result="Processing",
             manual="MANUAL: Missing required Qualys schedule field: nextLaunchDate.",
             scan_execution_key="schedule-review:1",
         )
-        with patch("was_reports.tracker.update_service.connect") as connect_db, \
-                self.assertLogs("was_reports.tracker.update_service", level="WARNING"):
+        with patch(
+            "was_reports.tracker.update_service.connect"
+        ) as connect_db, self.assertLogs(
+            "was_reports.tracker.update_service", level="WARNING"
+        ):
             self.assertEqual(update_tracker(Mock(), [item], False), 0)
         connect_db.assert_not_called()
 
@@ -296,35 +477,64 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [None, (17,)]
         item = replace(
-            self.removal_item(False), launched_date=None, removed_nws="",
-            scan_name="Customer Run #1", status="Unknown", result="Unknown",
+            self.removal_item(False),
+            launched_date=None,
+            removed_nws="",
+            scan_name="Customer Run #1",
+            status="Unknown",
+            result="Unknown",
             manual="MANUAL: Missing required Qualys schedule field: lastScan/launchedDate.",
             scan_execution_key="schedule-review:1",
         )
-        with patch("was_reports.tracker.update_service.build_tracker_row",
-                   return_value=DailyReportTrackerRow(report_scan_notes=item.manual)), \
-                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
-                      return_value=True) as overlap:
-            self.assertEqual(update_execution(Mock(), item, False, date.today(),
-                                              "Analyst", conn, "schedule-review:1"), 1)
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(report_scan_notes=item.manual),
+        ), patch(
+            "was_reports.tracker.update_service.has_live_numbered_run_overlap",
+            return_value=True,
+        ) as overlap:
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    item,
+                    False,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "schedule-review:1",
+                ),
+                1,
+            )
         overlap.assert_not_called()
         self.assertIn("INSERT INTO", str(cursor.execute.call_args.args[0]))
 
-    def test_actual_launch_schedule_manual_retains_completed_run_overlap_guard(self) -> None:
+    def test_actual_launch_schedule_manual_retains_completed_run_overlap_guard(
+        self,
+    ) -> None:
         """A real execution with missing metadata still requires overlap reconciliation."""
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None
         item = replace(
-            self.removal_item(False), removed_nws="", scan_name="Customer Run #1",
+            self.removal_item(False),
+            removed_nws="",
+            scan_name="Customer Run #1",
             manual="MANUAL: Missing required Qualys schedule field: nextLaunchDate.",
         )
-        with patch("was_reports.tracker.update_service.build_tracker_row") as build, \
-                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
-                      return_value=True) as overlap, \
-                self.assertLogs("was_reports.tracker.update_service", level="WARNING"):
-            self.assertEqual(update_execution(Mock(), item, False, date.today(),
-                                              "Analyst", conn, "actual-key"), 0)
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row"
+        ) as build, patch(
+            "was_reports.tracker.update_service.has_live_numbered_run_overlap",
+            return_value=True,
+        ) as overlap, self.assertLogs(
+            "was_reports.tracker.update_service", level="WARNING"
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(), item, False, date.today(), "Analyst", conn, "actual-key"
+                ),
+                0,
+            )
         overlap.assert_called_once()
         build.assert_not_called()
 
@@ -333,10 +543,23 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         note = "MANUAL: Missing required Qualys schedule field: lastScan/launchedDate."
-        cursor.fetchone.side_effect = [(17, "Unknown", "Unknown", note, "schedule-review:1"), (True,)]
+        cursor.fetchone.side_effect = [
+            (17, "Unknown", "Unknown", note, "schedule-review:1"),
+            (True,),
+        ]
         with patch("was_reports.tracker.update_service.build_tracker_row") as build:
-            self.assertEqual(update_execution(Mock(), self.removal_item(False), False,
-                                              date.today(), "Analyst", conn, "actual-key"), 0)
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    False,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "actual-key",
+                ),
+                0,
+            )
         build.assert_not_called()
         self.assertNotIn("INSERT INTO", str(cursor.execute.call_args_list))
 
@@ -407,7 +630,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                         "<status>FINISHED</status><summary>"
                         "<resultsStatus>{}</resultsStatus></summary>"
                         "</WasScan>"
-                    ).format(result).encode("utf-8")
+                    )
+                    .format(result)
+                    .encode("utf-8")
                 )
 
                 item = create_tracker_items(
@@ -441,7 +666,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                         "<WasScan><name>Customer Run #1</name><status>{}</status>"
                         "<summary><resultsStatus>{}</resultsStatus></summary>"
                         "</WasScan>"
-                    ).format(status, result).encode("utf-8")
+                    )
+                    .format(status, result)
+                    .encode("utf-8")
                 )
                 with self.assertLogs(
                     "was_reports.tracker.item_builder", level="ERROR"
@@ -451,16 +678,16 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                     )[0]
 
                 self.assertEqual(item.scan_name, "Customer Run #1")
-                self.assertEqual(item.status, "Error" if status == "ERROR" else "Finished")
+                self.assertEqual(
+                    item.status, "Error" if status == "ERROR" else "Finished"
+                )
                 self.assertTrue(item.result)
                 self.assertEqual(
                     item.manual,
                     "{}target/webApp/url.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX),
                 )
                 self.assertIn("target/webApp/url", item.qualys_errors)
-                self.assertIn(
-                    "marking the completed execution manual", logs.output[0]
-                )
+                self.assertIn("marking the completed execution manual", logs.output[0])
                 with patch(
                     "was_reports.tracker.update_service.connect",
                     return_value=MagicMock(),
@@ -482,8 +709,13 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             b"<endScanDate>2026-09-01T01:00:00Z</endScanDate></WasScan>"
         )
         stakeholder = TrackerStakeholder(
-            "Customer", 9, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
-            1, "MONTHLY", "TAG",
+            "Customer",
+            9,
+            "2026-10-01T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            1,
+            "MONTHLY",
+            "TAG",
         )
         with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
             item = create_tracker_items(
@@ -493,51 +725,84 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [(True,), None, (17,)]
         details = Mock(
-            was_report_poc="POC", tech_poc_email=None, distro_email=None,
-            comments=None, report_password=None,
+            was_report_poc="POC",
+            tech_poc_email=None,
+            distro_email=None,
+            comments=None,
+            report_password=None,
         )
-        with patch("was_reports.tracker.update_service.connect", return_value=conn), \
-                patch("was_reports.tracker.update_service.active_assignees",
-                      return_value=["Analyst"]), \
-                patch("was_reports.tracker.update_service.resolve_stakeholder_details",
-                      return_value=details), \
-                patch("was_reports.tracker.update_service.count_webapps", return_value=1), \
-                patch("was_reports.tracker.update_service.upsert_assignee",
-                      return_value=Mock(id=1, name="Analyst")), \
-                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata"), \
-                patch("was_reports.tracker.update_service.has_live_numbered_run_overlap",
-                      return_value=False):
+        with patch(
+            "was_reports.tracker.update_service.connect", return_value=conn
+        ), patch(
+            "was_reports.tracker.update_service.active_assignees",
+            return_value=["Analyst"],
+        ), patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=details,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=1
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ), patch(
+            "was_reports.tracker.update_service.has_live_numbered_run_overlap",
+            return_value=False,
+        ):
             self.assertEqual(update_tracker(Mock(), [item], False), 1)
         insert = next(
-            call for call in cursor.execute.call_args_list
+            call
+            for call in cursor.execute.call_args_list
             if "INSERT INTO was_daily_report_tracker" in str(call.args[0])
         )
-        names = [field.name for field in fields(DailyReportTrackerRow) if field.name != "id"]
+        names = [
+            field.name for field in fields(DailyReportTrackerRow) if field.name != "id"
+        ]
         values = dict(zip(names, insert.args[1]))
         self.assertEqual(values["scan_name"], "Customer Run #1")
         self.assertEqual(values["status"], "Finished")
         self.assertEqual(values["result"], "Unknown")
-        self.assertEqual(values["report_scan_notes"], "{}summary.".format(
-            MISSING_QUALYS_FIELD_NOTE_PREFIX
-        ))
-        self.assertEqual(values["qualys_error"], "Missing required Qualys scan field: summary")
-        self.assertEqual(values["scan_execution_key"], "schedule:1:2026-09-01T00:00:00+00:00")
+        self.assertEqual(
+            values["report_scan_notes"],
+            "{}summary.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX),
+        )
+        self.assertEqual(
+            values["qualys_error"], "Missing required Qualys scan field: summary"
+        )
+        self.assertEqual(
+            values["scan_execution_key"], "schedule:1:2026-09-01T00:00:00+00:00"
+        )
         self.assertEqual(values["tag_id"], 9)
-        self.assertEqual(values["scan_started_at"], datetime(2026, 9, 1, tzinfo=timezone.utc))
-        self.assertEqual(values["scan_ended_at"], datetime(2026, 9, 1, 1, tzinfo=timezone.utc))
+        self.assertEqual(
+            values["scan_started_at"], datetime(2026, 9, 1, tzinfo=timezone.utc)
+        )
+        self.assertEqual(
+            values["scan_ended_at"], datetime(2026, 9, 1, 1, tzinfo=timezone.utc)
+        )
         self.assertIsNone(values["template"])
 
     def test_missing_result_field_distinguishes_present_summary(self) -> None:
         """Name the missing child field rather than blaming a present summary."""
-        for summary in ("<summary/>", "<summary><resultsStatus> </resultsStatus></summary>"):
+        for summary in (
+            "<summary/>",
+            "<summary><resultsStatus> </resultsStatus></summary>",
+        ):
             with self.subTest(summary=summary):
-                scan = etree.fromstring((
-                    "<WasScan><name>Customer Run #1</name><status>FINISHED</status>"
-                    "{}</WasScan>".format(summary)
-                ).encode("utf-8"))
+                scan = etree.fromstring(
+                    (
+                        "<WasScan><name>Customer Run #1</name><status>FINISHED</status>"
+                        "{}</WasScan>".format(summary)
+                    ).encode("utf-8")
+                )
                 stakeholder = TrackerStakeholder(
-                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
-                    1, "MONTHLY", "TAG",
+                    "Customer",
+                    1,
+                    "2026-10-01T00:00:00Z",
+                    "2026-09-01T00:00:00Z",
+                    1,
+                    "MONTHLY",
+                    "TAG",
                 )
                 with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
                     item = create_tracker_items(
@@ -551,20 +816,31 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         """Missing fields cannot make running or unknown executions terminal."""
         for status in ("RUNNING", "PROCESSING", "", "UNKNOWN"):
             with self.subTest(status=status):
-                scan = etree.fromstring((
-                    "<WasScan><name>Customer Run #1</name><status>{}</status></WasScan>"
-                    .format(status)
-                ).encode("utf-8"))
+                scan = etree.fromstring(
+                    (
+                        "<WasScan><name>Customer Run #1</name><status>{}</status></WasScan>".format(
+                            status
+                        )
+                    ).encode("utf-8")
+                )
                 stakeholder = TrackerStakeholder(
-                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
-                    1, "MONTHLY", "TAG",
+                    "Customer",
+                    1,
+                    "2026-10-01T00:00:00Z",
+                    "2026-09-01T00:00:00Z",
+                    1,
+                    "MONTHLY",
+                    "TAG",
                 )
                 with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
                     item = create_tracker_items(
                         Mock(), {"run": [scan]}, {"run": stakeholder}, set()
                     )[0]
-                with patch("was_reports.tracker.update_service.connect") as connect, \
-                        self.assertLogs("was_reports.tracker.update_service", level="WARNING"):
+                with patch(
+                    "was_reports.tracker.update_service.connect"
+                ) as connect, self.assertLogs(
+                    "was_reports.tracker.update_service", level="WARNING"
+                ):
                     self.assertEqual(update_tracker(Mock(), [item], False), 0)
                 connect.assert_not_called()
 
@@ -575,8 +851,13 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             b"<summary><resultsStatus>PROCESSING</resultsStatus></summary></WasScan>"
         )
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
-            1, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            1,
+            "MONTHLY",
+            "TAG",
         )
         with self.assertLogs("was_reports.tracker.item_builder", level="ERROR"):
             item = create_tracker_items(
@@ -592,12 +873,18 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             b"<summary><resultsStatus>SUCCESSFUL</resultsStatus></summary></WasScan>"
         )
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-01T00:00:00Z",
-            1, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            1,
+            "MONTHLY",
+            "TAG",
         )
-        with patch("was_reports.tracker.item_builder.create_multiscan",
-                   side_effect=requests.HTTPError("private response contents")), \
-                self.assertLogs("was_reports.tracker.item_builder", level="ERROR") as logs:
+        with patch(
+            "was_reports.tracker.item_builder.create_multiscan",
+            side_effect=requests.HTTPError("private response contents"),
+        ), self.assertLogs("was_reports.tracker.item_builder", level="ERROR") as logs:
             item = create_tracker_items(
                 Mock(), {"run": [scan]}, {"run": stakeholder}, set()
             )[0]
@@ -761,7 +1048,13 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         """Completed, pending, and report-linked executions are not replayed."""
         for existing in (
             (17, "Finished", "No Web Service", "", "existing-key"),
-            (17, "Finished", "No Web Service", "MANUAL QUALYS DELETION FAILED", "existing-key"),
+            (
+                17,
+                "Finished",
+                "No Web Service",
+                "MANUAL QUALYS DELETION FAILED",
+                "existing-key",
+            ),
             (
                 17,
                 "Finished",
@@ -869,7 +1162,13 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             conn = MagicMock()
             cursor = conn.cursor.return_value.__enter__.return_value
             cursor.fetchone.side_effect = [
-                (17, "Finished", "No Web Service", "QUALYS DELETION REQUIRED", "existing-key"),
+                (
+                    17,
+                    "Finished",
+                    "No Web Service",
+                    "QUALYS DELETION REQUIRED",
+                    "existing-key",
+                ),
                 (report_exists,),
             ]
             cursor.rowcount = 1
@@ -907,7 +1206,13 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [
-            (17, "Finished", "No Web Service", "QUALYS DELETION REQUIRED", "existing-key"),
+            (
+                17,
+                "Finished",
+                "No Web Service",
+                "QUALYS DELETION REQUIRED",
+                "existing-key",
+            ),
             (False,),
         ]
         cursor.rowcount = 0
@@ -992,16 +1297,32 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         note = "{}summary.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX)
-        cursor.fetchone.side_effect = [(17, "Finished", "Unknown", note, "existing-key"), (False,)]
+        cursor.fetchone.side_effect = [
+            (17, "Finished", "Unknown", note, "existing-key"),
+            (False,),
+        ]
         cursor.rowcount = 1
         item = replace(self.removal_item(False), removed_nws="")
-        with patch("was_reports.tracker.update_service.build_tracker_row",
-                   return_value=DailyReportTrackerRow(
-                       status="Finished", result="Successful", report_scan_notes="",
-                   )), patch("was_reports.tracker.update_service.delete_webapp") as delete:
-            self.assertEqual(update_execution(
-                Mock(), item, False, date.today(), "Analyst", conn, "execution",
-            ), 1)
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(
+                status="Finished",
+                result="Successful",
+                report_scan_notes="",
+            ),
+        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    item,
+                    False,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
         query, values = cursor.execute.call_args.args
         self.assertIn("UPDATE was_daily_report_tracker", str(query))
         self.assertIn("NOT EXISTS (SELECT 1 FROM was_report_runs", str(query))
@@ -1015,35 +1336,60 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [
-            (17, "Finished", "Unknown", "{}summary.".format(
-                MISSING_QUALYS_FIELD_NOTE_PREFIX
-            ), "existing-key"),
+            (
+                17,
+                "Finished",
+                "Unknown",
+                "{}summary.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX),
+                "existing-key",
+            ),
             (True,),
         ]
         with patch("was_reports.tracker.update_service.build_tracker_row") as build:
-            self.assertEqual(update_execution(
-                Mock(), self.removal_item(False), False, date.today(), "Analyst",
-                conn, "execution",
-            ), 0)
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    False,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                0,
+            )
         build.assert_not_called()
-        self.assertNotIn("UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list))
+        self.assertNotIn(
+            "UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list)
+        )
 
-    def test_missing_field_manual_retains_reason_when_app_count_is_missing(self) -> None:
+    def test_missing_field_manual_retains_reason_when_app_count_is_missing(
+        self,
+    ) -> None:
         """A second enrichment failure must not erase the original diagnosis."""
         note = "{}summary.".format(MISSING_QUALYS_FIELD_NOTE_PREFIX)
         item = replace(self.removal_item(False), manual=note, removed_nws="")
         details = Mock(
-            was_report_poc=None, tech_poc_email=None, distro_email=None,
-            comments=None, report_password=None,
+            was_report_poc=None,
+            tech_poc_email=None,
+            distro_email=None,
+            comments=None,
+            report_password=None,
         )
-        with patch("was_reports.tracker.update_service.resolve_stakeholder_details",
-                   return_value=details), \
-                patch("was_reports.tracker.update_service.count_webapps",
-                      side_effect=AttributeError("missing count")), \
-                patch("was_reports.tracker.update_service.upsert_assignee",
-                      return_value=Mock(id=1, name="Analyst")), \
-                patch("was_reports.tracker.update_service.update_stakeholder_scan_metadata"), \
-                self.assertLogs("was_reports.tracker.update_service", level="ERROR"):
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=details,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps",
+            side_effect=AttributeError("missing count"),
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ), self.assertLogs(
+            "was_reports.tracker.update_service", level="ERROR"
+        ):
             row = build_tracker_row(Mock(), item, "Analyst", MagicMock(), date.today())
         self.assertEqual(row.report_scan_notes, note)
         self.assertIsNone(row.template)

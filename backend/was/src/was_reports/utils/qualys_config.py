@@ -6,6 +6,7 @@ from __future__ import annotations
 # Standard Python Libraries
 from dataclasses import dataclass
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.utils.env import require_env
 

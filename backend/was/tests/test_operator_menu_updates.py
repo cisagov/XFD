@@ -1,5 +1,6 @@
 """Operator menu organization, export safety, and guarded tracker corrections."""
 
+# Standard Python Libraries
 import ast
 import csv
 from datetime import date
@@ -7,17 +8,21 @@ from io import StringIO
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
-from was_reports.commands.menu_cli import WasOperatorMenu
+# Third-Party Libraries
 from was_reports.commands import tracker_cli
+from was_reports.commands.menu_cli import WasOperatorMenu
 from was_reports.data import daily_report_tracker, tracker_corrections
 from was_reports.storage import tracker_exports
 from was_reports.utils.stakeholder_options import STAKEHOLDER_OPTIONS
 
 
 class MenuUpdatesTests(unittest.TestCase):
+    """Verify operator menu navigation and guarded stakeholder actions."""
+
     def menu(self, answers):
+        """Build an operator menu driven by the supplied test answers."""
         menu = WasOperatorMenu(
             input_function=Mock(side_effect=answers),
             output_function=Mock(),
@@ -27,6 +32,7 @@ class MenuUpdatesTests(unittest.TestCase):
         return menu
 
     def test_navigation_is_zero_and_first(self):
+        """Keep the exit or back action first and numbered zero."""
         for method, navigation in [
             ("run", "Quit"),
             ("report_menu", "Back to main menu"),
@@ -45,6 +51,7 @@ class MenuUpdatesTests(unittest.TestCase):
 
     @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
     def test_automated_reports_are_not_limited_to_a_tag(self, run):
+        """Run automated reports for all eligible tags without a row limit."""
         menu = self.menu(["", "y"])
         menu.run_automated_reports()
         args = run.call_args.args[0]
@@ -55,6 +62,7 @@ class MenuUpdatesTests(unittest.TestCase):
 
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
     def test_customer_history_includes_children_without_date_or_row_limit(self, run):
+        """Include child tags and complete history in customer tracker views."""
         menu = self.menu(["PARENT", "y"])
         menu.view_customer_tracker()
         run.assert_called_once_with(
@@ -74,6 +82,7 @@ class MenuUpdatesTests(unittest.TestCase):
         side_effect=KeyError("not found"),
     )
     def test_missing_stakeholder_stops_before_more_inputs(self, lookup):
+        """Stop stakeholder operations immediately when the tag is absent."""
         for method in (
             "update_stakeholder_contacts",
             "rotate_stakeholder_password",
@@ -91,6 +100,7 @@ class MenuUpdatesTests(unittest.TestCase):
         return_value={"tag": "EXISTS"},
     )
     def test_add_rejects_existing_tag_before_other_inputs(self, lookup):
+        """Reject an existing stakeholder before collecting more input."""
         menu = self.menu(["EXISTS"])
         menu.add_stakeholder()
         self.assertEqual(menu.input.call_count, 1)
@@ -111,12 +121,14 @@ class MenuUpdatesTests(unittest.TestCase):
         side_effect=KeyError("not found"),
     )
     def test_available_new_stakeholder_tag_has_no_status_output(self, lookup):
+        """Return availability without printing a redundant status message."""
         menu = self.menu([])
 
         self.assertTrue(menu.new_stakeholder_tag_available("NEW"))
         menu.output.assert_not_called()
 
     def test_execute_suppresses_success_output_when_requested(self):
+        """Suppress successful command output when the caller requests it."""
         menu = self.menu([])
 
         self.assertEqual(
@@ -132,6 +144,7 @@ class MenuUpdatesTests(unittest.TestCase):
     def test_contact_prompts_show_current_values_and_enter_keeps_them(
         self, lookup, run
     ):
+        """Display current contacts and preserve them for blank responses."""
         lookup.return_value = {
             "tag": "TAG",
             "was_report_poc": "First Last",
@@ -147,6 +160,7 @@ class MenuUpdatesTests(unittest.TestCase):
         self.assertIn("team@example.gov", prompts[3])
 
     def test_menu_enum_suggestions_match_model(self):
+        """Keep menu enum suggestions aligned with stakeholder model choices."""
         tree = ast.parse(
             (Path(__file__).parents[1] / "schema/stakeholders.py").read_text()
         )
@@ -170,6 +184,8 @@ class MenuUpdatesTests(unittest.TestCase):
 
 
 class TrackerExportTests(unittest.TestCase):
+    """Verify tracker exports protect secrets and use approved storage."""
+
     @patch.object(tracker_cli, "require_env", return_value="reports@example.gov")
     @patch.object(tracker_cli, "create_ses_client")
     @patch.object(tracker_cli, "send_message", return_value="message-id")
@@ -180,6 +196,7 @@ class TrackerExportTests(unittest.TestCase):
     def test_email_export_excludes_passwords_and_escapes_formulas(
         self, rows, approve, send, ses, env
     ):
+        """Exclude passwords and neutralize spreadsheet formulas in email exports."""
         rows.return_value = [
             daily_report_tracker.DailyReportTrackerRow(
                 tag="=formula", legacy_password="PRIVATE_SECRET"
@@ -199,12 +216,14 @@ class TrackerExportTests(unittest.TestCase):
     )
     @patch.object(tracker_cli, "list_tracker_rows_for_export_from_db", return_value=[])
     def test_direct_s3_export(self, rows, upload):
+        """Upload a direct tracker export to S3."""
         tracker_cli.main(["export-csv", "--s3"])
         upload.assert_called_once()
 
     @patch.object(tracker_exports, "reports_bucket_name", return_value="test")
     @patch.object(tracker_exports, "reports_prefix", return_value="was_reports")
     def test_s3_key_and_encryption(self, prefix, bucket):
+        """Use the tracker export prefix and server-side encryption in S3."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "export.csv"
             path.touch()
@@ -219,6 +238,7 @@ class TrackerExportTests(unittest.TestCase):
             )
 
     def test_child_query_uses_recursive_parent_relationship_not_tag_prefix(self):
+        """Resolve child tags by stored relationships instead of name prefixes."""
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchall.return_value = []
@@ -235,7 +255,10 @@ class TrackerExportTests(unittest.TestCase):
 
 
 class TrackerCorrectionTests(unittest.TestCase):
+    """Verify tracker corrections enforce identity and delivery safeguards."""
+
     def setUp(self):
+        """Prepare a mutable unsent tracker row and mocked database services."""
         self.conn = MagicMock()
         self.cursor = self.conn.cursor.return_value.__enter__.return_value
         self.cursor.fetchone.side_effect = [(1,), None]
@@ -254,12 +277,14 @@ class TrackerCorrectionTests(unittest.TestCase):
             self.addCleanup(patcher.stop)
 
     def test_unclaimed_row_can_be_corrected(self):
+        """Allow correction of a matching row with no report claim."""
         tracker_corrections.correct_tracker_row(
             1, {"report_scan_notes": None}, expected=self.record.copy()
         )
         self.conn.commit.assert_called_once()
 
     def test_sent_row_is_protected(self):
+        """Reject correction of a tracker row already marked as sent."""
         self.record["report_sent_date"] = date.today()
         with self.assertRaisesRegex(ValueError, "Sent rows"):
             tracker_corrections.correct_tracker_row(
@@ -268,6 +293,7 @@ class TrackerCorrectionTests(unittest.TestCase):
         self.conn.commit.assert_not_called()
 
     def test_existing_run_is_protected(self):
+        """Reject correction when a linked report run already exists."""
         self.cursor.fetchone.side_effect = [(1,), (42,)]
         with self.assertRaisesRegex(ValueError, "report run already exists"):
             tracker_corrections.correct_tracker_row(
@@ -276,12 +302,14 @@ class TrackerCorrectionTests(unittest.TestCase):
         self.conn.rollback.assert_called_once()
 
     def test_changed_row_is_protected(self):
+        """Reject correction when the row changed after inspection."""
         with self.assertRaisesRegex(ValueError, "changed since inspection"):
             tracker_corrections.correct_tracker_row(
                 1, {"report_scan_notes": None}, expected={}
             )
 
     def test_identity_and_delivery_columns_are_protected(self):
+        """Reject changes to tracker identity and delivery state columns."""
         for field in (
             "tag",
             "schedule_id",

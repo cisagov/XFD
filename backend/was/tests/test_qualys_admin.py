@@ -22,8 +22,14 @@ from was_reports.qualys.qualys_admin import (
 )
 from was_reports.qualys.qualys_client import QualysRequest
 
-
-SUCCESS_RESPONSE = "<ServiceResponse><responseCode>SUCCESS</responseCode></ServiceResponse>"
+SUCCESS_RESPONSE = (
+    "<ServiceResponse><responseCode>SUCCESS</responseCode></ServiceResponse>"
+)
+MALICIOUS_RESPONSE = (
+    '<!DOCTYPE ServiceResponse [<!ENTITY secret SYSTEM "file:///etc/passwd">]>'
+    "<ServiceResponse><responseCode>SUCCESS</responseCode>"
+    "<data><WebApp><id>&secret;</id></WebApp></data></ServiceResponse>"
+)
 
 
 class QualysAdminTests(unittest.TestCase):
@@ -67,6 +73,14 @@ class QualysAdminTests(unittest.TestCase):
 
         with self.assertRaisesRegex(LookupError, "did not find"):
             find_webapp_id(client, "https://missing.example.gov")
+
+    def test_find_webapp_id_rejects_doctype(self) -> None:
+        """Reject external-entity declarations in Qualys lookup responses."""
+        client = Mock()
+        client.request.return_value = MALICIOUS_RESPONSE
+
+        with self.assertRaisesRegex(RuntimeError, "DOCTYPE"):
+            find_webapp_id(client, "https://example.gov")
 
     def test_tag_payload_supports_add_and_remove(self) -> None:
         """Preserve both legacy web application tag mutations."""
@@ -151,6 +165,14 @@ class QualysAdminTests(unittest.TestCase):
             RuntimeError,
             "INVALID_REQUEST",
         ):
+            delete_webapp(client, "https://example.gov")
+
+    def test_delete_webapp_rejects_doctype(self) -> None:
+        """Reject external-entity declarations in Qualys mutation responses."""
+        client = Mock()
+        client.request.return_value = MALICIOUS_RESPONSE
+
+        with self.assertRaisesRegex(RuntimeError, "DOCTYPE"):
             delete_webapp(client, "https://example.gov")
 
     def test_reactivate_payload_sets_all_tags(self) -> None:

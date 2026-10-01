@@ -146,7 +146,9 @@ class TrackerImportTests(unittest.TestCase):
         mock_connect.return_value = connection
         stored_values = workbook_row(tag="BEFORE")
         existing_row = tracker_import.workbook_values_to_row(stored_values)
-        mock_existing.return_value = {tracker_import.tracker_import_key(existing_row): (91,)}
+        mock_existing.return_value = {
+            tracker_import.tracker_import_key(existing_row): (91,)
+        }
         mock_assignees.return_value = {"analyst": 8}
         updated_values = workbook_row(tag="AFTER")
         new_values = workbook_row(schedule_id=12346)
@@ -245,9 +247,7 @@ class TrackerImportTests(unittest.TestCase):
 
     def test_import_key_ignores_fields_that_workbook_can_overwrite(self) -> None:
         """Match an execution when imported business data has changed."""
-        original_row = tracker_import.workbook_values_to_row(
-            workbook_row(tag="OLD")
-        )
+        original_row = tracker_import.workbook_values_to_row(workbook_row(tag="OLD"))
         changed_row = tracker_import.workbook_values_to_row(
             workbook_row(tag="UPDATED", assignee="New Analyst")
         )
@@ -268,9 +268,7 @@ class TrackerImportTests(unittest.TestCase):
     ) -> None:
         """Do not erase delivery history when the XLSX sent date is blank."""
         mock_execute_values.return_value = [(91,)]
-        row = tracker_import.workbook_values_to_row(
-            workbook_row(report_sent_date=None)
-        )
+        row = tracker_import.workbook_values_to_row(workbook_row(report_sent_date=None))
         values = tracker_import.database_values(
             row,
             assignee_id=8,
@@ -289,8 +287,7 @@ class TrackerImportTests(unittest.TestCase):
         self.assertEqual(updated_count, 1)
         query = mock_execute_values.call_args.args[1]
         self.assertIn(
-            "COALESCE(imported.report_sent_date::date, "
-            "tracker.report_sent_date)",
+            "COALESCE(imported.report_sent_date::date, " "tracker.report_sent_date)",
             query,
         )
 

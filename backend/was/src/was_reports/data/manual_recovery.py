@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from dataclasses import dataclass
+from typing import Any, cast
 from uuid import uuid4
 
 # Third-Party Libraries
@@ -14,7 +15,8 @@ from was_reports.utils.passwords import (
     validate_existing_report_password,
 )
 
-PASSWORD_VALIDATION = "password-validation"
+# This is a recovery-cause identifier, not an authentication secret.
+PASSWORD_VALIDATION = "password-validation"  # nosec B105
 QUALYS_READ_TIMEOUT = "qualys-read-timeout"
 RECOVERY_CAUSES = frozenset({PASSWORD_VALIDATION, QUALYS_READ_TIMEOUT})
 FAILURE_NOTES = {
@@ -54,7 +56,7 @@ def _fetch_recovery_state(
 ) -> tuple[object, ...] | None:
     """Return all guarded recovery state, optionally locking mutable rows."""
     lock_clause = " FOR UPDATE OF tracker, stakeholders, runs" if lock else ""
-    query = """
+    query_template = """
         SELECT
             tracker.tag,
             tracker.report_scan_notes,
@@ -119,7 +121,9 @@ def _fetch_recovery_state(
         JOIN was_stakeholders AS stakeholders ON stakeholders.tag = tracker.tag
         JOIN was_report_runs AS runs ON runs.source_tracker_id = tracker.id
         WHERE tracker.id = %s
-    """ + lock_clause
+    """
+    # lock_clause is selected only from the fixed strings above.
+    query = query_template + lock_clause
     with conn.cursor() as cursor:
         cursor.execute(query, (days_back, tracker_id))
         return cursor.fetchone()
@@ -138,11 +142,17 @@ def _evaluate_recovery_state(
             tracker_id, cause, None, None, False, "tracker row was not found"
         )
     tag = str(state[0])
-    report_run_id = int(state[9]) if state[9] is not None else None
+    report_run_id = int(cast(Any, state[9])) if state[9] is not None else None
     checks = (
-        (state[1] in FAILURE_NOTES[cause], "failure note does not match the selected cause"),
+        (
+            state[1] in FAILURE_NOTES[cause],
+            "failure note does not match the selected cause",
+        ),
         (state[2] is None, "tracker row is already marked sent"),
-        (str(state[3] or "").strip().lower() == "finished", "tracker status is not Finished"),
+        (
+            str(state[3] or "").strip().lower() == "finished",
+            "tracker status is not Finished",
+        ),
         (not str(state[4] or "").strip(), "tracker row has a Qualys error"),
         (
             bool(state[5]) and not str(state[5]).startswith("legacy-import:"),
@@ -152,7 +162,10 @@ def _evaluate_recovery_state(
         (state[8] is not True, "stakeholder requires manual reporting"),
         (report_run_id is not None, "tracker row has no report run"),
         (state[10] == "failed", "latest customer report run is not failed"),
-        (str(state[11] or "pending") in {"pending", "failed"}, "email is sent, held, or active"),
+        (
+            str(state[11] or "pending") in {"pending", "failed"},
+            "email is sent, held, or active",
+        ),
         (state[12] is None, "report run is already recorded as emailed"),
         (state[14] == "customer", "report run is not a customer delivery"),
         (bool(state[15]), "tracker row is outside the recovery window"),
@@ -182,9 +195,7 @@ def _evaluate_recovery_state(
                 False,
                 "stored report password is still invalid",
             )
-    return ManualRecoveryCheck(
-        tracker_id, cause, tag, report_run_id, True, "eligible"
-    )
+    return ManualRecoveryCheck(tracker_id, cause, tag, report_run_id, True, "eligible")
 
 
 def check_manual_report_recovery(
@@ -219,6 +230,7 @@ def claim_manual_report_recovery(
         if not check.eligible:
             conn.rollback()
             return None
+        state = cast(tuple[object, ...], state)
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -281,6 +293,7 @@ def check_manual_report_recovery_by_id(
 ) -> ManualRecoveryCheck:
     """Preview recovery using a managed database connection."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -295,6 +308,7 @@ def claim_manual_report_recovery_by_id(
 ) -> ReportRun | None:
     """Claim recovery using a managed database connection."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

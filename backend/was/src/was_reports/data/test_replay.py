@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+# Standard Python Libraries
 from dataclasses import dataclass
 from datetime import date
 from uuid import UUID, uuid4
 
+# Third-Party Libraries
 from was_reports.data.report_runs import ReportRun
 from was_reports.utils.database import close, connect
 
@@ -25,7 +27,8 @@ class ReplayCandidate:
 
 
 def list_replay_candidates(
-    days_back: int = 7, manual_tracker_ids: tuple[int, ...] = (),
+    days_back: int = 7,
+    manual_tracker_ids: tuple[int, ...] = (),
     include_all_manual: bool = False,
     targets_removed_tracker_ids: tuple[int, ...] = (),
 ) -> list[ReplayCandidate]:
@@ -109,7 +112,9 @@ def reserve_replay_run(
     replay_id = str(UUID(replay_id))
     recipient = recipient.strip().lower()
     if not recipient or candidate.action not in {
-        "resend", "manual", "targets_removed",
+        "resend",
+        "manual",
+        "targets_removed",
     }:
         raise ValueError("A recipient and valid replay action are required.")
     conn = connect()
@@ -122,7 +127,8 @@ def reserve_replay_run(
             )
             cursor.execute(
                 "SELECT recipient FROM was_test_replay_batches "
-                "WHERE replay_id = %s FOR UPDATE", (replay_id,),
+                "WHERE replay_id = %s FOR UPDATE",
+                (replay_id,),
             )
             if cursor.fetchone()[0] != recipient:
                 raise ValueError("Replay ID is already bound to a different recipient.")
@@ -134,21 +140,22 @@ def reserve_replay_run(
                 FROM was_test_replay_items AS items
                 JOIN was_report_runs AS runs ON runs.id = items.report_run_id
                 WHERE items.replay_id = %s AND items.tracker_id = %s
-                """, (replay_id, candidate.tracker_id),
+                """,
+                (replay_id, candidate.tracker_id),
             )
             existing = cursor.fetchone()
             if existing is not None:
                 expected_override = (
-                    "Targets Removed"
-                    if candidate.action == "targets_removed"
-                    else None
+                    "Targets Removed" if candidate.action == "targets_removed" else None
                 )
                 if existing[6:] != (
                     candidate.action,
                     candidate.original_run_id,
                     expected_override,
                 ):
-                    raise ValueError("Replay source/action differs from the original reservation.")
+                    raise ValueError(
+                        "Replay source/action differs from the original reservation."
+                    )
                 conn.commit()
                 return ReportRun(*existing[:6]), False
             cursor.execute(
@@ -229,7 +236,9 @@ def reserve_replay_run(
                 raise ValueError("Replay source is no longer eligible. Preview again.")
             generation_token = str(uuid4())
             status = "completed" if candidate.action == "resend" else "running"
-            output_path = candidate.output_path if candidate.action == "resend" else None
+            output_path = (
+                candidate.output_path if candidate.action == "resend" else None
+            )
             artifact_type = "pdf" if candidate.action == "resend" else None
             cursor.execute(
                 """
@@ -240,7 +249,14 @@ def reserve_replay_run(
                         CASE WHEN %s = 'completed' THEN NOW() ELSE NULL END)
                 RETURNING id
                 """,
-                (candidate.tag, status, generation_token, output_path, artifact_type, status),
+                (
+                    candidate.tag,
+                    status,
+                    generation_token,
+                    output_path,
+                    artifact_type,
+                    status,
+                ),
             )
             report_run_id = cursor.fetchone()[0]
             cursor.execute(
@@ -264,8 +280,17 @@ def reserve_replay_run(
                 ),
             )
         conn.commit()
-        return ReportRun(report_run_id, candidate.tag, status, output_path,
-                         artifact_type, generation_token), True
+        return (
+            ReportRun(
+                report_run_id,
+                candidate.tag,
+                status,
+                output_path,
+                artifact_type,
+                generation_token,
+            ),
+            True,
+        )
     except Exception:
         conn.rollback()
         raise

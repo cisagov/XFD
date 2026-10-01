@@ -7,11 +7,17 @@ from dataclasses import dataclass
 from itertools import zip_longest
 import logging
 from pathlib import Path
-from typing import List, Sequence, Tuple, Union
+from typing import Any, List, Sequence, Tuple, Union
 
 # Third-Party Libraries
-from lxml import etree, objectify
-from lxml.builder import E
+from defusedxml import ElementTree as DefusedElementTree
+from defusedxml.common import DefusedXmlException
+
+# lxml is used only to construct trusted outbound Qualys request XML.
+from lxml import etree, objectify  # nosec B410
+
+# The builder creates elements from application-controlled names.
+from lxml.builder import E  # nosec B410
 from requests.exceptions import HTTPError
 
 # First-Party Libraries
@@ -50,6 +56,14 @@ class ReportArtifactResult:
     emails_found: str
     rejected_links: str
     sensitive_data: str
+
+
+def _parse_failure_xml(content: bytes) -> Any | None:
+    """Parse bounded vendor failure XML without DTD or entity processing."""
+    try:
+        return DefusedElementTree.fromstring(content, forbid_dtd=True)
+    except (DefusedElementTree.ParseError, DefusedXmlException):
+        return None
 
 
 def _write_lines(path: Path, lines: Sequence[str]) -> None:
@@ -258,15 +272,11 @@ def is_unsupported_module_error(error: HTTPError) -> bool:
         or not response.content
     ):
         return False
-    try:
-        root = etree.fromstring(
-            response.content,
-            parser=etree.XMLParser(resolve_entities=False, no_network=True),
-        )
-    except etree.XMLSyntaxError:
+    root = _parse_failure_xml(response.content)
+    if root is None:
         return False
-    messages = root.xpath("./responseErrorDetails/errorMessage/text()")
-    return bool(messages) and str(messages[0]).strip() == UNSUPPORTED_MODULE_MESSAGE
+    message = root.findtext("./responseErrorDetails/errorMessage")
+    return bool(message) and message.strip() == UNSUPPORTED_MODULE_MESSAGE
 
 
 def retrieve_sensitive_findings_or_unavailable(
@@ -306,12 +316,8 @@ def is_sensitive_other_error(error: HTTPError) -> bool:
         or not response.content
     ):
         return False
-    try:
-        root = etree.fromstring(
-            response.content,
-            parser=etree.XMLParser(resolve_entities=False, no_network=True),
-        )
-    except etree.XMLSyntaxError:
+    root = _parse_failure_xml(response.content)
+    if root is None:
         return False
     return root.findtext("responseCode") == "OTHER_ERROR"
 
@@ -331,7 +337,10 @@ def write_sensitive_data_attachment(
     # card_links, card_values = retrieve_sensitive_findings_or_unavailable(
     #     client, stakeholder_tag, CREDIT_CARD_QIDS, "Credit Card"
     # )
-    ssn_links, ssn_values, card_links, card_values = [], [], [], []
+    ssn_links: list[str] = []
+    ssn_values: list[str] = []
+    card_links: list[str] = []
+    card_values: list[str] = []
     LOGGER.warning(
         "SSN and credit-card queries are temporarily disabled for stakeholder %s "
         "due to a known Qualys issue; sensitive data is unavailable. "

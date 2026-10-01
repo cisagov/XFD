@@ -2,10 +2,10 @@
 
 # Standard Python Libraries
 import os
+from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from pathlib import Path
 
 
 class WorkerEntrypointTests(unittest.TestCase):
@@ -27,43 +27,43 @@ class WorkerEntrypointTests(unittest.TestCase):
             update_tracker_command = directory_path / "was-update-tracker"
 
             batch_command.write_text(
-                "#!/bin/sh\necho batch \"$@\"\n",
+                '#!/bin/sh\necho batch "$@"\n',
                 encoding="utf-8",
             )
             reports_command.write_text(
-                "#!/bin/sh\necho reports \"$@\"\n",
+                '#!/bin/sh\necho reports "$@"\n',
                 encoding="utf-8",
             )
             xml_export_command.write_text(
-                "#!/bin/sh\necho export-xml \"$@\"\n",
+                '#!/bin/sh\necho export-xml "$@"\n',
                 encoding="utf-8",
             )
             inventory_command.write_text(
-                "#!/bin/sh\necho inventory \"$@\"\n",
+                '#!/bin/sh\necho inventory "$@"\n',
                 encoding="utf-8",
             )
             menu_command.write_text(
-                "#!/bin/sh\necho menu \"$@\"\n",
+                '#!/bin/sh\necho menu "$@"\n',
                 encoding="utf-8",
             )
             admin_command.write_text(
-                "#!/bin/sh\necho admin \"$@\"\n",
+                '#!/bin/sh\necho admin "$@"\n',
                 encoding="utf-8",
             )
             special_cases_command.write_text(
-                "#!/bin/sh\necho special-cases \"$@\"\n",
+                '#!/bin/sh\necho special-cases "$@"\n',
                 encoding="utf-8",
             )
             stakeholders_command.write_text(
-                "#!/bin/sh\necho stakeholders \"$@\"\n",
+                '#!/bin/sh\necho stakeholders "$@"\n',
                 encoding="utf-8",
             )
             tracker_command.write_text(
-                "#!/bin/sh\necho tracker \"$@\"\n",
+                '#!/bin/sh\necho tracker "$@"\n',
                 encoding="utf-8",
             )
             update_tracker_command.write_text(
-                "#!/bin/sh\necho update-tracker \"$@\"\n",
+                '#!/bin/sh\necho update-tracker "$@"\n',
                 encoding="utf-8",
             )
             batch_command.chmod(0o755)

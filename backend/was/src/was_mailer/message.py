@@ -11,14 +11,11 @@ from typing import Iterable, List
 from zoneinfo import ZoneInfo
 
 # Third-Party Libraries
-from was_reports.data.assignees import (
-    list_functional_test_recipient_emails_from_db,
-)
-
 # First-Party Libraries
 from was_mailer import customer_email_templates
-from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
+from was_reports.data.assignees import list_functional_test_recipient_emails_from_db
 from was_reports.reporting.latex_renderer import validate_filename_component
+from was_reports.tracker.tracker_csv import tracker_rows_to_csv_text
 
 EASTERN_TIME = ZoneInfo("America/New_York")
 ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
@@ -115,9 +112,7 @@ def approved_analyst_recipients(raw_addresses: str | None) -> List[str]:
     if rejected_recipients:
         raise AnalystRecipientError(
             "The submitted email address is not configured as an email-enabled "
-            "WAS functional-test recipient: {}.".format(
-                ", ".join(rejected_recipients)
-            )
+            "WAS functional-test recipient: {}.".format(", ".join(rejected_recipients))
         )
     return recipients
 
@@ -244,7 +239,9 @@ def build_report_email(
         body_open_end = html_body.find(">", body_start) if body_start >= 0 else -1
         if body_open_end >= 0:
             html_body = "{}{}{}".format(
-                html_body[:body_open_end + 1], html_notice, html_body[body_open_end + 1:]
+                html_body[: body_open_end + 1],
+                html_notice,
+                html_body[body_open_end + 1 :],
             )
         else:
             html_body = html_notice + html_body
@@ -269,7 +266,8 @@ def build_report_email(
             maintype="application",
             subtype="pdf",
             filename=(
-                report_path.name if analyst_delivery
+                report_path.name
+                if analyst_delivery
                 else customer_report_attachment_filename(
                     stakeholder_tag, report_path, report_date
                 )
@@ -290,12 +288,18 @@ def customer_report_attachment_filename(
     if report_date is None:
         unused_prefix, separator, suffix = report_path.stem.rpartition("_report_")
         raw_date = suffix[:10]
-        if not separator or len(raw_date) != 10 or (len(suffix) > 10 and suffix[10] != "-"):
+        if (
+            not separator
+            or len(raw_date) != 10
+            or (len(suffix) > 10 and suffix[10] != "-")
+        ):
             raise ValueError("Report attachment requires an explicit generation date.")
         try:
             report_date = date.fromisoformat(raw_date)
         except ValueError as error:
-            raise ValueError("Report attachment filename contains an invalid date.") from error
+            raise ValueError(
+                "Report attachment filename contains an invalid date."
+            ) from error
         if report_date.isoformat() != raw_date:
             raise ValueError("Report attachment filename must use YYYY-MM-DD.")
     return "{}_WAS_report_{}.pdf".format(safe_tag, report_date.isoformat())

@@ -1,16 +1,17 @@
 """Persistent tmux batch launcher tests without starting real sessions."""
 
+# Standard Python Libraries
+from datetime import datetime, timedelta, timezone
 import json
 import os
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
 from was_reports.commands import tmux_batch
-
 
 PRODUCTION_RUN_ID = "5cb98f63-7a8e-4ff4-aac5-461732f50204"
 CAPACITY_RUN_ID = "96978f00-a576-4cb1-9bac-af3666764766"
@@ -22,12 +23,11 @@ class TmuxBatchTests(unittest.TestCase):
     @staticmethod
     def cleanup_tmux_side_effect(pane_output, on_kill=None):
         """Return stable tmux results for cleanup tests without real sessions."""
+
         def command(executable, *arguments, **kwargs):
             del executable, kwargs
             if arguments[0] == "list-panes":
-                return subprocess.CompletedProcess(
-                    arguments, 0, stdout=pane_output
-                )
+                return subprocess.CompletedProcess(arguments, 0, stdout=pane_output)
             if arguments[0] == "capture-pane":
                 return subprocess.CompletedProcess(
                     arguments, 0, stdout="retained console output\n"
@@ -55,24 +55,27 @@ class TmuxBatchTests(unittest.TestCase):
             completed = MagicMock(returncode=0, stdout="")
             with patch.dict(os.environ, environment, clear=True), patch.object(
                 tmux_batch, "require_tmux", return_value="/usr/bin/tmux"
-            ), patch.object(tmux_batch.subprocess, "run", return_value=completed) as run:
+            ), patch.object(
+                tmux_batch.subprocess, "run", return_value=completed
+            ) as run:
                 self.assertEqual(
                     tmux_batch.start_session("production", working_directory), 0
                 )
 
-            manifest_path = output_directory / "tmux-launches" / (
-                "was-production-{}.json".format(PRODUCTION_RUN_ID)
+            manifest_path = (
+                output_directory
+                / "tmux-launches"
+                / ("was-production-{}.json".format(PRODUCTION_RUN_ID))
             )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["run_id"], PRODUCTION_RUN_ID)
-            self.assertEqual(
-                manifest["target"], "_recent-scan-batch-foreground"
-            )
+            self.assertEqual(manifest["target"], "_recent-scan-batch-foreground")
             self.assertEqual(manifest["environment"]["BATCH_WORKERS"], "30")
             self.assertNotIn("UNRELATED_SECRET", manifest["environment"])
-            self.assertEqual(run.call_args_list[0].args[0][0:4], [
-                "/usr/bin/tmux", "new-session", "-d", "-s"
-            ])
+            self.assertEqual(
+                run.call_args_list[0].args[0][0:4],
+                ["/usr/bin/tmux", "new-session", "-d", "-s"],
+            )
             self.assertEqual(run.call_args_list[-1].args[0][1], "respawn-pane")
             for call in run.call_args_list:
                 self.assertNotIn("shell", call.kwargs)
@@ -104,12 +107,15 @@ class TmuxBatchTests(unittest.TestCase):
             ) as run:
                 self.assertEqual(tmux_batch.run_manifest(manifest_path), 7)
 
-            self.assertEqual(run.call_args.args[0], [
-                "/usr/bin/make",
-                "-C",
-                str(working_directory.resolve()),
-                "_capacity-test-foreground",
-            ])
+            self.assertEqual(
+                run.call_args.args[0],
+                [
+                    "/usr/bin/make",
+                    "-C",
+                    str(working_directory.resolve()),
+                    "_capacity-test-foreground",
+                ],
+            )
             self.assertNotIn("MAKEFLAGS", run.call_args.kwargs["env"])
             self.assertNotIn("MFLAGS", run.call_args.kwargs["env"])
             self.assertEqual(
@@ -186,12 +192,15 @@ class TmuxBatchTests(unittest.TestCase):
             clear=True,
         ), patch.object(
             tmux_batch, "require_tmux", return_value="/usr/bin/tmux"
-        ), patch.object(tmux_batch, "tmux_command") as command:
+        ), patch.object(
+            tmux_batch, "tmux_command"
+        ) as command:
             self.assertEqual(tmux_batch.stop_session("capacity"), 0)
         self.assertEqual(command.call_count, 2)
-        self.assertEqual(command.call_args_list[0].args, (
-            "/usr/bin/tmux", "send-keys", "-t", "{}:0.0".format(name), "C-c"
-        ))
+        self.assertEqual(
+            command.call_args_list[0].args,
+            ("/usr/bin/tmux", "send-keys", "-t", "{}:0.0".format(name), "C-c"),
+        )
         self.assertNotIn("kill-session", str(command.call_args_list))
 
     def test_latest_session_uses_tmux_creation_time(self):
@@ -283,9 +292,7 @@ class TmuxBatchTests(unittest.TestCase):
                 tmux_batch, "require_tmux", return_value="/usr/bin/tmux"
             ), patch.object(tmux_batch, "tmux_command", return_value=failed):
                 with self.assertRaisesRegex(RuntimeError, "permission denied"):
-                    tmux_batch.cleanup_sessions(
-                        "production", working_directory
-                    )
+                    tmux_batch.cleanup_sessions("production", working_directory)
 
     def test_cleanup_rejects_malformed_owned_session_state(self):
         """Do not report success when an owned pane has unreadable metadata."""
@@ -300,9 +307,7 @@ class TmuxBatchTests(unittest.TestCase):
                 tmux_batch, "require_tmux", return_value="/usr/bin/tmux"
             ), patch.object(tmux_batch, "tmux_command", return_value=malformed):
                 with self.assertRaisesRegex(RuntimeError, "malformed state"):
-                    tmux_batch.cleanup_sessions(
-                        "production", working_directory
-                    )
+                    tmux_batch.cleanup_sessions("production", working_directory)
 
     def test_failure_acknowledgement_requires_exact_owned_session(self):
         """Never allow a workflow-wide acknowledgement of failed sessions."""
@@ -379,7 +384,9 @@ class TmuxBatchTests(unittest.TestCase):
                 os.environ, {"OUTPUT_DIR": str(output_directory)}, clear=True
             ), patch.object(
                 tmux_batch, "require_tmux", return_value="/usr/bin/tmux"
-            ), patch.object(tmux_batch, "tmux_command", side_effect=command):
+            ), patch.object(
+                tmux_batch, "tmux_command", side_effect=command
+            ):
                 with self.assertRaisesRegex(RuntimeError, "changed while archiving"):
                     tmux_batch.cleanup_sessions(
                         "production",
@@ -400,9 +407,7 @@ class TmuxBatchTests(unittest.TestCase):
             working_directory = Path(directory)
             working_directory.joinpath("Makefile").write_text("all:\n\t@true\n")
             output_directory = working_directory / "output"
-            archive_directory = (
-                output_directory / "tmux-archives" / session
-            )
+            archive_directory = output_directory / "tmux-archives" / session
             console_path = archive_directory / "console.log"
             metadata_path = archive_directory / "metadata.json"
             killed = []
@@ -442,9 +447,7 @@ class TmuxBatchTests(unittest.TestCase):
                 )
                 self.assertTrue(console_path.is_file())
                 metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-                self.assertEqual(
-                    metadata["observed_dead_at"], fixed_now.isoformat()
-                )
+                self.assertEqual(metadata["observed_dead_at"], fixed_now.isoformat())
                 self.assertNotIn(
                     "kill-session",
                     [call.args[1] for call in command.call_args_list],
@@ -453,9 +456,7 @@ class TmuxBatchTests(unittest.TestCase):
                 metadata["observed_dead_at"] = (
                     fixed_now - timedelta(hours=25)
                 ).isoformat()
-                metadata_path.write_text(
-                    json.dumps(metadata), encoding="utf-8"
-                )
+                metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
                 command.reset_mock()
                 self.assertEqual(
                     tmux_batch.cleanup_sessions(
@@ -469,7 +470,8 @@ class TmuxBatchTests(unittest.TestCase):
 
             self.assertEqual(killed, [session])
             kill_call = next(
-                call for call in command.call_args_list
+                call
+                for call in command.call_args_list
                 if call.args[1] == "kill-session"
             )
             self.assertEqual(kill_call.args[2:], ("-t", session))
@@ -509,9 +511,7 @@ class TmuxBatchTests(unittest.TestCase):
                 metadata["observed_dead_at"] = (
                     fixed_now - timedelta(hours=25)
                 ).isoformat()
-                metadata_path.write_text(
-                    json.dumps(metadata), encoding="utf-8"
-                )
+                metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
                 command.reset_mock()
 
                 self.assertEqual(
@@ -541,7 +541,8 @@ class TmuxBatchTests(unittest.TestCase):
                 )
 
             kill_calls = [
-                call for call in command.call_args_list
+                call
+                for call in command.call_args_list
                 if call.args[1] == "kill-session"
             ]
             self.assertEqual(len(kill_calls), 1)

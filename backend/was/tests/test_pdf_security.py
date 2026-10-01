@@ -1,9 +1,9 @@
 """Tests for atomic WAS PDF password encryption."""
 
 # Standard Python Libraries
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 # Third-Party Libraries
@@ -55,7 +55,8 @@ class PdfSecurityTests(unittest.TestCase):
     def test_encrypt_pdf_preserves_existing_password_spaces(self) -> None:
         """Round-trip literal spaces and reject trimmed or altered passwords."""
         for report_password in (
-            " Legacy,Password123!", "Legacy-Password123! ",
+            " Legacy,Password123!",
+            "Legacy-Password123! ",
             " Legacy, Password-123! ",
         ):
             with self.subTest(report_password=report_password):

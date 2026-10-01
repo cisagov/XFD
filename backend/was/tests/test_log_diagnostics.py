@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import log_diagnostics
 
@@ -78,16 +79,26 @@ class LogDiagnosticsTests(unittest.TestCase):
             with redirect_stdout(errors):
                 log_diagnostics.main(
                     [
-                        "--root", str(root), "--batch-id", BATCH_ID,
-                        "--mode", "errors",
+                        "--root",
+                        str(root),
+                        "--batch-id",
+                        BATCH_ID,
+                        "--mode",
+                        "errors",
                     ]
                 )
             tags = StringIO()
             with redirect_stdout(tags):
                 log_diagnostics.main(
                     [
-                        "--root", str(root), "--batch-id", BATCH_ID,
-                        "--mode", "tag", "--tag", "tag2",
+                        "--root",
+                        str(root),
+                        "--batch-id",
+                        BATCH_ID,
+                        "--mode",
+                        "tag",
+                        "--tag",
+                        "tag2",
                     ]
                 )
         self.assertIn("failed safely", errors.getvalue())

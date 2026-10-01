@@ -13,7 +13,9 @@ from was_reports.reporting import report_template_data
 from was_reports.reporting.report_artifacts import ReportArtifactResult
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "was_report_metrics.xml"
-TEMPLATE_PATH = Path(__file__).parents[1] / "was_report" / "NEW_BIG.mustache"
+TEMPLATE_PATH = (
+    Path(__file__).parents[1] / "src" / "was_reports" / "resources" / "NEW_BIG.mustache"
+)
 CURRENT_TIME = datetime(2026, 8, 27, 13, 0)
 
 

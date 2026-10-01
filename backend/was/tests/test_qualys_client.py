@@ -21,12 +21,12 @@ from was_reports.qualys.qualys_client import (
     qualys_replay_command,
     sanitized_qualys_payload,
 )
-from was_reports.utils.qualys_config import QualysCredentials
 from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
     clear_operation_cancellation,
     request_operation_cancellation,
 )
+from was_reports.utils.qualys_config import QualysCredentials
 
 
 class FakeQualysConnection:
@@ -309,7 +309,7 @@ class QualysClientTests(unittest.TestCase):
             endpoint="/search/was/finding",
             payload=(
                 "<ServiceRequest><password>private-secret</password>"
-                "<filters><Criteria field=\"tag\">TAG1</Criteria></filters>"
+                '<filters><Criteria field="tag">TAG1</Criteria></filters>'
                 "</ServiceRequest>"
             ),
             http_method="POST",
@@ -392,6 +392,18 @@ class QualysClientTests(unittest.TestCase):
 
         self.assertIn("invalid-xml sha256=", sanitized_payload)
         self.assertNotIn("private-secret", sanitized_payload)
+
+    def test_replay_xml_rejects_doctype_and_external_entity(self) -> None:
+        """Hash unsafe XML without reading or exposing an external entity."""
+        payload = (
+            '<!DOCTYPE request [<!ENTITY secret SYSTEM "file:///etc/passwd">]>'
+            "<request><password>&secret;</password></request>"
+        )
+
+        sanitized_payload = sanitized_qualys_payload(payload)
+
+        self.assertIn("invalid-xml sha256=", sanitized_payload)
+        self.assertNotIn("root:", sanitized_payload)
 
     def test_tls_error_is_not_retried(self) -> None:
         """Reject TLS configuration failures instead of repeatedly contacting Qualys."""

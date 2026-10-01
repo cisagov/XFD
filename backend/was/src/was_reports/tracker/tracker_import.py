@@ -10,7 +10,7 @@ import hashlib
 from itertools import chain
 import json
 from pathlib import Path
-from typing import Callable, Iterator, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Generator, Sequence
 
 # Third-Party Libraries
 from openpyxl import load_workbook
@@ -22,6 +22,7 @@ from was_reports.data.daily_report_tracker import DailyReportTrackerRow
 from was_reports.utils.database import close, connect
 
 if TYPE_CHECKING:
+    # Third-Party Libraries
     from psycopg2.extensions import connection
 
 
@@ -254,8 +255,7 @@ def fingerprint_value(value: object) -> object:
 def tracker_fingerprint(row: DailyReportTrackerRow) -> str:
     """Return a deterministic fingerprint for one converted tracker row."""
     values = [
-        fingerprint_value(getattr(row, field_name))
-        for field_name in FINGERPRINT_FIELDS
+        fingerprint_value(getattr(row, field_name)) for field_name in FINGERPRINT_FIELDS
     ]
     serialized_values = json.dumps(
         values,
@@ -297,7 +297,9 @@ def validate_headers(values: Sequence[object]) -> None:
         raise ValueError("Workbook contains unexpected columns after Qualys Error.")
 
 
-def read_workbook_rows(input_path: Path) -> Iterator[tuple[int, Sequence[object]]]:
+def read_workbook_rows(
+    input_path: Path,
+) -> Generator[tuple[int, Sequence[object]], None, None]:
     """Yield nonblank workbook rows after validating the first worksheet."""
     if not input_path.is_file():
         raise ValueError("Tracker workbook does not exist: {}".format(input_path))
@@ -421,14 +423,15 @@ def insert_converted_rows(
             )
         else:
             conflict_assignments.append("{} = EXCLUDED.{}".format(column, column))
-    query = """
-        INSERT INTO was_daily_report_tracker ({})
-        VALUES %s
-        ON CONFLICT (scan_execution_key)
-            WHERE scan_execution_key IS NOT NULL
-        DO UPDATE SET {}, updated_at = NOW()
-        RETURNING id
-    """.format(
+    # Column names and assignments come only from module-level allowlists.
+    query = (
+        "INSERT INTO was_daily_report_tracker ({}) "  # nosec B608
+        "VALUES %s "
+        "ON CONFLICT (scan_execution_key) "
+        "WHERE scan_execution_key IS NOT NULL "
+        "DO UPDATE SET {}, updated_at = NOW() "
+        "RETURNING id"
+    ).format(
         ", ".join(DATABASE_COLUMNS),
         ", ".join(conflict_assignments),
     )
@@ -475,16 +478,15 @@ def update_converted_rows(
                 "tracker.report_sent_date)".format(imported_value)
             )
         else:
-            assignments.append(
-                "{} = {}".format(column, imported_value)
-            )
-    query = """
-        UPDATE was_daily_report_tracker AS tracker
-        SET {}, updated_at = NOW()
-        FROM (VALUES %s) AS imported ({}, tracker_id)
-        WHERE tracker.id = imported.tracker_id::bigint
-        RETURNING tracker.id
-    """.format(", ".join(assignments), ", ".join(IMPORT_UPDATE_COLUMNS))
+            assignments.append("{} = {}".format(column, imported_value))
+    # Assignments and imported columns come only from module-level allowlists.
+    query = (
+        "UPDATE was_daily_report_tracker AS tracker "  # nosec B608
+        "SET {}, updated_at = NOW() "
+        "FROM (VALUES %s) AS imported ({}, tracker_id) "
+        "WHERE tracker.id = imported.tracker_id::bigint "
+        "RETURNING tracker.id"
+    ).format(", ".join(assignments), ", ".join(IMPORT_UPDATE_COLUMNS))
     updated_count = 0
     with conn.cursor() as cursor:
         for start_index in range(0, len(rows), 500):
@@ -554,7 +556,7 @@ def import_tracker_workbook(
         workbook_duplicates = 0
         blank_rows = 0
 
-        workbook_rows = row_iterator
+        workbook_rows = chain(row_iterator)
         if first_row is not None:
             workbook_rows = chain((first_row,), row_iterator)
         for row_number, values in workbook_rows:
@@ -565,7 +567,9 @@ def import_tracker_workbook(
             try:
                 row = workbook_values_to_row(values)
             except ValueError as error:
-                raise ValueError("Workbook row {}: {}".format(row_number, error)) from error
+                raise ValueError(
+                    "Workbook row {}: {}".format(row_number, error)
+                ) from error
             if source_rows % 5000 == 0:
                 report_status(
                     status_callback,

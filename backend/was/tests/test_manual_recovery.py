@@ -4,6 +4,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data import manual_recovery
 
@@ -38,7 +39,9 @@ class ManualRecoveryTests(unittest.TestCase):
 
     def test_password_recovery_accepts_intentionally_allowed_characters(self) -> None:
         """Allow existing spaces, commas, and hyphens without changing the value."""
-        note = next(iter(manual_recovery.FAILURE_NOTES[manual_recovery.PASSWORD_VALIDATION]))
+        note = next(
+            iter(manual_recovery.FAILURE_NOTES[manual_recovery.PASSWORD_VALIDATION])
+        )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = eligible_state(note)
@@ -54,7 +57,9 @@ class ManualRecoveryTests(unittest.TestCase):
 
     def test_preview_does_not_lock_rows(self) -> None:
         """Keep the default eligibility preview read-only."""
-        note = next(iter(manual_recovery.FAILURE_NOTES[manual_recovery.QUALYS_READ_TIMEOUT]))
+        note = next(
+            iter(manual_recovery.FAILURE_NOTES[manual_recovery.QUALYS_READ_TIMEOUT])
+        )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = eligible_state(note)
@@ -77,7 +82,9 @@ class ManualRecoveryTests(unittest.TestCase):
 
     def test_held_or_uncertain_run_is_blocked(self) -> None:
         """Require reconciliation rather than retrying uncertain side effects."""
-        note = next(iter(manual_recovery.FAILURE_NOTES[manual_recovery.QUALYS_READ_TIMEOUT]))
+        note = next(
+            iter(manual_recovery.FAILURE_NOTES[manual_recovery.QUALYS_READ_TIMEOUT])
+        )
         for index, value in (
             (11, "held"),
             (13, "QualysReportCreationUncertainError"),
@@ -95,7 +102,9 @@ class ManualRecoveryTests(unittest.TestCase):
 
     def test_claim_reuses_run_and_clears_only_exact_failure_note(self) -> None:
         """Reclaim the same run and remove only the verified blocker atomically."""
-        note = next(iter(manual_recovery.FAILURE_NOTES[manual_recovery.PASSWORD_VALIDATION]))
+        note = next(
+            iter(manual_recovery.FAILURE_NOTES[manual_recovery.PASSWORD_VALIDATION])
+        )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [

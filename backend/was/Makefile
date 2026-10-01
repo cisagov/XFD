@@ -13,8 +13,6 @@ BATCH_TEST_RECIPIENTS ?=
 BATCH_RUN_ID ?=
 BATCH_DAYS_BACK ?= 7
 TRACKER_LOOKBACK_DAYS ?= 3
-DIAGNOSTIC_OUTPUT ?= $(OUTPUT_DIR)/report-alignment-$(shell date -u +%Y%m%dT%H%M%SZ).json
-DIAGNOSTIC_SNAPSHOT ?=
 TAG ?=
 DAYS_BACK ?= 7
 ASSIGNEE ?=
@@ -189,12 +187,6 @@ capacity-cleanup:
 	  }; set -- "$$@" --acknowledge-failures --session "$(TMUX_SESSION)" ;; \
 	  *) echo 'TMUX_CLEANUP_ACKNOWLEDGE_FAILURES must be 0 or 1.' >&2; exit 2 ;; esac; \
 	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch "$$@"
-
-.PHONY: report-alignment-diagnostic-local
-
-report-alignment-diagnostic-local:
-	mkdir -p "$(dir $(DIAGNOSTIC_OUTPUT))"
-	PYTHONPATH=src $(PYTHON) scripts/diagnose_report_alignment.py --days-back "$(BATCH_DAYS_BACK)" --discovery-days "$(TRACKER_LOOKBACK_DAYS)" --output "$(DIAGNOSTIC_OUTPUT)" $(if $(strip $(DIAGNOSTIC_SNAPSHOT)),--snapshot "$(DIAGNOSTIC_SNAPSHOT)")
 
 recent-scan-batch-preflight:
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) --entrypoint python $(IMAGE) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")

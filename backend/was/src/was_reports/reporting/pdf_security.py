@@ -2,9 +2,9 @@
 
 # Standard Python Libraries
 import os
+from pathlib import Path
 import shutil
 import tempfile
-from pathlib import Path
 
 # Third-Party Libraries
 from pikepdf import Encryption, Pdf
@@ -17,9 +17,7 @@ def encrypt_pdf_in_place(pdf_path: Path, report_password: str) -> Path:
     """Atomically replace a PDF with its password-encrypted equivalent."""
     validate_existing_report_password(report_password)
     if not pdf_path.is_file():
-        raise FileNotFoundError(
-            "WAS PDF report not found at {}.".format(pdf_path)
-        )
+        raise FileNotFoundError("WAS PDF report not found at {}.".format(pdf_path))
     temporary_file = tempfile.NamedTemporaryFile(
         prefix=".{}-".format(pdf_path.stem),
         suffix=".pdf",

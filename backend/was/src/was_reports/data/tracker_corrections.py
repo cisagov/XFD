@@ -1,9 +1,9 @@
 """Guarded metadata corrections, never a way to reset report delivery history."""
 
+# Third-Party Libraries
 from psycopg2 import sql
-
 from was_reports.data.daily_report_tracker import get_tracker_record_by_id
-from was_reports.utils.database import connect, close
+from was_reports.utils.database import close, connect
 
 EDITABLE_FIELDS = (
     "status",

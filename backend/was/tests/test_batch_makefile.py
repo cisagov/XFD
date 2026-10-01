@@ -1,5 +1,6 @@
 """Verify batch Make targets agree without starting containers or delivery."""
 
+# Standard Python Libraries
 from pathlib import Path
 import subprocess
 import unittest
@@ -13,7 +14,10 @@ class BatchMakefileTests(unittest.TestCase):
         directory = Path(__file__).resolve().parents[1]
         result = subprocess.run(
             ["make", "-n", "-C", str(directory), "recent-scan-batch"],
-            capture_output=True, text=True, check=True, timeout=15,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
         )
         self.assertIn("was_reports.commands.tmux_batch start", result.stdout)
         self.assertIn("--workflow production", result.stdout)
@@ -24,13 +28,19 @@ class BatchMakefileTests(unittest.TestCase):
         directory = Path(__file__).resolve().parents[1]
         result = subprocess.run(
             [
-                "make", "-s", "-C", str(directory),
+                "make",
+                "-s",
+                "-C",
+                str(directory),
                 "_recent-scan-batch-foreground",
                 "BATCH_RUN_ID=00000000-0000-0000-0000-000000000000",
                 "PYTHON=/bin/echo",
                 "WAS_TMUX_LAUNCH=1",
             ],
-            capture_output=True, text=True, check=True, timeout=15,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
         )
         self.assertIn("was_reports.commands.batch_coordinator", result.stdout)
         self.assertIn("--workers 30 --worker-backend docker", result.stdout)
@@ -49,16 +59,26 @@ class BatchMakefileTests(unittest.TestCase):
         """Require APPLY=1 before capacity work moves into tmux."""
         directory = Path(__file__).resolve().parents[1]
         base_command = [
-            "make", "-n", "-C", str(directory), "capacity-start",
+            "make",
+            "-n",
+            "-C",
+            str(directory),
+            "capacity-start",
             "TEST_RECIPIENTS=preview@example.invalid",
         ]
         preview = subprocess.run(
             base_command,
-            capture_output=True, text=True, check=True, timeout=15,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
         )
         applied = subprocess.run(
             base_command + ["APPLY=1"],
-            capture_output=True, text=True, check=True, timeout=15,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
         )
         self.assertIn("was_reports.commands.capacity_test", preview.stdout)
         self.assertNotIn("was_reports.commands.tmux_batch start", preview.stdout)
@@ -70,11 +90,17 @@ class BatchMakefileTests(unittest.TestCase):
         """Dry-run expansion forwards seven days by default and honors overrides."""
         directory = Path(__file__).resolve().parents[1]
         for override, expected in (
-            (None, "7"), ("1", "1"), ("30", "30"), ("all", "all")
+            (None, "7"),
+            ("1", "1"),
+            ("30", "30"),
+            ("all", "all"),
         ):
             with self.subTest(override=override):
                 command = [
-                    "make", "-n", "-C", str(directory),
+                    "make",
+                    "-n",
+                    "-C",
+                    str(directory),
                     "recent-scan-batch-assignee-test",
                     "TEST_RECIPIENTS=preview@example.invalid",
                 ]
@@ -94,13 +120,19 @@ class BatchMakefileTests(unittest.TestCase):
         directory = Path(__file__).resolve().parents[1]
         result = subprocess.run(
             [
-                "make", "-s", "-C", str(directory),
+                "make",
+                "-s",
+                "-C",
+                str(directory),
                 "_recent-scan-batch-foreground",
                 "BATCH_TEST_RECIPIENTS=preview@example.invalid",
                 "PYTHON=/bin/echo",
                 "WAS_TMUX_LAUNCH=1",
             ],
-            capture_output=True, text=True, check=True, timeout=15,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
         )
 
         self.assertIn("--test-recipients preview@example.invalid", result.stdout)
@@ -109,7 +141,7 @@ class BatchMakefileTests(unittest.TestCase):
     def test_log_diagnostics_remain_make_only_and_read_batch_files(self) -> None:
         """Expose summary, error, and tag filters without adding menu operations."""
         directory = Path(__file__).resolve().parents[1]
-        commands = {
+        commands: dict[str, tuple[str, list[str]]] = {
             "logs-latest": ("--latest --mode summary", []),
             "logs-summary": ("--mode summary", ["LOG_BATCH_ID=" + "0" * 36]),
             "logs-errors": ("--mode errors", ["LOG_BATCH_ID=" + "0" * 36]),

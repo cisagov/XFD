@@ -1150,57 +1150,6 @@ applying historical changes and retain the command output for the affected IDs
 and timestamps. A committed correction should be reversed only for those exact
 IDs after checking that no subsequent update has changed the values.
 
-### Read-only legacy alignment diagnostic
-
-After importing tracker data, or before approving selection changes, run from
-`backend/was` in a checkout with the original `../WAS Automation Export 2026-05-06.zip`:
-
-```bash
-make report-alignment-diagnostic-local
-```
-
-This local command needs the project Python environment and working read-only
-database/Qualys connectivity. It does not start Docker. It writes timestamped,
-owner-readable JSON and replay snapshots under `local-output/`. It uses a
-database-enforced read-only repeatable-read transaction and only Qualys schedule
-searches. It does not refresh the tracker, retrieve scan slices, generate or
-delete reports, assign analysts, send emails, or recover stale operations.
-
-The diagnostic compares the hash-pinned original ZIP's schedule selector against
-current selection using the same captured schedule pages. It shows the original
-48-hour baseline, an equal-window rule comparison, the configured modern window
-(three days by default), and the actual modern early tracker exclusion stage.
-Final stored report eligibility is queried with the production selector on the
-same database snapshot, defaulting to seven calendar dates. Output includes
-tracker IDs, tags, templates, scan dates, PDF versus notification counts, Qualys
-error overlays, exclusions, and source-code hashes, including uncommitted edits.
-
-These are separate stages, not a claim that discovery counts equal PDF counts.
-Legacy AM tag lookups use the included schedule tag ID and missing next-launch
-dates receive a neutral placeholder; adaptations are recorded. Report linkage
-to discovery is at tag/schedule level only, not proof of the same execution.
-This command does not predict reports after a future tracker refresh or verify
-slice completeness, NWS history, generated PDF content, or delivered mail.
-Differences require explanation and approval, not automatic acceptance as parity.
-
-For an offline discovery regression check, keep the original snapshot and choose
-a new output filename:
-
-```bash
-make report-alignment-diagnostic-local \
-  DIAGNOSTIC_SNAPSHOT=/absolute/path/report-alignment-previous.snapshot.json \
-  DIAGNOSTIC_OUTPUT=/absolute/path/report-alignment-replay.json
-```
-
-Offline replay makes no database or Qualys calls. It reruns discovery/early-filter
-logic against frozen inputs; stored report eligibility remains the captured SQL
-result, explicitly not a fresh evaluation of changed eligibility SQL. Window
-arguments apply to live capture; offline replay uses the snapshot's windows.
-For eligibility SQL changes, run the diagnostic live again and review database
-timestamp/source hashes before attributing differences to code. Files are never
-overwritten. Snapshots exclude passwords, POC addresses, findings, and full notes;
-they still contain customer tags and scan names and should remain private.
-
 ```bash
 make recent-scan-batch TRACKER_LOOKBACK_DAYS=5 BATCH_DAYS_BACK=14
 make recent-scan-batch BATCH_DAYS_BACK=all
@@ -1927,7 +1876,6 @@ make recent-scan-batch-preflight
 make recent-scan-batch-cleanup
 make recent-scan-batch-cleanup TMUX_CLEANUP_APPLY=1
 make tmux-cleanup TMUX_CLEANUP_APPLY=1
-make report-alignment-diagnostic-local
 make single-report TAG="CUSTOMER_TAG"
 make manual-report TAG="CUSTOMER_TAG"
 make on-demand-report TAG="CUSTOMER_TAG"

@@ -5,6 +5,7 @@ import argparse
 import sys
 from typing import Sequence
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_mailer.message import AnalystRecipientError, approved_analyst_recipients
 from was_reports.commands.batch_runner import run_recent_scan_reports
@@ -35,9 +36,7 @@ def tracker_ids(value: str) -> tuple[int, ...]:
                 "Tracker IDs must be positive integers."
             ) from error
         if tracker_id < 1:
-            raise argparse.ArgumentTypeError(
-                "Tracker IDs must be positive integers."
-            )
+            raise argparse.ArgumentTypeError("Tracker IDs must be positive integers.")
         if tracker_id in parsed:
             raise argparse.ArgumentTypeError("Tracker IDs must be unique.")
         parsed.append(tracker_id)

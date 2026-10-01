@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from datetime import date
 import math
 from pathlib import Path
-import subprocess
+
+# Compilation uses explicit argument vectors and never invokes a shell.
+import subprocess  # nosec B404
 from typing import Callable, Mapping, Optional, Sequence
 
 # Third-Party Libraries

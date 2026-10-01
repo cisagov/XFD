@@ -25,7 +25,9 @@ def is_missing_qualys_schedule_manual(notes: str | None) -> bool:
 
 def is_recoverable_qualys_manual(notes: str | None) -> bool:
     """Return whether complete scan or schedule data can resolve manual work."""
-    return is_missing_qualys_field_manual(notes) or is_missing_qualys_schedule_manual(notes)
+    return is_missing_qualys_field_manual(notes) or is_missing_qualys_schedule_manual(
+        notes
+    )
 
 
 @dataclass(frozen=True)
@@ -83,7 +85,9 @@ class TrackerItem:
 QualysScan = Any
 
 
-def scan_time_bounds(scans: list[QualysScan]) -> tuple[datetime | None, datetime | None]:
+def scan_time_bounds(
+    scans: list[QualysScan],
+) -> tuple[datetime | None, datetime | None]:
     """Return complete, timezone-aware actual scan bounds without inventing times."""
     starts = []
     ends = []
@@ -92,7 +96,11 @@ def scan_time_bounds(scans: list[QualysScan]) -> tuple[datetime | None, datetime
         for field in ("launchedDate", "endScanDate"):
             value = scan.findtext(field)
             try:
-                timestamp = datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+                timestamp = (
+                    datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if value
+                    else None
+                )
                 if timestamp is not None and timestamp.tzinfo is not None:
                     timestamp = timestamp.astimezone(timezone.utc)
                 else:
@@ -101,7 +109,11 @@ def scan_time_bounds(scans: list[QualysScan]) -> tuple[datetime | None, datetime
                 timestamp = None
             values.append(timestamp)
         start, end = values
-        if start is not None and not scan.findtext("endScanDate") and scan.findtext("status") == "FINISHED":
+        if (
+            start is not None
+            and not scan.findtext("endScanDate")
+            and scan.findtext("status") == "FINISHED"
+        ):
             duration = (scan.findtext("scanDuration") or "").strip()
             if duration.isascii() and duration.isdigit():
                 try:
@@ -109,7 +121,17 @@ def scan_time_bounds(scans: list[QualysScan]) -> tuple[datetime | None, datetime
                 except OverflowError:
                     end = None
         starts.append(start)
-        ends.append(end if start is not None and end is not None and end >= start else None)
-    started = min(starts) if starts and all(value is not None for value in starts) else None
-    ended = max(ends) if ends and all(value is not None for value in ends) else None
+        ends.append(
+            end if start is not None and end is not None and end >= start else None
+        )
+    started = (
+        min(value for value in starts if value is not None)
+        if starts and all(value is not None for value in starts)
+        else None
+    )
+    ended = (
+        max(value for value in ends if value is not None)
+        if ends and all(value is not None for value in ends)
+        else None
+    )
     return started, ended

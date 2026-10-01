@@ -1,16 +1,18 @@
 """Archive password-free tracker exports separately from stakeholder exports."""
 
+# Standard Python Libraries
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
+# Third-Party Libraries
+from was_reports.reporting.latex_renderer import validate_filename_component
 from was_reports.storage.s3_reports import (
     create_s3_client,
     reports_bucket_name,
     reports_prefix,
     s3_uri,
 )
-from was_reports.reporting.latex_renderer import validate_filename_component
 
 
 def upload_tracker_export(path: Path, s3_client=None) -> str:

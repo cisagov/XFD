@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import stakeholders_cli
 
@@ -178,8 +179,7 @@ class StakeholdersCliTests(unittest.TestCase):
         )
 
     @patch(
-        "was_reports.commands.stakeholders_cli."
-        "update_stakeholder_contacts_for_tag"
+        "was_reports.commands.stakeholders_cli." "update_stakeholder_contacts_for_tag"
     )
     def test_update_contacts_requires_confirmation(self, mock_update) -> None:
         """Reject stakeholder mutations without explicit confirmation."""
@@ -197,8 +197,7 @@ class StakeholdersCliTests(unittest.TestCase):
         mock_update.assert_not_called()
 
     @patch(
-        "was_reports.commands.stakeholders_cli."
-        "update_stakeholder_contacts_for_tag"
+        "was_reports.commands.stakeholders_cli." "update_stakeholder_contacts_for_tag"
     )
     def test_update_contacts_passes_only_supplied_fields(self, mock_update) -> None:
         """Pass validated updates to the stakeholder data service."""
@@ -286,9 +285,7 @@ class StakeholdersCliTests(unittest.TestCase):
 
     @patch("was_reports.commands.stakeholders_cli.display_stakeholder_record")
     @patch("was_reports.commands.stakeholders_cli.get_stakeholder_record_by_tag")
-    @patch(
-        "was_reports.commands.stakeholders_cli.update_stakeholder_fields_for_tag"
-    )
+    @patch("was_reports.commands.stakeholders_cli.update_stakeholder_fields_for_tag")
     def test_general_update_validates_and_updates_selected_fields(
         self,
         mock_update,
@@ -318,9 +315,7 @@ class StakeholdersCliTests(unittest.TestCase):
             tag="TAG1",
             updates={"retired": True, "num_web_apps": 3, "comments": None},
         )
-        mock_display_record.assert_called_once_with(
-            {"tag": "TAG1", "retired": True}
-        )
+        mock_display_record.assert_called_once_with({"tag": "TAG1", "retired": True})
 
     def test_sensitive_export_requires_separate_confirmation(self) -> None:
         """Reject password export without its explicit confirmation flag."""
@@ -337,8 +332,7 @@ class StakeholdersCliTests(unittest.TestCase):
 
     @patch("was_reports.commands.stakeholders_cli.upload_stakeholder_export")
     @patch(
-        "was_reports.commands.stakeholders_cli."
-        "list_stakeholders_for_export_from_db"
+        "was_reports.commands.stakeholders_cli." "list_stakeholders_for_export_from_db"
     )
     def test_export_can_upload_directly_to_s3(
         self,
@@ -360,8 +354,7 @@ class StakeholdersCliTests(unittest.TestCase):
     @patch("was_reports.commands.stakeholders_cli.build_stakeholder_export_email")
     @patch("was_reports.commands.stakeholders_cli.approved_analyst_recipients")
     @patch(
-        "was_reports.commands.stakeholders_cli."
-        "list_stakeholders_for_export_from_db"
+        "was_reports.commands.stakeholders_cli." "list_stakeholders_for_export_from_db"
     )
     def test_export_can_email_active_assignee(
         self,
@@ -398,8 +391,7 @@ class StakeholdersCliTests(unittest.TestCase):
         )
 
     @patch(
-        "was_reports.commands.stakeholders_cli."
-        "list_stakeholders_for_export_from_db"
+        "was_reports.commands.stakeholders_cli." "list_stakeholders_for_export_from_db"
     )
     def test_password_export_cannot_be_emailed(
         self,

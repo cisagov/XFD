@@ -5,19 +5,20 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
+# Third-Party Libraries
 from was_reports.utils.passwords import (
     generate_report_password,
     validate_report_password,
 )
-from was_reports.utils.states import validate_state_code
 from was_reports.utils.stakeholder_validation import (
     STAKEHOLDER_EMAIL_FIELDS,
     validate_email_value,
     validate_required_fields,
     validate_stakeholder_tag,
 )
+from was_reports.utils.states import validate_state_code
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -29,12 +30,12 @@ class Stakeholder:
     """Stakeholder fields required by WAS report generation."""
 
     tag: str
-    report_password: Optional[str]
-    next_scheduled: Optional[int] = None
+    report_password: str | None
+    next_scheduled: int | None = None
     manual_report: bool = False
     retired: bool = False
     customer_name: str = ""
-    qualys_tag_id: Optional[int] = None
+    qualys_tag_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -42,11 +43,11 @@ class StakeholderDetails:
     """Stakeholder fields required by the WAS daily tracker."""
 
     tag: str
-    was_report_poc: Optional[str] = None
-    tech_poc_email: Optional[str] = None
-    distro_email: Optional[str] = None
-    comments: Optional[str] = None
-    report_password: Optional[str] = None
+    was_report_poc: str | None = None
+    tech_poc_email: str | None = None
+    distro_email: str | None = None
+    comments: str | None = None
+    report_password: str | None = None
     manual_report: bool = False
     fceb: bool = False
 
@@ -116,7 +117,7 @@ STAKEHOLDER_MUTABLE_COLUMNS = frozenset(STAKEHOLDER_CREATE_COLUMNS).difference(
 )
 
 
-def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
+def get_stakeholder(tag: str, conn: connection) -> Stakeholder | None:
     """Return a stakeholder record by tag."""
     with conn.cursor() as cursor:
         cursor.execute(
@@ -138,7 +139,7 @@ def get_stakeholder(tag: str, conn: connection) -> Optional[Stakeholder]:
 def get_stakeholder_details(
     tag: str,
     conn: connection,
-) -> Optional[StakeholderDetails]:
+) -> StakeholderDetails | None:
     """Return stakeholder fields required by the daily tracker."""
     with conn.cursor() as cursor:
         cursor.execute(
@@ -174,8 +175,9 @@ def get_stakeholder_details(
     )
 
 
-def get_stakeholder_details_by_tag(tag: str) -> Optional[StakeholderDetails]:
+def get_stakeholder_details_by_tag(tag: str) -> StakeholderDetails | None:
     """Return stakeholder tracker details using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -200,7 +202,8 @@ def get_stakeholder_record(
         )
         for column_name in STAKEHOLDER_VIEW_COLUMNS
     ]
-    query = "SELECT {} FROM was_stakeholders WHERE tag = %s".format(
+    # Selected columns come only from the immutable stakeholder schema tuple.
+    query = "SELECT {} FROM was_stakeholders WHERE tag = %s".format(  # nosec B608
         ", ".join(select_expressions)
     )
     with conn.cursor() as cursor:
@@ -213,6 +216,7 @@ def get_stakeholder_record(
 
 def get_stakeholder_record_by_tag(tag: str) -> dict[str, object]:
     """Return one complete stakeholder row using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -250,7 +254,8 @@ def update_stakeholder_fields(
         parameters.append(validated_updates[column_name])
     assignments.append("updated_at = NOW()")
     parameters.append(normalized_tag)
-    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(
+    # Assignments are derived only from validated mutable-column allowlists.
+    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(  # nosec B608
         ", ".join(assignments)
     )
     try:
@@ -258,9 +263,7 @@ def update_stakeholder_fields(
             cursor.execute(query, tuple(parameters))
             row = cursor.fetchone()
         if row is None:
-            raise KeyError(
-                "Stakeholder tag {} was not found.".format(normalized_tag)
-            )
+            raise KeyError("Stakeholder tag {} was not found.".format(normalized_tag))
         conn.commit()
     except Exception:
         conn.rollback()
@@ -272,6 +275,7 @@ def update_stakeholder_fields_for_tag(
     updates: dict[str, object],
 ) -> None:
     """Update selected stakeholder fields using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -304,7 +308,8 @@ def update_stakeholder_contacts(
     assignments.append("updated_at = NOW()")
     parameters.append(normalized_tag)
 
-    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(
+    # Assignments are derived only from the contact-column allowlist.
+    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(  # nosec B608
         ", ".join(assignments)
     )
     try:
@@ -325,6 +330,7 @@ def update_stakeholder_contacts_for_tag(
     updates: dict[str, str | None],
 ) -> None:
     """Update stakeholder contact fields using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -350,14 +356,11 @@ def create_stakeholder(values: dict[str, object], conn: connection) -> str:
     insert_values["report_password"] = generate_report_password()
     columns = list(STAKEHOLDER_CREATE_COLUMNS)
     placeholders = ", ".join(["%s"] * len(columns))
-    query = """
-        INSERT INTO was_stakeholders ({})
-        VALUES ({})
-        ON CONFLICT (tag) DO NOTHING
-        RETURNING tag
-    """.format(
-        ", ".join(columns), placeholders
-    )
+    # Column names come only from the immutable stakeholder creation schema.
+    query = (
+        "INSERT INTO was_stakeholders ({}) VALUES ({}) "  # nosec B608
+        "ON CONFLICT (tag) DO NOTHING RETURNING tag"
+    ).format(", ".join(columns), placeholders)
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -377,6 +380,7 @@ def create_stakeholder(values: dict[str, object], conn: connection) -> str:
 
 def create_stakeholder_in_db(values: dict[str, object]) -> str:
     """Insert one stakeholder using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -394,7 +398,8 @@ def list_stakeholders_for_export(
     columns = list(STAKEHOLDER_EXPORT_COLUMNS)
     if include_report_passwords:
         columns.insert(-2, "report_password")
-    query = "SELECT {} FROM was_stakeholders ORDER BY tag ASC".format(
+    # Export columns come only from the immutable stakeholder schema tuple.
+    query = "SELECT {} FROM was_stakeholders ORDER BY tag ASC".format(  # nosec B608
         ", ".join(columns)
     )
     with conn.cursor() as cursor:
@@ -407,6 +412,7 @@ def list_stakeholders_for_export_from_db(
     include_report_passwords: bool = False,
 ) -> tuple[list[str], list[tuple[object, ...]]]:
     """Return stakeholder export data using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -466,6 +472,7 @@ def update_scan_metadata_for_tag(
     qualys_tag_id: int | None,
 ) -> None:
     """Update scan metadata using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -488,8 +495,8 @@ def list_due_stakeholders(
     current_epoch: int,
     include_manual: bool = False,
     include_retired: bool = False,
-    limit: Optional[int] = None,
-) -> List[Stakeholder]:
+    limit: int | None = None,
+) -> list[Stakeholder]:
     """Return stakeholders whose scheduled report date is due."""
     query = """
         SELECT tag, report_password, next_scheduled, manual_report, retired,
@@ -537,9 +544,10 @@ def list_due_stakeholders_for_report(
     current_epoch: int,
     include_manual: bool = False,
     include_retired: bool = False,
-    limit: Optional[int] = None,
-) -> List[Stakeholder]:
+    limit: int | None = None,
+) -> list[Stakeholder]:
     """Return due stakeholders using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -555,8 +563,9 @@ def list_due_stakeholders_for_report(
         close(conn)
 
 
-def get_report_password(tag: str) -> Optional[str]:
+def get_report_password(tag: str) -> str | None:
     """Return the WAS report password for a stakeholder tag."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -610,6 +619,7 @@ def create_report_password(tag: str, conn: connection) -> str:
 
 def create_report_password_for_tag(tag: str) -> str:
     """Create and save a report password using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -648,6 +658,7 @@ def update_report_password(tag: str, report_password: str, conn: connection) -> 
 
 def update_report_password_for_tag(tag: str, report_password: str) -> str:
     """Update a stakeholder report password using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -665,6 +676,7 @@ def rotate_report_password(tag: str, conn: connection) -> str:
 
 def rotate_report_password_for_tag(tag: str) -> str:
     """Rotate a stakeholder report password using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

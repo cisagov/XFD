@@ -1,11 +1,12 @@
 """Tests for the WAS stakeholder inventory command."""
 
 # Standard Python Libraries
+from contextlib import redirect_stdout
 import io
 import unittest
-from contextlib import redirect_stdout
 from unittest.mock import Mock, call, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import inventory_cli
 
@@ -53,8 +54,7 @@ class InventoryCliTests(unittest.TestCase):
 
         self.assertEqual(
             output.getvalue(),
-            "TAG\tDESCRIPTION\tWEB_APPLICATION_COUNT\n"
-            "TAG_A\tAgency A\t3\n",
+            "TAG\tDESCRIPTION\tWEB_APPLICATION_COUNT\n" "TAG_A\tAgency A\t3\n",
         )
 
     @patch("was_reports.commands.inventory_cli.print_inventory")

@@ -44,6 +44,18 @@ yarn-error.log*
 backend/src/xfd_django/vuln_scanning_sync.log
 backend/WAS Automation Export 2026-05-06.zip
 backend/was/schema/updates/
+# Retain the legacy WAS implementations for local reference only.  The active
+# production implementation is packaged from backend/was/src.
+backend/was/update_tracker/
+backend/was/was_report/
+backend/was/wasMailerController.py
+backend/was/wasReportController.py
+# Local-only historical comparison tooling.  These files execute code from the
+# ignored WAS automation export and are not part of the supported repository.
+backend/was/scripts/compare_tracker_selection.py
+backend/was/scripts/diagnose_report_alignment.py
+backend/was/tests/test_compare_tracker_selection.py
+backend/was/tests/test_report_alignment_diagnostic.py
 
 .serverless
 .build

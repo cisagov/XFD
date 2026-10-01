@@ -30,9 +30,7 @@ LOG_FORMAT = (
     "event=%(event)s %(message)s"
 )
 _CONFIGURED_LOG_PATH: Path | None = None
-_LOG_CONTEXT: ContextVar[dict[str, object]] = ContextVar(
-    "was_log_context", default={}
-)
+_LOG_CONTEXT: ContextVar[dict[str, object]] = ContextVar("was_log_context", default={})
 CONTEXT_FIELDS = (
     "batch_id",
     "role",
@@ -308,9 +306,7 @@ def configure_logging() -> Path | None:
         file_handler.addFilter(context_filter)
         setattr(file_handler, HANDLER_MARKER, True)
         root_logger.addHandler(file_handler)
-        json_handler = PrivateJsonLineHandler(
-            Path("{}.jsonl".format(log_path))
-        )
+        json_handler = PrivateJsonLineHandler(Path("{}.jsonl".format(log_path)))
         json_handler.addFilter(context_filter)
         setattr(json_handler, HANDLER_MARKER, True)
         root_logger.addHandler(json_handler)

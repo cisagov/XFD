@@ -7,8 +7,14 @@ from typing import Optional
 
 # Third-Party Libraries
 from dateutil.parser import isoparse
-from lxml import etree, objectify
-from lxml.builder import E
+from defusedxml import ElementTree as DefusedElementTree
+from defusedxml.common import DefusedXmlException
+
+# lxml is used only to construct trusted outbound Qualys request XML.
+from lxml import etree, objectify  # nosec B410
+
+# The builder creates elements from application-controlled names.
+from lxml.builder import E  # nosec B410
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
@@ -56,11 +62,14 @@ def build_oldest_finding_payload(stakeholder_tag: str, severity: str) -> str:
 
 def parse_first_detected(response_xml: str) -> Optional[datetime]:
     """Return the first finding's detection timestamp when one exists."""
-    root = objectify.fromstring(response_xml.encode())
-    date_elements = root.xpath("./data/Finding/firstDetectedDate")
-    if not date_elements:
+    try:
+        root = DefusedElementTree.fromstring(response_xml, forbid_dtd=True)
+    except (DefusedElementTree.ParseError, DefusedXmlException) as error:
+        raise ValueError("Qualys returned unsafe or invalid finding XML.") from error
+    date_element = root.find("./data/Finding/firstDetectedDate")
+    if date_element is None or date_element.text is None:
         return None
-    detected_at = isoparse(str(date_elements[0]))
+    detected_at = isoparse(date_element.text)
     if detected_at.tzinfo is None:
         return detected_at.replace(tzinfo=timezone.utc)
     return detected_at.astimezone(timezone.utc)
@@ -76,9 +85,7 @@ def finding_age_days(
     resolved_current_time = current_time
     if resolved_current_time.tzinfo is None:
         resolved_current_time = resolved_current_time.replace(tzinfo=timezone.utc)
-    return (
-        resolved_current_time.astimezone(timezone.utc) - first_detected
-    ).days
+    return (resolved_current_time.astimezone(timezone.utc) - first_detected).days
 
 
 def retrieve_finding_ages(

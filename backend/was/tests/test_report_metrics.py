@@ -1,10 +1,11 @@
 """Tests for WAS summary and chart metric calculations."""
 
 # Standard Python Libraries
-import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+import unittest
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting import report_metrics
 
@@ -36,9 +37,7 @@ class ReportMetricsTests(unittest.TestCase):
 
     def test_calculate_summary_metrics_preserves_template_values(self) -> None:
         """Extract global summary values and legacy colors."""
-        metrics = report_metrics.calculate_summary_metrics(
-            FIXTURE_PATH.read_bytes()
-        )
+        metrics = report_metrics.calculate_summary_metrics(FIXTURE_PATH.read_bytes())
 
         self.assertEqual(metrics.start_date, "26 Aug 2026")
         self.assertEqual(metrics.security_risk, "High")
@@ -50,9 +49,7 @@ class ReportMetricsTests(unittest.TestCase):
 
     def test_calculate_severity_totals_sums_summary_rows(self) -> None:
         """Sum each severity level across all web application summaries."""
-        totals = report_metrics.calculate_severity_totals(
-            FIXTURE_PATH.read_bytes()
-        )
+        totals = report_metrics.calculate_severity_totals(FIXTURE_PATH.read_bytes())
 
         self.assertEqual(totals, ("6", "6", "6", "6", "6"))
 

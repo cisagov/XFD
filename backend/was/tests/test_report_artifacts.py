@@ -52,8 +52,12 @@ class ReportArtifactTests(unittest.TestCase):
                 filename = report_artifacts.write_sensitive_data_attachment(
                     client, "CUSTOMER", Path(directory)
                 )
-            records = list(csv.reader((Path(directory) / filename).read_text().splitlines()))
-        self.assertEqual(records, [["SSN URL", "SSN FOUND", "", "CC URL", "CREDIT CARD FOUND"]])
+            records = list(
+                csv.reader((Path(directory) / filename).read_text().splitlines())
+            )
+        self.assertEqual(
+            records, [["SSN URL", "SSN FOUND", "", "CC URL", "CREDIT CARD FOUND"]]
+        )
         client.request.assert_not_called()
         self.assertIn("temporarily disabled", logs.output[0])
         self.assertIn("unavailable", logs.output[0])
@@ -62,9 +66,7 @@ class ReportArtifactTests(unittest.TestCase):
     def test_other_error_keeps_other_report_artifacts(self) -> None:
         """Continue artifact generation with the sensitive CSV present but empty."""
         client = Mock()
-        client.request.return_value = (
-            "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
-        )
+        client.request.return_value = "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
         with tempfile.TemporaryDirectory() as directory:
             assets = Path(directory)
             with self.assertLogs(report_artifacts.LOGGER, level="WARNING"):
@@ -73,17 +75,25 @@ class ReportArtifactTests(unittest.TestCase):
                 )
             self.assertTrue((assets / result.vulnerabilities_by_webapp).is_file())
             self.assertTrue((assets / result.application_overview).is_file())
-            self.assertEqual(len((assets / result.sensitive_data).read_text().splitlines()), 1)
+            self.assertEqual(
+                len((assets / result.sensitive_data).read_text().splitlines()), 1
+            )
         client.request.assert_not_called()
 
-    def test_sensitive_other_error_does_not_suppress_auth_or_malformed_errors(self) -> None:
+    def test_sensitive_other_error_does_not_suppress_auth_or_malformed_errors(
+        self,
+    ) -> None:
         """Authorization failures and non-vendor responses must still abort."""
-        failure_xml = (
-            "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
-        )
-        for status, body in ((401, failure_xml), (403, failure_xml),
-                             (500, "not XML"),
-                             (500, "<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>")):
+        failure_xml = "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
+        for status, body in (
+            (401, failure_xml),
+            (403, failure_xml),
+            (500, "not XML"),
+            (
+                500,
+                "<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>",
+            ),
+        ):
             with self.subTest(status=status, body=body):
                 client = Mock()
                 client.request.side_effect = build_http_error(status, body)
@@ -92,22 +102,24 @@ class ReportArtifactTests(unittest.TestCase):
                         report_artifacts.retrieve_sensitive_findings_or_unavailable(
                             client, "CUSTOMER", report_artifacts.SSN_QIDS, "SSN"
                         )
-                    self.assertFalse((Path(directory) / "ssn-and-cc-found.csv").exists())
+                    self.assertFalse(
+                        (Path(directory) / "ssn-and-cc-found.csv").exists()
+                    )
 
     def test_sensitive_other_error_does_not_expand_entities(self) -> None:
         """Entity content must not turn another response into an approved fallback."""
         body = (
             '<!DOCTYPE ServiceResponse [<!ENTITY probe "OTHER_ERROR">]>'
-            '<ServiceResponse><responseCode>&probe;</responseCode></ServiceResponse>'
+            "<ServiceResponse><responseCode>&probe;</responseCode></ServiceResponse>"
         )
-        self.assertFalse(report_artifacts.is_sensitive_other_error(build_http_error(500, body)))
+        self.assertFalse(
+            report_artifacts.is_sensitive_other_error(build_http_error(500, body))
+        )
 
     def test_retained_sensitive_helper_preserves_other_error_semantics(self) -> None:
         """Retain vendor error recognition for a future explicitly approved re-enable."""
         client = Mock()
-        client.request.return_value = (
-            "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
-        )
+        client.request.return_value = "<ServiceResponse><responseCode>OTHER_ERROR</responseCode></ServiceResponse>"
         with self.assertRaises(report_artifacts.SensitiveFindingUnavailableError):
             report_artifacts.retrieve_sensitive_findings_or_unavailable(
                 client, "CUSTOMER", report_artifacts.SSN_QIDS, "SSN"
@@ -117,7 +129,10 @@ class ReportArtifactTests(unittest.TestCase):
         """Do not turn transport errors or other vendor codes into empty data."""
         scenarios = (
             (Timeout("request timed out"), Timeout),
-            ("<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>", RuntimeError),
+            (
+                "<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>",
+                RuntimeError,
+            ),
         )
         for response, exception_type in scenarios:
             with self.subTest(error=exception_type.__name__):
@@ -128,7 +143,9 @@ class ReportArtifactTests(unittest.TestCase):
                         report_artifacts.retrieve_sensitive_findings_or_unavailable(
                             client, "CUSTOMER", report_artifacts.SSN_QIDS, "SSN"
                         )
-                    self.assertFalse((Path(directory) / "ssn-and-cc-found.csv").exists())
+                    self.assertFalse(
+                        (Path(directory) / "ssn-and-cc-found.csv").exists()
+                    )
 
     def test_unsupported_module_response_does_not_expand_entities(self) -> None:
         """Do not let an XML entity turn a failure into an unavailable marker."""
@@ -207,14 +224,20 @@ class ReportArtifactTests(unittest.TestCase):
             )
         self.assertEqual(client.request.call_count, 2)
 
-    def test_sensitive_parser_preserves_multiline_values_for_future_reenable(self) -> None:
+    def test_sensitive_parser_preserves_multiline_values_for_future_reenable(
+        self,
+    ) -> None:
         """Retained parsing and formula neutralization remain independently tested."""
         payload_value = '=SUM(1,2)\n"quoted"\rnext'
         root = etree.fromstring(SENSITIVE_RESPONSE.encode())
         root.find(".//response").text = payload_value
-        links, values = report_artifacts.parse_sensitive_findings(etree.tostring(root).decode())
+        links, values = report_artifacts.parse_sensitive_findings(
+            etree.tostring(root).decode()
+        )
         self.assertEqual(values, [payload_value])
-        self.assertEqual(report_artifacts.spreadsheet_safe_field(values[0]), "'" + payload_value)
+        self.assertEqual(
+            report_artifacts.spreadsheet_safe_field(values[0]), "'" + payload_value
+        )
 
     def test_sensitive_findings_preserve_all_payload_instances(self) -> None:
         """Do not discard later payloads belonging to the same finding."""
@@ -289,7 +312,9 @@ class ReportArtifactTests(unittest.TestCase):
 
         self.assertEqual(filename, "ssn-and-cc-found.csv")
         client.request.assert_not_called()
-        self.assertEqual(output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND")
+        self.assertEqual(
+            output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND"
+        )
         self.assertNotIn("No Credit Card data found.", output_text)
 
     def test_sensitive_data_unsupported_module_logs_and_continues(self) -> None:
@@ -312,7 +337,9 @@ class ReportArtifactTests(unittest.TestCase):
 
         client.request.assert_not_called()
         self.assertEqual(len(logs.output), 1)
-        self.assertEqual(output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND")
+        self.assertEqual(
+            output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND"
+        )
 
     def test_sensitive_data_unsupported_module_continues_after_server_error(
         self,
@@ -334,7 +361,9 @@ class ReportArtifactTests(unittest.TestCase):
                 )
             output_text = (asset_directory / filename).read_text()
 
-        self.assertEqual(output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND")
+        self.assertEqual(
+            output_text.strip(), "SSN URL,SSN FOUND,,CC URL,CREDIT CARD FOUND"
+        )
 
     def test_sensitive_data_unexpected_http_error_is_raised(self) -> None:
         """Do not suppress Qualys errors outside the approved fallback."""

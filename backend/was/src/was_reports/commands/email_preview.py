@@ -1,5 +1,6 @@
 """Build one customer-email preview from synthetic data without delivery."""
 
+# Standard Python Libraries
 import argparse
 import base64
 from datetime import date, datetime, timezone
@@ -7,6 +8,7 @@ from email import policy
 from importlib.resources import files
 from pathlib import Path
 
+# Third-Party Libraries
 from was_mailer.message import ALL_NWS_TEMPLATES, build_report_email
 
 TEMPLATES = (
@@ -60,11 +62,15 @@ def create_preview(
     html_path = output_directory / (name + ".html")
     text_path = output_directory / (name + ".txt")
     logo = files("was_reports").joinpath("resources/assets/CISA_logo_email.png")
-    logo_data = "data:image/png;base64," + base64.b64encode(logo.read_bytes()).decode("ascii")
+    logo_data = "data:image/png;base64," + base64.b64encode(logo.read_bytes()).decode(
+        "ascii"
+    )
     html_body = message.get_body(preferencelist=("html",)).get_content()
     plain_body = message.get_body(preferencelist=("plain",)).get_content()
     mime_path.write_bytes(message.as_bytes(policy=policy.SMTP))
-    html_path.write_text(html_body.replace("cid:cisa-logo", logo_data), encoding="utf-8")
+    html_path.write_text(
+        html_body.replace("cid:cisa-logo", logo_data), encoding="utf-8"
+    )
     text_path.write_text(plain_body, encoding="utf-8")
     for preview_path in (mime_path, html_path, text_path):
         preview_path.chmod(0o600)
@@ -77,7 +83,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--template", choices=TEMPLATES, default="Results")
     parser.add_argument("--report-pdf", type=Path)
     parser.add_argument(
-        "--report-date", type=date.fromisoformat,
+        "--report-date",
+        type=date.fromisoformat,
         help="Explicit generation date (YYYY-MM-DD) for PDFs without a dated filename.",
     )
     parser.add_argument("--qualys-error", action="store_true")
@@ -86,7 +93,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.template not in ALL_NWS_TEMPLATES and args.report_pdf is None:
         parser.error("--report-pdf is required for templates that attach a report")
     paths = create_preview(
-        args.output_directory, args.template, args.report_pdf, args.qualys_error,
+        args.output_directory,
+        args.template,
+        args.report_pdf,
+        args.qualys_error,
         args.report_date,
     )
     print("Synthetic preview only. No database changes or email delivery.")

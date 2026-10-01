@@ -343,9 +343,7 @@ class BatchRunnerTests(unittest.TestCase):
 
     def test_summarize_existing_password_failure_uses_stable_category(self) -> None:
         """Store a retryable category without password contents."""
-        exception = batch_runner.ExistingReportPasswordError(
-            "private-password-value"
-        )
+        exception = batch_runner.ExistingReportPasswordError("private-password-value")
 
         message = batch_runner.summarize_report_failure(exception)
 
@@ -929,9 +927,7 @@ class BatchRunnerTests(unittest.TestCase):
 
     @patch("was_reports.commands.batch_runner.complete_report_run_by_id")
     @patch("was_reports.commands.batch_runner.generate_report_output")
-    @patch(
-        "was_reports.commands.batch_runner.claim_manual_report_recovery_by_id"
-    )
+    @patch("was_reports.commands.batch_runner.claim_manual_report_recovery_by_id")
     @patch("was_reports.commands.batch_runner.list_ready_report_candidates_from_db")
     def test_recovery_batch_claims_only_explicit_guarded_tracker_ids(
         self,
@@ -981,9 +977,7 @@ class BatchRunnerTests(unittest.TestCase):
 
         self.assertEqual(summary.candidates, 1)
         self.assertEqual(summary.generated, 1)
-        claim_recovery.assert_called_once_with(
-            9, "password-validation", days_back=7
-        )
+        claim_recovery.assert_called_once_with(9, "password-validation", days_back=7)
         complete_run.assert_called_once_with(
             42,
             output_path="s3://reports/TAG1.pdf",
@@ -1152,9 +1146,7 @@ class BatchRunnerTests(unittest.TestCase):
         """Apply the automated seven-date guardrail to a preflight by default."""
         mock_list_candidates.return_value = []
 
-        exit_code = batch_runner.main(
-            ["--recent-scans", "--preflight-only"]
-        )
+        exit_code = batch_runner.main(["--recent-scans", "--preflight-only"])
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(mock_list_candidates.call_args.kwargs["days_back"], 7)

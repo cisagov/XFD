@@ -59,8 +59,6 @@ def require_report_resources(resource_root: Path | None = None) -> Path:
     missing_paths = missing_report_resources(resolved_root)
     if missing_paths:
         raise FileNotFoundError(
-            "Missing required WAS report resources: {}".format(
-                ", ".join(missing_paths)
-            )
+            "Missing required WAS report resources: {}".format(", ".join(missing_paths))
         )
     return resolved_root

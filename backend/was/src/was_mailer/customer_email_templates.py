@@ -1,7 +1,9 @@
 """Compose the approved September 21 email components without rewriting them."""
 
+# Standard Python Libraries
 from html import escape
 
+# Third-Party Libraries
 from was_mailer.authoritative_email_sections import SECTIONS
 
 ALL_NWS_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})

@@ -5,6 +5,7 @@ from datetime import date
 import unittest
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands.menu_cli import WasOperatorMenu
 from was_reports.utils.operation_cancellation import (
@@ -25,7 +26,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         self.lookup = patcher.start()
         self.addCleanup(patcher.stop)
 
-    def build_menu(self, responses: list[str]) -> WasOperatorMenu:
+    def build_menu(self, responses: list[object]) -> WasOperatorMenu:
         """Return a menu backed by deterministic test input."""
         return WasOperatorMenu(
             input_function=Mock(side_effect=responses),
@@ -48,10 +49,13 @@ class WasOperatorMenuTests(unittest.TestCase):
         menu.report_menu()
         menu.run_submenu_action.assert_not_called()
         menu.output.assert_any_call("Invalid selection.")
-        self.assertFalse(any(
-            "capacity" in str(call.args[0]).lower()
-            for call in menu.output.call_args_list if call.args
-        ))
+        self.assertFalse(
+            any(
+                "capacity" in str(call.args[0]).lower()
+                for call in menu.output.call_args_list
+                if call.args
+            )
+        )
 
     def test_report_menu_preserves_existing_actions(self) -> None:
         """Keep production report choices one through five mapped to their actions."""
@@ -157,9 +161,7 @@ class WasOperatorMenuTests(unittest.TestCase):
                 menu.report_menu()
 
                 displayed_options = [
-                    call.args[0]
-                    for call in menu.output.call_args_list
-                    if call.args
+                    call.args[0] for call in menu.output.call_args_list if call.args
                 ]
                 self.assertIn(
                     "4) Generate an on-demand report to S3 (optional email)",
@@ -174,9 +176,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         menu.run_on_demand_report()
 
         displayed_prompts = [
-            call.args[0]
-            for call in menu.input.call_args_list
-            if call.args
+            call.args[0] for call in menu.input.call_args_list if call.args
         ]
         self.assertIn(
             "Email the report to an assignee after archiving to S3? [y/N]: ",
@@ -220,9 +220,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         menu.run()
 
         mock_figlet.assert_called_once_with(font="small", width=100)
-        mock_figlet.return_value.renderText.assert_called_once_with(
-            "WAS REPORTING"
-        )
+        mock_figlet.return_value.renderText.assert_called_once_with("WAS REPORTING")
         self.assertEqual(menu.output.call_args_list[0].args[0], "WAS BANNER")
 
     @patch("was_reports.commands.menu_cli.batch_runner.main", return_value=0)
@@ -366,8 +364,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         "update_stakeholder_fields_for_tag"
     )
     @patch(
-        "was_reports.commands.menu_cli.stakeholders_cli."
-        "display_stakeholder_record"
+        "was_reports.commands.menu_cli.stakeholders_cli." "display_stakeholder_record"
     )
     @patch(
         "was_reports.commands.menu_cli.stakeholders_cli."
@@ -415,8 +412,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         ("comments", "retired"),
     )
     @patch(
-        "was_reports.commands.menu_cli.stakeholders_cli."
-        "display_stakeholder_record"
+        "was_reports.commands.menu_cli.stakeholders_cli." "display_stakeholder_record"
     )
     @patch(
         "was_reports.commands.menu_cli.stakeholders_cli."
@@ -442,8 +438,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         ("comments",),
     )
     @patch(
-        "was_reports.commands.menu_cli.stakeholders_cli."
-        "display_stakeholder_record"
+        "was_reports.commands.menu_cli.stakeholders_cli." "display_stakeholder_record"
     )
     @patch(
         "was_reports.commands.menu_cli.stakeholders_cli."
@@ -507,8 +502,7 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         mock_rotate_password.assert_called_once_with("TAG1")
         menu.output.assert_any_call(
-            "Operation completed successfully. The new password is "
-            "NewPassword123!"
+            "Operation completed successfully. The new password is " "NewPassword123!"
         )
 
     @patch(
@@ -710,9 +704,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         mock_tracker_main,
     ) -> None:
         """Show eligible manual rows before asking the operator for an ID."""
-        menu = self.build_menu(
-            ["", "Mina Salehi", "", "7", "", "y", ""]
-        )
+        menu = self.build_menu(["", "Mina Salehi", "", "7", "", "y", ""])
 
         menu.record_manual_sent_date()
 
@@ -764,12 +756,9 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
+    @patch("was_reports.commands.menu_cli.tracker_cli.display_tracker_record")
     @patch(
-        "was_reports.commands.menu_cli.tracker_cli.display_tracker_record"
-    )
-    @patch(
-        "was_reports.commands.menu_cli.tracker_cli."
-        "get_tracker_record_by_id_from_db"
+        "was_reports.commands.menu_cli.tracker_cli." "get_tracker_record_by_id_from_db"
     )
     def test_tracker_row_view_can_print_complete_field(
         self,

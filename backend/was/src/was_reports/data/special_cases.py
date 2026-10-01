@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -29,7 +29,7 @@ def normalize_special_case_value(value: str) -> str:
     return normalized_value
 
 
-def list_active_special_case_names(conn: connection) -> List[str]:
+def list_active_special_case_names(conn: connection) -> list[str]:
     """Return active special case values."""
     with conn.cursor() as cursor:
         cursor.execute(
@@ -48,14 +48,14 @@ def list_active_special_case_names(conn: connection) -> List[str]:
 def list_special_cases(
     conn: connection,
     include_inactive: bool = False,
-) -> List[SpecialCase]:
+) -> list[SpecialCase]:
     """Return special cases."""
     query = """
         SELECT id, value, active
         FROM was_special_cases
         WHERE 1 = 1
     """
-    parameters = []
+    parameters: list[object] = []
 
     if not include_inactive:
         query += " AND active IS TRUE"

@@ -3,14 +3,18 @@
 # Standard Python Libraries
 import argparse
 from datetime import date
+from email.message import EmailMessage
 import logging
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from email.message import EmailMessage
 import sys
+from tempfile import TemporaryDirectory
 from typing import List, Optional
 
 # Third-Party Libraries
+from was_mailer.email_reports import send_message
+from was_mailer.message import approved_analyst_recipients
+from was_mailer.ses_client import create_ses_client
+
 # First-Party Libraries
 from was_reports.data.assignees import get_assignee_by_name_from_db
 from was_reports.data.daily_report_tracker import (
@@ -20,19 +24,12 @@ from was_reports.data.daily_report_tracker import (
     list_tracker_table_rows_from_db,
     mark_manual_tracker_report_sent_by_id,
 )
-from was_reports.data.report_runs import (
-    ReportRunError,
-    list_report_run_errors_from_db,
-)
-from was_reports.tracker.tracker_csv import write_tracker_csv
-from was_reports.tracker.tracker_import import import_tracker_workbook
-from was_reports.utils.logging_config import configure_logging, exception_details
-from was_mailer.message import approved_analyst_recipients
-from was_mailer.ses_client import create_ses_client
-from was_mailer.email_reports import send_message
-from was_reports.utils.env import require_env
+from was_reports.data.report_runs import ReportRunError, list_report_run_errors_from_db
 from was_reports.storage.tracker_exports import upload_tracker_export
-from was_reports.tracker.tracker_csv import write_safe_tracker_csv
+from was_reports.tracker.tracker_csv import write_safe_tracker_csv, write_tracker_csv
+from was_reports.tracker.tracker_import import import_tracker_workbook
+from was_reports.utils.env import require_env
+from was_reports.utils.logging_config import configure_logging, exception_details
 
 LOGGER = logging.getLogger(__name__)
 
@@ -427,9 +424,7 @@ def show_row(args: argparse.Namespace) -> int:
         normalized_field = args.field.strip().lower().replace("-", "_")
         if normalized_field not in record:
             raise ValueError(
-                "Unknown tracker field. Available fields: {}".format(
-                    ", ".join(record)
-                )
+                "Unknown tracker field. Available fields: {}".format(", ".join(record))
             )
         sys.stdout.write("Full value for {}:\n".format(normalized_field))
         sys.stdout.write(

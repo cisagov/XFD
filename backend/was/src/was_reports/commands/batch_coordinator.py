@@ -1,10 +1,12 @@
 """Coordinate production reporting through the shared capacity-tested engine."""
 
+# Standard Python Libraries
 import argparse
 import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
+# Third-Party Libraries
 from was_mailer.message import approved_analyst_recipients
 from was_reports.commands import capacity_test
 from was_reports.utils.database import connect
@@ -30,7 +32,9 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", type=UUID)
     parser.add_argument("--workers", type=int, default=30)
-    parser.add_argument("--worker-backend", choices=("docker", "process"), default="docker")
+    parser.add_argument(
+        "--worker-backend", choices=("docker", "process"), default="docker"
+    )
     parser.add_argument("--worker-image", default="was-reporting")
     parser.add_argument("--output-root", type=Path, default=Path("/output"))
     parser.add_argument("--env-file", type=Path)
@@ -72,8 +76,13 @@ def guard_database(arguments):
         raise ValueError("Production launcher cannot inherit capacity settings.")
     expected_database = require_env("WAS_DB_NAME")
     expected_user = require_env("WAS_DB_USERNAME")
-    if any(value.startswith("was_capacity_") for value in (expected_database, expected_user)):
-        raise ValueError("Use the capacity launcher for the capacity database and role.")
+    if any(
+        value.startswith("was_capacity_")
+        for value in (expected_database, expected_user)
+    ):
+        raise ValueError(
+            "Use the capacity launcher for the capacity database and role."
+        )
     connection = connect()
     try:
         with connection.cursor() as cursor:
@@ -87,14 +96,20 @@ def guard_database(arguments):
                 )
                 if not cursor.fetchone()[0]:
                     raise ValueError("Another report coordinator holds this database.")
-            cursor.execute("SELECT EXISTS(SELECT 1 FROM was_batch_runs WHERE batch_id=%s)",
-                           (arguments.run_id,))
+            cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM was_batch_runs WHERE batch_id=%s)",
+                (arguments.run_id,),
+            )
             if cursor.fetchone()[0]:
                 raise ValueError("Run ID already exists; use a new run ID.")
-            cursor.execute("SELECT EXISTS(SELECT 1 FROM was_report_runs "
-                           "WHERE status='running' OR email_status='sending')")
+            cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM was_report_runs "
+                "WHERE status='running' OR email_status='sending')"
+            )
             if cursor.fetchone()[0]:
-                raise ValueError("Active or uncertain report operations require reconciliation.")
+                raise ValueError(
+                    "Active or uncertain report operations require reconciliation."
+                )
         connection.rollback()
         return connection
     except BaseException:
@@ -113,7 +128,8 @@ def main(argv=None):
         capacity_test.verify_worker_backend(arguments)
         recipients = (
             ",".join(approved_analyst_recipients(arguments.test_recipients))
-            if arguments.test_recipients else None
+            if arguments.test_recipients
+            else None
         )
         print("Report batch ID: {}".format(arguments.run_id))
         print(

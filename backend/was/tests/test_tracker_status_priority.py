@@ -1,8 +1,10 @@
 """Regression checks for operator-approved scan-result precedence."""
 
+# Standard Python Libraries
 from itertools import permutations
 import unittest
 
+# Third-Party Libraries
 from was_reports.tracker.item_builder import combined_status_and_result
 
 

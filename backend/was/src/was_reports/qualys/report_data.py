@@ -8,17 +8,20 @@ import time
 from typing import Callable, Dict, Optional
 
 # Third-Party Libraries
-from lxml import etree, objectify
-from lxml.builder import E
+# Qualys XML parsing below always supplies entity- and network-disabled parsers.
+from lxml import etree, objectify  # nosec B410
+
+# E only constructs escaped outbound XML and never parses input.
+from lxml.builder import E  # nosec B410
 import requests
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
+from was_reports.utils.env import getenv
 from was_reports.utils.operation_cancellation import (
     cancellable_sleep,
     raise_if_operation_cancelled,
 )
-from was_reports.utils.env import getenv
 
 WEBAPP_REPORT_TEMPLATE_ID = "1994875"
 DETAIL_REPORT_TEMPLATE_ID = "2201149"
@@ -534,7 +537,8 @@ def get_report_xml(client: QualysClient, report_id: str) -> str:
 
 def parse_report_status(response_xml: str) -> Optional[str]:
     """Parse a Qualys report status response."""
-    root = etree.fromstring(
+    # This parser disables external entities and network access.
+    root = etree.fromstring(  # nosec B320
         response_xml.encode(),
         parser=etree.XMLParser(resolve_entities=False, no_network=True),
     )

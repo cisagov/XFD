@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import logging
 from typing import Iterable
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import TrackerReportCandidate
 
@@ -33,9 +34,7 @@ def summarize_candidates(
         for candidate in candidate_list
     )
     qualys_error_overlays = sum(
-        1
-        for candidate in candidate_list
-        if (candidate.qualys_error or "").strip()
+        1 for candidate in candidate_list if (candidate.qualys_error or "").strip()
     )
     return BatchPreflightSummary(
         candidates=len(candidate_list),

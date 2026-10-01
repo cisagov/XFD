@@ -487,8 +487,7 @@ class DetailReportsTests(unittest.TestCase):
         """Leave XML syntax decisions to the secure streaming parser."""
         session = FakeSession()
         report_content = (
-            b"<root><![CDATA[<!DOCTYPE literal>]]>"
-            b"<!-- <!ENTITY literal> --></root>"
+            b"<root><![CDATA[<!DOCTYPE literal>]]>" b"<!-- <!ENTITY literal> --></root>"
         )
         session.response = FakeResponse(report_content)
         credentials = QualysCredentials("user", "secret", "qualys.example")

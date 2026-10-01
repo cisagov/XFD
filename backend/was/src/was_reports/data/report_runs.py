@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 
 # Third-Party Libraries
@@ -961,6 +961,7 @@ def _lock_eligible_automated_tracker(
 ) -> bool:
     """Hold execution and row locks while checking the current candidate query."""
     # First-Party Libraries
+    # Third-Party Libraries
     from was_reports.data.daily_report_tracker import list_ready_report_candidates
 
     with conn.cursor() as cursor:
@@ -1396,9 +1397,7 @@ def claim_report_run_email(
     """Atomically claim one completed report run for email delivery."""
     if delivery_purpose not in {"customer", "analyst", "standalone"}:
         raise ValueError("Unknown delivery purpose.")
-    if (held_reconciliation_token is None) != (
-        held_reconciliation_scope is None
-    ):
+    if (held_reconciliation_token is None) != (held_reconciliation_scope is None):
         raise ValueError(
             "Held reconciliation token and recipient scope are both required."
         )
@@ -1419,7 +1418,7 @@ def claim_report_run_email(
     if held_reconciliation_token is not None:
         authorization_note = _email_retry_authorization_note(
             held_reconciliation_token,
-            held_reconciliation_scope,
+            cast(str, held_reconciliation_scope),
         )
         query = """
         WITH eligible_run AS (
@@ -1788,7 +1787,7 @@ def _validated_email_reconciliation_scope(scope: str | None) -> str:
     prefix = "test-sha256:"
     if not scope.startswith(prefix):
         raise ValueError("Unknown email reconciliation recipient scope.")
-    digest = scope[len(prefix):]
+    digest = scope[len(prefix) :]
     if len(digest) != 64 or any(
         character not in "0123456789abcdef" for character in digest
     ):

@@ -24,11 +24,11 @@ from was_reports.data.report_runs import (
 )
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import configure_logging, exception_details
-from was_reports.utils.operation_lease import operation_heartbeat
 from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
     raise_if_operation_cancelled,
 )
+from was_reports.utils.operation_lease import operation_heartbeat
 
 LOGGER = logging.getLogger(__name__)
 

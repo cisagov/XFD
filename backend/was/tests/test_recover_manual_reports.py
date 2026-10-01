@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import recover_manual_reports
 
@@ -42,8 +43,10 @@ class RecoverManualReportsTests(unittest.TestCase):
         with redirect_stdout(output):
             result = recover_manual_reports.main(
                 [
-                    "--tracker-ids", "4,9",
-                    "--cause", "password-validation",
+                    "--tracker-ids",
+                    "4,9",
+                    "--cause",
+                    "password-validation",
                 ]
             )
         self.assertEqual(result, 0)
@@ -57,14 +60,18 @@ class RecoverManualReportsTests(unittest.TestCase):
         with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
             result = recover_manual_reports.main(
                 [
-                    "--tracker-ids", "4,9",
-                    "--cause", "password-validation",
+                    "--tracker-ids",
+                    "4,9",
+                    "--cause",
+                    "password-validation",
                 ]
             )
         self.assertEqual(result, 2)
         run_batch.assert_not_called()
 
-    @patch.object(recover_manual_reports, "require_env", return_value="sender@example.gov")
+    @patch.object(
+        recover_manual_reports, "require_env", return_value="sender@example.gov"
+    )
     @patch.object(recover_manual_reports, "run_recent_scan_reports")
     @patch.object(recover_manual_reports, "check_manual_report_recovery_by_id")
     def test_apply_requires_confirmation_and_runs_exact_scope(
@@ -78,10 +85,13 @@ class RecoverManualReportsTests(unittest.TestCase):
         with redirect_stdout(StringIO()):
             result = recover_manual_reports.main(
                 [
-                    "--tracker-ids", "4,9",
-                    "--cause", "password-validation",
+                    "--tracker-ids",
+                    "4,9",
+                    "--cause",
+                    "password-validation",
                     "--apply",
-                    "--confirm", "RECOVER",
+                    "--confirm",
+                    "RECOVER",
                     "--send-email",
                 ]
             )
@@ -104,9 +114,12 @@ class RecoverManualReportsTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     recover_manual_reports.main(
                         [
-                            "--tracker-ids", "4",
-                            "--cause", "qualys-read-timeout",
-                        ] + arguments
+                            "--tracker-ids",
+                            "4",
+                            "--cause",
+                            "qualys-read-timeout",
+                        ]
+                        + arguments
                     )
 
 

@@ -119,8 +119,8 @@ class OnDemandTests(unittest.TestCase):
 
     def test_operator_cancellation_records_generation_failure(self) -> None:
         """Close the report run before returning control to the menu."""
-        self.services["generate_report_output"].side_effect = (
-            OperationCancelledError("operator cancelled")
+        self.services["generate_report_output"].side_effect = OperationCancelledError(
+            "operator cancelled"
         )
 
         with self.assertRaises(OperationCancelledError):

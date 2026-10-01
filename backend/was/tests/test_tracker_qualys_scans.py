@@ -10,11 +10,16 @@ from lxml import etree
 from was_reports.tracker.item_builder import create_multiscan, previous_run_name
 
 # First-Party Libraries
-from was_reports.tracker.models import TrackerStakeholder, scheduled_execution_key
+from was_reports.tracker.models import (
+    QualysScan,
+    TrackerItem,
+    TrackerStakeholder,
+    scheduled_execution_key,
+)
 from was_reports.tracker.qualys_scans import (
     base_stakeholder_tag,
-    build_schedule_search_payload,
     build_scan_search_payload,
+    build_schedule_search_payload,
     get_previous_nws,
     normalize_schedule_name,
     parse_stakeholder_schedule_name,
@@ -77,8 +82,12 @@ class TrackerQualysScansTests(unittest.TestCase):
                 self.assertEqual(client.request.call_count, 2)
                 offsets = []
                 for request_call in client.request.call_args_list:
-                    root = etree.fromstring(request_call.args[0].payload.encode("utf-8"))
-                    self.assertEqual(root.findtext("./preferences/limitResults"), "1000")
+                    root = etree.fromstring(
+                        request_call.args[0].payload.encode("utf-8")
+                    )
+                    self.assertEqual(
+                        root.findtext("./preferences/limitResults"), "1000"
+                    )
                     offsets.append(root.findtext("./preferences/startFromOffset"))
                 self.assertEqual(offsets, ["1", str(first_page_count + 1)])
 
@@ -204,22 +213,22 @@ class TrackerQualysScansTests(unittest.TestCase):
         self.assertEqual(mock_flags.call_count, 3)
 
     def test_xml_entities_are_not_expanded(self) -> None:
-        """Leave declared entities unresolved rather than exposing their contents."""
-        root = parse_xml(
-            '<!DOCTYPE response [<!ENTITY private "private-payload">]>'
-            "<response>&private;</response>",
-            "test parsing",
-        )
-        self.assertNotIn("private-payload", etree.tostring(root, encoding="unicode"))
+        """Reject internal entities rather than exposing their contents."""
+        with self.assertRaisesRegex(RuntimeError, "Qualys returned invalid XML"):
+            parse_xml(
+                '<!DOCTYPE response [<!ENTITY private "private-payload">]>'
+                "<response>&private;</response>",
+                "test parsing",
+            )
 
     def test_xml_external_entity_is_not_loaded(self) -> None:
-        """External network entities remain unresolved without network access."""
-        root = parse_xml(
-            '<!DOCTYPE response [<!ENTITY remote SYSTEM "https://example.invalid/private">]>'
-            "<response>&remote;</response>",
-            "test parsing",
-        )
-        self.assertEqual(root[0].name, "remote")
+        """Reject external entities without performing a network request."""
+        with self.assertRaisesRegex(RuntimeError, "Qualys returned invalid XML"):
+            parse_xml(
+                '<!DOCTYPE response [<!ENTITY remote SYSTEM "https://example.invalid/private">]>'
+                "<response>&remote;</response>",
+                "test parsing",
+            )
 
     def test_malformed_xml_has_bounded_error(self) -> None:
         """Invalid XML raises an operation-only error without response contents."""
@@ -318,10 +327,10 @@ class TrackerQualysScansTests(unittest.TestCase):
                     "</WasScanSchedule></data></ServiceResponse>"
                 ).format(status)
 
-                with patch("was_reports.tracker.qualys_scans.LOGGER.warning") as warning:
-                    candidates = search_schedules(
-                        client, datetime(2026, 9, 20), set()
-                    )
+                with patch(
+                    "was_reports.tracker.qualys_scans.LOGGER.warning"
+                ) as warning:
+                    candidates = search_schedules(client, datetime(2026, 9, 20), set())
 
                 self.assertEqual(candidates, {})
                 warning.assert_called_once()
@@ -340,9 +349,12 @@ class TrackerQualysScansTests(unittest.TestCase):
             "<ServiceResponse><data></data></ServiceResponse>",
         ]
 
-        issues = []
+        issues: list[TrackerItem] = []
         candidates = search_schedules(
-            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+            client,
+            datetime(2026, 9, 1),
+            set(),
+            discovery_issues=issues,
         )
 
         self.assertEqual(candidates, {})
@@ -375,16 +387,22 @@ class TrackerQualysScansTests(unittest.TestCase):
         """Disabled normal schedules retain their known execution without fallback."""
         client = Mock()
         client.request.return_value = self.schedule_response(
-            next_date="", name="WAVS - TAG_ADMIN - Customer - Monthly",
+            next_date="",
+            name="WAVS - TAG_ADMIN - Customer - Monthly",
         )
-        issues = []
+        issues: list[TrackerItem] = []
         candidates = search_schedules(
-            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+            client,
+            datetime(2026, 9, 1),
+            set(),
+            discovery_issues=issues,
         )
         candidate = next(iter(candidates.values()))
         self.assertIsNone(candidate.next_scan_date)
-        self.assertEqual(candidate.discovery_notes,
-                         "MANUAL: Missing required Qualys schedule field: nextLaunchDate")
+        self.assertEqual(
+            candidate.discovery_notes,
+            "MANUAL: Missing required Qualys schedule field: nextLaunchDate",
+        )
         self.assertEqual(candidate.launched_date, "2026-09-03T00:00:00Z")
         self.assertEqual(issues, [])
         client.request.assert_called_once()
@@ -393,7 +411,9 @@ class TrackerQualysScansTests(unittest.TestCase):
         """Explicit ad hoc markers still allow the primary schedule lookup."""
         client = Mock()
         client.request.side_effect = [
-            self.schedule_response(next_date="", name="WAVS - TAG_AD - Customer - Ad-Hoc"),
+            self.schedule_response(
+                next_date="", name="WAVS - TAG_AD - Customer - Ad-Hoc"
+            ),
             "<ServiceResponse><data><WasScanSchedule>"
             "<nextLaunchDate>2026-10-04T00:00:00Z</nextLaunchDate>"
             "</WasScanSchedule></data></ServiceResponse>",
@@ -411,17 +431,25 @@ class TrackerQualysScansTests(unittest.TestCase):
         keys = []
         for iteration in range(2):
             with self.subTest(iteration=iteration):
-                issues = []
-                self.assertEqual(search_schedules(
-                    client, datetime(2026, 9, 1), set(), discovery_issues=issues,
-                ), {})
+                issues: list[TrackerItem] = []
+                self.assertEqual(
+                    search_schedules(
+                        client,
+                        datetime(2026, 9, 1),
+                        set(),
+                        discovery_issues=issues,
+                    ),
+                    {},
+                )
                 self.assertEqual(len(issues), 1)
                 item = issues[0]
                 self.assertIsNone(item.launched_date)
                 self.assertIsNone(item.next_scan_date)
                 self.assertEqual(item.status, "Unknown")
                 self.assertEqual(item.result, "Unknown")
-                self.assertEqual(item.qualys_errors, "lastScan.launchedDate, nextLaunchDate")
+                self.assertEqual(
+                    item.qualys_errors, "lastScan.launchedDate, nextLaunchDate"
+                )
                 self.assertEqual(item.tag, "TAG")
                 self.assertEqual(item.scan_name, "Customer Run #71")
                 keys.append(item.scan_execution_key)
@@ -436,33 +464,47 @@ class TrackerQualysScansTests(unittest.TestCase):
             "<status>FINISHED</status><launchedDate>2026-09-02T20:00:00-04:00</launchedDate>"
             "</WasScan></data></ServiceResponse>",
         ]
-        issues = []
+        issues: list[TrackerItem] = []
         candidates = search_schedules(
-            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+            client,
+            datetime(2026, 9, 1),
+            set(),
+            discovery_issues=issues,
         )
         candidate = next(iter(candidates.values()))
         self.assertEqual(candidate.latest_scan_name, "Recovered Run #71")
         self.assertEqual(candidate.latest_scan_status, "FINISHED")
         self.assertEqual(next(iter(candidates)), "schedule:2:2026-09-03T00:00:00+00:00")
         self.assertEqual(issues, [])
-        self.assertEqual(client.request.call_args.args[0].endpoint, "/get/was/wasscan/71")
+        self.assertEqual(
+            client.request.call_args.args[0].endpoint, "/get/was/wasscan/71"
+        )
 
     def test_recovery_mismatched_or_naive_detail_remains_manual(self) -> None:
         """Never substitute a different scan or a timezone-free timestamp."""
-        for identifier, launched in (("72", "2026-09-03T00:00:00Z"),
-                                     ("71", "2026-09-03T00:00:00")):
+        for identifier, launched in (
+            ("72", "2026-09-03T00:00:00Z"),
+            ("71", "2026-09-03T00:00:00"),
+        ):
             with self.subTest(identifier=identifier, launched=launched):
                 client = Mock()
                 client.request.side_effect = [
                     self.schedule_response(launched="", scan_id="71"),
                     "<ServiceResponse><data><WasScan><id>{}</id>"
-                    "<launchedDate>{}</launchedDate></WasScan></data></ServiceResponse>"
-                    .format(identifier, launched),
+                    "<launchedDate>{}</launchedDate></WasScan></data></ServiceResponse>".format(
+                        identifier, launched
+                    ),
                 ]
-                issues = []
-                self.assertEqual(search_schedules(
-                    client, datetime(2026, 9, 1), set(), discovery_issues=issues,
-                ), {})
+                issues: list[TrackerItem] = []
+                self.assertEqual(
+                    search_schedules(
+                        client,
+                        datetime(2026, 9, 1),
+                        set(),
+                        discovery_issues=issues,
+                    ),
+                    {},
+                )
                 self.assertIn("lastScan.launchedDate", issues[0].qualys_errors)
 
     def test_running_and_processing_never_create_review_issues(self) -> None:
@@ -471,12 +513,21 @@ class TrackerQualysScansTests(unittest.TestCase):
             with self.subTest(status=status):
                 client = Mock()
                 client.request.return_value = self.schedule_response(
-                    launched="", next_date="", status=status, scan_id="71",
+                    launched="",
+                    next_date="",
+                    status=status,
+                    scan_id="71",
                 )
-                issues = []
-                self.assertEqual(search_schedules(
-                    client, datetime(2026, 9, 1), set(), discovery_issues=issues,
-                ), {})
+                issues: list[TrackerItem] = []
+                self.assertEqual(
+                    search_schedules(
+                        client,
+                        datetime(2026, 9, 1),
+                        set(),
+                        discovery_issues=issues,
+                    ),
+                    {},
+                )
                 self.assertEqual(issues, [])
                 client.request.assert_called_once()
 
@@ -487,11 +538,19 @@ class TrackerQualysScansTests(unittest.TestCase):
             self.schedule_response(launched="", scan_id="71"),
             RuntimeError("sensitive-response-payload"),
         ]
-        issues = []
-        with self.assertLogs("was_reports.tracker.qualys_scans", level="WARNING") as logs:
-            self.assertEqual(search_schedules(
-                client, datetime(2026, 9, 1), set(), discovery_issues=issues,
-            ), {})
+        issues: list[TrackerItem] = []
+        with self.assertLogs(
+            "was_reports.tracker.qualys_scans", level="WARNING"
+        ) as logs:
+            self.assertEqual(
+                search_schedules(
+                    client,
+                    datetime(2026, 9, 1),
+                    set(),
+                    discovery_issues=issues,
+                ),
+                {},
+            )
         self.assertIn("lastScan.launchedDate", issues[0].manual)
         self.assertNotIn("sensitive-response-payload", str(logs.output))
         self.assertNotIn("sensitive-response-payload", issues[0].qualys_errors)
@@ -503,15 +562,20 @@ class TrackerQualysScansTests(unittest.TestCase):
         bad_tag = self.schedule_response(tag_id="")
         invalid_id = self.schedule_response(schedule_id="not-an-id")
         valid = self.schedule_response(schedule_id="3")
-        records = [etree.fromstring(value.encode()).find("./data/WasScanSchedule")
-                   for value in (bad_name, bad_tag, invalid_id, valid)]
+        records = [
+            etree.fromstring(value.encode()).find("./data/WasScanSchedule")
+            for value in (bad_name, bad_tag, invalid_id, valid)
+        ]
         root = etree.Element("ServiceResponse")
         data = etree.SubElement(root, "data")
         data.extend(records)
         client.request.return_value = etree.tostring(root, encoding="unicode")
-        issues = []
+        issues: list[TrackerItem] = []
         candidates = search_schedules(
-            client, datetime(2026, 9, 1), set(), discovery_issues=issues,
+            client,
+            datetime(2026, 9, 1),
+            set(),
+            discovery_issues=issues,
         )
         self.assertEqual(len(candidates), 1)
         self.assertEqual(len(issues), 2)
@@ -523,13 +587,21 @@ class TrackerQualysScansTests(unittest.TestCase):
         for identifier in ("", "invalid-id"):
             with self.subTest(identifier=identifier):
                 client = Mock()
-                client.request.return_value = self.schedule_response(schedule_id=identifier)
+                client.request.return_value = self.schedule_response(
+                    schedule_id=identifier
+                )
                 keys = []
                 for iteration in range(2):
-                    issues = []
-                    self.assertEqual(search_schedules(
-                        client, datetime(2026, 9, 1), set(), discovery_issues=issues,
-                    ), {})
+                    issues: list[TrackerItem] = []
+                    self.assertEqual(
+                        search_schedules(
+                            client,
+                            datetime(2026, 9, 1),
+                            set(),
+                            discovery_issues=issues,
+                        ),
+                        {},
+                    )
                     self.assertEqual(len(issues), 1)
                     item = issues[0]
                     self.assertIsNone(item.schedule_id)
@@ -537,8 +609,14 @@ class TrackerQualysScansTests(unittest.TestCase):
                     self.assertEqual(item.tag, "TAG")
                     self.assertEqual(item.qualys_errors, "id")
                     self.assertEqual(item.status, "Unknown")
-                    self.assertTrue(item.scan_execution_key.startswith("schedule-review:unidentified:"))
-                    self.assertNotIn(identifier or "invalid-id", item.scan_execution_key)
+                    self.assertTrue(
+                        item.scan_execution_key.startswith(
+                            "schedule-review:unidentified:"
+                        )
+                    )
+                    self.assertNotIn(
+                        identifier or "invalid-id", item.scan_execution_key
+                    )
                     keys.append(item.scan_execution_key)
                 self.assertEqual(keys[0], keys[1])
 
@@ -547,21 +625,31 @@ class TrackerQualysScansTests(unittest.TestCase):
         for status, requested_tag in (("FINISHED", "OTHER"), ("RUNNING", None)):
             with self.subTest(status=status, requested_tag=requested_tag):
                 client = Mock()
-                client.request.return_value = self.schedule_response(schedule_id="", status=status)
-                issues = []
-                self.assertEqual(search_schedules(
-                    client, datetime(2026, 9, 1), set(), stakeholder_tag=requested_tag,
-                    discovery_issues=issues,
-                ), {})
+                client.request.return_value = self.schedule_response(
+                    schedule_id="", status=status
+                )
+                issues: list[TrackerItem] = []
+                self.assertEqual(
+                    search_schedules(
+                        client,
+                        datetime(2026, 9, 1),
+                        set(),
+                        stakeholder_tag=requested_tag,
+                        discovery_issues=issues,
+                    ),
+                    {},
+                )
                 self.assertEqual(issues, [])
 
     def test_global_schedule_search_failure_still_propagates(self) -> None:
         """An operation-level request failure cannot be turned into a fake row."""
         client = Mock()
         client.request.side_effect = RuntimeError("global search failure")
-        issues = []
+        issues: list[TrackerItem] = []
         with self.assertRaises(RuntimeError):
-            search_schedules(client, datetime(2026, 9, 1), set(), discovery_issues=issues)
+            search_schedules(
+                client, datetime(2026, 9, 1), set(), discovery_issues=issues
+            )
         self.assertEqual(issues, [])
 
     def test_only_latest_execution_for_same_schedule(self) -> None:
@@ -588,8 +676,8 @@ class TrackerQualysScansTests(unittest.TestCase):
                 "WAVS - TAG - Customer - Monthly",
             )
         }
-        counts = {}
-        history_groups = {}
+        counts: dict[str, int] = {}
+        history_groups: dict[str, list[QualysScan]] = {}
         groups = search_scans(
             client, stakeholders, datetime(2026, 9, 1), counts, history_groups
         )
@@ -597,7 +685,9 @@ class TrackerQualysScansTests(unittest.TestCase):
         self.assertEqual(len(history_groups), 2)
         self.assertEqual(counts["older_runs_excluded"], 1)
         self.assertEqual(counts["incomplete_runs"], 0)
-        self.assertEqual(list(groups), [scheduled_execution_key(2, "2026-09-02T00:00:00Z")])
+        self.assertEqual(
+            list(groups), [scheduled_execution_key(2, "2026-09-02T00:00:00Z")]
+        )
         self.assertTrue(all(len(scans) == 1 for scans in groups.values()))
         client.request.return_value = client.request.return_value.replace(
             "<status>FINISHED</status>", "<status>RUNNING</status>", 1
@@ -607,7 +697,13 @@ class TrackerQualysScansTests(unittest.TestCase):
 
     def test_named_latest_run_controls_selection_before_completion(self) -> None:
         """Named runs survive timestamp drift, without older or incomplete fallback."""
-        for latest_name, run_status, results_status, expected_count, expected_missing in (
+        for (
+            latest_name,
+            run_status,
+            results_status,
+            expected_count,
+            expected_missing,
+        ) in (
             ("WAVS – TAG - Customer - Monthly Run #71 Slice 5", "FINISHED", "OK", 1, 0),
             ("WAVS - TAG - Customer - Monthly Run #72", "FINISHED", "OK", 0, 1),
             ("WAVS - TAG - Customer - Monthly Run #71", "RUNNING", "OK", 0, 0),
@@ -630,12 +726,21 @@ class TrackerQualysScansTests(unittest.TestCase):
                     "<launchedDate>2026-09-02T01:02:00Z</launchedDate></WasScan>"
                     "</data></ServiceResponse>"
                 ).format(run_status, results_status)
-                stakeholders = {"TAG": TrackerStakeholder(
-                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-02T02:45:40Z",
-                    2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly", latest_name,
-                )}
-                counts = {}
-                history_groups = {}
+                stakeholders = {
+                    "TAG": TrackerStakeholder(
+                        "Customer",
+                        1,
+                        "2026-10-01T00:00:00Z",
+                        "2026-09-02T02:45:40Z",
+                        2,
+                        "MONTHLY",
+                        "TAG",
+                        "WAVS - TAG - Customer - Monthly",
+                        latest_name,
+                    )
+                }
+                counts: dict[str, int] = {}
+                history_groups: dict[str, list[QualysScan]] = {}
                 groups = search_scans(
                     client, stakeholders, datetime(2026, 9, 1), counts, history_groups
                 )
@@ -645,10 +750,13 @@ class TrackerQualysScansTests(unittest.TestCase):
                     counts["incomplete_runs"],
                     int(run_status == "RUNNING" or results_status == "PROCESSING"),
                 )
-                self.assertIn("2:WAVS - TAG - Customer - Monthly Run #70", history_groups)
+                self.assertIn(
+                    "2:WAVS - TAG - Customer - Monthly Run #70", history_groups
+                )
                 if groups:
                     self.assertEqual(
-                        list(groups), [scheduled_execution_key(2, "2026-09-02T02:45:40Z")]
+                        list(groups),
+                        [scheduled_execution_key(2, "2026-09-02T02:45:40Z")],
                     )
                     self.assertEqual(len(next(iter(groups.values()))), 2)
 
@@ -656,12 +764,22 @@ class TrackerQualysScansTests(unittest.TestCase):
         """A schedule with no visible matching scans remains visible in diagnostics."""
         client = Mock()
         client.request.return_value = "<ServiceResponse><data/></ServiceResponse>"
-        stakeholders = {"TAG": TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-02T00:00:00Z",
-            2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
-        )}
-        counts = {}
-        self.assertEqual(search_scans(client, stakeholders, datetime(2026, 9, 1), counts), {})
+        stakeholders = {
+            "TAG": TrackerStakeholder(
+                "Customer",
+                1,
+                "2026-10-01T00:00:00Z",
+                "2026-09-02T00:00:00Z",
+                2,
+                "MONTHLY",
+                "TAG",
+                "WAVS - TAG - Customer - Monthly",
+            )
+        }
+        counts: dict[str, int] = {}
+        self.assertEqual(
+            search_scans(client, stakeholders, datetime(2026, 9, 1), counts), {}
+        )
         self.assertEqual(counts["missing_latest_runs"], 1)
 
     def test_tied_latest_launches_are_held(self) -> None:
@@ -675,14 +793,24 @@ class TrackerQualysScansTests(unittest.TestCase):
                 for number in (1, 2)
             )
         )
-        stakeholders = {"TAG": TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-02T00:00:00Z",
-            2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
-        )}
-        counts = {}
-        history_groups = {}
+        stakeholders = {
+            "TAG": TrackerStakeholder(
+                "Customer",
+                1,
+                "2026-10-01T00:00:00Z",
+                "2026-09-02T00:00:00Z",
+                2,
+                "MONTHLY",
+                "TAG",
+                "WAVS - TAG - Customer - Monthly",
+            )
+        }
+        counts: dict[str, int] = {}
+        history_groups: dict[str, list[QualysScan]] = {}
         self.assertEqual(
-            search_scans(client, stakeholders, datetime(2026, 9, 1), counts, history_groups),
+            search_scans(
+                client, stakeholders, datetime(2026, 9, 1), counts, history_groups
+            ),
             {},
         )
         self.assertEqual(counts["ambiguous_latest_runs"], 1)
@@ -705,11 +833,19 @@ class TrackerQualysScansTests(unittest.TestCase):
                 "<summary><resultsStatus>{}</resultsStatus></summary></WasScan>"
                 "</data></ServiceResponse>"
             ).format(latest_status, results_status)
-            stakeholders = {"TAG": TrackerStakeholder(
-                "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-02T00:00:00Z",
-                2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
-            )}
-            counts = {}
+            stakeholders = {
+                "TAG": TrackerStakeholder(
+                    "Customer",
+                    1,
+                    "2026-10-01T00:00:00Z",
+                    "2026-09-02T00:00:00Z",
+                    2,
+                    "MONTHLY",
+                    "TAG",
+                    "WAVS - TAG - Customer - Monthly",
+                )
+            }
+            counts: dict[str, int] = {}
             self.assertEqual(
                 search_scans(client, stakeholders, datetime(2026, 9, 1), counts), {}
             )
@@ -725,12 +861,22 @@ class TrackerQualysScansTests(unittest.TestCase):
             "<status>FINISHED</status><launchedDate>2026-09-01T00:00:00Z</launchedDate>"
             "</WasScan></data></ServiceResponse>"
         )
-        stakeholders = {"TAG": TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-02T00:00:00Z",
-            2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
-        )}
-        counts = {}
-        self.assertEqual(search_scans(client, stakeholders, datetime(2026, 9, 1), counts), {})
+        stakeholders = {
+            "TAG": TrackerStakeholder(
+                "Customer",
+                1,
+                "2026-10-01T00:00:00Z",
+                "2026-09-02T00:00:00Z",
+                2,
+                "MONTHLY",
+                "TAG",
+                "WAVS - TAG - Customer - Monthly",
+            )
+        }
+        counts: dict[str, int] = {}
+        self.assertEqual(
+            search_scans(client, stakeholders, datetime(2026, 9, 1), counts), {}
+        )
         self.assertEqual(counts["missing_latest_runs"], 1)
         self.assertEqual(counts["incomplete_runs"], 0)
 
@@ -829,7 +975,9 @@ class TrackerQualysScansTests(unittest.TestCase):
 
     def test_detail_timing_uses_one_lowercase_get_and_duration(self) -> None:
         """Use FINISHED duration without per-target requests or guessed ends."""
+        # Third-Party Libraries
         from was_reports.tracker.qualys_scans import execution_detail_bounds
+
         scan = etree.fromstring(
             "<WasScan><id>123</id><status>FINISHED</status>"
             "<launchedDate>2026-09-03T05:00:44Z</launchedDate></WasScan>"
@@ -845,7 +993,9 @@ class TrackerQualysScansTests(unittest.TestCase):
         self.assertEqual(end.isoformat(), "2026-09-03T06:01:44+00:00")
         client.request.assert_called_once()
         self.assertEqual(client.request.call_args.args[0].http_method, "get")
-        self.assertEqual(client.request.call_args.args[0].endpoint, "/get/was/wasscan/123")
+        self.assertEqual(
+            client.request.call_args.args[0].endpoint, "/get/was/wasscan/123"
+        )
         client.reset_mock()
         etree.SubElement(scan, "endScanDate").text = "2026-09-03T06:00:00Z"
         self.assertIsNotNone(execution_detail_bounds(client, scan)[1])
@@ -853,7 +1003,9 @@ class TrackerQualysScansTests(unittest.TestCase):
 
     def test_timing_detail_failure_preserves_start(self) -> None:
         """Optional metadata failures must not fail report selection."""
+        # Third-Party Libraries
         from was_reports.tracker.qualys_scans import execution_detail_bounds
+
         scan = etree.fromstring(
             "<WasScan><id>123</id><status>FINISHED</status>"
             "<launchedDate>2026-09-03T05:00:44Z</launchedDate></WasScan>"
@@ -868,8 +1020,14 @@ class TrackerQualysScansTests(unittest.TestCase):
         """Retrying with different returned slices preserves the schedule launch key."""
         parent_launch = "2026-09-03T04:01:00Z"
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", parent_launch,
-            2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            parent_launch,
+            2,
+            "MONTHLY",
+            "TAG",
+            "WAVS - TAG - Customer - Monthly",
             "WAVS - TAG - Customer - Monthly Run #2",
         )
         expected_key = scheduled_execution_key(2, parent_launch)
@@ -878,17 +1036,21 @@ class TrackerQualysScansTests(unittest.TestCase):
                 client = Mock()
                 client.request.return_value = (
                     "<ServiceResponse><data>{}</data></ServiceResponse>"
-                ).format("".join(
-                    "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2 Slice {}</name>"
-                    "<status>FINISHED</status><summary><resultsStatus>SUCCESSFUL</resultsStatus>"
-                    "</summary><launchedDate>2026-09-03T03:59:0{}Z</launchedDate>"
-                    "</WasScan>".format(number, number)
-                    for number in slice_numbers
-                ))
+                ).format(
+                    "".join(
+                        "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2 Slice {}</name>"
+                        "<status>FINISHED</status><summary><resultsStatus>SUCCESSFUL</resultsStatus>"
+                        "</summary><launchedDate>2026-09-03T03:59:0{}Z</launchedDate>"
+                        "</WasScan>".format(number, number)
+                        for number in slice_numbers
+                    )
+                )
                 stakeholders = {"TAG": stakeholder}
                 groups = search_scans(client, stakeholders, datetime(2026, 9, 1))
                 self.assertEqual(list(groups), [expected_key])
-                self.assertEqual(stakeholders[expected_key].launched_date, parent_launch)
+                self.assertEqual(
+                    stakeholders[expected_key].launched_date, parent_launch
+                )
                 self.assertEqual(len(groups[expected_key]), len(slice_numbers))
 
     def test_multi_parent_is_not_a_target_slice(self) -> None:
@@ -903,8 +1065,11 @@ class TrackerQualysScansTests(unittest.TestCase):
             (50, "FINISHED", "ERROR", 0),
             (50, "FINISHED", "CANCELED", 0),
         ):
-            with self.subTest(child_count=child_count, parent_status=parent_status,
-                              schedule_status=schedule_status):
+            with self.subTest(
+                child_count=child_count,
+                parent_status=parent_status,
+                schedule_status=schedule_status,
+            ):
                 parent = (
                     "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2</name>"
                     "<multi>true</multi><status>{}</status>"
@@ -915,25 +1080,41 @@ class TrackerQualysScansTests(unittest.TestCase):
                     "<WasScan><name>WAVS - TAG - Customer - Monthly Run #2 Slice {}</name>"
                     "<multi>false</multi><status>FINISHED</status><summary>"
                     "<resultsStatus>SUCCESSFUL</resultsStatus></summary>"
-                    "<launchedDate>2026-09-03T04:01:01Z</launchedDate></WasScan>".format(number)
+                    "<launchedDate>2026-09-03T04:01:01Z</launchedDate></WasScan>".format(
+                        number
+                    )
                     for number in range(child_count)
                 )
                 client = Mock()
                 client.request.return_value = (
                     "<ServiceResponse><data>{}{}</data></ServiceResponse>"
                 ).format(parent, children)
-                stakeholders = {"TAG": TrackerStakeholder(
-                    "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T04:01:00Z",
-                    2, "MONTHLY", "TAG", "WAVS - TAG - Customer - Monthly",
-                    "WAVS - TAG - Customer - Monthly Run #2", schedule_status,
-                )}
+                stakeholders = {
+                    "TAG": TrackerStakeholder(
+                        "Customer",
+                        1,
+                        "2026-10-01T00:00:00Z",
+                        "2026-09-03T04:01:00Z",
+                        2,
+                        "MONTHLY",
+                        "TAG",
+                        "WAVS - TAG - Customer - Monthly",
+                        "WAVS - TAG - Customer - Monthly Run #2",
+                        schedule_status,
+                    )
+                }
                 groups = search_scans(client, stakeholders, datetime(2026, 9, 1))
                 self.assertEqual(len(groups), expected)
                 if groups:
                     self.assertEqual(len(next(iter(groups.values()))), 50)
                     selected = stakeholders[next(iter(groups))]
-                    self.assertEqual(selected.scan_started_at.isoformat(), "2026-09-03T04:01:00+00:00")
-                    self.assertEqual(selected.scan_ended_at.isoformat(), "2026-09-03T06:01:00+00:00")
+                    self.assertEqual(
+                        selected.scan_started_at.isoformat(),
+                        "2026-09-03T04:01:00+00:00",
+                    )
+                    self.assertEqual(
+                        selected.scan_ended_at.isoformat(), "2026-09-03T06:01:00+00:00"
+                    )
 
     def test_previous_run_matches_full_name(self) -> None:
         """Run one must not match run ten or another schedule."""

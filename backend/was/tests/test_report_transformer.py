@@ -142,8 +142,10 @@ class ReportTransformerTests(unittest.TestCase):
     def test_parse_report_accepts_qualys_text_node_above_default_limit(self) -> None:
         """Parse a Qualys report containing a text node larger than 10 MB."""
         oversized_text = b"A" * 10_000_001
-        report_xml = b"<WAS_WEBAPP_REPORT><PAYLOAD>" + oversized_text + (
-            b"</PAYLOAD></WAS_WEBAPP_REPORT>"
+        report_xml = (
+            b"<WAS_WEBAPP_REPORT><PAYLOAD>"
+            + oversized_text
+            + (b"</PAYLOAD></WAS_WEBAPP_REPORT>")
         )
 
         report = report_transformer.parse_report(report_xml)

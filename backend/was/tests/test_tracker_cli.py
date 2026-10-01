@@ -264,9 +264,7 @@ class TrackerCliTests(unittest.TestCase):
     def test_show_table_accepts_all_rows(self, mock_list_rows) -> None:
         """Remove the tracker row cap when all is requested."""
         mock_list_rows.return_value = []
-        args = tracker_cli.parse_args(
-            ["show", "--days-back", "7", "--limit", "all"]
-        )
+        args = tracker_cli.parse_args(["show", "--days-back", "7", "--limit", "all"])
 
         exit_code = tracker_cli.show_table(args)
 
@@ -364,9 +362,7 @@ class TrackerCliTests(unittest.TestCase):
             limit=25,
         )
 
-    @patch(
-        "was_reports.commands.tracker_cli.mark_manual_tracker_report_sent_by_id"
-    )
+    @patch("was_reports.commands.tracker_cli.mark_manual_tracker_report_sent_by_id")
     def test_mark_sent_updates_manual_tracker_row(self, mock_mark_sent) -> None:
         """Record a confirmed sent date for one manual tracker row."""
         args = tracker_cli.parse_args(

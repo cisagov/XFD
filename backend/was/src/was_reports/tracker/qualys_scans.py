@@ -4,17 +4,20 @@
 from __future__ import annotations
 
 # Standard Python Libraries
-from datetime import datetime, timedelta
 from dataclasses import replace
-import logging
+from datetime import datetime, timedelta
 import hashlib
 import json
+import logging
 import unicodedata
-import requests
 
 # Third-Party Libraries
-from lxml import etree
-from lxml.builder import E
+# lxml is required for namespace-aware XPath on bounded Qualys responses.
+from lxml import etree  # nosec B410
+
+# The builder creates trusted outbound XML with fixed element names.
+from lxml.builder import E  # nosec B410
+import requests
 
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import (
@@ -23,11 +26,11 @@ from was_reports.data.daily_report_tracker import (
 )
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
 from was_reports.tracker.models import (
-    scan_time_bounds,
     MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
-    TrackerItem,
     QualysScan,
+    TrackerItem,
     TrackerStakeholder,
+    scan_time_bounds,
     scheduled_execution_key,
 )
 from was_reports.utils.database import close, connect
@@ -46,10 +49,23 @@ def serialize_xml(root: etree._Element) -> str:
 def parse_xml(response_xml: str, operation: str) -> etree._Element:
     """Parse a Qualys XML response with a bounded error message."""
     try:
-        return etree.fromstring(
-            response_xml.encode("utf-8"),
-            parser=etree.XMLParser(resolve_entities=False, no_network=True),
+        parser = etree.XMLParser(
+            resolve_entities=False,
+            no_network=True,
+            load_dtd=False,
+            dtd_validation=False,
+            attribute_defaults=False,
+            huge_tree=False,
         )
+        root = etree.fromstring(  # nosec B320
+            response_xml.encode("utf-8"),
+            parser=parser,
+        )
+        if root.getroottree().docinfo.doctype:
+            raise RuntimeError(
+                "Qualys returned invalid XML during {}.".format(operation)
+            )
+        return root
     except etree.XMLSyntaxError as error:
         raise RuntimeError(
             "Qualys returned invalid XML during {}.".format(operation)
@@ -189,7 +205,7 @@ def build_schedule_search_payload(input_date: datetime, offset: int) -> str:
 
 def schedule_tag_id(schedule: etree._Element) -> int:
     """Return the single included tag ID from a Qualys schedule response."""
-    tag_ids = []
+    tag_ids: list[str] = []
     for path in (
         "./target/tags/included/tagList/list/Tag/id",
         "./target/tags/included/tagList/set/Tag/id",
@@ -219,7 +235,9 @@ def schedule_review_key(schedule: etree._Element, schedule_id: int | None) -> st
         (schedule.findtext(path) or "").strip()
         for path in ("name", "./lastScan/id", "./lastScan/launchedDate", "id")
     )
-    digest = hashlib.sha256(json.dumps(identity, ensure_ascii=True).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        json.dumps(identity, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
     return "schedule-review:unidentified:{}".format(digest)
 
 
@@ -235,9 +253,7 @@ def schedule_review_item(
     return TrackerItem(
         tag=tag,
         scan_name=(
-            schedule.findtext("./lastScan/name")
-            or schedule.findtext("name")
-            or ""
+            schedule.findtext("./lastScan/name") or schedule.findtext("name") or ""
         ),
         status="Unknown",
         result="Unknown",
@@ -267,16 +283,19 @@ def valid_schedule_timestamp(value: str | None) -> bool:
 
 
 def recover_schedule_scan(
-    client: QualysClient, schedule: etree._Element,
+    client: QualysClient,
+    schedule: etree._Element,
 ) -> etree._Element | None:
     """Retrieve only the scan explicitly identified by a schedule's lastScan."""
     identifier = (schedule.findtext("./lastScan/id") or "").strip()
     if not identifier.isascii() or not identifier.isdigit():
         return None
     try:
-        response = client.request(QualysRequest(
-            endpoint="/get/was/wasscan/{}".format(identifier), http_method="get"
-        ))
+        response = client.request(
+            QualysRequest(
+                endpoint="/get/was/wasscan/{}".format(identifier), http_method="get"
+            )
+        )
         detail = parse_xml(response, "schedule scan detail").find("./data/WasScan")
         if detail is None or (detail.findtext("id") or "").strip() != identifier:
             return None
@@ -284,7 +303,9 @@ def recover_schedule_scan(
             return None
         return detail
     except (requests.RequestException, ValueError, RuntimeError, AttributeError):
-        LOGGER.warning("Unable to recover required Qualys schedule field: lastScan.launchedDate.")
+        LOGGER.warning(
+            "Unable to recover required Qualys schedule field: lastScan.launchedDate."
+        )
         return None
 
 
@@ -325,9 +346,18 @@ def search_schedules(
         )
         root = parse_xml(response_xml, "schedule search")
         for schedule in root.findall("./data/WasScanSchedule"):
-            last_scan_status = (schedule.findtext("./lastScan/status") or "").strip().upper()
-            last_scan_result = (schedule.findtext("./lastScan/summary/resultsStatus") or "").strip().upper()
-            if last_scan_status in ("RUNNING", "PROCESSING") or last_scan_result == "PROCESSING":
+            last_scan_status = (
+                (schedule.findtext("./lastScan/status") or "").strip().upper()
+            )
+            last_scan_result = (
+                (schedule.findtext("./lastScan/summary/resultsStatus") or "")
+                .strip()
+                .upper()
+            )
+            if (
+                last_scan_status in ("RUNNING", "PROCESSING")
+                or last_scan_result == "PROCESSING"
+            ):
                 continue
             fields: list[str] = []
             identifier = (schedule.findtext("id") or "").strip()
@@ -359,8 +389,15 @@ def search_schedules(
                 detail = recover_schedule_scan(client, schedule)
                 if detail is not None:
                     last_scan_status = (detail.findtext("status") or "").strip().upper()
-                    detail_result = (detail.findtext("./summary/resultsStatus") or "").strip().upper()
-                    if last_scan_status in ("RUNNING", "PROCESSING") or detail_result == "PROCESSING":
+                    detail_result = (
+                        (detail.findtext("./summary/resultsStatus") or "")
+                        .strip()
+                        .upper()
+                    )
+                    if (
+                        last_scan_status in ("RUNNING", "PROCESSING")
+                        or detail_result == "PROCESSING"
+                    ):
                         continue
                     launched_date = detail.findtext("launchedDate")
                     latest_scan_name = detail.findtext("name") or latest_scan_name
@@ -371,22 +408,43 @@ def search_schedules(
                 next_scan_date = None
                 if tag and schedule_is_adhoc(schedule_name, tag):
                     try:
-                        recovered_next = next_scan_date_for_adhoc(client, tag, stakeholder_name)
+                        recovered_next = next_scan_date_for_adhoc(
+                            client, tag, stakeholder_name
+                        )
                         if valid_schedule_timestamp(recovered_next):
                             next_scan_date = recovered_next
-                    except (LookupError, requests.RequestException, ValueError, RuntimeError, AttributeError):
+                    except (
+                        LookupError,
+                        requests.RequestException,
+                        ValueError,
+                        RuntimeError,
+                        AttributeError,
+                    ):
                         pass
                 if next_scan_date is None:
                     fields.append("nextLaunchDate")
             if fields:
-                LOGGER.warning("Qualys schedule %s requires manual review for fields: %s", schedule_id, ", ".join(fields))
-            required_execution_fields = [field for field in fields if field != "nextLaunchDate"]
+                LOGGER.warning(
+                    "Qualys schedule %s requires manual review for fields: %s",
+                    schedule_id,
+                    ", ".join(fields),
+                )
+            required_execution_fields = [
+                field for field in fields if field != "nextLaunchDate"
+            ]
             if required_execution_fields:
                 review_key = schedule_review_key(schedule, schedule_id)
                 if discovery_issues is not None and review_key not in issue_keys:
-                    discovery_issues.append(schedule_review_item(
-                        schedule, schedule_id, tag, fields, next_scan_date, tag_id,
-                    ))
+                    discovery_issues.append(
+                        schedule_review_item(
+                            schedule,
+                            schedule_id,
+                            tag,
+                            fields,
+                            next_scan_date,
+                            tag_id,
+                        )
+                    )
                     issue_keys.add(review_key)
                 continue
             execution_key = scheduled_execution_key(schedule_id, launched_date)
@@ -470,17 +528,24 @@ def scan_matches_stakeholder(
 
 
 def execution_detail_bounds(
-    client: QualysClient, scan: QualysScan,
+    client: QualysClient,
+    scan: QualysScan,
 ) -> tuple[datetime | None, datetime | None]:
     """Fetch one completed parent/single scan's missing timing metadata safely."""
     start, end = scan_time_bounds([scan])
     identifier = (scan.findtext("id") or "").strip()
-    if end is not None or scan.findtext("status") != "FINISHED" or not identifier.isdigit():
+    if (
+        end is not None
+        or scan.findtext("status") != "FINISHED"
+        or not identifier.isdigit()
+    ):
         return start, end
     try:
-        response = client.request(QualysRequest(
-            endpoint="/get/was/wasscan/{}".format(identifier), http_method="get"
-        ))
+        response = client.request(
+            QualysRequest(
+                endpoint="/get/was/wasscan/{}".format(identifier), http_method="get"
+            )
+        )
         root = parse_xml(response, "scan timing detail")
         detail = root.find("./data/WasScan")
         if detail is None or detail.findtext("id") != identifier:
@@ -489,9 +554,17 @@ def execution_detail_bounds(
         if detail.findtext("status") != "FINISHED" or detail_start != start:
             raise ValueError("Scan detail status or launch did not match.")
         return detail_start, detail_end
-    except (requests.RequestException, ValueError, RuntimeError, AttributeError) as error:
-        LOGGER.warning("Unable to obtain scan timing detail for %s (%s); end remains unknown.",
-                       identifier, type(error).__name__)
+    except (
+        requests.RequestException,
+        ValueError,
+        RuntimeError,
+        AttributeError,
+    ) as error:
+        LOGGER.warning(
+            "Unable to obtain scan timing detail for %s (%s); end remains unknown.",
+            identifier,
+            type(error).__name__,
+        )
         return start, None
 
 
@@ -590,10 +663,14 @@ def search_scans(
             and parent.findtext("./summary/resultsStatus") != "PROCESSING"
             for parent in multi_parents.get(run_identity, [])
         )
-        if history_groups is not None and parent_complete and all(
-            scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
-            and scan.findtext("./summary/resultsStatus") != "PROCESSING"
-            for scan in scans
+        if (
+            history_groups is not None
+            and parent_complete
+            and all(
+                scan.findtext("status") in {"FINISHED", "ERROR", "CANCELED"}
+                and scan.findtext("./summary/resultsStatus") != "PROCESSING"
+                for scan in scans
+            )
         ):
             history_groups["{}:{}".format(*run_identity)] = scans
         launch_instant = datetime.fromisoformat(launched_date.replace("Z", "+00:00"))
@@ -613,7 +690,9 @@ def search_scans(
             )
             continue
         named_schedules.add(stakeholder.schedule_id)
-        run_name = normalize_schedule_name(stakeholder.latest_scan_name).split(" Slice", 1)[0]
+        run_name = normalize_schedule_name(stakeholder.latest_scan_name).split(
+            " Slice", 1
+        )[0]
         run_identity = (stakeholder.schedule_id, run_name)
         # Schedule timestamps can follow all slice timestamps for the same run.
         # Its explicit numbered identity is authoritative, not timestamp order.
@@ -621,7 +700,9 @@ def search_scans(
         if " Run #" in run_name and run_identity in scan_groups:
             latest_runs[stakeholder.schedule_id] = (
                 run_identity,
-                datetime.fromisoformat(run_launches[run_identity].replace("Z", "+00:00")),
+                datetime.fromisoformat(
+                    run_launches[run_identity].replace("Z", "+00:00")
+                ),
             )
         else:
             latest_runs.pop(stakeholder.schedule_id, None)
@@ -635,7 +716,8 @@ def search_scans(
     completed_groups = {}
     incomplete_runs = 0
     missing_latest_runs = len(
-        {stakeholder.schedule_id for _, stakeholder in schedule_candidates} - latest_runs.keys()
+        {stakeholder.schedule_id for _, stakeholder in schedule_candidates}
+        - latest_runs.keys()
     )
     for run_identity, _ in latest_runs.values():
         scans = scan_groups[run_identity]
@@ -653,7 +735,10 @@ def search_scans(
         schedule_launch = datetime.fromisoformat(
             stakeholder.launched_date.replace("Z", "+00:00")
         )
-        if stakeholder.schedule_id not in named_schedules and schedule_launch > latest_slice_launch:
+        if (
+            stakeholder.schedule_id not in named_schedules
+            and schedule_launch > latest_slice_launch
+        ):
             # Schedule discovery can precede scan-search visibility. Never
             # substitute an older run when the schedule points to a newer one.
             missing_latest_runs += 1
@@ -670,14 +755,17 @@ def search_scans(
         # Use only explicit WasScan parent bounds, never schedule metadata, for
         # displayed times. Multiple parent envelopes are ambiguous and ignored.
         parents = multi_parents.get(run_identity, [])
-        parent_start, parent_end = scan_time_bounds(parents) if len(parents) == 1 else (None, None)
+        parent_start, parent_end = (
+            scan_time_bounds(parents) if len(parents) == 1 else (None, None)
+        )
         stakeholders[execution_key] = replace(
             stakeholder, scan_started_at=parent_start, scan_ended_at=parent_end
         )
         # Failed/canceled parent envelopes cannot be discarded and replaced by
         # successful children. Hold them for review without hiding slice errors.
         parent_finished = (
-            not stakeholder.latest_scan_status or stakeholder.latest_scan_status == "FINISHED"
+            not stakeholder.latest_scan_status
+            or stakeholder.latest_scan_status == "FINISHED"
         ) and all(
             parent.findtext("status") == "FINISHED"
             and parent.findtext("./summary/resultsStatus") != "PROCESSING"
@@ -688,9 +776,16 @@ def search_scans(
             and scan.findtext("./summary/resultsStatus") != "PROCESSING"
             for scan in scans
         ):
-            timing_scan = parents[0] if len(parents) == 1 else (
-                scans[0] if not parents and len(scans) == 1
-                and " Slice" not in (scans[0].findtext("name") or "") else None
+            timing_scan = (
+                parents[0]
+                if len(parents) == 1
+                else (
+                    scans[0]
+                    if not parents
+                    and len(scans) == 1
+                    and " Slice" not in (scans[0].findtext("name") or "")
+                    else None
+                )
             )
             if timing_scan is not None:
                 timing_start, timing_end = execution_detail_bounds(client, timing_scan)

@@ -85,18 +85,14 @@ def calculate_summary_metrics(report_xml) -> SummaryMetrics:
     report = parse_report(report_xml)
     generation_datetime = str(report.HEADER.GENERATION_DATETIME)
     security_risk = str(report.SUMMARY.GLOBAL_SUMMARY.SECURITY_RISK)
-    sensitive_content_count = str(
-        report.SUMMARY.GLOBAL_SUMMARY.SENSITIVE_CONTENT
-    )
+    sensitive_content_count = str(report.SUMMARY.GLOBAL_SUMMARY.SENSITIVE_CONTENT)
     return SummaryMetrics(
         start_date=generation_datetime[:11],
         security_risk=security_risk,
         total_information_findings=str(
             report.SUMMARY.GLOBAL_SUMMARY.INFORMATION_GATHERED
         ),
-        web_application_count=str(
-            report.SUMMARY.GLOBAL_SUMMARY.WEB_APPLICATIONS
-        ),
+        web_application_count=str(report.SUMMARY.GLOBAL_SUMMARY.WEB_APPLICATIONS),
         sensitive_content_count=sensitive_content_count,
         risk_color=risk_color(security_risk),
         sensitive_color=status_color(sensitive_content_count),
@@ -113,7 +109,13 @@ def calculate_severity_totals(report_xml) -> Tuple[str, str, str, str, str]:
             totals[severity_index] += int(
                 summary_stat.xpath("./{}".format(level_name))[0]
             )
-    return tuple(str(total) for total in totals)
+    return (
+        str(totals[0]),
+        str(totals[1]),
+        str(totals[2]),
+        str(totals[3]),
+        str(totals[4]),
+    )
 
 
 def initialize_monthly_counts(current_time: datetime) -> Dict[str, int]:
@@ -151,9 +153,7 @@ def qid_classifications(report) -> Tuple[Dict[str, str], Dict[str, str]]:
         group_elements = qid_element.xpath("./GROUP")
         owasp_elements = qid_element.xpath("./OWASP")
         groups[qid] = str(group_elements[0]) if group_elements else ""
-        owasp_categories[qid] = (
-            str(owasp_elements[0]) if owasp_elements else "None"
-        )
+        owasp_categories[qid] = str(owasp_elements[0]) if owasp_elements else "None"
     return groups, owasp_categories
 
 

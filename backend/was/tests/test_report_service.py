@@ -159,9 +159,7 @@ class ReportServiceTests(unittest.TestCase):
     )
     @patch("was_reports.reporting.report_service.finding_ages.retrieve_finding_ages")
     @patch("was_reports.reporting.report_service.chart_renderer.render_report_charts")
-    @patch(
-        "was_reports.reporting.report_service.streaming_report.process_report_xml"
-    )
+    @patch("was_reports.reporting.report_service.streaming_report.process_report_xml")
     @patch(
         "was_reports.reporting.report_service.report_retrieval.managed_report_source_data"
     )

@@ -1,5 +1,6 @@
 """Compare customer output with the authoritative September 21 source files."""
 
+# Standard Python Libraries
 import hashlib
 from html.parser import HTMLParser
 from io import BytesIO
@@ -8,16 +9,20 @@ import unittest
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
+# Third-Party Libraries
 from was_mailer.authoritative_email_sections import SECTIONS, SOURCE_ZIP_SHA256
-from was_mailer.customer_email_templates import SENDER_CHANGE_NOTICE, section_names, substitute_values
+from was_mailer.customer_email_templates import (
+    SENDER_CHANGE_NOTICE,
+    section_names,
+    substitute_values,
+)
 from was_mailer.message import customer_report_body, report_email_subject
 
 CONTACT_ADDRESS = "vulnerability@cisa.dhs.gov"
 CYBER_HYGIENE_URL = "https://www.cisa.gov/cyber-hygiene-services"
 FAQ_WORDING = "helpful list of scan report and WAS FAQs"
 FAQ_SENTENCE = (
-    "A helpful list of scan report and WAS FAQs can be found here: "
-    + CYBER_HYGIENE_URL
+    "A helpful list of scan report and WAS FAQs can be found here: " + CYBER_HYGIENE_URL
 )
 NO_REPLY_NOTICE = (
     "Please do not reply to this email as it is not monitored. "
@@ -30,9 +35,7 @@ SIGNATURE_ADDRESS = "reports@cyber.dhs.gov"
 SIGNATURE_MONITORING_LABEL = " (Not monitored)"
 APPROVED_TEXT_REMOVALS = {
     "report_not_generated": "\n\nFor your reference, a helpful list of scan "
-    "report and WAS FAQs can be found here: "
-    + CYBER_HYGIENE_URL
-    + "\n",
+    "report and WAS FAQs can be found here: " + CYBER_HYGIENE_URL + "\n",
     "results_part1": " " + FAQ_SENTENCE,
 }
 NOTICE_HEADINGS = {
@@ -86,9 +89,7 @@ def insert_formatted_text_after(
     insert_at = visible_text.index(
         "".join(character for character in anchor if not character.isspace())
     ) + len("".join(character for character in anchor if not character.isspace()))
-    inserted = [
-        (character, styles) for character in text if not character.isspace()
-    ]
+    inserted = [(character, styles) for character in text if not character.isspace()]
     characters[insert_at:insert_at] = inserted
 
 
@@ -123,7 +124,7 @@ class TextCollector(HTMLParser):
     def __init__(self) -> None:
         """Initialize the parser and visible-text accumulator."""
         super().__init__()
-        self.parts = []
+        self.parts: list[str] = []
 
     def handle_data(self, data: str) -> None:
         """Record visible data without interpreting it as HTML."""
@@ -141,8 +142,8 @@ class FormattedTextCollector(HTMLParser):
     def __init__(self) -> None:
         """Initialize style ancestry and character records."""
         super().__init__()
-        self.ancestors = []
-        self.characters = []
+        self.ancestors: list[tuple[str, set[str]]] = []
+        self.characters: list[tuple[str, frozenset[str]]] = []
 
     def handle_starttag(self, tag: str, attrs: list) -> None:
         """Track semantic emphasis and source highlight/font-size styles."""
@@ -172,11 +173,16 @@ class FormattedTextCollector(HTMLParser):
     def handle_data(self, data: str) -> None:
         """Record each visible character with its inherited formatting."""
         styles = frozenset().union(*(item[1] for item in self.ancestors))
-        self.characters.extend((character, styles) for character in data if not character.isspace())
+        self.characters.extend(
+            (character, styles) for character in data if not character.isspace()
+        )
 
 
 class AuthoritativeEmailTests(unittest.TestCase):
+    """Verify customer email content against the authoritative source."""
+
     def test_sender_change_notice_is_first_in_every_customer_template(self) -> None:
+        """Require the approved sender notice before every customer template."""
         expected = (
             "Notice: WAS reports now come from this email address: reports@cyber.dhs.gov. "
             'Please reference the email, "Cyber Hygiene (CyHy) WAS Report Email Address Change", '
@@ -186,9 +192,16 @@ class AuthoritativeEmailTests(unittest.TestCase):
         for template in CUSTOMER_TEMPLATES:
             with self.subTest(template=template):
                 arguments = (
-                    "TAG", "Sample POC", template, "Sample Analyst",
-                    "https://example.gov", "2,1,1", "https://removed.example.gov",
-                    "https://error.example.gov", None, None,
+                    "TAG",
+                    "Sample POC",
+                    template,
+                    "Sample Analyst",
+                    "https://example.gov",
+                    "2,1,1",
+                    "https://removed.example.gov",
+                    "https://error.example.gov",
+                    None,
+                    None,
                 )
                 plain = customer_report_body(*arguments)
                 self.assertTrue(plain.startswith(expected + "\n\n"))
@@ -200,10 +213,12 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 visible = "".join(character for character, _ in collector.characters)
                 self.assertTrue(visible.startswith(compact))
                 self.assertEqual(visible.count(compact), 1)
-                self.assertTrue(all(
-                    "italic" in styles
-                    for _, styles in collector.characters[:len(compact)]
-                ))
+                self.assertTrue(
+                    all(
+                        "italic" in styles
+                        for _, styles in collector.characters[: len(compact)]
+                    )
+                )
 
     """Protect source wording, flowchart branches, formatting, and escaping."""
 
@@ -266,20 +281,30 @@ class AuthoritativeEmailTests(unittest.TestCase):
         source = Path(__file__).parents[1] / "WAS_EMAIL_templates_Newest9_21.zip"
         if not source.exists():
             self.skipTest("Operator source ZIP is not distributed with the package")
-        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        namespace = {
+            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        }
         value_attribute = "{" + namespace["w"] + "}val"
         with ZipFile(source) as archive:
             for name, section in SECTIONS.items():
                 with self.subTest(component=name):
                     raw = archive.read("WAS_email_templates/{}.docx".format(name))
                     with ZipFile(BytesIO(raw)) as document:
-                        root = ElementTree.fromstring(document.read("word/document.xml"))
-                    expected = []
+                        root = ElementTree.fromstring(
+                            document.read("word/document.xml")
+                        )
+                    expected: list[tuple[str, frozenset[str]]] = []
                     for run in root.findall(".//w:body/w:p//w:r", namespace):
                         styles = set()
-                        for property_name, style in (("b", "bold"), ("i", "italic"), ("u", "underline")):
+                        for property_name, style in (
+                            ("b", "bold"),
+                            ("i", "italic"),
+                            ("u", "underline"),
+                        ):
                             element = run.find("w:rPr/w:" + property_name, namespace)
-                            if element is not None and element.get(value_attribute) not in {"0", "false", "none"}:
+                            if element is not None and element.get(
+                                value_attribute
+                            ) not in {"0", "false", "none"}:
                                 styles.add(style)
                         for property_name, property_value, style in (
                             ("highlight", "yellow", "yellow"),
@@ -287,11 +312,17 @@ class AuthoritativeEmailTests(unittest.TestCase):
                             ("rStyle", "Hyperlink", "underline"),
                         ):
                             element = run.find("w:rPr/w:" + property_name, namespace)
-                            if element is not None and element.get(value_attribute) == property_value:
+                            if (
+                                element is not None
+                                and element.get(value_attribute) == property_value
+                            ):
                                 styles.add(style)
                         for text in run.findall("w:t", namespace):
-                            expected.extend((character, frozenset(styles)) for character in text.text or ""
-                                            if not character.isspace())
+                            expected.extend(
+                                (character, frozenset(styles))
+                                for character in text.text or ""
+                                if not character.isspace()
+                            )
                     if name in APPROVED_TEXT_REMOVALS:
                         remove_formatted_text(
                             expected,
@@ -366,8 +397,7 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 self.assertIn(
                     "".join(
                         character
-                        for character in SIGNATURE_ADDRESS
-                        + SIGNATURE_MONITORING_LABEL
+                        for character in SIGNATURE_ADDRESS + SIGNATURE_MONITORING_LABEL
                         if not character.isspace()
                     ),
                     visible_text,
@@ -482,7 +512,8 @@ class AuthoritativeEmailTests(unittest.TestCase):
         )
         self.assertTrue(
             body.startswith(
-                SENDER_CHANGE_NOTICE + "\n\nWAS Results for TAG\n\n"
+                SENDER_CHANGE_NOTICE
+                + "\n\nWAS Results for TAG\n\n"
                 + NO_REPLY_NOTICE
                 + "\n\nSample POC,\n"
             )
@@ -504,9 +535,17 @@ class AuthoritativeEmailTests(unittest.TestCase):
         """Keep the questions and signature addresses in their approved roles."""
         for html in (False, True):
             body = customer_report_body(
-                "TAG", "Sample POC", "Targets Removed", "Sample Analyst",
-                "https://example.gov", "2,1,1", "https://example.gov", None,
-                None, None, html=html,
+                "TAG",
+                "Sample POC",
+                "Targets Removed",
+                "Sample Analyst",
+                "https://example.gov",
+                "2,1,1",
+                "https://example.gov",
+                None,
+                None,
+                None,
+                html=html,
             )
             expected_questions_sentence = (
                 "If you have questions, please email "
@@ -516,7 +555,9 @@ class AuthoritativeEmailTests(unittest.TestCase):
                 "vulnerability@cisa.dhs.gov."
             )
             self.assertIn(expected_questions_sentence, body)
-            self.assertNotIn("If you have questions, please email at reports@cisa.dhs.gov.", body)
+            self.assertNotIn(
+                "If you have questions, please email at reports@cisa.dhs.gov.", body
+            )
             expected_targets_sentence = (
                 "updated list of targets to "
                 "<strong>vulnerability@cisa.dhs.gov</strong>."

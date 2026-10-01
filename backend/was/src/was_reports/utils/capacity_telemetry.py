@@ -1,5 +1,6 @@
 """Optional secret-free endpoint events and container resource samples."""
 
+# Standard Python Libraries
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
@@ -53,12 +54,16 @@ def resource_sample(output_directory: Path) -> dict[str, object]:
     }
     root = Path("/sys/fs/cgroup")
     try:
-        values = dict(line.split() for line in (root / "cpu.stat").read_text().splitlines())
+        values = dict(
+            line.split() for line in (root / "cpu.stat").read_text().splitlines()
+        )
         result["cpu_usage_usec"] = int(values["usage_usec"])
     except (OSError, ValueError, KeyError):
         pass
-    for filename, field in (("memory.current", "memory_current_bytes"),
-                            ("memory.peak", "memory_peak_bytes")):
+    for filename, field in (
+        ("memory.current", "memory_current_bytes"),
+        ("memory.peak", "memory_peak_bytes"),
+    ):
         try:
             result[field] = int((root / filename).read_text().strip())
         except (OSError, ValueError):
@@ -73,7 +78,9 @@ def resource_sample(output_directory: Path) -> dict[str, object]:
 
 
 @contextmanager
-def resource_monitor(output_directory: str | Path, interval: float = 5.0) -> Iterator[None]:
+def resource_monitor(
+    output_directory: str | Path, interval: float = 5.0
+) -> Iterator[None]:
     """Sample the coordinator container, including child workers, until exit."""
     if interval <= 0:
         raise ValueError("Resource sample interval must be positive.")

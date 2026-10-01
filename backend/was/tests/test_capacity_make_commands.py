@@ -1,5 +1,6 @@
 """Verify capacity operator commands without running Docker or database tools."""
 
+# Standard Python Libraries
 from pathlib import Path
 import shutil
 import subprocess  # nosec B404
@@ -13,10 +14,18 @@ class CapacityMakeCommandsTests(unittest.TestCase):
     def plan(self, target, *arguments):
         """Render Make recipes in dry-run mode, including recursive Make calls."""
         result = subprocess.run(  # nosec B603
-            [shutil.which("make"), "--dry-run", target,
-             "TEST_RECIPIENTS=test@example.gov", *arguments],
-            cwd=Path(__file__).resolve().parents[1], text=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+            [
+                shutil.which("make"),
+                "--dry-run",
+                target,
+                "TEST_RECIPIENTS=test@example.gov",
+                *arguments,
+            ],
+            cwd=Path(__file__).resolve().parents[1],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
         )
         return result.stdout
 
@@ -29,7 +38,7 @@ class CapacityMakeCommandsTests(unittest.TestCase):
         self.assertNotIn("capacity_database_reset", plan)
         self.assertIn('--worker-backend docker --worker-image "was-reporting"', plan)
         self.assertIn('--env-file ".env" --output-root', plan)
-        self.assertNotIn('/var/run/docker.sock', plan)
+        self.assertNotIn("/var/run/docker.sock", plan)
 
     def test_continue_uses_saved_workload_not_reset(self):
         """Continuation must never reset the test database."""

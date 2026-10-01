@@ -8,6 +8,7 @@ import sys
 from time import monotonic
 from typing import List, Optional
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys.qualys_client import create_qualys_client
 from was_reports.tracker.qualys_scans import DEFAULT_TRACKER_LOOKBACK_DAYS
@@ -84,8 +85,10 @@ def run_update_tracker(
     summary_enabled: bool = True,
 ) -> None:
     """Run the WAS-owned Qualys-to-Postgres tracker workflow."""
-    batch_id = None if preflight_only or not summary_enabled else (
-        analyst_batch_id or os.environ.get("WAS_ANALYST_BATCH_ID")
+    batch_id = (
+        None
+        if preflight_only or not summary_enabled
+        else (analyst_batch_id or os.environ.get("WAS_ANALYST_BATCH_ID"))
     )
     started = monotonic()
     error_name = None
@@ -93,6 +96,7 @@ def run_update_tracker(
     error_counter = TrackerErrorCounter()
     tracker_logger = logging.getLogger("was_reports.tracker")
     if batch_id:
+        # Third-Party Libraries
         from was_reports.reporting import analyst_summaries
 
         analyst_summaries.start_batch(batch_id)
@@ -114,7 +118,10 @@ def run_update_tracker(
             if error_name is None and error_counter.count:
                 error_name = "TrackerLoggedErrors_{}".format(error_counter.count)
             analyst_summaries.record_tracker_result(
-                batch_id, monotonic() - started, error=error_name, rows_updated=rows_updated
+                batch_id,
+                monotonic() - started,
+                error=error_name,
+                rows_updated=rows_updated,
             )
 
 

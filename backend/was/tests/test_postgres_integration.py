@@ -14,9 +14,7 @@ from uuid import uuid4
 import psycopg2
 from psycopg2 import sql
 from was_reports.data import daily_report_tracker as tracker
-from was_reports.data import report_runs
-from was_reports.data import standalone_targets
-from was_reports.data import tracker_corrections
+from was_reports.data import report_runs, standalone_targets, tracker_corrections
 from was_reports.tracker import update_service
 from was_reports.tracker.models import TrackerItem
 
@@ -350,13 +348,11 @@ class PostgresIntegrationTests(unittest.TestCase):
             email_claim_token=original_claim.email_claim_token,
         )
 
-        authorization_token = (
-            report_runs.confirm_held_report_email_not_delivered(
-                run.id,
-                "external event confirms non-delivery",
-                "stored-customer",
-                self.connection,
-            )
+        authorization_token = report_runs.confirm_held_report_email_not_delivered(
+            run.id,
+            "external event confirms non-delivery",
+            "stored-customer",
+            self.connection,
         )
         retry_claim = report_runs.claim_report_run_email(
             run.id,
@@ -391,13 +387,11 @@ class PostgresIntegrationTests(unittest.TestCase):
                 self.connection,
             )
 
-        replacement_authorization = (
-            report_runs.confirm_held_report_email_not_delivered(
-                run.id,
-                "new external event confirms non-delivery",
-                "stored-customer",
-                self.connection,
-            )
+        replacement_authorization = report_runs.confirm_held_report_email_not_delivered(
+            run.id,
+            "new external event confirms non-delivery",
+            "stored-customer",
+            self.connection,
         )
         self.assertNotEqual(authorization_token, replacement_authorization)
         self.assertIsNotNone(

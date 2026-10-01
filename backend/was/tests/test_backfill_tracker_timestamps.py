@@ -1,12 +1,13 @@
 """Verify preview-only default, exact matching, and guarded timestamp backfill."""
 
+# Standard Python Libraries
 from dataclasses import replace
 from datetime import date, datetime, timezone
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
 from lxml import etree
-
 from was_reports.commands import backfill_tracker_timestamps as backfill
 
 
@@ -18,7 +19,14 @@ class BackfillTests(unittest.TestCase):
         self.start = datetime(2026, 9, 1, 12, tzinfo=timezone.utc)
         self.end = datetime(2026, 9, 1, 13, tzinfo=timezone.utc)
         self.candidate = backfill.TimestampCandidate(
-            7, 4, "TAG", "WAVS - TAG - Customer Run #1", date(2026, 9, 1), "key", None, None
+            7,
+            4,
+            "TAG",
+            "WAVS - TAG - Customer Run #1",
+            date(2026, 9, 1),
+            "key",
+            None,
+            None,
         )
         self.scan = etree.fromstring(
             "<WasScan><id>123</id><name>WAVS - TAG - Customer Run #1</name>"
@@ -35,10 +43,15 @@ class BackfillTests(unittest.TestCase):
             (self.candidate, [self.scan, self.scan]),
             (self.candidate, []),
         ):
-            self.assertIsNone(backfill.proposed_timestamps(candidate, scans, (self.start, self.end)))
-        self.assertEqual(backfill.proposed_timestamps(
-            self.candidate, [self.scan], (self.start, self.end)
-        ), (self.start, self.end))
+            self.assertIsNone(
+                backfill.proposed_timestamps(candidate, scans, (self.start, self.end))
+            )
+        self.assertEqual(
+            backfill.proposed_timestamps(
+                self.candidate, [self.scan], (self.start, self.end)
+            ),
+            (self.start, self.end),
+        )
 
     @patch.object(backfill, "load_candidates")
     def test_apply_requires_explicit_match_confirmation_before_connections(self, load):
@@ -54,7 +67,9 @@ class BackfillTests(unittest.TestCase):
     def test_default_preview_never_writes(self, load, search, client, apply):
         """A preview reports exact proposed values but never enters write path."""
         load.return_value = [self.candidate]
-        search.return_value = {(self.candidate.scan_name, self.candidate.scan_start_date): [self.scan]}
+        search.return_value = {
+            (self.candidate.scan_name, self.candidate.scan_start_date): [self.scan]
+        }
         result = backfill.run_backfill(date(2026, 9, 1), None, 100)
         self.assertEqual(result["proposed"], 1)
         self.assertEqual(result["updated"], 0)
@@ -69,9 +84,16 @@ class BackfillTests(unittest.TestCase):
         connection = connect.return_value
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = None
-        self.assertEqual(backfill.apply_proposals([(self.candidate, self.start, self.end)]), [])
+        self.assertEqual(
+            backfill.apply_proposals([(self.candidate, self.start, self.end)]), []
+        )
         query = cursor.execute.call_args.args[0]
-        for field in ("scan_execution_key", "scan_started_at", "scan_ended_at", "scan_name"):
+        for field in (
+            "scan_execution_key",
+            "scan_started_at",
+            "scan_ended_at",
+            "scan_name",
+        ):
             self.assertIn("{} IS NOT DISTINCT FROM".format(field), query)
         self.assertIn("COALESCE(scan_started_at", query)
         connection.commit.assert_called_once()
@@ -87,26 +109,47 @@ class BackfillTests(unittest.TestCase):
             "<ServiceResponse><responseCode>SUCCESS</responseCode><count>1</count>"
             "<data>{}</data></ServiceResponse>"
         ).format(etree.tostring(self.scan, encoding="unicode"))
-        matches = backfill.search_matching_scans(client, date(2026, 9, 1), date(2026, 9, 1),
-                                                 {self.candidate.scan_name})
+        matches = backfill.search_matching_scans(
+            client, date(2026, 9, 1), date(2026, 9, 1), {self.candidate.scan_name}
+        )
         self.assertEqual(len(matches), 1)
         payload = etree.fromstring(client.request.call_args.args[0].payload.encode())
         self.assertEqual(payload.findtext("./preferences/limitResults"), "1000")
-        client.request.return_value = "<ServiceResponse><responseCode>FAILURE</responseCode></ServiceResponse>"
+        client.request.return_value = (
+            "<ServiceResponse><responseCode>FAILURE</responseCode></ServiceResponse>"
+        )
         with self.assertRaises(RuntimeError):
-            backfill.search_matching_scans(client, date(2026, 9, 1), date(2026, 9, 1), set())
+            backfill.search_matching_scans(
+                client, date(2026, 9, 1), date(2026, 9, 1), set()
+            )
 
     def test_search_window_uses_utc_z_and_eastern_dst_boundaries(self):
         """Serialize API-compatible UTC bounds while retaining Eastern calendar days."""
         windows = (
-            (date(2026, 8, 25), date(2026, 9, 23),
-             "2026-08-25T03:59:59Z", "2026-09-24T04:00:00Z"),
-            (date(2026, 1, 10), date(2026, 1, 11),
-             "2026-01-10T04:59:59Z", "2026-01-12T05:00:00Z"),
-            (date(2026, 3, 8), date(2026, 3, 8),
-             "2026-03-08T04:59:59Z", "2026-03-09T04:00:00Z"),
-            (date(2026, 11, 1), date(2026, 11, 1),
-             "2026-11-01T03:59:59Z", "2026-11-02T05:00:00Z"),
+            (
+                date(2026, 8, 25),
+                date(2026, 9, 23),
+                "2026-08-25T03:59:59Z",
+                "2026-09-24T04:00:00Z",
+            ),
+            (
+                date(2026, 1, 10),
+                date(2026, 1, 11),
+                "2026-01-10T04:59:59Z",
+                "2026-01-12T05:00:00Z",
+            ),
+            (
+                date(2026, 3, 8),
+                date(2026, 3, 8),
+                "2026-03-08T04:59:59Z",
+                "2026-03-09T04:00:00Z",
+            ),
+            (
+                date(2026, 11, 1),
+                date(2026, 11, 1),
+                "2026-11-01T03:59:59Z",
+                "2026-11-02T05:00:00Z",
+            ),
         )
         for since, until, expected_lower, expected_upper in windows:
             with self.subTest(since=since, until=until):
@@ -116,10 +159,14 @@ class BackfillTests(unittest.TestCase):
                     "<count>0</count><data/></ServiceResponse>"
                 )
                 backfill.search_matching_scans(client, since, until, set())
-                payload = etree.fromstring(client.request.call_args.args[0].payload.encode())
+                payload = etree.fromstring(
+                    client.request.call_args.args[0].payload.encode()
+                )
                 bounds = {
                     criterion.get("operator"): criterion.text
                     for criterion in payload.findall("./filters/Criteria")
                     if criterion.get("field") == "launchedDate"
                 }
-                self.assertEqual(bounds, {"GREATER": expected_lower, "LESSER": expected_upper})
+                self.assertEqual(
+                    bounds, {"GREATER": expected_lower, "LESSER": expected_upper}
+                )

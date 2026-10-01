@@ -12,6 +12,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+# Third-Party Libraries
 from matplotlib import pyplot as plt  # noqa: E402
 from matplotlib.ticker import FormatStrFormatter  # noqa: E402
 import numpy as np  # noqa: E402
@@ -20,9 +21,9 @@ import seaborn as sns  # noqa: E402
 
 # First-Party Libraries
 from was_reports.reporting.report_metrics import (  # noqa: E402
-    FindingMetrics,
     GROUP_LABELS,
     OWASP_LABELS,
+    FindingMetrics,
     fixed_percentage,
 )
 

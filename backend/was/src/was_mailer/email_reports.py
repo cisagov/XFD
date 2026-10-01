@@ -38,8 +38,8 @@ from was_reports.data.report_runs import (
     touch_report_email_claim_by_id,
 )
 from was_reports.storage.s3_reports import materialize_report
-from was_reports.utils.env import getenv, require_env
 from was_reports.utils.capacity_scope import capacity_tracker_ids
+from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import (
     configure_logging,
     exception_details,
@@ -111,9 +111,7 @@ def send_report_run_email(
         if delivery_purpose != "analyst":
             raise ValueError("Template replay requires analyst delivery purpose.")
         override_recipients = ",".join(approved_analyst_recipients(override_recipients))
-    if (held_reconciliation_token is None) != (
-        held_reconciliation_scope is None
-    ):
+    if (held_reconciliation_token is None) != (held_reconciliation_scope is None):
         raise ValueError(
             "Held reconciliation token and recipient scope are both required."
         )
@@ -367,7 +365,8 @@ def send_ready_report_emails(
     )
     if tracker_scope is not None:
         report_runs = [
-            report_run for report_run in report_runs
+            report_run
+            for report_run in report_runs
             if report_run.source_tracker_id in tracker_scope
             and getattr(report_run, "delivery_purpose", "customer") == "customer"
         ]
@@ -404,6 +403,7 @@ def send_ready_report_emails(
                 batch_id = analyst_batch_id or getenv("WAS_ANALYST_BATCH_ID")
                 tracker_id = getattr(report_run, "source_tracker_id", None)
                 if batch_id and tracker_id is not None and not dry_run:
+                    # Third-Party Libraries
                     from was_reports.reporting.analyst_summaries import (
                         record_report_attempt,
                     )
@@ -436,16 +436,23 @@ def send_ready_assignee_digests(
     batch_id: Optional[str] = None,
 ) -> int:
     """Send one shared batch summary instead of individual assignment emails."""
+    # Third-Party Libraries
     from was_reports.reporting.analyst_summaries import send_batch_summary
 
     resolved_batch_id = batch_id or getenv("WAS_ANALYST_BATCH_ID")
     if not resolved_batch_id:
-        raise ValueError("Shared analyst summaries require --batch-id from the reporting batch.")
+        raise ValueError(
+            "Shared analyst summaries require --batch-id from the reporting batch."
+        )
     if data_pull_date is not None or limit is not None or days_back is not None:
-        raise ValueError("Shared summaries use batch membership, not date or limit filters.")
+        raise ValueError(
+            "Shared summaries use batch membership, not date or limit filters."
+        )
     message_id = send_batch_summary(
-        resolved_batch_id, source_email,
-        override_recipients=override_recipients, dry_run=dry_run,
+        resolved_batch_id,
+        source_email,
+        override_recipients=override_recipients,
+        dry_run=dry_run,
     )
     return int(bool(message_id) or dry_run)
 
@@ -471,8 +478,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="Send one shared analyst summary for --batch-id.",
     )
-    parser.add_argument("--batch-id", default=getenv("WAS_ANALYST_BATCH_ID"),
-                        help="Batch identifier for the shared analyst summary.")
+    parser.add_argument(
+        "--batch-id",
+        default=getenv("WAS_ANALYST_BATCH_ID"),
+        help="Batch identifier for the shared analyst summary.",
+    )
     parser.add_argument(
         "--delivery-purpose",
         choices=("customer", "analyst", "standalone"),
@@ -529,9 +539,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         raise ValueError("Days back must be at least 1.")
     if args.report_run_id is not None and args.days_back is not None:
         raise ValueError("Days back can only be used with batch delivery modes.")
-    resolved_days_back = (
-        None if args.days_back == ALL_DAYS_BACK else args.days_back
-    )
+    resolved_days_back = None if args.days_back == ALL_DAYS_BACK else args.days_back
     if capacity_tracker_ids() is None:
         recover_stale_report_operations_in_db()
     source_email = args.source_email

@@ -1,10 +1,12 @@
 """Safety regressions for analyst-only replay orchestration."""
 
+# Standard Python Libraries
 import argparse
 from contextlib import nullcontext
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 from was_reports.commands import test_replay
 from was_reports.data.report_runs import ReportRun
 from was_reports.data.test_replay import ReplayCandidate

@@ -5,6 +5,7 @@ import argparse
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import batch_preflight
 
@@ -35,9 +36,13 @@ class BatchPreflightTests(unittest.TestCase):
         candidates.return_value = []
         exclusions.return_value = [("already sent", 2)]
         conn = connect.return_value
-        candidates.side_effect = lambda *args, **kwargs: (
-            self.assertEqual(conn.set_session.call_count, 1) or []
-        )
+
+        def candidates_after_readonly(*args, **kwargs) -> list[object]:
+            """Confirm read-only setup before returning an empty candidate list."""
+            self.assertEqual(conn.set_session.call_count, 1)
+            return []
+
+        candidates.side_effect = candidates_after_readonly
         self.assertEqual(batch_preflight.main(["--days-back", "all"]), 0)
         conn.set_session.assert_called_once_with(
             readonly=True, isolation_level="REPEATABLE READ"

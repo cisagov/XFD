@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import sys
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 # Third-Party Libraries
 from botocore.exceptions import BotoCoreError, ClientError
@@ -24,6 +24,11 @@ from was_mailer.message import (
     parse_email_addresses,
 )
 from was_mailer.ses_client import create_ses_client
+from was_reports.commands.stakeholder_import import (
+    DEFAULT_NULL_TOKEN,
+    import_prepared_rows,
+    prepare_stakeholder_csv,
+)
 from was_reports.data.stakeholders import (
     STAKEHOLDER_CREATE_COLUMNS,
     STAKEHOLDER_MUTABLE_COLUMNS,
@@ -32,11 +37,6 @@ from was_reports.data.stakeholders import (
     list_stakeholders_for_export_from_db,
     update_stakeholder_contacts_for_tag,
     update_stakeholder_fields_for_tag,
-)
-from was_reports.commands.stakeholder_import import (
-    DEFAULT_NULL_TOKEN,
-    import_prepared_rows,
-    prepare_stakeholder_csv,
 )
 from was_reports.storage.stakeholder_exports import upload_stakeholder_export
 from was_reports.utils.env import require_env
@@ -274,7 +274,7 @@ def stakeholder_display_value(column_name: str, value: object) -> str:
     if column_name not in STAKEHOLDER_EPOCH_COLUMNS:
         return str(value)
     try:
-        timestamp = datetime.fromtimestamp(int(value), tz=timezone.utc)
+        timestamp = datetime.fromtimestamp(int(cast(Any, value)), tz=timezone.utc)
     except (OverflowError, TypeError, ValueError):
         return "{} (invalid epoch timestamp)".format(value)
     return "{} (epoch {})".format(
@@ -474,7 +474,9 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "next-scheduled",
         "onboarding-date",
     ):
-        add_command.add_argument("--{}".format(option_name), type=stakeholder_date_value)
+        add_command.add_argument(
+            "--{}".format(option_name), type=stakeholder_date_value
+        )
     add_command.add_argument("--elections", action="store_true")
     add_command.add_argument("--fceb", action="store_true")
     add_command.add_argument("--manual-report", action="store_true")
@@ -514,7 +516,7 @@ def stakeholder_export_value(column_name: str, value: object) -> object:
     """Return a safe, human-readable stakeholder export value."""
     if column_name in STAKEHOLDER_EPOCH_COLUMNS and value is not None:
         try:
-            timestamp = datetime.fromtimestamp(int(value), tz=timezone.utc)
+            timestamp = datetime.fromtimestamp(int(cast(Any, value)), tz=timezone.utc)
         except (OverflowError, TypeError, ValueError) as error:
             raise ValueError(
                 "{} contains an invalid epoch timestamp.".format(column_name)

@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 from was_reports.data.daily_report_tracker import (
     DELIVERY_RECONCILIATION,
     MANUAL_WORK,
-    DailyReportTrackerRow,
     TRACKER_RECORD_COLUMNS,
+    DailyReportTrackerRow,
     claim_assignee_digest_rows,
     finish_assignee_digest_rows,
     get_tracker_record_by_id,
@@ -245,10 +245,13 @@ class DailyReportTrackerTests(unittest.TestCase):
             scan_execution_key="scheduled:123:unchanged",
         )
         insert_daily_report_tracker_row(row=row, conn=conn)
-        self.assertEqual(conn.cursor_instance.parameters[-3:],
-                         (started, ended, "scheduled:123:unchanged"))
-        self.assertEqual(conn.cursor_instance.query.count("%s"),
-                         len(conn.cursor_instance.parameters))
+        self.assertEqual(
+            conn.cursor_instance.parameters[-3:],
+            (started, ended, "scheduled:123:unchanged"),
+        )
+        self.assertEqual(
+            conn.cursor_instance.query.count("%s"), len(conn.cursor_instance.parameters)
+        )
         self.assertIn("scan_started_at", conn.cursor_instance.query)
         self.assertIn("scan_ended_at", conn.cursor_instance.query)
 
@@ -303,8 +306,7 @@ class DailyReportTrackerTests(unittest.TestCase):
     def test_get_tracker_record_returns_safe_fields_by_id(self) -> None:
         """Return one row without exposing passwords or active claim tokens."""
         values = tuple(
-            "value-{}".format(column_name)
-            for column_name in TRACKER_RECORD_COLUMNS
+            "value-{}".format(column_name) for column_name in TRACKER_RECORD_COLUMNS
         )
         conn = FakeConnection(fetchone_row=values)
 

@@ -1,11 +1,13 @@
 """Verify customer email dates use the persisted scan start instant only."""
 
+# Standard Python Libraries
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import MagicMock
 
+# Third-Party Libraries
 from was_mailer.message import build_report_email, eastern_timestamp
 from was_reports.data.report_runs import get_report_run_email
 
@@ -20,9 +22,24 @@ class EmailScanStartTimeTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = (
-            1, "TAG", "/unused/TAG_report_2026-09-23.pdf", None,
-            "poc@example.gov", None, "Sample POC", 2, "pdf", "Results",
-            "Sample Analyst", None, None, None, None, start_epoch, None, None,
+            1,
+            "TAG",
+            "/unused/TAG_report_2026-09-23.pdf",
+            None,
+            "poc@example.gov",
+            None,
+            "Sample POC",
+            2,
+            "pdf",
+            "Results",
+            "Sample Analyst",
+            None,
+            None,
+            None,
+            None,
+            start_epoch,
+            None,
+            None,
             "customer",
         )
         delivery = get_report_run_email(1, conn)
@@ -35,8 +52,12 @@ class EmailScanStartTimeTests(unittest.TestCase):
             report = Path(directory) / "TAG_report_2026-09-23.pdf"
             report.write_bytes(b"%PDF test-only attachment")
             message = build_report_email(
-                "reports@example.gov", ["poc@example.gov"], "TAG", report,
-                poc_name=delivery.was_report_poc, last_scanned=delivery.last_scanned,
+                "reports@example.gov",
+                ["poc@example.gov"],
+                "TAG",
+                report,
+                poc_name=delivery.was_report_poc,
+                last_scanned=delivery.last_scanned,
             )
         for subtype in ("plain", "html"):
             with self.subTest(subtype=subtype):
@@ -48,12 +69,18 @@ class EmailScanStartTimeTests(unittest.TestCase):
     def test_eastern_time_respects_daylight_saving_and_standard_time(self) -> None:
         """Use the timezone offset applicable to each stored UTC instant."""
         cases = (
-            (datetime(2026, 9, 23, 5, tzinfo=timezone.utc),
-             "September 23, 2026 at 01:00 AM Eastern Time"),
-            (datetime(2026, 12, 23, 5, tzinfo=timezone.utc),
-             "December 23, 2026 at 12:00 AM Eastern Time"),
-            (datetime(2026, 9, 23, 2, tzinfo=timezone.utc),
-             "September 22, 2026 at 10:00 PM Eastern Time"),
+            (
+                datetime(2026, 9, 23, 5, tzinfo=timezone.utc),
+                "September 23, 2026 at 01:00 AM Eastern Time",
+            ),
+            (
+                datetime(2026, 12, 23, 5, tzinfo=timezone.utc),
+                "December 23, 2026 at 12:00 AM Eastern Time",
+            ),
+            (
+                datetime(2026, 9, 23, 2, tzinfo=timezone.utc),
+                "September 22, 2026 at 10:00 PM Eastern Time",
+            ),
         )
         for instant, expected in cases:
             with self.subTest(instant=instant):

@@ -1,14 +1,16 @@
 """Keep capacity subprocesses inside their recorded tracker workload."""
 
+# Standard Python Libraries
 import os
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
+from test_report_runs import FakeConnection
 from was_mailer import email_reports
 from was_reports.commands import batch_runner
 from was_reports.data import report_runs
-from test_report_runs import FakeConnection
 from was_reports.utils.capacity_scope import capacity_tracker_ids
 
 
@@ -60,8 +62,13 @@ class CapacityScopeTests(unittest.TestCase):
 
     def test_production_saved_scope_requires_batch_identity(self) -> None:
         """Production snapshots require their coordinator UUID, not test settings."""
-        os.environ.update({"WAS_RUN_MODE": "production", "WAS_DB_NAME": "was",
-                           "WAS_BATCH_TRACKER_IDS": "[4, 9]"})
+        os.environ.update(
+            {
+                "WAS_RUN_MODE": "production",
+                "WAS_DB_NAME": "was",
+                "WAS_BATCH_TRACKER_IDS": "[4, 9]",
+            }
+        )
         with self.assertRaises(ValueError):
             capacity_tracker_ids()
         os.environ["WAS_ANALYST_BATCH_ID"] = "00000000-0000-0000-0000-000000000001"
@@ -146,7 +153,9 @@ class CapacityScopeTests(unittest.TestCase):
             with self.subTest(claimed=returned_row is not None):
                 connection = FakeConnection(row=returned_row)
                 result = report_runs.retry_failed_report_run_for_tracker(
-                    4, connection, safe_only=True,
+                    4,
+                    connection,
+                    safe_only=True,
                 )
                 query = connection.cursor_instance.query
                 self.assertIn("emailed_at IS NULL", query)
@@ -160,36 +169,53 @@ class CapacityScopeTests(unittest.TestCase):
         """Coordinator safety checks must not be bypassed by global stale recovery."""
         self.enable_scope()
         with patch.object(email_reports, "configure_logging"), patch.object(
-            email_reports, "recover_stale_report_operations_in_db",
+            email_reports,
+            "recover_stale_report_operations_in_db",
         ) as recover, patch.object(email_reports, "send_ready_report_emails"):
             email_reports.main(["--all-ready", "--source-email", "sender@example.gov"])
             recover.assert_not_called()
         with patch.object(batch_runner, "configure_logging"), patch.object(
-            batch_runner, "recover_stale_report_operations_in_db",
+            batch_runner,
+            "recover_stale_report_operations_in_db",
         ) as recover, patch.object(
-            batch_runner, "run_recent_scan_reports",
+            batch_runner,
+            "run_recent_scan_reports",
             return_value=batch_runner.BatchExecutionSummary(0, 0, 0, 0),
         ):
-            self.assertEqual(batch_runner.main(["--recent-scans", "--skip-tracker-refresh"]), 0)
+            self.assertEqual(
+                batch_runner.main(["--recent-scans", "--skip-tracker-refresh"]), 0
+            )
             recover.assert_not_called()
 
     def test_continuation_retries_only_scoped_failed_generation(self) -> None:
         """Never retry unrelated manual rows or create a second report run."""
         self.enable_scope()
         os.environ["WAS_CAPACITY_CONTINUATION"] = "1"
-        failed = SimpleNamespace(id=4, tag="TAG", report_run_status="failed", report_run_id=8)
+        failed = SimpleNamespace(
+            id=4, tag="TAG", report_run_status="failed", report_run_id=8
+        )
         outside = SimpleNamespace(id=9, tag="OUTSIDE", report_run_status="failed")
         manual = SimpleNamespace(id=5, tag="MANUAL", report_run_status=None)
         with patch.object(
-            batch_runner, "list_ready_report_candidates_from_db",
+            batch_runner,
+            "list_ready_report_candidates_from_db",
             side_effect=[[], [failed, outside, manual]],
-        ), patch.object(batch_runner, "create_report_run_for_tracker") as create, patch.object(
-            batch_runner, "retry_failed_report_run_for_tracker_by_id", return_value=None,
-        ) as retry, patch.object(batch_runner, "summarize_candidates"), patch.object(
-            batch_runner, "log_preflight_summary",
+        ), patch.object(
+            batch_runner, "create_report_run_for_tracker"
+        ) as create, patch.object(
+            batch_runner,
+            "retry_failed_report_run_for_tracker_by_id",
+            return_value=None,
+        ) as retry, patch.object(
+            batch_runner, "summarize_candidates"
+        ), patch.object(
+            batch_runner,
+            "log_preflight_summary",
         ):
             result = batch_runner.run_recent_scan_reports(
-                resource_root="/unused", python_executable="python", retry_ready_emails=False,
+                resource_root="/unused",
+                python_executable="python",
+                retry_ready_emails=False,
             )
         retry.assert_called_once_with(4, safe_only=True)
         create.assert_not_called()

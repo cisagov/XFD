@@ -4,7 +4,6 @@
 from datetime import date, datetime, timezone
 from typing import Mapping
 
-
 REQUIRED_STAKEHOLDER_FIELDS = frozenset(
     {"ci_type", "testing_sector", "frequency", "state"}
 )

@@ -30,9 +30,7 @@ def _append_child_xml(parent, xml_text: str) -> None:
 
 def _write_complete_report(path: Path) -> None:
     """Build one fixture containing every report section used in production."""
-    root = etree.fromstring(
-        (FIXTURE_DIRECTORY / "was_report_sample.xml").read_bytes()
-    )
+    root = etree.fromstring((FIXTURE_DIRECTORY / "was_report_sample.xml").read_bytes())
     metrics_root = etree.fromstring(
         (FIXTURE_DIRECTORY / "was_report_metrics.xml").read_bytes()
     )
@@ -45,9 +43,7 @@ def _write_complete_report(path: Path) -> None:
 
     first_definition = root.find("./GLOSSARY/QID_LIST/QID")
     _append_child_xml(first_definition, "<OWASP>A3</OWASP>")
-    information_list = root.find(
-        "./RESULTS/WEB_APPLICATION/INFORMATION_GATHERED_LIST"
-    )
+    information_list = root.find("./RESULTS/WEB_APPLICATION/INFORMATION_GATHERED_LIST")
     information_values = (
         ("150009", "links", "aHR0cHM6Ly9leGFtcGxlLmdvdi9vbmU="),
         ("150054", "emails", "dXNlckBleGFtcGxlLmdvdg=="),
@@ -60,9 +56,7 @@ def _write_complete_report(path: Path) -> None:
             "<INFORMATION_GATHERED>"
             "<ID>info-{}</ID><QID>{}</QID>"
             "<LAST_TIME_DETECTED>26 Aug 2026 01:00PM UTC</LAST_TIME_DETECTED>"
-            "<DATA>{}</DATA></INFORMATION_GATHERED>".format(
-                suffix, qid, encoded_data
-            ),
+            "<DATA>{}</DATA></INFORMATION_GATHERED>".format(suffix, qid, encoded_data),
         )
         _append_child_xml(
             glossary,
@@ -154,7 +148,9 @@ class StreamingReportTests(unittest.TestCase):
                 calls.append(kwargs)
                 return real_iterparse(*args, **kwargs)
 
-            with patch.object(etree, "iterparse", side_effect=recording_iterparse), patch.object(
+            with patch.object(
+                etree, "iterparse", side_effect=recording_iterparse
+            ), patch.object(
                 Path,
                 "read_bytes",
                 side_effect=AssertionError("whole-file read is not allowed"),
@@ -206,7 +202,7 @@ class StreamingReportTests(unittest.TestCase):
                     xml_declaration=True,
                     encoding="UTF-8",
                     doctype=(
-                        '<!DOCTYPE WAS_WEBAPP_REPORT '
+                        "<!DOCTYPE WAS_WEBAPP_REPORT "
                         '[<!ENTITY probe "EXPANSION_SENTINEL">]>'
                     ),
                 )
@@ -234,8 +230,7 @@ class StreamingReportTests(unittest.TestCase):
             _write_complete_report(xml_path)
             root = etree.fromstring(xml_path.read_bytes())
             literal_text = (
-                '<!DOCTYPE literal [<!ENTITY probe "EXPANSION_SENTINEL">]>'
-                "&probe;"
+                '<!DOCTYPE literal [<!ENTITY probe "EXPANSION_SENTINEL">]>' "&probe;"
             )
             root.text = etree.CDATA(literal_text)
             root.insert(0, etree.Comment("<!DOCTYPE comment> <!ENTITY comment>"))
@@ -249,6 +244,7 @@ class StreamingReportTests(unittest.TestCase):
                     if event == "start" and parsed_root is None:
                         parsed_root = element
                 self.assertIsNotNone(parsed_root)
+                assert parsed_root is not None
                 self.assertEqual(parsed_root.text, literal_text)
 
             result = streaming_report.process_report_xml(

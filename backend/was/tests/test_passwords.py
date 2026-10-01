@@ -6,6 +6,7 @@ import string
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.utils import passwords
 
@@ -28,7 +29,9 @@ class PasswordTests(unittest.TestCase):
     def test_validate_report_password_rejects_banned_characters(self) -> None:
         """Reject commas and hyphens in newly entered passwords."""
         for report_password in (
-            "Bad,Password123!", "Bad-Password123!", " BadPassword123! ",
+            "Bad,Password123!",
+            "Bad-Password123!",
+            " BadPassword123! ",
         ):
             with self.subTest(report_password=report_password):
                 with self.assertRaises(ValueError):
@@ -42,7 +45,9 @@ class PasswordTests(unittest.TestCase):
     def test_existing_password_accepts_literal_spaces(self) -> None:
         """Allow intentional spaces at either edge and within existing passwords."""
         for report_password in (
-            " LegacyPassword123!", "LegacyPassword123! ", "Legacy Password123!",
+            " LegacyPassword123!",
+            "LegacyPassword123! ",
+            "Legacy Password123!",
         ):
             with self.subTest(report_password=report_password):
                 passwords.validate_existing_report_password(report_password)
@@ -50,9 +55,13 @@ class PasswordTests(unittest.TestCase):
     def test_existing_password_rejects_empty_controls_and_non_ascii(self) -> None:
         """Do not broaden compatibility to control characters or other encodings."""
         for report_password in (
-            "", "Legacy\tPassword123!", "Legacy\nPassword123!",
-            "Legacy\rPassword123!", "Legacy\x00Password123!",
-            "Legacy\x7fPassword123!", "Legacy\u00a0Password123!",
+            "",
+            "Legacy\tPassword123!",
+            "Legacy\nPassword123!",
+            "Legacy\rPassword123!",
+            "Legacy\x00Password123!",
+            "Legacy\x7fPassword123!",
+            "Legacy\u00a0Password123!",
         ):
             with self.subTest(report_password=report_password):
                 with self.assertRaises(passwords.ExistingReportPasswordError):
@@ -70,9 +79,7 @@ class PasswordTests(unittest.TestCase):
         """Use one bounded error for empty and unsupported stored passwords."""
         for report_password in ("", "private\npassword", "private\u00e9password"):
             with self.subTest(report_password=report_password):
-                with self.assertRaises(
-                    passwords.ExistingReportPasswordError
-                ) as error:
+                with self.assertRaises(passwords.ExistingReportPasswordError) as error:
                     passwords.validate_existing_report_password(report_password)
                 self.assertEqual(
                     str(error.exception),
@@ -112,9 +119,7 @@ class PasswordTests(unittest.TestCase):
 
     def test_customer_password_accepts_complete_policy(self) -> None:
         """Accept a customer password that meets every WAS requirement."""
-        passwords.validate_customer_provided_report_password(
-            "CustomerPassword123!"
-        )
+        passwords.validate_customer_provided_report_password("CustomerPassword123!")
 
     def test_password_character_set_contains_required_classes(self) -> None:
         """Keep enough character classes for strong generated passwords."""

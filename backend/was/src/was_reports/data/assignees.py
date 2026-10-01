@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -18,7 +18,7 @@ class Assignee:
 
     id: int
     name: str
-    email: Optional[str] = None
+    email: str | None = None
     active: bool = True
     email_enabled: bool = True
 
@@ -31,7 +31,7 @@ def normalize_assignee_name(name: str) -> str:
     return normalized_name
 
 
-def get_assignee_by_name(name: str, conn: connection) -> Optional[Assignee]:
+def get_assignee_by_name(name: str, conn: connection) -> Assignee | None:
     """Return an assignee by name."""
     normalized_name = normalize_assignee_name(name)
     with conn.cursor() as cursor:
@@ -57,8 +57,9 @@ def get_assignee_by_name(name: str, conn: connection) -> Optional[Assignee]:
     )
 
 
-def get_assignee_by_name_from_db(name: str) -> Optional[Assignee]:
+def get_assignee_by_name_from_db(name: str) -> Assignee | None:
     """Return an assignee by name using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -104,6 +105,7 @@ def list_active_assignee_emails(conn: connection) -> list[str]:
 
 def list_active_assignee_emails_from_db() -> list[str]:
     """Return active assignee email addresses using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -132,6 +134,7 @@ def list_functional_test_recipient_emails(conn: connection) -> list[str]:
 
 def list_functional_test_recipient_emails_from_db() -> list[str]:
     """Return approved functional-test recipients using a managed connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()
@@ -144,7 +147,7 @@ def list_functional_test_recipient_emails_from_db() -> list[str]:
 def upsert_assignee(
     name: str,
     conn: connection,
-    email: Optional[str] = None,
+    email: str | None = None,
 ) -> Assignee:
     """Insert or return an existing WAS assignee."""
     normalized_name = normalize_assignee_name(name)
@@ -177,8 +180,9 @@ def upsert_assignee(
     )
 
 
-def upsert_assignee_in_db(name: str, email: Optional[str] = None) -> Assignee:
+def upsert_assignee_in_db(name: str, email: str | None = None) -> Assignee:
     """Insert or return an assignee using a managed database connection."""
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

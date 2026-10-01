@@ -17,9 +17,9 @@ from pyfiglet import Figlet
 from was_reports.commands import (
     batch_runner,
     on_demand_cli,
-    standalone_cli,
     report_generator,
     stakeholders_cli,
+    standalone_cli,
     tracker_cli,
     update_tracker_cli,
 )
@@ -33,7 +33,6 @@ from was_reports.utils.passwords import (
     CUSTOMER_PASSWORD_REQUIREMENTS,
     validate_customer_provided_report_password,
 )
-
 from was_reports.utils.stakeholder_options import STAKEHOLDER_OPTIONS
 
 LOGGER = logging.getLogger(__name__)
@@ -257,9 +256,7 @@ class WasOperatorMenu:
             action()
         except KeyboardInterrupt:
             LOGGER.info("WAS submenu input cancelled by operator: %s", menu_name)
-            self.output(
-                "\nInput cancelled. Returning to {}.".format(menu_name)
-            )
+            self.output("\nInput cancelled. Returning to {}.".format(menu_name))
 
     def execute(
         self,
@@ -311,7 +308,9 @@ class WasOperatorMenu:
             self.output("Operation cancelled safely. Returning to the previous menu.")
             return 130
         except KeyboardInterrupt:
-            LOGGER.info("WAS menu operation interrupted by operator: %s", operation_name)
+            LOGGER.info(
+                "WAS menu operation interrupted by operator: %s", operation_name
+            )
             self.output("Operation interrupted. Returning to the previous menu.")
             return 130
         except Exception:
@@ -502,9 +501,7 @@ class WasOperatorMenu:
         )
         recipient_summary = "no email"
         if send_email:
-            recipients = self.prompt_required(
-                "Active WAS assignee email address(es): "
-            )
+            recipients = self.prompt_required("Active WAS assignee email address(es): ")
             arguments.extend(["--send-email", "--test-recipients", recipients])
             recipient_summary = "email to {}".format(recipients)
         tracker_id = self.prompt_optional("Existing tracker row ID [none]: ")
@@ -628,6 +625,7 @@ class WasOperatorMenu:
 
     def update_tracker_row(self) -> None:
         """Review supported corrections without resetting execution or sent state."""
+        # Third-Party Libraries
         from was_reports.data.tracker_corrections import (
             EDITABLE_FIELDS,
             TEMPLATES,
@@ -635,7 +633,7 @@ class WasOperatorMenu:
         )
 
         tracker_id = self.prompt_positive_integer("Tracker row ID: ")
-        inspected = {}
+        inspected: dict[str, dict[str, object]] = {}
 
         def load() -> int:
             """Keep missing rows or database failures inside the menu boundary."""
@@ -679,7 +677,7 @@ class WasOperatorMenu:
             return
         if value.upper() == "CANCEL":
             return
-        value = None if value.upper() == "CLEAR" else value
+        corrected_value = None if value.upper() == "CLEAR" else value
         if not self.confirm(
             "Apply this correction to tracker row {}?".format(tracker_id)
         ):
@@ -688,7 +686,9 @@ class WasOperatorMenu:
         def save() -> int:
             """Explain guarded correction refusals without changing run history."""
             try:
-                correct_tracker_row(tracker_id, {field: value}, expected=record)
+                correct_tracker_row(
+                    tracker_id, {field: corrected_value}, expected=record
+                )
             except ValueError as error:
                 self.output(str(error))
                 return 1
@@ -824,24 +824,18 @@ class WasOperatorMenu:
             "Press Enter to return."
         )
         while True:
-            requested_field = self.input(
-                "Field to print in full [return]: "
-            ).strip()
+            requested_field = self.input("Field to print in full [return]: ").strip()
             if not requested_field:
                 return
             normalized_field = requested_field.lower().replace("-", "_")
             if normalized_field not in record:
                 self.output(
-                    "Unknown field. Available fields: {}".format(
-                        ", ".join(record)
-                    )
+                    "Unknown field. Available fields: {}".format(", ".join(record))
                 )
                 continue
             self.output("Full value for {}:".format(normalized_field))
             self.output(
-                tracker_cli.tracker_record_display_value(
-                    record[normalized_field]
-                )
+                tracker_cli.tracker_record_display_value(record[normalized_field])
             )
 
     def view_errors(self) -> None:
@@ -1082,9 +1076,7 @@ class WasOperatorMenu:
             "keep the current value, edit the prefilled value, use CLEAR for "
             "SQL NULL, or enter CANCEL to stop."
         )
-        self.output(
-            "Use INTERNATIONAL for the state of an international stakeholder."
-        )
+        self.output("Use INTERNATIONAL for the state of an international stakeholder.")
         updates: dict[str, object] = {}
         for column_name in stakeholders_cli.STAKEHOLDER_EDIT_COLUMNS:
             current_value = record[column_name]
@@ -1100,25 +1092,18 @@ class WasOperatorMenu:
                     self.output("Operation cancelled.")
                     return
                 if raw_value.upper() == "CLEAR":
-                    if (
-                        column_name
-                        in stakeholders_cli.REQUIRED_STAKEHOLDER_FIELDS
-                    ):
+                    if column_name in stakeholders_cli.REQUIRED_STAKEHOLDER_FIELDS:
                         self.output(
-                            "Invalid value: {} cannot be cleared.".format(
-                                column_name
-                            )
+                            "Invalid value: {} cannot be cleared.".format(column_name)
                         )
                         continue
                     if current_value is not None:
                         updates[column_name] = None
                     break
                 try:
-                    normalized_value = (
-                        stakeholders_cli.normalize_stakeholder_update(
-                            column_name,
-                            raw_value,
-                        )
+                    normalized_value = stakeholders_cli.normalize_stakeholder_update(
+                        column_name,
+                        raw_value,
                     )
                 except ValueError as error:
                     self.output("Invalid value: {}".format(str(error)))
@@ -1169,17 +1154,13 @@ class WasOperatorMenu:
             "Press Enter to return."
         )
         while True:
-            requested_field = self.input(
-                "Field to print in full [return]: "
-            ).strip()
+            requested_field = self.input("Field to print in full [return]: ").strip()
             if not requested_field:
                 return
             normalized_field = requested_field.lower().replace("-", "_")
             if normalized_field not in record:
                 self.output(
-                    "Unknown field. Available fields: {}".format(
-                        ", ".join(record)
-                    )
+                    "Unknown field. Available fields: {}".format(", ".join(record))
                 )
                 continue
             self.output("Full value for {}:".format(normalized_field))
@@ -1366,9 +1347,7 @@ class WasOperatorMenu:
         self.output(
             "The password will be hidden and will not be written to application logs."
         )
-        self.output(
-            "Password requirements: {}.".format(CUSTOMER_PASSWORD_REQUIREMENTS)
-        )
+        self.output("Password requirements: {}.".format(CUSTOMER_PASSWORD_REQUIREMENTS))
         report_password = self.secret_input("Customer-provided report password: ")
         confirmed_password = self.secret_input("Re-enter report password: ")
         if report_password != confirmed_password:
@@ -1474,16 +1453,10 @@ class WasOperatorMenu:
         )
         for option_name, prompt in required_text_fields:
             self.show_stakeholder_options(option_name)
-            arguments.extend(
-                ["--{}".format(option_name), self.prompt_required(prompt)]
-            )
+            arguments.extend(["--{}".format(option_name), self.prompt_required(prompt)])
 
-        self.output(
-            "Use INTERNATIONAL for the state of an international stakeholder."
-        )
-        arguments.extend(
-            ["--state", self.prompt_required("State or INTERNATIONAL: ")]
-        )
+        self.output("Use INTERNATIONAL for the state of an international stakeholder.")
+        arguments.extend(["--state", self.prompt_required("State or INTERNATIONAL: ")])
 
         num_web_apps = self.prompt_optional_nonnegative_integer(
             "Number of web applications [blank]: "

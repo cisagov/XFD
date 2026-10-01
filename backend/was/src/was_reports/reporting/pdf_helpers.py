@@ -1,8 +1,10 @@
 """PDF helper functions for WAS report artifacts."""
 
 # Standard Python Libraries
-import subprocess
 from pathlib import Path
+
+# Calls use explicit argument vectors and never invoke a shell.
+import subprocess  # nosec B404
 
 # Third-Party Libraries
 from PyPDF4 import PdfFileReader, PdfFileWriter
@@ -18,7 +20,8 @@ def redact_qualys_pdf(
     """Redact a Qualys PDF using the legacy redaction script."""
     with input_path.open("rb") as input_file:
         with output_path.open("wb") as output_file:
-            subprocess.run(
+            # Both paths are controlled by the report runtime configuration.
+            subprocess.run(  # nosec B603
                 [python_executable, str(redactor_path)],
                 stdin=input_file,
                 stdout=output_file,

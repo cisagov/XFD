@@ -1,12 +1,16 @@
 """Check offline preview MIME attachments and delivery isolation."""
 
-from email import policy
+# Standard Python Libraries
 from datetime import date
+from email import policy
+from email.message import EmailMessage
 from email.parser import BytesParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 import unittest
 
+# Third-Party Libraries
 from was_reports.commands.email_preview import create_preview
 
 
@@ -19,11 +23,18 @@ class EmailPreviewTests(unittest.TestCase):
             root = Path(directory)
             attachment = root / "OFFLINE_report_2026-09-23-unique-token.pdf"
             attachment.write_bytes(b"test attachment bytes")
-            mime_path, html_path, text_path = create_preview(root, "Results", attachment)
-            message = BytesParser(policy=policy.default).parsebytes(mime_path.read_bytes())
+            mime_path, html_path, text_path = create_preview(
+                root, "Results", attachment
+            )
+            message = cast(
+                EmailMessage,
+                BytesParser(policy=policy.default).parsebytes(mime_path.read_bytes()),
+            )
             self.assertEqual(message["To"], "preview@example.invalid")
-            self.assertEqual(next(message.iter_attachments()).get_filename(),
-                             "OFFLINE_WAS_report_2026-09-23.pdf")
+            self.assertEqual(
+                next(message.iter_attachments()).get_filename(),
+                "OFFLINE_WAS_report_2026-09-23.pdf",
+            )
             self.assertEqual(message["Subject"], "OFFLINE - WAS Results")
             self.assertEqual(
                 list(message.iter_attachments())[0].get_payload(decode=True),
@@ -44,15 +55,23 @@ class EmailPreviewTests(unittest.TestCase):
             mime_path, _, _ = create_preview(
                 root, "Results", attachment, report_date=date(2026, 9, 23)
             )
-            message = BytesParser(policy=policy.default).parsebytes(mime_path.read_bytes())
-            self.assertEqual(next(message.iter_attachments()).get_filename(),
-                             "OFFLINE_WAS_report_2026-09-23.pdf")
+            message = cast(
+                EmailMessage,
+                BytesParser(policy=policy.default).parsebytes(mime_path.read_bytes()),
+            )
+            self.assertEqual(
+                next(message.iter_attachments()).get_filename(),
+                "OFFLINE_WAS_report_2026-09-23.pdf",
+            )
 
     def test_all_nws_has_no_pdf_and_uses_no_report_subject(self) -> None:
         """Notification previews must never invent a report attachment."""
         with TemporaryDirectory() as directory:
             mime_path, _, _ = create_preview(Path(directory), "All NWS", None)
-            message = BytesParser(policy=policy.default).parsebytes(mime_path.read_bytes())
+            message = cast(
+                EmailMessage,
+                BytesParser(policy=policy.default).parsebytes(mime_path.read_bytes()),
+            )
             self.assertEqual(list(message.iter_attachments()), [])
             self.assertIn("Report Not Generated", message["Subject"])
 

@@ -80,8 +80,10 @@ class ReportRunTests(unittest.TestCase):
         """Reject a stale row when a newer row or safety hold replaces it."""
         conn = connect.return_value
         cursor = conn.cursor.return_value.__enter__.return_value
-        cursor.fetchone.side_effect = [(42, date(2026, 9, 21)),
-                                       ("TAG", 42, date(2026, 9, 21))]
+        cursor.fetchone.side_effect = [
+            (42, date(2026, 9, 21)),
+            ("TAG", 42, date(2026, 9, 21)),
+        ]
         candidates.return_value = [SimpleNamespace(id=102)]
         result = report_runs.create_report_run_for_tracker(
             "TAG", 101, enforce_automated_eligibility=True, days_back=7
@@ -108,11 +110,15 @@ class ReportRunTests(unittest.TestCase):
         """Do not claim a row whose execution changed while acquiring its lock."""
         conn = connect.return_value
         cursor = conn.cursor.return_value.__enter__.return_value
-        cursor.fetchone.side_effect = [(42, date(2026, 9, 21)),
-                                       ("TAG", 43, date(2026, 9, 21))]
-        self.assertIsNone(report_runs.create_report_run_for_tracker(
-            "TAG", 101, enforce_automated_eligibility=True
-        ))
+        cursor.fetchone.side_effect = [
+            (42, date(2026, 9, 21)),
+            ("TAG", 43, date(2026, 9, 21)),
+        ]
+        self.assertIsNone(
+            report_runs.create_report_run_for_tracker(
+                "TAG", 101, enforce_automated_eligibility=True
+            )
+        )
         candidates.assert_not_called()
         create_run.assert_not_called()
         conn.rollback.assert_called_once_with()
@@ -148,8 +154,10 @@ class ReportRunTests(unittest.TestCase):
         connect.return_value.cursor.assert_not_called()
         connect.return_value.set_session.assert_not_called()
         create_run.assert_called_once_with(
-            stakeholder_tag="TAG", scheduled_epoch=None,
-            source_tracker_id=101, conn=connect.return_value,
+            stakeholder_tag="TAG",
+            scheduled_epoch=None,
+            source_tracker_id=101,
+            conn=connect.return_value,
         )
 
     @patch("was_reports.utils.database.close")
@@ -163,17 +171,19 @@ class ReportRunTests(unittest.TestCase):
         execution_lock = Lock()
         first_check = Event()
         second_lock_attempt = Event()
-        claimed_ids = []
-        lock_keys = []
-        connection_ids = {}
+        claimed_ids: list[int] = []
+        lock_keys: list[str] = []
+        connection_ids: dict[int, int] = {}
 
         def connection_for(row_id: int, tag: str):
             """Build a connection whose advisory transaction lock blocks peers."""
             conn = MagicMock()
             connection_ids[id(conn)] = row_id
             cursor = conn.cursor.return_value.__enter__.return_value
-            cursor.fetchone.side_effect = [(42, date(2026, 9, 21)),
-                                           (tag, 42, date(2026, 9, 21))]
+            cursor.fetchone.side_effect = [
+                (42, date(2026, 9, 21)),
+                (tag, 42, date(2026, 9, 21)),
+            ]
 
             def execute(query, parameters):
                 """Use a local mutex to model PostgreSQL's transaction lock."""
@@ -210,11 +220,13 @@ class ReportRunTests(unittest.TestCase):
         candidates.side_effect = eligible
         create_run.side_effect = insert_run
         with ThreadPoolExecutor(max_workers=2) as workers:
-            first = workers.submit(report_runs.create_report_run_for_tracker,
-                                   "TAG", 101, True, 7)
+            first = workers.submit(
+                report_runs.create_report_run_for_tracker, "TAG", 101, True, 7
+            )
             self.assertTrue(first_check.wait(timeout=5))
-            second = workers.submit(report_runs.create_report_run_for_tracker,
-                                    "TAG_ALIAS", 102, True, 7)
+            second = workers.submit(
+                report_runs.create_report_run_for_tracker, "TAG_ALIAS", 102, True, 7
+            )
             self.assertIsNotNone(first.result(timeout=5))
             self.assertIsNone(second.result(timeout=5))
         self.assertEqual(claimed_ids, [101])
@@ -556,7 +568,10 @@ class ReportRunTests(unittest.TestCase):
         operations = [
             (
                 report_runs.confirm_held_report_email_delivered,
-                (7, "delivery evidence",),
+                (
+                    7,
+                    "delivery evidence",
+                ),
             ),
             (
                 report_runs.confirm_held_report_email_not_delivered,
@@ -947,17 +962,38 @@ class ReportRunTests(unittest.TestCase):
 
     def test_get_report_email_only_uses_active_signature_assignee(self) -> None:
         """Never fall back to an inactive or unvalidated historical signature name."""
-        conn = FakeConnection(row=(
-            7, "TAG1", "report.pdf", None, "recipient@example.gov", None, "Customer",
-            42, "pdf", "Results", None, "", "", "", "", None, None, "token", "customer",
-        ))
+        conn = FakeConnection(
+            row=(
+                7,
+                "TAG1",
+                "report.pdf",
+                None,
+                "recipient@example.gov",
+                None,
+                "Customer",
+                42,
+                "pdf",
+                "Results",
+                None,
+                "",
+                "",
+                "",
+                "",
+                None,
+                None,
+                "token",
+                "customer",
+            )
+        )
         email = report_runs.get_report_run_email(7, conn)
         self.assertIsNone(email.assignee_name)
         self.assertIn(
             "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
             conn.cursor_instance.query,
         )
-        self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
+        self.assertNotIn(
+            "COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query
+        )
         self.assertIn(
             "COALESCE(replay.template_override, tracker.template)",
             conn.cursor_instance.query,
@@ -965,16 +1001,38 @@ class ReportRunTests(unittest.TestCase):
 
     def test_report_email_start_belongs_to_source_execution(self) -> None:
         """A later stakeholder update cannot change the selected report's start."""
-        conn = FakeConnection(row=(
-            7, "TAG1", "report.pdf", None, "recipient@example.gov", None, "Customer",
-            42, "pdf", "Results", None, "", "", "", "",
-            int(datetime(2026, 9, 1, 12, tzinfo=timezone.utc).timestamp()), None, "token", "customer",
-        ))
+        conn = FakeConnection(
+            row=(
+                7,
+                "TAG1",
+                "report.pdf",
+                None,
+                "recipient@example.gov",
+                None,
+                "Customer",
+                42,
+                "pdf",
+                "Results",
+                None,
+                "",
+                "",
+                "",
+                "",
+                int(datetime(2026, 9, 1, 12, tzinfo=timezone.utc).timestamp()),
+                None,
+                "token",
+                "customer",
+            )
+        )
         email = report_runs.get_report_run_email(7, conn)
-        self.assertEqual(email.last_scanned, int(
-            datetime(2026, 9, 1, 12, tzinfo=timezone.utc).timestamp()
-        ))
-        self.assertIn("EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint", conn.cursor_instance.query)
+        self.assertEqual(
+            email.last_scanned,
+            int(datetime(2026, 9, 1, 12, tzinfo=timezone.utc).timestamp()),
+        )
+        self.assertIn(
+            "EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint",
+            conn.cursor_instance.query,
+        )
         self.assertNotIn("stakeholders.last_scanned", conn.cursor_instance.query)
 
     def test_list_report_runs_ready_for_email_excludes_failures(self) -> None:
@@ -1013,13 +1071,18 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(report_run_emails[0].id, 7)
-        self.assertIn("EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint", conn.cursor_instance.query)
+        self.assertIn(
+            "EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint",
+            conn.cursor_instance.query,
+        )
         self.assertNotIn("stakeholders.last_scanned", conn.cursor_instance.query)
         self.assertIn(
             "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
             conn.cursor_instance.query,
         )
-        self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
+        self.assertNotIn(
+            "COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query
+        )
         self.assertIn("COALESCE(runs.email_status", conn.cursor_instance.query)
         self.assertEqual(
             conn.cursor_instance.parameters,
@@ -1090,13 +1153,18 @@ class ReportRunTests(unittest.TestCase):
         )
 
         self.assertEqual(claimed.id, 7)
-        self.assertIn("EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint", conn.cursor_instance.query)
+        self.assertIn(
+            "EXTRACT(EPOCH FROM tracker.scan_started_at)::bigint",
+            conn.cursor_instance.query,
+        )
         self.assertNotIn("stakeholders.last_scanned", conn.cursor_instance.query)
         self.assertIn(
             "CASE WHEN assignees.active IS TRUE THEN assignees.name ELSE NULL END",
             conn.cursor_instance.query,
         )
-        self.assertNotIn("COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query)
+        self.assertNotIn(
+            "COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query
+        )
         self.assertIn(
             "COALESCE(replay.template_override, tracker.template)",
             conn.cursor_instance.query,

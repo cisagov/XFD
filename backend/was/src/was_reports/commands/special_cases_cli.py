@@ -5,6 +5,7 @@ import argparse
 import sys
 from typing import List, Optional
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.data.special_cases import (
     deactivate_special_case,
@@ -42,6 +43,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     configure_logging()
     args = parse_args(argv)
 
+    # Third-Party Libraries
     from was_reports.utils.database import close, connect
 
     conn = connect()

@@ -7,10 +7,11 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO, Dict, IO, Iterator, Tuple
+from typing import IO, BinaryIO, Dict, Iterator, Tuple
 
 # Third-Party Libraries
-from lxml import etree
+# This module disables DTD/entity loading and rejects DOCTYPE before processing.
+from lxml import etree  # nosec B410
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient
@@ -125,7 +126,7 @@ def _clear_element(element) -> None:
             del parent[0]
 
 
-def _iter_report(source: BinaryIO) -> Iterator[Tuple[str, object]]:
+def _iter_report(source: BinaryIO) -> Iterator[Tuple[str, etree._Element]]:
     """Yield secure streaming parse events for one report file."""
     parser = etree.iterparse(
         source,
@@ -146,9 +147,7 @@ def _iter_report(source: BinaryIO) -> Iterator[Tuple[str, object]]:
                     "Qualys report XML contains a prohibited DTD declaration."
                 )
             if _local_name(element) != "WAS_WEBAPP_REPORT":
-                raise ValueError(
-                    "Qualys report XML has an unexpected root element."
-                )
+                raise ValueError("Qualys report XML has an unexpected root element.")
         yield event, element
 
 
@@ -190,7 +189,9 @@ def _summary_metrics(element) -> SummaryMetrics:
 
 def _severity_row(element) -> Tuple[str, list[int]]:
     """Return one application name and its five summary severity counts."""
-    counts = [int(_required_text(element, "LEVEL{}".format(level))) for level in range(1, 6)]
+    counts = [
+        int(_required_text(element, "LEVEL{}".format(level))) for level in range(1, 6)
+    ]
     return _required_text(element, "WEB_APPLICATION"), counts
 
 
@@ -403,9 +404,7 @@ def process_report_xml(
             stack, asset_directory / filenames["information"], True
         )
         information_writer.write(INFORMATION_HEADER)
-        links_writer = _open_writer(
-            stack, asset_directory / filenames["links"], False
-        )
+        links_writer = _open_writer(stack, asset_directory / filenames["links"], False)
         emails_writer = _open_writer(
             stack, asset_directory / filenames["emails"], False
         )
@@ -435,9 +434,7 @@ def process_report_xml(
                         for attachment_writer, heading in attachment_writers.values():
                             attachment_writer.write("")
                             attachment_writer.write(
-                                csv_row(
-                                    ["{} {}:".format(heading, web_application)]
-                                )
+                                csv_row(["{} {}:".format(heading, web_application)])
                             )
                 elif name == "VULNERABILITY" and parent_name == "VULNERABILITY_LIST":
                     finding = _parse_vulnerability(element)
@@ -467,9 +464,7 @@ def process_report_xml(
                             finding_age_days(finding.first_detected, current_time)
                         )
                         vulnerability_writer.write(
-                            vulnerability_csv_row(
-                                finding, web_application, definition
-                            )
+                            vulnerability_csv_row(finding, web_application, definition)
                         )
                     _clear_element(element)
                 elif (
@@ -535,7 +530,13 @@ def process_report_xml(
             active_count=active_count,
         ),
         summary_metrics=summary,
-        severity_totals=tuple(str(total) for total in severity_totals),
+        severity_totals=(
+            str(severity_totals[0]),
+            str(severity_totals[1]),
+            str(severity_totals[2]),
+            str(severity_totals[3]),
+            str(severity_totals[4]),
+        ),
         artifacts=ReportArtifactResult(
             vulnerabilities_by_webapp=filenames["severity"],
             application_overview=filenames["overview"],

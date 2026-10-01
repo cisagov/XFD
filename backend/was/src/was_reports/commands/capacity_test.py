@@ -1,5 +1,6 @@
 """Run an explicitly applied capacity trial against a dedicated database clone."""
 
+# Standard Python Libraries
 import argparse
 from contextlib import contextmanager
 import json
@@ -13,6 +14,7 @@ from threading import Event, Thread
 from time import monotonic
 from uuid import UUID, uuid4
 
+# Third-Party Libraries
 from was_mailer.message import approved_analyst_recipients
 from was_reports.data.daily_report_tracker import list_ready_report_candidates_from_db
 from was_reports.data.report_runs import list_report_runs_ready_for_email_from_db
@@ -100,14 +102,23 @@ class BatchActiveDurationMonitor:
 @contextmanager
 def capacity_database_environment():
     """Route this trial and its children to explicit test settings only."""
-    suffixes = ("HOST", "NAME", "USERNAME", "PASSWORD", "PORT", "SSLMODE",
-                "CONNECT_TIMEOUT_SECONDS")
+    suffixes = (
+        "HOST",
+        "NAME",
+        "USERNAME",
+        "PASSWORD",
+        "PORT",
+        "SSLMODE",
+        "CONNECT_TIMEOUT_SECONDS",
+    )
     settings = {}
     for suffix in suffixes:
         source = "TEST_WAS_DB_" + suffix
         value = os.environ.get(source)
         if not value or not value.strip():
-            raise RuntimeError("Missing required environment variable: {}".format(source))
+            raise RuntimeError(
+                "Missing required environment variable: {}".format(source)
+            )
         settings["WAS_DB_" + suffix] = value
     previous = {name: os.environ.get(name) for name in settings}
     os.environ.update(settings)
@@ -128,7 +139,9 @@ def expected_candidates(value):
     try:
         count = int(value)
     except ValueError as error:
-        raise argparse.ArgumentTypeError("Use auto or a positive candidate count.") from error
+        raise argparse.ArgumentTypeError(
+            "Use auto or a positive candidate count."
+        ) from error
     if count <= 0:
         raise argparse.ArgumentTypeError("Candidate count must be positive.")
     return count
@@ -141,7 +154,9 @@ def parse_args(argv=None):
     parser.add_argument("--workload-label", default="capacity-current-workload")
     parser.add_argument("--test-recipients", required=True)
     parser.add_argument("--workers", type=int, default=30)
-    parser.add_argument("--worker-backend", choices=("process", "docker"), default="process")
+    parser.add_argument(
+        "--worker-backend", choices=("process", "docker"), default="process"
+    )
     parser.add_argument("--worker-image", default="was-reporting")
     parser.add_argument("--output-root", type=Path, default=Path("/output"))
     parser.add_argument("--env-file", type=Path)
@@ -165,7 +180,9 @@ def parse_args(argv=None):
     if len(arguments.workload_label) > 200:
         parser.error("--workload-label cannot exceed 200 characters.")
     arguments.run_id = str(arguments.run_id or uuid4())
-    arguments.continue_run = str(arguments.continue_run) if arguments.continue_run else None
+    arguments.continue_run = (
+        str(arguments.continue_run) if arguments.continue_run else None
+    )
     arguments.continuation_manifest = None
     return arguments
 
@@ -173,42 +190,66 @@ def parse_args(argv=None):
 def load_continuation(cursor, arguments, root=Path("/output/capacity")):
     """Select a database-backed prior trial and validate its immutable workload."""
     if arguments.continue_latest:
-        cursor.execute("SELECT batch_id FROM was_batch_runs WHERE run_mode='capacity' "
-                       "ORDER BY started_at DESC, batch_id DESC LIMIT 1")
+        cursor.execute(
+            "SELECT batch_id FROM was_batch_runs WHERE run_mode='capacity' "
+            "ORDER BY started_at DESC, batch_id DESC LIMIT 1"
+        )
     else:
-        cursor.execute("SELECT batch_id FROM was_batch_runs WHERE run_mode='capacity' "
-                       "AND batch_id=%s", (arguments.continue_run,))
+        cursor.execute(
+            "SELECT batch_id FROM was_batch_runs WHERE run_mode='capacity' "
+            "AND batch_id=%s",
+            (arguments.continue_run,),
+        )
     row = cursor.fetchone()
     if not row:
-        raise ValueError("No matching capacity batch exists in this clone; start a new trial.")
+        raise ValueError(
+            "No matching capacity batch exists in this clone; start a new trial."
+        )
     parent_run_id = str(UUID(str(row[0])))
     if parent_run_id == arguments.run_id:
-        raise ValueError("Continuation requires a new run ID, separate from its parent.")
+        raise ValueError(
+            "Continuation requires a new run ID, separate from its parent."
+        )
     manifest_path = root / parent_run_id / "workload.json"
     if not manifest_path.is_file():
-        raise ValueError("Prior trial has no workload manifest, possibly stopped before refresh; "
-                         "start a new trial after reconciling the clone.")
+        raise ValueError(
+            "Prior trial has no workload manifest, possibly stopped before refresh; "
+            "start a new trial after reconciling the clone."
+        )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     identifiers = manifest.get("candidate_ids")
     candidates = manifest.get("candidates")
-    if (manifest.get("run_id") != parent_run_id or not isinstance(identifiers, list)
-            or not isinstance(candidates, list)
-            or any(type(identifier) is not int or identifier <= 0 for identifier in identifiers)
-            or len(set(identifiers)) != len(identifiers)
-            or any(not isinstance(candidate, dict) for candidate in candidates)
-            or [candidate.get("tracker_id") for candidate in candidates] != identifiers
-            or manifest.get("candidate_count") != len(identifiers)):
-        raise ValueError("Prior workload manifest identity or candidate IDs are invalid.")
-    cursor.execute("SELECT id, tag FROM was_daily_report_tracker WHERE id=ANY(%s)",
-                   (identifiers,))
+    if (
+        manifest.get("run_id") != parent_run_id
+        or not isinstance(identifiers, list)
+        or not isinstance(candidates, list)
+        or any(
+            type(identifier) is not int or identifier <= 0 for identifier in identifiers
+        )
+        or len(set(identifiers)) != len(identifiers)
+        or any(not isinstance(candidate, dict) for candidate in candidates)
+        or [candidate.get("tracker_id") for candidate in candidates] != identifiers
+        or manifest.get("candidate_count") != len(identifiers)
+    ):
+        raise ValueError(
+            "Prior workload manifest identity or candidate IDs are invalid."
+        )
+    cursor.execute(
+        "SELECT id, tag FROM was_daily_report_tracker WHERE id=ANY(%s)", (identifiers,)
+    )
     current = dict(cursor.fetchall())
-    if current != {candidate["tracker_id"]: candidate.get("tag") for candidate in candidates}:
-        raise ValueError("Prior workload does not match this clone, possibly after a reset; "
-                         "start a new trial.")
+    if current != {
+        candidate["tracker_id"]: candidate.get("tag") for candidate in candidates
+    }:
+        raise ValueError(
+            "Prior workload does not match this clone, possibly after a reset; "
+            "start a new trial."
+        )
     root_run_id = str(UUID(str(manifest.get("root_run_id", parent_run_id))))
     arguments.continue_run = parent_run_id
-    arguments.continuation_manifest = dict(manifest, parent_run_id=parent_run_id,
-                                           root_run_id=root_run_id)
+    arguments.continuation_manifest = dict(
+        manifest, parent_run_id=parent_run_id, root_run_id=root_run_id
+    )
     return identifiers
 
 
@@ -216,8 +257,10 @@ def guard_database(arguments):
     """Verify live isolation and retain a clone-wide lock for applied trials."""
     expected_database = require_env("WAS_DB_NAME")
     expected_user = require_env("WAS_DB_USERNAME")
-    if not all(value.startswith("was_capacity_") for value in
-               (expected_database, expected_user)):
+    if not all(
+        value.startswith("was_capacity_")
+        for value in (expected_database, expected_user)
+    ):
         raise ValueError("Dedicated database and role must start with was_capacity_.")
     connection = connect()
     try:
@@ -230,7 +273,9 @@ def guard_database(arguments):
             if (database, username) != (expected_database, expected_user) or any(
                 (superuser, createdb, createrole)
             ):
-                raise ValueError("Live database identity or role privileges are unsafe.")
+                raise ValueError(
+                    "Live database identity or role privileges are unsafe."
+                )
             if arguments.apply:
                 cursor.execute(
                     "SELECT pg_try_advisory_lock(hashtext(current_database()), "
@@ -238,19 +283,26 @@ def guard_database(arguments):
                 )
                 if not cursor.fetchone()[0]:
                     raise ValueError("Another capacity trial holds this clone.")
-            cursor.execute("SELECT EXISTS(SELECT 1 FROM was_batch_runs WHERE batch_id=%s)",
-                           (arguments.run_id,))
+            cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM was_batch_runs WHERE batch_id=%s)",
+                (arguments.run_id,),
+            )
             if cursor.fetchone()[0]:
-                raise ValueError("Run ID already exists; restore the baseline for a new trial.")
+                raise ValueError(
+                    "Run ID already exists; restore the baseline for a new trial."
+                )
             continuing = arguments.continue_latest or arguments.continue_run is not None
-            allowed_ids = load_continuation(
-                cursor, arguments, arguments.output_root / "capacity"
-            ) if continuing else []
+            allowed_ids = (
+                load_continuation(cursor, arguments, arguments.output_root / "capacity")
+                if continuing
+                else []
+            )
             cursor.execute(
                 "SELECT EXISTS(SELECT 1 FROM was_report_runs WHERE status='running' "
                 "OR email_status='sending' OR (status='completed' "
                 "AND COALESCE(email_status,'pending') IN ('pending','failed') "
-                "AND NOT (COALESCE(source_tracker_id,0)=ANY(%s))))", (allowed_ids,)
+                "AND NOT (COALESCE(source_tracker_id,0)=ANY(%s))))",
+                (allowed_ids,),
             )
             if cursor.fetchone()[0]:
                 raise ValueError("Clone contains active or deliverable prior reports.")
@@ -276,8 +328,11 @@ def verify_worker_backend(arguments):
     ):
         try:
             subprocess.run(  # nosec B603 B607
-                check_command, check=True, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, timeout=30,
+                check_command,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
             )
         except (OSError, subprocess.SubprocessError) as error:
             raise RuntimeError(
@@ -304,16 +359,30 @@ def trial_counts(run_id):
                 "FROM was_batch_report_attempts attempts "
                 "JOIN was_batch_runs batch ON batch.batch_id=attempts.batch_id "
                 "LEFT JOIN was_report_runs runs ON runs.id=attempts.report_run_id "
-                "WHERE attempts.batch_id=%s", (run_id,)
+                "WHERE attempts.batch_id=%s",
+                (run_id,),
             )
-            return dict(zip(("attempted", "pdfs_generated", "notifications_generated",
-                             "sent", "tracker_ids", "failed", "blocked"), cursor.fetchone()))
+            return dict(
+                zip(
+                    (
+                        "attempted",
+                        "pdfs_generated",
+                        "notifications_generated",
+                        "sent",
+                        "tracker_ids",
+                        "failed",
+                        "blocked",
+                    ),
+                    cursor.fetchone(),
+                )
+            )
     finally:
         connection.close()
 
 
 def continuation_status(identifiers, batch_id):
     """Measure the saved workload and seed this continuation's own summary rows."""
+    # Third-Party Libraries
     from was_reports.reporting import analyst_summaries
 
     connection = connect()
@@ -325,31 +394,65 @@ def continuation_status(identifiers, batch_id):
                 "LEFT JOIN LATERAL (SELECT id,status,email_status,artifact_type,emailed_at,error_message "
                 "FROM was_report_runs WHERE source_tracker_id=tracker.id "
                 "AND delivery_purpose='customer' ORDER BY id DESC LIMIT 1) runs ON TRUE "
-                "WHERE tracker.id=ANY(%s)", (identifiers,)
+                "WHERE tracker.id=ANY(%s)",
+                (identifiers,),
             )
             rows = cursor.fetchall()
     finally:
         connection.close()
     if {row[0] for row in rows} != set(identifiers):
         raise ValueError("Continuation workload changed during execution.")
-    result = {"attempted": len(rows), "pdfs_generated": 0, "notifications_generated": 0,
-              "sent": 0, "blocked": 0, "failed": 0, "tracker_ids": identifiers}
-    for tracker_id, report_run_id, status, email_status, artifact_type, emailed_at, error_message in rows:
+    result = {
+        "attempted": len(rows),
+        "pdfs_generated": 0,
+        "notifications_generated": 0,
+        "sent": 0,
+        "blocked": 0,
+        "failed": 0,
+        "tracker_ids": identifiers,
+    }
+    for (
+        tracker_id,
+        report_run_id,
+        status,
+        email_status,
+        artifact_type,
+        emailed_at,
+        error_message,
+    ) in rows:
         generated = status == "completed" and artifact_type in {"pdf", "notification"}
         sent = email_status == "sent" and emailed_at is not None
-        uncertain = any(marker in (error_message or "") for marker in
-                        ("QualysReportCreationUncertainError", "creation outcome is uncertain"))
-        retry_safe = status == "failed" and not emailed_at and (
-            email_status or "pending") in {"pending", "failed"} and not uncertain
+        uncertain = any(
+            marker in (error_message or "")
+            for marker in (
+                "QualysReportCreationUncertainError",
+                "creation outcome is uncertain",
+            )
+        )
+        retry_safe = (
+            status == "failed"
+            and not emailed_at
+            and (email_status or "pending") in {"pending", "failed"}
+            and not uncertain
+        )
         blocked = (status == "failed" and not retry_safe) or email_status == "held"
         if generated:
-            result["pdfs_generated" if artifact_type == "pdf" else "notifications_generated"] += 1
+            result[
+                "pdfs_generated"
+                if artifact_type == "pdf"
+                else "notifications_generated"
+            ] += 1
         result["sent"] += int(sent)
         result["blocked"] += int(blocked)
         result["failed"] += int(status == "failed" or email_status == "failed")
         analyst_summaries.record_report_attempt(
-            batch_id, tracker_id, 0, generated=generated, sent=sent,
-            report_run_id=report_run_id, artifact_type=artifact_type,
+            batch_id,
+            tracker_id,
+            0,
+            generated=generated,
+            sent=sent,
+            report_run_id=report_run_id,
+            artifact_type=artifact_type,
             error="NeedsReconciliation" if blocked else None,
         )
     connection = connect()
@@ -359,7 +462,8 @@ def continuation_status(identifiers, batch_id):
                 "UPDATE was_batch_report_attempts attempts SET sent_recorded_at=runs.emailed_at "
                 "FROM was_report_runs runs WHERE attempts.batch_id=%s "
                 "AND attempts.report_run_id=runs.id AND attempts.sent "
-                "AND runs.email_status='sent' AND runs.emailed_at IS NOT NULL", (batch_id,)
+                "AND runs.email_status='sent' AND runs.emailed_at IS NOT NULL",
+                (batch_id,),
             )
         connection.commit()
     finally:
@@ -410,25 +514,40 @@ def run_phase(arguments, *, check, timeout, environment=None):
 
 def execute_trial(arguments, recipients, output_directory):
     """Refresh, validate workload, execute partitions, then deliver and summarize."""
+    # Third-Party Libraries
     from was_reports.reporting import analyst_summaries
     from was_reports.utils.capacity_telemetry import resource_monitor
 
     continuing = arguments.continuation_manifest is not None
     run_mode = getattr(arguments, "run_mode", "capacity")
     recipient_arguments = ["--test-recipients", recipients] if recipients else []
-    days_back = "all" if continuing or arguments.days_back is None else str(arguments.days_back)
+    days_back = (
+        "all" if continuing or arguments.days_back is None else str(arguments.days_back)
+    )
     summary_module = "was_reports.reporting.analyst_summaries"
-    summary_arguments = ["--batch-id", arguments.run_id, "--days-back",
-                         days_back, *recipient_arguments]
+    summary_arguments = [
+        "--batch-id",
+        arguments.run_id,
+        "--days-back",
+        days_back,
+        *recipient_arguments,
+    ]
     workers = []
     succeeded = False
     started = monotonic()
-    result = {"run_id": arguments.run_id, "capacity_pass": False,
-              "worker_backend": arguments.worker_backend}
+    result = {
+        "run_id": arguments.run_id,
+        "capacity_pass": False,
+        "worker_backend": arguments.worker_backend,
+    }
     expected_count = None
     existing_delivery_ids = []
-    scope_environment = ("WAS_CAPACITY_TRACKER_IDS", "WAS_BATCH_TRACKER_IDS",
-                         "WAS_CAPACITY_CONTINUATION", "WAS_CAPACITY_PROGRESS")
+    scope_environment = (
+        "WAS_CAPACITY_TRACKER_IDS",
+        "WAS_BATCH_TRACKER_IDS",
+        "WAS_CAPACITY_CONTINUATION",
+        "WAS_CAPACITY_PROGRESS",
+    )
     previous_scope = {name: os.environ.get(name) for name in scope_environment}
     workflow_clean = False
     trial_elapsed = None
@@ -470,9 +589,12 @@ def execute_trial(arguments, recipients, output_directory):
 
         try:
             if continuing:
-                snapshot = dict(arguments.continuation_manifest,
-                                run_id=arguments.run_id, workers=arguments.workers,
-                                workload_label=arguments.workload_label)
+                snapshot = dict(
+                    arguments.continuation_manifest,
+                    run_id=arguments.run_id,
+                    workers=arguments.workers,
+                    workload_label=arguments.workload_label,
+                )
             else:
                 tracker_refresh_command = command(
                     "was_reports.commands.update_tracker_cli",
@@ -493,21 +615,37 @@ def execute_trial(arguments, recipients, output_directory):
                     environment=phase_environment("tracker", "tracker_refresh"),
                 )
                 checkpoint_active_duration("tracker-refresh")
-                candidates = list_ready_report_candidates_from_db(days_back=arguments.days_back)
-                candidate_rows = [{"tracker_id": candidate.id, "tag": candidate.tag,
-                                   "template": candidate.template} for candidate in candidates]
+                candidates = list_ready_report_candidates_from_db(
+                    days_back=arguments.days_back
+                )
+                candidate_rows = [
+                    {
+                        "tracker_id": candidate.id,
+                        "tag": candidate.tag,
+                        "template": candidate.template,
+                    }
+                    for candidate in candidates
+                ]
                 selected_ids = {candidate.id for candidate in candidates}
                 for report_run in list_report_runs_ready_for_email_from_db(
                     include_previous_failures=True, days_back=arguments.days_back
                 ):
                     tracker_id = report_run.source_tracker_id
-                    if (tracker_id is not None and tracker_id not in selected_ids
-                            and getattr(report_run, "delivery_purpose", "customer") == "customer"):
+                    if (
+                        tracker_id is not None
+                        and tracker_id not in selected_ids
+                        and getattr(report_run, "delivery_purpose", "customer")
+                        == "customer"
+                    ):
                         selected_ids.add(tracker_id)
                         existing_delivery_ids.append(tracker_id)
-                        candidate_rows.append({"tracker_id": tracker_id,
-                                               "tag": report_run.stakeholder_tag,
-                                               "template": getattr(report_run, "template", None)})
+                        candidate_rows.append(
+                            {
+                                "tracker_id": tracker_id,
+                                "tag": report_run.stakeholder_tag,
+                                "template": getattr(report_run, "template", None),
+                            }
+                        )
                 snapshot = {
                     "run_id": arguments.run_id,
                     "root_run_id": arguments.run_id,
@@ -518,21 +656,37 @@ def execute_trial(arguments, recipients, output_directory):
                     "existing_delivery_count": len(existing_delivery_ids),
                     "candidate_ids": [row["tracker_id"] for row in candidate_rows],
                     "candidates": candidate_rows,
-                    "notification_count": sum(candidate.template in
-                                              {"All NWS", "FCEB All NWS"}
-                                              for candidate in candidates),
+                    "notification_count": sum(
+                        candidate.template in {"All NWS", "FCEB All NWS"}
+                        for candidate in candidates
+                    ),
                 }
             expected_count = snapshot["candidate_count"]
             snapshot["worker_backend"] = arguments.worker_backend
-            result.update({"expected": expected_count, "continuation": continuing,
-                           "root_run_id": snapshot.get("root_run_id", arguments.run_id),
-                           "parent_run_id": snapshot.get("parent_run_id")})
-            scope_name = "WAS_CAPACITY_TRACKER_IDS" if run_mode == "capacity" else "WAS_BATCH_TRACKER_IDS"
+            result.update(
+                {
+                    "expected": expected_count,
+                    "continuation": continuing,
+                    "root_run_id": snapshot.get("root_run_id", arguments.run_id),
+                    "parent_run_id": snapshot.get("parent_run_id"),
+                }
+            )
+            scope_name = (
+                "WAS_CAPACITY_TRACKER_IDS"
+                if run_mode == "capacity"
+                else "WAS_BATCH_TRACKER_IDS"
+            )
             os.environ[scope_name] = json.dumps(snapshot["candidate_ids"])
             if run_mode == "capacity":
                 os.environ["WAS_CAPACITY_CONTINUATION"] = "1" if continuing else "0"
-            print("{} run {} selected {} outcomes{}.".format(
-                run_mode.title(), arguments.run_id, expected_count, " (continuation)" if continuing else ""))
+            print(
+                "{} run {} selected {} outcomes{}.".format(
+                    run_mode.title(),
+                    arguments.run_id,
+                    expected_count,
+                    " (continuation)" if continuing else "",
+                )
+            )
             LOGGER.info(
                 "%s batch selected %s outcome(s)%s.",
                 run_mode.title(),
@@ -544,47 +698,73 @@ def execute_trial(arguments, recipients, output_directory):
                 json.dumps(snapshot, indent=2), encoding="utf-8"
             )
             checkpoint_active_duration("workload-selected")
-            if arguments.expected_candidates is not None and expected_count != arguments.expected_candidates:
-                raise ValueError("Refreshed candidate count differs from expected workload.")
+            if (
+                arguments.expected_candidates is not None
+                and expected_count != arguments.expected_candidates
+            ):
+                raise ValueError(
+                    "Refreshed candidate count differs from expected workload."
+                )
             if continuing:
-                result.update(continuation_status(snapshot["candidate_ids"], arguments.run_id))
+                result.update(
+                    continuation_status(snapshot["candidate_ids"], arguments.run_id)
+                )
                 result["inherited_sent"] = result["sent"]
-                result["inherited_generated"] = result["pdfs_generated"] + result["notifications_generated"]
+                result["inherited_generated"] = (
+                    result["pdfs_generated"] + result["notifications_generated"]
+                )
             elif existing_delivery_ids:
                 inherited = continuation_status(existing_delivery_ids, arguments.run_id)
-                result["inherited_generated"] = inherited["pdfs_generated"] + inherited["notifications_generated"]
+                result["inherited_generated"] = (
+                    inherited["pdfs_generated"] + inherited["notifications_generated"]
+                )
             run_phase(
                 command(summary_module, "--phase", "tracker", *summary_arguments),
                 check=True,
                 timeout=remaining(),
-                environment=phase_environment(
-                    "tracker-summary", "tracker_summary"
-                ),
+                environment=phase_environment("tracker-summary", "tracker_summary"),
             )
             checkpoint_active_duration("tracker-summary")
             for worker_index in range(arguments.workers if expected_count else 0):
                 worker_command = command(
-                    "was_reports.commands.batch_runner", "--recent-scans",
-                    "--skip-tracker-refresh", "--worker-count", str(arguments.workers),
-                    "--worker-index", str(worker_index), "--create-missing-password",
-                    "--continue-on-error", "--days-back", days_back,
-                    "--send-email", *recipient_arguments,
-                    "--skip-ready-email-retry", "--output-directory", str(output_directory)
+                    "was_reports.commands.batch_runner",
+                    "--recent-scans",
+                    "--skip-tracker-refresh",
+                    "--worker-count",
+                    str(arguments.workers),
+                    "--worker-index",
+                    str(worker_index),
+                    "--create-missing-password",
+                    "--continue-on-error",
+                    "--days-back",
+                    days_back,
+                    "--send-email",
+                    *recipient_arguments,
+                    "--skip-ready-email-retry",
+                    "--output-directory",
+                    str(output_directory)
                 )
                 if arguments.worker_backend == "docker":
+                    # Third-Party Libraries
                     from was_reports.utils.capacity_workers import launch_docker_worker
 
-                    workers.append(launch_docker_worker(
-                        worker_command, run_id=arguments.run_id, worker_index=worker_index,
-                        image=arguments.worker_image, output_directory=arguments.output_root.resolve(),
-                    ))
+                    workers.append(
+                        launch_docker_worker(
+                            worker_command,
+                            run_id=arguments.run_id,
+                            worker_index=worker_index,
+                            image=arguments.worker_image,
+                            output_directory=arguments.output_root.resolve(),
+                        )
+                    )
                 else:
                     worker_environment = phase_environment(
                         "worker", "report_generation"
                     )
                     worker_environment["WAS_LOG_WORKER_INDEX"] = str(worker_index)
-                    workers.append(  # nosec B603
-                        subprocess.Popen(
+                    workers.append(
+                        # The command is assembled internally as an argument vector.
+                        subprocess.Popen(  # nosec B603
                             worker_command,
                             env=worker_environment,
                             start_new_session=True,
@@ -592,25 +772,48 @@ def execute_trial(arguments, recipients, output_directory):
                     )
             statuses = [worker.wait(timeout=remaining()) for worker in workers]
             checkpoint_active_duration("workers-complete")
-            delivery = run_phase(
-                command("was_mailer.email_reports", "--all-ready", "--include-previous-failures",
-                        "--days-back", days_back, *recipient_arguments),
-                check=False,
-                timeout=remaining(),
-                environment=phase_environment("delivery", "email_delivery"),
-            ) if expected_count else subprocess.CompletedProcess([], 0)
+            delivery = (
+                run_phase(
+                    command(
+                        "was_mailer.email_reports",
+                        "--all-ready",
+                        "--include-previous-failures",
+                        "--days-back",
+                        days_back,
+                        *recipient_arguments
+                    ),
+                    check=False,
+                    timeout=remaining(),
+                    environment=phase_environment("delivery", "email_delivery"),
+                )
+                if expected_count
+                else subprocess.CompletedProcess([], 0)
+            )
             checkpoint_active_duration("delivery-complete")
             trial_elapsed = monotonic() - started
             if continuing:
-                result.update(continuation_status(snapshot["candidate_ids"], arguments.run_id))
+                result.update(
+                    continuation_status(snapshot["candidate_ids"], arguments.run_id)
+                )
             elif expected_count:
                 result.update(trial_counts(arguments.run_id))
             else:
-                result.update({"attempted": 0, "pdfs_generated": 0, "notifications_generated": 0,
-                               "sent": 0, "tracker_ids": []})
+                result.update(
+                    {
+                        "attempted": 0,
+                        "pdfs_generated": 0,
+                        "notifications_generated": 0,
+                        "sent": 0,
+                        "tracker_ids": [],
+                    }
+                )
             result["remaining"] = expected_count - result["sent"]
-            result.update({"worker_exit_codes": statuses,
-                           "delivery_exit_code": delivery.returncode})
+            result.update(
+                {
+                    "worker_exit_codes": statuses,
+                    "delivery_exit_code": delivery.returncode,
+                }
+            )
             workflow_clean = not any(statuses) and delivery.returncode == 0
             succeeded = (
                 result["attempted"] == expected_count
@@ -649,8 +852,11 @@ def execute_trial(arguments, recipients, output_directory):
                 succeeded = False
             if expected_count:
                 try:
-                    persisted = (continuation_status(snapshot["candidate_ids"], arguments.run_id)
-                                 if continuing else trial_counts(arguments.run_id))
+                    persisted = (
+                        continuation_status(snapshot["candidate_ids"], arguments.run_id)
+                        if continuing
+                        else trial_counts(arguments.run_id)
+                    )
                     result.update(persisted)
                     result["remaining"] = expected_count - result["sent"]
                     result["counts_available"] = True
@@ -660,12 +866,16 @@ def execute_trial(arguments, recipients, output_directory):
             summary_succeeded = False
             summary_started = monotonic()
             try:
-                os.environ["WAS_CAPACITY_PROGRESS"] = json.dumps({
-                    "total": expected_count or 0,
-                    "completed": result.get("pdfs_generated", 0) + result.get("notifications_generated", 0),
-                    "failed": result.get("failed", 0), "remaining": result.get("remaining", expected_count or 0),
-                    "blocked": result.get("blocked", 0),
-                })
+                os.environ["WAS_CAPACITY_PROGRESS"] = json.dumps(
+                    {
+                        "total": expected_count or 0,
+                        "completed": result.get("pdfs_generated", 0)
+                        + result.get("notifications_generated", 0),
+                        "failed": result.get("failed", 0),
+                        "remaining": result.get("remaining", expected_count or 0),
+                        "blocked": result.get("blocked", 0),
+                    }
+                )
                 os.environ["WAS_BATCH_OUTCOME"] = "completed" if succeeded else "failed"
                 analyst_summaries.finish_batch(
                     arguments.run_id,
@@ -680,13 +890,21 @@ def execute_trial(arguments, recipients, output_directory):
                 )
                 summary_succeeded = summary.returncode == 0
             finally:
-                result.update({"elapsed_seconds": trial_elapsed,
-                               "summary_seconds": monotonic() - summary_started,
-                               "summary_succeeded": summary_succeeded,
-                               "workflow_clean": workflow_clean and summary_succeeded,
-                               "workflow_completed": succeeded and summary_succeeded,
-                               "capacity_pass": (run_mode == "capacity" and succeeded
-                                                 and not continuing and bool(expected_count))})
+                result.update(
+                    {
+                        "elapsed_seconds": trial_elapsed,
+                        "summary_seconds": monotonic() - summary_started,
+                        "summary_succeeded": summary_succeeded,
+                        "workflow_clean": workflow_clean and summary_succeeded,
+                        "workflow_completed": succeeded and summary_succeeded,
+                        "capacity_pass": (
+                            run_mode == "capacity"
+                            and succeeded
+                            and not continuing
+                            and bool(expected_count)
+                        ),
+                    }
+                )
                 (output_directory / "result.json").write_text(
                     json.dumps(result, indent=2), encoding="utf-8"
                 )
@@ -695,11 +913,24 @@ def execute_trial(arguments, recipients, output_directory):
                         os.environ.pop(name, None)
                     else:
                         os.environ[name] = value
-                completion_label = "capacity pass" if run_mode == "capacity" else "workflow completed"
-                completion_value = result["capacity_pass"] if run_mode == "capacity" else result["workflow_completed"]
-                print("{} outcomes: sent {}; remaining {}; blocked {}; {} {}.".format(
-                    run_mode.title(), result.get("sent", 0), result.get("remaining", "unknown"),
-                    result.get("blocked", 0), completion_label, completion_value))
+                completion_label = (
+                    "capacity pass" if run_mode == "capacity" else "workflow completed"
+                )
+                completion_value = (
+                    result["capacity_pass"]
+                    if run_mode == "capacity"
+                    else result["workflow_completed"]
+                )
+                print(
+                    "{} outcomes: sent {}; remaining {}; blocked {}; {} {}.".format(
+                        run_mode.title(),
+                        result.get("sent", 0),
+                        result.get("remaining", "unknown"),
+                        result.get("blocked", 0),
+                        completion_label,
+                        completion_value,
+                    )
+                )
                 LOGGER.info(
                     "%s batch finished: sent=%s remaining=%s blocked=%s %s=%s.",
                     run_mode.title(),
@@ -714,7 +945,7 @@ def execute_trial(arguments, recipients, output_directory):
 
 
 def main(argv=None):
-    """Default to read-only isolation checks without Qualys calls or delivery."""
+    """Run read-only isolation checks by default without external side effects."""
     arguments = parse_args(argv)
     if arguments.env_file is not None and not arguments.env_file.is_file():
         raise ValueError("Specified environment file does not exist.")
@@ -731,12 +962,16 @@ def run_capacity(arguments):
         recipients = ",".join(approved_analyst_recipients(arguments.test_recipients))
         print("Capacity run ID: {}".format(arguments.run_id))
         if not arguments.apply:
-            print("Isolation and recipient checks passed. No refresh, writes, or sends.")
+            print(
+                "Isolation and recipient checks passed. No refresh, writes, or sends."
+            )
             return 0
         require_env("WAS_EMAIL_SOURCE")
         require_env("WAS_REPORTS_BUCKET_NAME")
         if arguments.continuation_manifest:
-            arguments.workload_label = "continuation of {}".format(arguments.continue_run)
+            arguments.workload_label = "continuation of {}".format(
+                arguments.continue_run
+            )
         return run_coordinated(arguments, recipients)
     finally:
         connection.close()
@@ -747,9 +982,11 @@ def run_coordinated(arguments, recipients=None):
     run_mode = getattr(arguments, "run_mode", "capacity")
     if run_mode not in {"capacity", "production"}:
         raise ValueError("Unsupported coordinated batch mode.")
-    output_directory = arguments.output_root.resolve() / (
-        "capacity" if run_mode == "capacity" else "batches"
-    ) / arguments.run_id
+    output_directory = (
+        arguments.output_root.resolve()
+        / ("capacity" if run_mode == "capacity" else "batches")
+        / arguments.run_id
+    )
     output_directory.mkdir(parents=True, exist_ok=False, mode=0o700)
     settings = {
         "WAS_ANALYST_BATCH_ID": arguments.run_id,
@@ -759,18 +996,19 @@ def run_coordinated(arguments, recipients=None):
         "WAS_OUTPUT_DIRECTORY": str(output_directory),
         "WAS_METRICS_DIRECTORY": str(output_directory / "metrics"),
         "WAS_LOG_DIRECTORY": str(
-            arguments.output_root.resolve()
-            / "logs"
-            / "batches"
-            / arguments.run_id
+            arguments.output_root.resolve() / "logs" / "batches" / arguments.run_id
         ),
         "WAS_LOG_ROLE": "coordinator",
         "WAS_LOG_PHASE": "coordination",
     }
     if run_mode == "capacity":
-        settings.update({"WAS_CAPACITY_RUN_ID": arguments.run_id,
-                         "WAS_REPORTS_PREFIX": "capacity/" + arguments.run_id,
-                         "WAS_REPORT_STORAGE": "s3"})
+        settings.update(
+            {
+                "WAS_CAPACITY_RUN_ID": arguments.run_id,
+                "WAS_REPORTS_PREFIX": "capacity/" + arguments.run_id,
+                "WAS_REPORT_STORAGE": "s3",
+            }
+        )
     previous = {name: os.environ.get(name) for name in settings}
     previous_handler = signal.getsignal(signal.SIGTERM)
     try:

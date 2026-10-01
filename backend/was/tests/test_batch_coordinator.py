@@ -1,10 +1,12 @@
 """Production entrypoint safety and shared-engine regression coverage."""
 
+# Standard Python Libraries
 import argparse
 import os
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
 from was_reports.commands import batch_coordinator
 
 
@@ -20,7 +22,9 @@ class BatchCoordinatorTests(unittest.TestCase):
         self.assertFalse(arguments.apply)
         self.assertFalse(arguments.delete_apps)
         self.assertEqual(batch_coordinator.days_back_value("1"), 1)
-        self.assertIsNone(batch_coordinator.parse_args(["--days-back", "all"]).days_back)
+        self.assertIsNone(
+            batch_coordinator.parse_args(["--days-back", "all"]).days_back
+        )
 
     def test_invalid_window_explains_minimum_and_today(self):
         """Tell operators that one is the minimum and represents today only."""
@@ -33,10 +37,15 @@ class BatchCoordinatorTests(unittest.TestCase):
 
     def test_invalid_workers_and_windows(self):
         """Invalid execution configuration fails before connecting."""
-        for option in (["--workers", "31"], ["--days-back", "0"],
-                       ["--lookback-days", "0"], ["--max-seconds", "0"],
-                       ["--test-recipients", ""], ["--test-recipients", "   "],
-                       ["--delete-apps", "--test-recipients", "analyst@example.gov"]):
+        for option in (
+            ["--workers", "31"],
+            ["--days-back", "0"],
+            ["--lookback-days", "0"],
+            ["--max-seconds", "0"],
+            ["--test-recipients", ""],
+            ["--test-recipients", "   "],
+            ["--delete-apps", "--test-recipients", "analyst@example.gov"],
+        ):
             with self.subTest(option=option), self.assertRaises(SystemExit):
                 batch_coordinator.parse_args(option)
 
@@ -49,7 +58,10 @@ class BatchCoordinatorTests(unittest.TestCase):
 
     def test_capacity_environment_rejected_before_connect(self):
         """An inherited capacity scope never reaches the production database."""
-        for setting in ({"WAS_RUN_MODE": "capacity"}, {"WAS_CAPACITY_TRACKER_IDS": "[]"}):
+        for setting in (
+            {"WAS_RUN_MODE": "capacity"},
+            {"WAS_CAPACITY_TRACKER_IDS": "[]"},
+        ):
             with patch.dict(os.environ, setting, clear=True), patch.object(
                 batch_coordinator, "connect"
             ) as connect, self.assertRaises(ValueError):
@@ -58,10 +70,15 @@ class BatchCoordinatorTests(unittest.TestCase):
 
     def test_capacity_identity_rejected(self):
         """Neither a capacity database nor its dedicated role is production."""
-        for identity in (("was_capacity_test", "was_app"), ("was", "was_capacity_test_user")):
+        for identity in (
+            ("was_capacity_test", "was_app"),
+            ("was", "was_capacity_test_user"),
+        ):
             with patch.dict(os.environ, {}, clear=True), patch.object(
                 batch_coordinator, "require_env", side_effect=identity
-            ), patch.object(batch_coordinator, "connect") as connect, self.assertRaises(ValueError):
+            ), patch.object(batch_coordinator, "connect") as connect, self.assertRaises(
+                ValueError
+            ):
                 batch_coordinator.guard_database(batch_coordinator.parse_args([]))
             connect.assert_not_called()
 
@@ -70,7 +87,12 @@ class BatchCoordinatorTests(unittest.TestCase):
         for active in (False, True):
             connection = MagicMock()
             cursor = connection.cursor.return_value.__enter__.return_value
-            cursor.fetchone.side_effect = [("was", "was_app"), (True,), (False,), (active,)]
+            cursor.fetchone.side_effect = [
+                ("was", "was_app"),
+                (True,),
+                (False,),
+                (active,),
+            ]
             with patch.dict(os.environ, {}, clear=True), patch.object(
                 batch_coordinator, "require_env", side_effect=("was", "was_app")
             ), patch.object(batch_coordinator, "connect", return_value=connection):
@@ -80,21 +102,34 @@ class BatchCoordinatorTests(unittest.TestCase):
                         batch_coordinator.guard_database(arguments)
                     connection.close.assert_called_once()
                 else:
-                    self.assertIs(batch_coordinator.guard_database(arguments), connection)
+                    self.assertIs(
+                        batch_coordinator.guard_database(arguments), connection
+                    )
                     connection.rollback.assert_called_once()
             operation_query = cursor.execute.call_args.args[0]
             self.assertNotIn("completed", operation_query)
 
     def test_guard_identity_lock_and_duplicate_failures(self):
         """Failed checks release the connection and any session lock."""
-        for results in ([('other', 'was_app')], [("was", "was_app"), (False,)],
-                        [("was", "was_app"), (True,), (True,)]):
+        for results in (
+            [("other", "was_app")],
+            [("was", "was_app"), (False,)],
+            [("was", "was_app"), (True,), (True,)],
+        ):
             connection = MagicMock()
-            connection.cursor.return_value.__enter__.return_value.fetchone.side_effect = results
+            connection.cursor.return_value.__enter__.return_value.fetchone.side_effect = (
+                results
+            )
             with patch.dict(os.environ, {}, clear=True), patch.object(
                 batch_coordinator, "require_env", side_effect=("was", "was_app")
-            ), patch.object(batch_coordinator, "connect", return_value=connection), self.assertRaises(ValueError):
-                batch_coordinator.guard_database(batch_coordinator.parse_args(["--apply"]))
+            ), patch.object(
+                batch_coordinator, "connect", return_value=connection
+            ), self.assertRaises(
+                ValueError
+            ):
+                batch_coordinator.guard_database(
+                    batch_coordinator.parse_args(["--apply"])
+                )
             connection.close.assert_called_once()
 
     def test_preview_never_executes_engine(self):
@@ -102,7 +137,9 @@ class BatchCoordinatorTests(unittest.TestCase):
         connection = MagicMock()
         with patch.object(batch_coordinator, "load_env_file"), patch.object(
             batch_coordinator, "guard_database", return_value=connection
-        ), patch.object(batch_coordinator.capacity_test, "verify_worker_backend"), patch.object(
+        ), patch.object(
+            batch_coordinator.capacity_test, "verify_worker_backend"
+        ), patch.object(
             batch_coordinator.capacity_test, "run_coordinated", create=True
         ) as execute:
             self.assertEqual(batch_coordinator.main([]), 0)
@@ -120,10 +157,19 @@ class BatchCoordinatorTests(unittest.TestCase):
                 options.append("--delete-apps")
             with patch.object(batch_coordinator, "load_env_file"), patch.object(
                 batch_coordinator, "guard_database", return_value=connection
-            ), patch.object(batch_coordinator.capacity_test, "verify_worker_backend"), patch.object(
+            ), patch.object(
+                batch_coordinator.capacity_test, "verify_worker_backend"
+            ), patch.object(
                 batch_coordinator, "require_env", return_value="configured"
-            ), patch.object(batch_coordinator, "approved_analyst_recipients", return_value=[recipients]) as approved, patch.object(
-                batch_coordinator.capacity_test, "run_coordinated", return_value=0, create=True
+            ), patch.object(
+                batch_coordinator,
+                "approved_analyst_recipients",
+                return_value=[recipients],
+            ) as approved, patch.object(
+                batch_coordinator.capacity_test,
+                "run_coordinated",
+                return_value=0,
+                create=True,
             ) as execute:
                 self.assertEqual(batch_coordinator.main(options), 0)
             self.assertEqual(execute.call_args.args[0].run_mode, "production")

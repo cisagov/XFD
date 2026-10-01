@@ -1,5 +1,6 @@
 """Deterministic tests for optional capacity diagnostics."""
 
+# Standard Python Libraries
 import json
 import os
 from pathlib import Path
@@ -7,9 +8,13 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 import requests
-
-from was_reports.qualys.qualys_client import QualysClient, QualysRequest, QualysRetryPolicy
+from was_reports.qualys.qualys_client import (
+    QualysClient,
+    QualysRequest,
+    QualysRetryPolicy,
+)
 from was_reports.utils import capacity_telemetry as telemetry
 
 
@@ -25,7 +30,8 @@ class CapacityTelemetryTests(unittest.TestCase):
     def test_metric_file_has_restricted_permissions(self):
         """Write structured metadata to a private process-local file."""
         with TemporaryDirectory() as directory, patch.dict(
-            os.environ, {"WAS_METRICS_DIRECTORY": directory, "WAS_ANALYST_BATCH_ID": "test"}
+            os.environ,
+            {"WAS_METRICS_DIRECTORY": directory, "WAS_ANALYST_BATCH_ID": "test"},
         ):
             telemetry.emit_metric("test", duration_seconds=1.5)
             path = next(Path(directory).glob("*.jsonl"))
@@ -62,16 +68,26 @@ class CapacityTelemetryTests(unittest.TestCase):
 
     def test_qualys_metrics_include_retry_but_not_payload(self):
         """Each attempt records only endpoint, timing and safe outcome metadata."""
+        # Standard Python Libraries
         from unittest.mock import Mock
 
         connection = Mock()
         connection.request.side_effect = [requests.ReadTimeout("secret value"), "<ok/>"]
-        client = QualysClient(connection, retry_policy=QualysRetryPolicy(), sleep_function=lambda _: None)
+        client = QualysClient(
+            connection, retry_policy=QualysRetryPolicy(), sleep_function=lambda _: None
+        )
         with patch("was_reports.qualys.qualys_client.emit_metric") as emit:
-            self.assertEqual(client.request(QualysRequest(
-                endpoint="/search/was/finding?credential=secret", payload="private payload",
-                http_method="POST", retry_safe=True,
-            )), "<ok/>")
+            self.assertEqual(
+                client.request(
+                    QualysRequest(
+                        endpoint="/search/was/finding?credential=secret",
+                        payload="private payload",
+                        http_method="POST",
+                        retry_safe=True,
+                    )
+                ),
+                "<ok/>",
+            )
         self.assertEqual(emit.call_count, 2)
         self.assertEqual(emit.call_args_list[0].kwargs["outcome"], "ReadTimeout")
         self.assertEqual(emit.call_args_list[1].kwargs["attempt_number"], 2)

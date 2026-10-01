@@ -1,5 +1,6 @@
 """Launch and operate persistent WAS batch sessions through tmux."""
 
+# Standard Python Libraries
 import argparse
 from datetime import datetime, timedelta, timezone
 import json
@@ -7,12 +8,13 @@ import os
 from pathlib import Path
 import shlex
 import shutil
-import subprocess
+
+# All tmux and Make calls use explicit argument vectors without a shell.
+import subprocess  # nosec B404
 import sys
 import tempfile
 import time
 from uuid import UUID, uuid4
-
 
 WORKFLOWS = {
     "production": {
@@ -66,21 +68,15 @@ def parse_args(argv=None):
         )
 
     cleanup_parser = subparsers.add_parser("cleanup")
-    cleanup_parser.add_argument(
-        "--workflow", choices=tuple(WORKFLOWS), required=True
-    )
-    cleanup_parser.add_argument(
-        "--working-directory", type=Path, required=True
-    )
+    cleanup_parser.add_argument("--workflow", choices=tuple(WORKFLOWS), required=True)
+    cleanup_parser.add_argument("--working-directory", type=Path, required=True)
     cleanup_parser.add_argument(
         "--retention-hours",
         type=cleanup_retention_hours,
         default=DEFAULT_CLEANUP_RETENTION_HOURS,
     )
     cleanup_parser.add_argument("--apply", action="store_true")
-    cleanup_parser.add_argument(
-        "--acknowledge-failures", action="store_true"
-    )
+    cleanup_parser.add_argument("--acknowledge-failures", action="store_true")
     cleanup_parser.add_argument("--session")
 
     run_parser = subparsers.add_parser("run")
@@ -123,7 +119,7 @@ def validated_session_name(workflow, name):
     prefix = "{}-".format(WORKFLOWS[workflow]["prefix"])
     if not name.startswith(prefix):
         raise ValueError("TMUX_SESSION does not belong to this workflow.")
-    raw_run_id = name[len(prefix):]
+    raw_run_id = name[len(prefix) :]
     try:
         run_id = str(UUID(raw_run_id))
     except ValueError as error:
@@ -193,7 +189,8 @@ def write_manifest(workflow, working_directory, name, variable_name, run_id):
 
 def tmux_command(executable, *arguments, check=True, capture_output=False):
     """Run tmux with an argument vector and never through a shell."""
-    return subprocess.run(
+    # The executable is resolved by require_tmux and arguments are not shell-expanded.
+    return subprocess.run(  # nosec B603
         [executable] + list(arguments),
         check=check,
         capture_output=capture_output,
@@ -239,9 +236,7 @@ def start_session(workflow, working_directory):
         raise ValueError("Working directory does not contain the WAS Makefile.")
     variable_name, run_id = batch_identity(workflow)
     name = session_name(workflow, run_id)
-    manifest_path = write_manifest(
-        workflow, directory, name, variable_name, run_id
-    )
+    manifest_path = write_manifest(workflow, directory, name, variable_name, run_id)
     runner = shlex.join(
         [
             sys.executable,
@@ -253,32 +248,32 @@ def start_session(workflow, working_directory):
     )
     created = False
     try:
-        tmux_command(
-            executable, "new-session", "-d", "-s", name, "-c", str(directory)
-        )
+        tmux_command(executable, "new-session", "-d", "-s", name, "-c", str(directory))
         created = True
         tmux_command(
-            executable, "set-window-option", "-t", "{}:0".format(name),
-            "remain-on-exit", "on"
+            executable,
+            "set-window-option",
+            "-t",
+            "{}:0".format(name),
+            "remain-on-exit",
+            "on",
         )
         tmux_command(
-            executable, "set-window-option", "-t", "{}:0".format(name),
-            "history-limit", "50000"
+            executable,
+            "set-window-option",
+            "-t",
+            "{}:0".format(name),
+            "history-limit",
+            "50000",
         )
         tmux_command(
-            executable, "respawn-pane", "-k", "-t",
-            "{}:0.0".format(name), runner
+            executable, "respawn-pane", "-k", "-t", "{}:0.0".format(name), runner
         )
     except BaseException:
         if created:
-            tmux_command(
-                executable, "kill-session", "-t", name,
-                check=False
-            )
+            tmux_command(executable, "kill-session", "-t", name, check=False)
         raise
-    command_prefix = (
-        "recent-scan-batch" if workflow == "production" else "capacity"
-    )
+    command_prefix = "recent-scan-batch" if workflow == "production" else "capacity"
     print("Started detached tmux session: {}".format(name))
     print("Batch ID: {}".format(run_id))
     print("Submission succeeded; batch preflight and execution are not yet verified.")
@@ -332,7 +327,8 @@ def run_manifest(manifest_path):
     environment.pop("MFLAGS", None)
     environment.update(manifest["environment"])
     environment["PYTHONUNBUFFERED"] = "1"
-    result = subprocess.run(
+    # The Make target is selected from the validated workflow manifest.
+    result = subprocess.run(  # nosec B603
         [make_executable, "-C", str(directory), manifest["target"]],
         cwd=directory,
         env=environment,
@@ -375,11 +371,13 @@ def workflow_pane_states(executable, workflow, session=None):
         arguments.append("-a")
     else:
         arguments.extend(["-t", session])
-    arguments.extend([
-        "-F",
-        "#{session_name}\t#{pane_dead}\t#{pane_dead_status}\t"
-        "#{session_created}\t#{pane_id}\t#{pane_pid}\t#{pane_dead_time}",
-    ])
+    arguments.extend(
+        [
+            "-F",
+            "#{session_name}\t#{pane_dead}\t#{pane_dead_status}\t"
+            "#{session_created}\t#{pane_id}\t#{pane_pid}\t#{pane_dead_time}",
+        ]
+    )
     result = tmux_command(
         executable,
         *arguments,
@@ -427,7 +425,9 @@ def workflow_pane_states(executable, workflow, session=None):
             raw_dead_time,
         ) = fields
         if pane_dead not in ("0", "1"):
-            raise RuntimeError("Tmux returned an invalid pane state for {}.".format(name))
+            raise RuntimeError(
+                "Tmux returned an invalid pane state for {}.".format(name)
+            )
         if not raw_created.isdigit() or not raw_pane_pid.isdigit():
             raise RuntimeError(
                 "Tmux returned invalid process metadata for {}.".format(name)
@@ -446,15 +446,17 @@ def workflow_pane_states(executable, workflow, session=None):
                 raise RuntimeError(
                     "Tmux returned an invalid exit status for {}.".format(name)
                 ) from error
-        states.append({
-            "session_name": name,
-            "pane_dead": pane_dead == "1",
-            "exit_status": exit_status,
-            "pane_id": pane_id,
-            "pane_dead_time": int(raw_dead_time) if raw_dead_time else None,
-            "pane_pid": int(raw_pane_pid),
-            "session_created": int(raw_created),
-        })
+        states.append(
+            {
+                "session_name": name,
+                "pane_dead": pane_dead == "1",
+                "exit_status": exit_status,
+                "pane_id": pane_id,
+                "pane_dead_time": int(raw_dead_time) if raw_dead_time else None,
+                "pane_pid": int(raw_pane_pid),
+                "session_created": int(raw_created),
+            }
+        )
     return states
 
 
@@ -507,7 +509,7 @@ def archive_dead_pane(executable, workflow, state, archive_directory, observed_a
         "pane_dead_time": state["pane_dead_time"],
         "pane_id": state["pane_id"],
         "pane_pid": state["pane_pid"],
-        "run_id": state["session_name"][len(prefix):],
+        "run_id": state["session_name"][len(prefix) :],
         "session_created": state["session_created"],
         "session_name": state["session_name"],
         "version": TMUX_ARCHIVE_VERSION,
@@ -528,9 +530,7 @@ def archive_dead_pane(executable, workflow, state, archive_directory, observed_a
             or not current_states[0]["pane_dead"]
         ):
             raise RuntimeError(
-                "Pane state changed while archiving {}.".format(
-                    state["session_name"]
-                )
+                "Pane state changed while archiving {}.".format(state["session_name"])
             )
         staging_directory.rename(archive_directory)
     except BaseException:
@@ -566,9 +566,7 @@ def read_cleanup_metadata(path, workflow, state):
     try:
         observed_at = datetime.fromisoformat(raw_observed_at)
     except ValueError as error:
-        raise ValueError(
-            "Cleanup metadata observed_dead_at is invalid."
-        ) from error
+        raise ValueError("Cleanup metadata observed_dead_at is invalid.") from error
     if observed_at.tzinfo is None:
         raise ValueError("Cleanup metadata observed_dead_at must include a timezone.")
     console_file = metadata.get("console_file")
@@ -606,9 +604,7 @@ def cleanup_sessions(
     acknowledged_session = None
     if acknowledge_failures:
         if not session:
-            raise ValueError(
-                "Failure acknowledgement requires an exact tmux session."
-            )
+            raise ValueError("Failure acknowledgement requires an exact tmux session.")
         acknowledged_session = validated_session_name(workflow, session)
     elif session:
         raise ValueError(
@@ -643,25 +639,19 @@ def cleanup_sessions(
         metadata_path = archive_directory / "metadata.json"
         if not metadata_path.exists():
             if not apply:
-                print(
-                    "Would archive {} and start its retention period.".format(name)
-                )
+                print("Would archive {} and start its retention period.".format(name))
                 continue
             if archive_directory.exists():
                 raise ValueError(
                     "Incomplete cleanup archive already exists for {}.".format(name)
                 )
-            current_states = workflow_pane_states(
-                executable, workflow, session=name
-            )
+            current_states = workflow_pane_states(executable, workflow, session=name)
             if (
                 len(current_states) != 1
                 or current_states[0] != state
                 or not current_states[0]["pane_dead"]
             ):
-                print(
-                    "Retained {}: pane state changed before archival.".format(name)
-                )
+                print("Retained {}: pane state changed before archival.".format(name))
                 continue
             archive_dead_pane(
                 executable,
@@ -670,23 +660,20 @@ def cleanup_sessions(
                 archive_directory,
                 observed_at,
             )
-            print(
-                "Archived {} and started its retention period.".format(name)
-            )
+            print("Archived {} and started its retention period.".format(name))
             continue
         metadata, first_observed_at = read_cleanup_metadata(
             metadata_path, workflow, state
         )
         eligible_at = first_observed_at + retention
         if observed_at < eligible_at:
-            print(
-                "Retained {} until {}.".format(name, eligible_at.isoformat())
-            )
+            print("Retained {} until {}.".format(name, eligible_at.isoformat()))
             continue
         if metadata["exit_status"] != 0 and name != acknowledged_session:
             print(
-                "Retained {}: failed or unknown exit requires acknowledgement."
-                .format(name)
+                "Retained {}: failed or unknown exit requires acknowledgement.".format(
+                    name
+                )
             )
             continue
         if not apply:
@@ -757,7 +744,11 @@ def attach_session(workflow):
     """Attach the terminal to an explicit or latest matching session."""
     executable = require_tmux()
     name = selected_session(executable, workflow)
-    os.execv(executable, [executable, "attach-session", "-t", name])
+    # Replacing the CLI process is intentional; executable and session are validated.
+    os.execv(  # nosec B606
+        executable,
+        [executable, "attach-session", "-t", name],
+    )
 
 
 def show_console(workflow):
@@ -796,9 +787,7 @@ def stop_session(workflow):
         raise ValueError("TMUX_STOP_WAIT_SECONDS must be an integer.") from error
     if not 0 <= wait_seconds <= 60:
         raise ValueError("TMUX_STOP_WAIT_SECONDS must be from 0 through 60.")
-    tmux_command(
-        executable, "send-keys", "-t", "{}:0.0".format(name), "C-c"
-    )
+    tmux_command(executable, "send-keys", "-t", "{}:0.0".format(name), "C-c")
     print("Sent SIGINT to tmux session: {}".format(name))
     for remaining_checks in range(wait_seconds + 1):
         result = tmux_command(

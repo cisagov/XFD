@@ -1,15 +1,15 @@
 """Tests for WAS Matplotlib and Seaborn chart rendering."""
 
 # Standard Python Libraries
-import tempfile
-import unittest
 from datetime import datetime
 from pathlib import Path
+import tempfile
+import unittest
 from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
-from matplotlib import pyplot as plt
 from PIL import Image
+from matplotlib import pyplot as plt
 
 # First-Party Libraries
 from was_reports.reporting import chart_renderer, report_metrics
@@ -51,9 +51,7 @@ class ChartRendererTests(unittest.TestCase):
 
         chart_renderer.render_owasp_graph(counts, Path("owasp_graph.png"))
 
-        axis.set_yticklabels.assert_called_once_with(
-            [""] + EXPECTED_OWASP_2025_LABELS
-        )
+        axis.set_yticklabels.assert_called_once_with([""] + EXPECTED_OWASP_2025_LABELS)
         axis.barh.assert_called_once()
         self.assertEqual(
             axis.barh.call_args.args[1],

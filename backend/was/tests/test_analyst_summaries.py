@@ -1,10 +1,12 @@
 """Offline regression tests for combined, secret-safe analyst summaries."""
 
+# Standard Python Libraries
 import csv
 import io
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 from was_reports.reporting import analyst_summaries as summaries
 
 
@@ -47,14 +49,20 @@ def batch_lineage(
 class AnalystSummaryTests(unittest.TestCase):
     """Exercise content, persistence and duplicate delivery boundaries."""
 
-    @patch.object(summaries, "list_functional_test_recipient_emails_from_db", return_value=[])
+    @patch.object(
+        summaries, "list_functional_test_recipient_emails_from_db", return_value=[]
+    )
     @patch.object(summaries, "create_ses_client")
     @patch.object(summaries, "_execute")
-    def test_no_enabled_analysts_skips_delivery_without_claim(self, execute, client, recipients):
+    def test_no_enabled_analysts_skips_delivery_without_claim(
+        self, execute, client, recipients
+    ):
         """Disabling every analyst email must not prevent customer report work."""
-        self.assertFalse(summaries._deliver(
-            "batch", "final", "from@example.gov", None, "body", [], False
-        ))
+        self.assertFalse(
+            summaries._deliver(
+                "batch", "final", "from@example.gov", None, "body", [], False
+            )
+        )
         execute.assert_not_called()
         client.assert_not_called()
 
@@ -376,9 +384,7 @@ class AnalystSummaryTests(unittest.TestCase):
     @patch.object(summaries, "_deliver", return_value=True)
     @patch.object(summaries, "_tracker_rows")
     @patch.object(summaries, "_execute")
-    def test_final_body_separates_delivery_reconciliation(
-        self, execute, rows, deliver
-    ):
+    def test_final_body_separates_delivery_reconciliation(self, execute, rows, deliver):
         """Missing structured sent dates appear outside open manual work."""
         execute.side_effect = [
             [batch_lineage(mode="production")],
@@ -448,11 +454,17 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertIn("Delivery reconciliation needed: 1", body)
         self.assertNotIn("tracker 1", body.lower())
 
-    @patch.object(summaries, "getenv", return_value='{"total": 2, "completed": 1, "failed": 1, "remaining": 1, "blocked": 1}')
+    @patch.object(
+        summaries,
+        "getenv",
+        return_value='{"total": 2, "completed": 1, "failed": 1, "remaining": 1, "blocked": 1}',
+    )
     @patch.object(summaries, "_deliver", return_value=True)
     @patch.object(summaries, "_tracker_rows", return_value=[])
     @patch.object(summaries, "_execute")
-    def test_continuation_does_not_claim_fresh_throughput(self, execute, rows, deliver, getenv):
+    def test_continuation_does_not_claim_fresh_throughput(
+        self, execute, rows, deliver, getenv
+    ):
         """Previously accepted sends must not inflate a continuation's throughput."""
         execute.side_effect = [
             [
@@ -525,9 +537,7 @@ class AnalystSummaryTests(unittest.TestCase):
             )
 
     @patch.object(summaries, "_execute")
-    def test_active_duration_checkpoint_is_monotonic_and_unfinished_only(
-        self, execute
-    ):
+    def test_active_duration_checkpoint_is_monotonic_and_unfinished_only(self, execute):
         """Checkpoint SQL cannot reduce timing or overwrite a finished batch."""
         summaries.checkpoint_batch_active_duration("batch", 12.5)
         query, parameters = execute.call_args.args
@@ -538,8 +548,9 @@ class AnalystSummaryTests(unittest.TestCase):
     @patch.object(summaries, "_execute")
     def test_delivery_acceptance_is_persisted_with_first_timestamp(self, execute):
         """Delivery recording persists acceptance and retains its first time."""
-        summaries.record_report_attempt("batch", 1, 0, sent=True,
-                                        delivery_duration_seconds=2.5, artifact_type="pdf")
+        summaries.record_report_attempt(
+            "batch", 1, 0, sent=True, delivery_duration_seconds=2.5, artifact_type="pdf"
+        )
         query, parameters = execute.call_args.args
         self.assertIn("sent_recorded_at=COALESCE", query)
         self.assertEqual(parameters[-3:], (2.5, "pdf", True))
@@ -549,13 +560,17 @@ class AnalystSummaryTests(unittest.TestCase):
     @patch.object(summaries, "_deliver", return_value=True)
     @patch.object(summaries, "_tracker_rows", return_value=[])
     @patch.object(summaries, "_execute")
-    def test_capacity_metrics_exclude_zero_timings_and_tracker_sent_dates(self, execute, rows, deliver):
+    def test_capacity_metrics_exclude_zero_timings_and_tracker_sent_dates(
+        self, execute, rows, deliver
+    ):
         """Stable batch wall time and explicit attempts determine throughput."""
         execute.side_effect = [
             [batch_lineage(elapsed=120, workers=4)],
-            [(10, True, True, None, "pdf", 2),
-             (30, False, False, "Error", "pdf", None),
-             (0.1, False, True, None, "notification", 1)],
+            [
+                (10, True, True, None, "pdf", 2),
+                (30, False, False, "Error", "pdf", None),
+                (0.1, False, True, None, "notification", 1),
+            ],
         ]
         summaries.send_batch_summary("batch", "from@example.gov")
         body = deliver.call_args.args[4]
@@ -596,8 +611,18 @@ class AnalystSummaryTests(unittest.TestCase):
     @patch.object(summaries, "finish_batch")
     def test_final_cli_preserves_failed_coordinator_outcome(self, finish, summary):
         """Failed worker phases cannot become completed through final reporting."""
-        summaries.main(["--phase", "final", "--batch-id", "batch",
-                        "--source-email", "from@example.gov", "--outcome", "failed"])
+        summaries.main(
+            [
+                "--phase",
+                "final",
+                "--batch-id",
+                "batch",
+                "--source-email",
+                "from@example.gov",
+                "--outcome",
+                "failed",
+            ]
+        )
         finish.assert_called_once_with("batch", "failed")
         summary.assert_called_once()
 
@@ -631,11 +656,13 @@ class AnalystSummaryTests(unittest.TestCase):
         query = " ".join(execute.call_args.args[0].split())
         self.assertIn(
             "AND (COALESCE(tracker.scan_execution_key, '') "
-            "LIKE 'schedule-review:%%' OR NOT EXISTS (", query
+            "LIKE 'schedule-review:%%' OR NOT EXISTS (",
+            query,
         )
         self.assertIn(
             "COALESCE(tracker.scan_start_date, tracker.data_pull_date) "
-            ">= CURRENT_DATE - (%s - 1) AND (", query
+            ">= CURRENT_DATE - (%s - 1) AND (",
+            query,
         )
         self.assertIn("newer.tag = tracker.tag", query)
         self.assertIn("NOT LIKE 'legacy-import:%%'", query)
@@ -673,9 +700,7 @@ class AnalystSummaryTests(unittest.TestCase):
         )
 
     @patch.object(summaries, "_execute")
-    def test_tracker_rows_marks_current_batch_and_stakeholder_manual(
-        self, execute
-    ):
+    def test_tracker_rows_marks_current_batch_and_stakeholder_manual(self, execute):
         """Expose batch scope and manual configuration to summary grouping."""
         values = [None] * len(summaries.TRACKER_EXPORT_FIELDS)
         values[summaries.TRACKER_EXPORT_FIELDS.index("id")] = 42
@@ -695,9 +720,9 @@ class AnalystSummaryTests(unittest.TestCase):
         values = [None] * len(summaries.TRACKER_EXPORT_FIELDS)
         values[summaries.TRACKER_EXPORT_FIELDS.index("id")] = 43
         values[summaries.TRACKER_EXPORT_FIELDS.index("status")] = "Error"
-        values[summaries.TRACKER_EXPORT_FIELDS.index("qualys_error")] = (
-            "https://error.example.gov<br>"
-        )
+        values[
+            summaries.TRACKER_EXPORT_FIELDS.index("qualys_error")
+        ] = "https://error.example.gov<br>"
         execute.return_value = [tuple(values + [False, True])]
 
         rows = summaries._tracker_rows(batch_id="batch", days_back=None)

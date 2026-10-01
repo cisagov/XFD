@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 from typing import Optional
 from uuid import uuid4
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.reporting.latex_renderer import validate_filename_component
 from was_reports.storage.s3_reports import (

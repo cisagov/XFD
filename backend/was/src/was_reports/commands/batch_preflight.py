@@ -182,7 +182,9 @@ def main(argv: list[str] | None = None) -> int:
         LOGGER.info("Window uses scan_start_date, including today (database date).")
         for reason, count in inspect_exclusions(conn, args.days_back, args.tag):
             LOGGER.info("%s: %d", reason, count)
-        LOGGER.info("Snapshot only: no refresh, recovery, report generation or delivery.")
+        LOGGER.info(
+            "Snapshot only: no refresh, recovery, report generation or delivery."
+        )
     finally:
         close(conn)
     return 0

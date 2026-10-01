@@ -10,7 +10,6 @@ from lxml import etree
 
 # First-Party Libraries
 from was_reports.tracker import service
-from was_reports.tracker.service import reconcile_known_schedule_reviews
 from was_reports.tracker.models import (
     MISSING_QUALYS_FIELD_NOTE_PREFIX,
     MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
@@ -18,6 +17,7 @@ from was_reports.tracker.models import (
     TrackerItem,
     TrackerStakeholder,
 )
+from was_reports.tracker.service import reconcile_known_schedule_reviews
 
 
 class TrackerServiceTests(unittest.TestCase):
@@ -25,15 +25,24 @@ class TrackerServiceTests(unittest.TestCase):
 
     def setUp(self) -> None:
         """Isolate refresh orchestration from the separately tested database boundary."""
-        reconciliation = patch.object(service, "reconcile_known_schedule_reviews", return_value=0)
+        reconciliation = patch.object(
+            service, "reconcile_known_schedule_reviews", return_value=0
+        )
         self.mock_reconciliation = reconciliation.start()
         self.addCleanup(reconciliation.stop)
 
-    def test_existing_execution_resolves_schedule_review_under_claim_guards(self) -> None:
+    def test_existing_execution_resolves_schedule_review_under_claim_guards(
+        self,
+    ) -> None:
         """Close the metadata exception without changing the already tracked run."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
-            2, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
         )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
@@ -41,51 +50,86 @@ class TrackerServiceTests(unittest.TestCase):
         cursor.fetchall.return_value = [(2,)]
         cursor.fetchone.side_effect = [(True,), (17, note, 18)]
         cursor.rowcount = 1
-        with patch.object(service, "connect", return_value=conn), patch.object(service, "close"):
-            self.assertEqual(reconcile_known_schedule_reviews({"execution": stakeholder}), 1)
+        with patch.object(service, "connect", return_value=conn), patch.object(
+            service, "close"
+        ):
+            self.assertEqual(
+                reconcile_known_schedule_reviews({"execution": stakeholder}), 1
+            )
         update = next(
-            call for call in cursor.execute.call_args_list
+            call
+            for call in cursor.execute.call_args_list
             if "UPDATE was_daily_report_tracker" in call.args[0]
         )
         self.assertIn("status = 'Resolved'", update.args[0])
         self.assertIn("report_sent_date IS NULL", update.args[0])
         self.assertIn("NOT EXISTS (SELECT 1 FROM was_report_runs", update.args[0])
         self.assertEqual(update.args[1][1:], (17, note))
-        self.assertTrue(update.args[1][0].startswith(RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX))
+        self.assertTrue(
+            update.args[1][0].startswith(RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX)
+        )
         self.assertIn("tracker row 18", update.args[1][0])
         self.assertIn(note, update.args[1][0])
 
     def test_schedule_review_without_matching_execution_remains_open(self) -> None:
         """Recovery does not close an exception until an actual tracker row exists."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
-            2, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
         )
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchall.return_value = [(2,)]
         cursor.fetchone.side_effect = [(True,), None]
-        with patch.object(service, "connect", return_value=conn), patch.object(service, "close"):
-            self.assertEqual(reconcile_known_schedule_reviews({"execution": stakeholder}), 0)
-        self.assertNotIn("UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list))
+        with patch.object(service, "connect", return_value=conn), patch.object(
+            service, "close"
+        ):
+            self.assertEqual(
+                reconcile_known_schedule_reviews({"execution": stakeholder}), 0
+            )
+        self.assertNotIn(
+            "UPDATE was_daily_report_tracker", str(cursor.execute.call_args_list)
+        )
 
     def test_schedule_review_is_not_resolved_while_metadata_is_missing(self) -> None:
         """A restored last date alone does not resolve a still-missing next date."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, None, "2026-09-03T12:00:00Z", 2, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            None,
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
             discovery_notes=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "nextLaunchDate",
         )
         with patch.object(service, "connect") as connect:
-            self.assertEqual(reconcile_known_schedule_reviews({"execution": stakeholder}), 0)
+            self.assertEqual(
+                reconcile_known_schedule_reviews({"execution": stakeholder}), 0
+            )
         connect.assert_not_called()
 
     def test_discovery_exception_is_persisted_without_scan_candidates(self) -> None:
         """A deactivated schedule cannot disappear through an early return."""
         issue = TrackerItem(
-            tag="TAG", scan_name="Customer Monthly", status="Unknown", result="Unknown",
-            launched_date=None, next_scan_date=None, nws=False, recent_nws="",
-            removed_nws="", manual=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate",
-            fceb=False, schedule_id=2, qualys_errors="lastScan.launchedDate",
+            tag="TAG",
+            scan_name="Customer Monthly",
+            status="Unknown",
+            result="Unknown",
+            launched_date=None,
+            next_scan_date=None,
+            nws=False,
+            recent_nws="",
+            removed_nws="",
+            manual=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate",
+            fceb=False,
+            schedule_id=2,
+            qualys_errors="lastScan.launchedDate",
             scan_execution_key="schedule-review:2",
         )
 
@@ -95,23 +139,37 @@ class TrackerServiceTests(unittest.TestCase):
             return {}
 
         with patch.multiple(
-            service, tracker_search_window=DEFAULT, search_schedules=DEFAULT,
-            search_scans=DEFAULT, update_tracker=DEFAULT,
+            service,
+            tracker_search_window=DEFAULT,
+            search_schedules=DEFAULT,
+            search_scans=DEFAULT,
+            update_tracker=DEFAULT,
         ) as mocks:
             mocks["tracker_search_window"].return_value = (datetime(2026, 9, 1), set())
             mocks["search_schedules"].side_effect = discover
             mocks["update_tracker"].return_value = 1
             self.assertEqual(service.refresh_daily_tracker(object()), 1)
             mocks["search_scans"].assert_not_called()
-            self.assertEqual(mocks["update_tracker"].call_args.kwargs["tracker_items"], [issue])
+            self.assertEqual(
+                mocks["update_tracker"].call_args.kwargs["tracker_items"], [issue]
+            )
 
     def test_discovery_exception_preflight_never_writes(self) -> None:
         """Report schedule exceptions without assigning or persisting anything."""
         issue = TrackerItem(
-            tag="TAG", scan_name="Customer Monthly", status="Unknown", result="Unknown",
-            launched_date=None, next_scan_date=None, nws=False, recent_nws="",
-            removed_nws="", manual=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate",
-            fceb=False, schedule_id=2, qualys_errors="lastScan.launchedDate",
+            tag="TAG",
+            scan_name="Customer Monthly",
+            status="Unknown",
+            result="Unknown",
+            launched_date=None,
+            next_scan_date=None,
+            nws=False,
+            recent_nws="",
+            removed_nws="",
+            manual=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "lastScan.launchedDate",
+            fceb=False,
+            schedule_id=2,
+            qualys_errors="lastScan.launchedDate",
             scan_execution_key="schedule-review:2",
         )
 
@@ -121,12 +179,17 @@ class TrackerServiceTests(unittest.TestCase):
             return {}
 
         with patch.multiple(
-            service, tracker_search_window=DEFAULT, search_schedules=DEFAULT,
-            search_scans=DEFAULT, update_tracker=DEFAULT,
+            service,
+            tracker_search_window=DEFAULT,
+            search_schedules=DEFAULT,
+            search_scans=DEFAULT,
+            update_tracker=DEFAULT,
         ) as mocks, patch("builtins.print") as output:
             mocks["tracker_search_window"].return_value = (datetime(2026, 9, 1), set())
             mocks["search_schedules"].side_effect = discover
-            self.assertEqual(service.refresh_daily_tracker(object(), preflight_only=True), 1)
+            self.assertEqual(
+                service.refresh_daily_tracker(object(), preflight_only=True), 1
+            )
             mocks["update_tracker"].assert_not_called()
             mocks["search_scans"].assert_not_called()
             self.mock_reconciliation.assert_not_called()
@@ -134,18 +197,30 @@ class TrackerServiceTests(unittest.TestCase):
 
     def test_missing_next_date_notes_flow_to_completed_tracker_item(self) -> None:
         """Completed scans remain manual when their schedule lacks a next date."""
+        # Third-Party Libraries
         from was_reports.tracker.item_builder import create_tracker_items
 
         stakeholder = TrackerStakeholder(
-            "Customer", 1, None, "2026-09-03T12:00:00Z", 2, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            None,
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
             discovery_notes=MISSING_QUALYS_SCHEDULE_NOTE_PREFIX + "nextLaunchDate",
         )
         scan = etree.fromstring(
             b"<WasScan><name>Customer Run #2</name><status>FINISHED</status>"
             b"<summary><resultsStatus>SUCCESSFUL</resultsStatus></summary></WasScan>"
         )
-        with patch("was_reports.tracker.item_builder.stakeholder_flags", return_value=("", False)):
-            item = create_tracker_items(object(), {"run": [scan]}, {"run": stakeholder}, set())[0]
+        with patch(
+            "was_reports.tracker.item_builder.stakeholder_flags",
+            return_value=("", False),
+        ):
+            item = create_tracker_items(
+                object(), {"run": [scan]}, {"run": stakeholder}, set()
+            )[0]
         self.assertEqual(item.status, "Finished")
         self.assertEqual(item.result, "Successful")
         self.assertIsNone(item.next_scan_date)
@@ -157,18 +232,35 @@ class TrackerServiceTests(unittest.TestCase):
     def test_captured_schedule_rows_never_open_database(self, mock_connect, mock_close):
         """Replay empty, handled, and unresolved snapshots with production rules."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T02:00:00Z",
-            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2 Slice 1",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T02:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
+            latest_scan_name="Customer Run #2 Slice 1",
         )
         handled = (
-            2, date(2026, 9, 2), "Customer Run #2", "Finished", "Successful",
-            None, None, False, False,
+            2,
+            date(2026, 9, 2),
+            "Customer Run #2",
+            "Finished",
+            "Successful",
+            None,
+            None,
+            False,
+            False,
         )
         unresolved = handled[:7] + (True, False)
-        for rows, expected in (([], 1), ([handled], 0), ([unresolved], 1),
-                               ([handled, unresolved], 1)):
+        for rows, expected in (
+            ([], 1),
+            ([handled], 0),
+            ([unresolved], 1),
+            ([handled, unresolved], 1),
+        ):
             with self.subTest(rows=rows):
-                counts = {}
+                counts: dict[str, int] = {}
                 result = service.pending_schedules(
                     {"run": stakeholder}, counts, tracker_rows=rows
                 )
@@ -179,16 +271,33 @@ class TrackerServiceTests(unittest.TestCase):
 
     @patch("was_reports.tracker.service.close")
     @patch("was_reports.tracker.service.connect")
-    def test_early_exclusion_requires_handled_exact_execution(self, mock_connect, mock_close):
+    def test_early_exclusion_requires_handled_exact_execution(
+        self, mock_connect, mock_close
+    ):
         """Retain uncertain records and recurring runs before expensive searches."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T02:00:00Z",
-            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2 Slice 1",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T02:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
+            latest_scan_name="Customer Run #2 Slice 1",
         )
         connection = mock_connect.return_value
         cursor = connection.cursor.return_value.__enter__.return_value
-        baseline = [2, date(2026, 9, 2), "Customer Run #2", "Finished",
-                    "Successful", None, None, False, False]
+        baseline = [
+            2,
+            date(2026, 9, 2),
+            "Customer Run #2",
+            "Finished",
+            "Successful",
+            None,
+            None,
+            False,
+            False,
+        ]
         cases = [
             ({}, 0),
             ({2: "Customer Run #1"}, 1),
@@ -210,7 +319,7 @@ class TrackerServiceTests(unittest.TestCase):
                 for position, value in changes.items():
                     row[position] = value
                 cursor.fetchall.return_value = [row]
-                counts = {}
+                counts: dict[str, int] = {}
                 result = service.pending_schedules({"run": stakeholder}, counts)
                 self.assertEqual(len(result), expected)
                 self.assertEqual(counts["early_excluded_schedules"], 1 - expected)
@@ -219,15 +328,32 @@ class TrackerServiceTests(unittest.TestCase):
 
     @patch("was_reports.tracker.service.close")
     @patch("was_reports.tracker.service.connect")
-    def test_unresolved_sibling_requires_delivery_evidence(self, mock_connect, mock_close):
+    def test_unresolved_sibling_requires_delivery_evidence(
+        self, mock_connect, mock_close
+    ):
         """Only customer delivery evidence overrides an unresolved same-run sibling."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
-            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
+            latest_scan_name="Customer Run #2",
         )
         cursor = mock_connect.return_value.cursor.return_value.__enter__.return_value
-        completed = [2, date(2026, 9, 3), "Customer Run #2", "Finished",
-                     "Successful", None, None, False, False]
+        completed = [
+            2,
+            date(2026, 9, 3),
+            "Customer Run #2",
+            "Finished",
+            "Successful",
+            None,
+            None,
+            False,
+            False,
+        ]
         unresolved = completed.copy()
         unresolved[7] = True
         cursor.fetchall.return_value = [completed, unresolved]
@@ -235,19 +361,29 @@ class TrackerServiceTests(unittest.TestCase):
         completed[8] = True
         self.assertEqual(len(service.pending_schedules({"run": stakeholder})), 0)
         unresolved[6] = "QUALYS DELETION REQUIRED"
-        self.assertEqual(len(service.pending_schedules(
-            {"run": stakeholder}, delete_apps=True
-        )), 1)
+        self.assertEqual(
+            len(service.pending_schedules({"run": stakeholder}, delete_apps=True)), 1
+        )
 
     def test_early_exclusion_prevents_all_downstream_calls(self):
         """An entirely handled schedule set must not fetch slices or write rows."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
-            2, "MONTHLY", "TAG", latest_scan_name="Customer Run #2",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
+            latest_scan_name="Customer Run #2",
         )
         with patch.multiple(
-            service, tracker_search_window=DEFAULT, search_schedules=DEFAULT,
-            pending_schedules=DEFAULT, search_scans=DEFAULT, update_tracker=DEFAULT,
+            service,
+            tracker_search_window=DEFAULT,
+            search_schedules=DEFAULT,
+            pending_schedules=DEFAULT,
+            search_scans=DEFAULT,
+            update_tracker=DEFAULT,
         ) as mocks:
             mocks["tracker_search_window"].return_value = (datetime(2026, 9, 1), set())
             mocks["search_schedules"].return_value = {"run": stakeholder}
@@ -380,8 +516,13 @@ class TrackerServiceTests(unittest.TestCase):
     ) -> None:
         """Retry missing-field rows without reclaiming delivered or linked work."""
         stakeholder = TrackerStakeholder(
-            "Customer", 1, "2026-10-01T00:00:00Z", "2026-09-03T12:00:00Z",
-            2, "MONTHLY", "TAG",
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
         )
         scan = etree.fromstring(
             b"<WasScan><name>Customer Run #2 Slice 1</name></WasScan>"
@@ -401,12 +542,18 @@ class TrackerServiceTests(unittest.TestCase):
             with self.subTest(case=case_name):
                 cursor.fetchall.return_value = [
                     (
-                        2, date(2026, 9, 3), "current", "Customer Run #2",
-                        "Error", "Missing required Qualys scan field", sent,
-                        notes, linked,
+                        2,
+                        date(2026, 9, 3),
+                        "current",
+                        "Customer Run #2",
+                        "Error",
+                        "Missing required Qualys scan field",
+                        sent,
+                        notes,
+                        linked,
                     )
                 ]
-                counts = {}
+                counts: dict[str, int] = {}
                 result = service.pending_scan_groups(
                     scan_groups, {"current": stakeholder}, counts=counts
                 )

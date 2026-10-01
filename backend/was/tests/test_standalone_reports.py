@@ -1,20 +1,25 @@
 """Standalone reports must not enroll customers or alter daily tracking."""
 
+# Standard Python Libraries
 from contextlib import ExitStack
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
+from was_mailer import email_reports
+from was_mailer.message import recipient_addresses
 from was_reports.commands import standalone_cli
 from was_reports.data import standalone_targets
 from was_reports.data.report_runs import ActiveReportOperationError
-from was_mailer.message import recipient_addresses
-from was_mailer import email_reports
 from was_reports.qualys.report_data import parse_tag_details
 
 
 class StandaloneTargetsTests(unittest.TestCase):
+    """Verify standalone targets remain isolated from enrolled stakeholders."""
+
     def setUp(self):
+        """Prepare mocked standalone target persistence services."""
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.conn = MagicMock()
@@ -39,6 +44,7 @@ class StandaloneTargetsTests(unittest.TestCase):
         )
 
     def test_new_target_and_run_do_not_insert_stakeholder_or_tracker(self):
+        """Create standalone state without adding stakeholder or tracker rows."""
         self.cursor.fetchone.side_effect = [None, None, (7,), None, (9,)]
         result = standalone_targets.create_standalone_request(
             "TEST", 123, "Analyst@example.gov"
@@ -52,6 +58,7 @@ class StandaloneTargetsTests(unittest.TestCase):
         self.conn.commit.assert_called_once()
 
     def test_existing_password_preserved_exactly_without_update(self):
+        """Preserve an existing standalone password without rewriting it."""
         password = '  "Exact,Password"  '
         self.cursor.fetchone.side_effect = [
             None,
@@ -66,6 +73,7 @@ class StandaloneTargetsTests(unittest.TestCase):
         self.assertNotIn("UPDATE was_standalone_report_targets", statements)
 
     def test_enrolled_tag_rejected(self):
+        """Reject standalone generation for an enrolled stakeholder tag."""
         self.cursor.fetchone.return_value = (1,)
         with self.assertRaisesRegex(ValueError, "enrolled"):
             standalone_targets.create_standalone_request("TEST", 123, None)
@@ -73,6 +81,7 @@ class StandaloneTargetsTests(unittest.TestCase):
         self.conn.commit.assert_not_called()
 
     def test_recipient_change_rejected(self):
+        """Reject a recipient that differs from saved standalone state."""
         self.cursor.fetchone.side_effect = [
             None,
             (7, "TEST", "secret", "old@example.gov"),
@@ -82,6 +91,7 @@ class StandaloneTargetsTests(unittest.TestCase):
         self.conn.commit.assert_not_called()
 
     def test_active_run_rejected(self):
+        """Reject a duplicate request while a standalone run remains active."""
         self.cursor.fetchone.side_effect = [
             None,
             (7, "TEST", "secret", "old@example.gov"),
@@ -92,6 +102,7 @@ class StandaloneTargetsTests(unittest.TestCase):
         self.conn.commit.assert_not_called()
 
     def test_new_target_requires_recipient(self):
+        """Require a delivery recipient when creating a standalone target."""
         self.cursor.fetchone.side_effect = [None, None]
         with self.assertRaisesRegex(ValueError, "required"):
             standalone_targets.create_standalone_request("TEST", 123, None)
@@ -99,7 +110,10 @@ class StandaloneTargetsTests(unittest.TestCase):
 
 
 class StandaloneCommandTests(unittest.TestCase):
+    """Verify standalone command orchestration and failure boundaries."""
+
     def setUp(self):
+        """Prepare mocked dependencies for standalone command execution."""
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.services = {}
@@ -138,6 +152,7 @@ class StandaloneCommandTests(unittest.TestCase):
     def test_generation_uses_stored_secret_not_command_line_and_standalone_delivery(
         self,
     ):
+        """Use the stored password and standalone delivery classification."""
         standalone_cli.run_standalone(self.args)
         options = self.services["generate_report_output"].call_args.kwargs
         self.assertEqual(options["password_override"], "exact secret")
@@ -149,11 +164,13 @@ class StandaloneCommandTests(unittest.TestCase):
         )
 
     def test_archive_only_does_not_send(self):
+        """Archive the generated report without sending when email is disabled."""
         self.args.send_email = False
         standalone_cli.run_standalone(self.args)
         self.services["send_report_run_email"].assert_not_called()
 
     def test_generation_failure_records_failure_without_email(self):
+        """Record generation failure without attempting email delivery."""
         self.services["generate_report_output"].side_effect = RuntimeError("failure")
         with self.assertRaises(RuntimeError):
             standalone_cli.run_standalone(self.args)
@@ -161,6 +178,7 @@ class StandaloneCommandTests(unittest.TestCase):
         self.services["send_report_run_email"].assert_not_called()
 
     def test_completion_failure_does_not_mark_uploaded_artifact_failed(self):
+        """Preserve an uploaded artifact when completion persistence fails."""
         self.services["complete_report_run_by_id"].side_effect = RuntimeError("failure")
         with self.assertRaises(RuntimeError):
             standalone_cli.run_standalone(self.args)
@@ -168,6 +186,7 @@ class StandaloneCommandTests(unittest.TestCase):
         self.services["send_report_run_email"].assert_not_called()
 
     def test_wrong_qualys_name_does_not_create_target(self):
+        """Reject an ambiguous Qualys name before creating standalone state."""
         self.services["get_tag_details"].return_value.name = "OTHER"
         with self.assertRaises(ValueError):
             standalone_cli.run_standalone(self.args)
@@ -186,27 +205,37 @@ class StandaloneEmailRetryTests(unittest.TestCase):
                 # PostgreSQL returns no row when a held run fails the predicate.
                 cursor.fetchone.return_value = None
                 arguments = [
-                    "--report-run-id", "9",
-                    "--source-email", "sender@example.gov",
-                    "--delivery-purpose", "standalone",
+                    "--report-run-id",
+                    "9",
+                    "--source-email",
+                    "sender@example.gov",
+                    "--delivery-purpose",
+                    "standalone",
                 ]
                 if include_previous_failures:
                     arguments.append("--include-previous-failures")
                 with ExitStack() as stack:
-                    stack.enter_context(patch.object(email_reports, "configure_logging"))
-                    stack.enter_context(patch.object(
-                        email_reports, "recover_stale_report_operations_in_db"
-                    ))
-                    stack.enter_context(patch(
-                        "was_reports.utils.database.connect", return_value=connection
-                    ))
+                    stack.enter_context(
+                        patch.object(email_reports, "configure_logging")
+                    )
+                    stack.enter_context(
+                        patch.object(
+                            email_reports, "recover_stale_report_operations_in_db"
+                        )
+                    )
+                    stack.enter_context(
+                        patch(
+                            "was_reports.utils.database.connect",
+                            return_value=connection,
+                        )
+                    )
                     stack.enter_context(patch("was_reports.utils.database.close"))
-                    create_client = stack.enter_context(patch.object(
-                        email_reports, "create_ses_client"
-                    ))
-                    send_message = stack.enter_context(patch.object(
-                        email_reports, "send_message"
-                    ))
+                    create_client = stack.enter_context(
+                        patch.object(email_reports, "create_ses_client")
+                    )
+                    send_message = stack.enter_context(
+                        patch.object(email_reports, "send_message")
+                    )
                     with self.assertRaisesRegex(RuntimeError, "not available"):
                         email_reports.main(arguments)
                     create_client.assert_not_called()
@@ -228,17 +257,25 @@ class StandaloneEmailRetryTests(unittest.TestCase):
         for delivery_purpose, allow_held in expected.items():
             with self.subTest(delivery_purpose=delivery_purpose), ExitStack() as stack:
                 stack.enter_context(patch.object(email_reports, "configure_logging"))
-                stack.enter_context(patch.object(
-                    email_reports, "recover_stale_report_operations_in_db"
-                ))
-                send_report = stack.enter_context(patch.object(
-                    email_reports, "send_report_run_email"
-                ))
-                self.assertEqual(email_reports.main([
-                    "--report-run-id", "9",
-                    "--source-email", "sender@example.gov",
-                    "--delivery-purpose", delivery_purpose,
-                ]), 0)
+                stack.enter_context(
+                    patch.object(email_reports, "recover_stale_report_operations_in_db")
+                )
+                send_report = stack.enter_context(
+                    patch.object(email_reports, "send_report_run_email")
+                )
+                self.assertEqual(
+                    email_reports.main(
+                        [
+                            "--report-run-id",
+                            "9",
+                            "--source-email",
+                            "sender@example.gov",
+                            "--delivery-purpose",
+                            delivery_purpose,
+                        ]
+                    ),
+                    0,
+                )
                 self.assertEqual(
                     send_report.call_args.kwargs["allow_held"],
                     allow_held,
@@ -253,13 +290,17 @@ class StandaloneEmailRetryTests(unittest.TestCase):
 
 
 class StandaloneBoundaryTests(unittest.TestCase):
+    """Verify standalone recipient and Qualys identity input boundaries."""
+
     def test_newlines_rejected(self):
+        """Reject newline characters that could inject email headers."""
         with self.assertRaises(ValueError):
             standalone_targets.normalized_recipient(
                 "a@example.gov\r\nBcc: b@example.gov"
             )
 
     def test_saved_recipient_revalidated_and_override_forbidden(self):
+        """Revalidate saved recipients and forbid delivery overrides."""
         row = SimpleNamespace(
             delivery_purpose="standalone", distro_email="saved@example.gov"
         )
@@ -273,6 +314,7 @@ class StandaloneBoundaryTests(unittest.TestCase):
             recipient_addresses(row, "different@example.gov")
 
     def test_ambiguous_qualys_tag_rejected(self):
+        """Reject Qualys responses containing multiple matching tags."""
         with self.assertRaises(LookupError):
             parse_tag_details(
                 "<ServiceResponse><count>2</count><data><Tag><id>1</id></Tag><Tag><id>2</id></Tag></data></ServiceResponse>",

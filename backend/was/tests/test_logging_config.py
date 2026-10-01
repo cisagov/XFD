@@ -31,12 +31,14 @@ class LoggingConfigTests(unittest.TestCase):
 
     def test_context_filter_adds_operation_identity(self) -> None:
         """Attach tag and tracker identity without changing every log call."""
-        record = logging.LogRecord("test", logging.ERROR, "file.py", 4, "failed", (), None)
+        record = logging.LogRecord(
+            "test", logging.ERROR, "file.py", 4, "failed", (), None
+        )
         with logging_context(tag="TAG1", tracker_id=42, event="test_failure"):
             LoggingContextFilter().filter(record)
-        self.assertEqual(record.tag, "TAG1")
-        self.assertEqual(record.tracker_id, 42)
-        self.assertEqual(record.event, "test_failure")
+        self.assertEqual(getattr(record, "tag"), "TAG1")
+        self.assertEqual(getattr(record, "tracker_id"), 42)
+        self.assertEqual(getattr(record, "event"), "test_failure")
 
     def test_json_lines_are_private_and_structured(self) -> None:
         """Write one parseable record with private filesystem permissions."""

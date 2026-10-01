@@ -6,10 +6,9 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 # First-Party Libraries
-from was_reports.utils.qualys_config import (
-    load_qualys_credentials_from_environment,
-)
+from was_reports.utils.qualys_config import load_qualys_credentials_from_environment
 
 
 class QualysConfigTests(unittest.TestCase):

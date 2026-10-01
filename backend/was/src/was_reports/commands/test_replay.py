@@ -1,11 +1,13 @@
 """Preview or execute isolated analyst-only report resends and manual retries."""
 
+# Standard Python Libraries
 import argparse
 from functools import partial
 import logging
 import sys
 from uuid import UUID
 
+# Third-Party Libraries
 from was_mailer.email_reports import send_report_run_email
 from was_mailer.message import approved_analyst_recipients
 from was_reports.commands.batch_runner import (
@@ -22,11 +24,11 @@ from was_reports.data.test_replay import list_replay_candidates, reserve_replay_
 from was_reports.storage.s3_reports import resolve_storage_mode
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import configure_logging
-from was_reports.utils.operation_lease import operation_heartbeat
 from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
     raise_if_operation_cancelled,
 )
+from was_reports.utils.operation_lease import operation_heartbeat
 
 LOGGER = logging.getLogger(__name__)
 
@@ -196,8 +198,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             or (
                 candidate.action == "targets_removed"
-                and candidate.tracker_id
-                in arguments.targets_removed_tracker_ids
+                and candidate.tracker_id in arguments.targets_removed_tracker_ids
             )
             or (
                 candidate.action == "resend"

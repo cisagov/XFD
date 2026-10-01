@@ -2,11 +2,11 @@
 
 # Standard Python Libraries
 import argparse
+from dataclasses import asdict, dataclass
+from getpass import getpass
 import hashlib
 import io
 import json
-from dataclasses import asdict, dataclass
-from getpass import getpass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -18,7 +18,8 @@ from pypdf import PdfReader
 from was_reports.utils.env import getenv
 from was_reports.utils.logging_config import configure_logging
 
-PASSWORD_ENVIRONMENT_NAME = "WAS_REPORT_COMPARISON_PASSWORD"
+# This is an environment-variable name, not a hardcoded password value.
+PASSWORD_ENVIRONMENT_NAME = "WAS_REPORT_COMPARISON_PASSWORD"  # nosec B105
 COMPARABLE_METADATA_KEYS = ("/Title", "/Author", "/Subject", "/Keywords")
 
 
@@ -84,9 +85,7 @@ def attachment_hashes(pdf: Pdf) -> Dict[str, str]:
                     file_specification.get("/F", "unnamed-attachment"),
                 )
             )
-            attachments[attachment_name] = _sha256(
-                embedded_files["/F"].read_bytes()
-            )
+            attachments[attachment_name] = _sha256(embedded_files["/F"].read_bytes())
     return attachments
 
 

@@ -6,6 +6,7 @@ import sys
 from typing import List, Optional
 from urllib.parse import urlsplit
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.qualys.qualys_admin import (
     delete_webapp,
@@ -46,9 +47,7 @@ def validate_finding_id(value: str) -> str:
     """Validate a positive numeric Qualys finding ID."""
     normalized_value = value.strip()
     if not normalized_value.isdecimal() or int(normalized_value) < 1:
-        raise argparse.ArgumentTypeError(
-            "Finding ID must be a positive numeric value."
-        )
+        raise argparse.ArgumentTypeError("Finding ID must be a positive numeric value.")
     return normalized_value
 
 

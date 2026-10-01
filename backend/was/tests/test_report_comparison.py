@@ -1,9 +1,9 @@
 """Tests for legacy and extracted WAS PDF comparison."""
 
 # Standard Python Libraries
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 
 # Third-Party Libraries
 from pikepdf import Array, Dictionary, Encryption, Name, Pdf, String

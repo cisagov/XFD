@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.tracker.models import RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX
 
@@ -32,7 +33,7 @@ def is_legacy_sent_note(report_scan_notes: str | None) -> bool:
     for prefix in prefixes:
         if not first_line.startswith(prefix):
             continue
-        date_text = first_line[len(prefix):]
+        date_text = first_line[len(prefix) :]
         try:
             datetime.strptime(date_text, "%m/%d/%Y")
         except ValueError:
@@ -57,10 +58,7 @@ def manual_work_classification(
         return None
     if is_legacy_sent_note(report_scan_notes):
         return DELIVERY_RECONCILIATION
-    if (
-        stakeholder_manual
-        or bool((report_scan_notes or "").strip())
-    ):
+    if stakeholder_manual or bool((report_scan_notes or "").strip()):
         return MANUAL_WORK
     return None
 
@@ -417,9 +415,7 @@ def list_ready_report_candidates(
         query += " AND tracker.{} >= CURRENT_DATE - (%s - 1)".format(date_column)
         parameters.append(days_back)
     if worker_count is not None:
-        query += (
-            " AND MOD(ABS(HASHTEXT(tracker.tag)::BIGINT), %s) = %s"
-        )
+        query += " AND MOD(ABS(HASHTEXT(tracker.tag)::BIGINT), %s) = %s"
         parameters.extend((worker_count, worker_index))
     if not include_manual:
         query += """
@@ -1091,11 +1087,12 @@ def get_tracker_record_by_id(
     """Return one tracker row without password or active claim-token data."""
     if tracker_id < 1:
         raise ValueError("Tracker row ID must be greater than zero.")
-    query = """
-        SELECT {columns}
-        FROM was_daily_report_tracker
-        WHERE id = %s
-    """.format(columns=", ".join(TRACKER_RECORD_COLUMNS))
+    # TRACKER_RECORD_COLUMNS is a fixed module-level allowlist.
+    query = (
+        "SELECT {columns} "  # nosec B608
+        "FROM was_daily_report_tracker "
+        "WHERE id = %s"
+    ).format(columns=", ".join(TRACKER_RECORD_COLUMNS))
     with conn.cursor() as cursor:
         cursor.execute(query, (tracker_id,))
         row = cursor.fetchone()
@@ -1293,19 +1290,14 @@ def list_tracker_table_rows_from_db(
 
     conn = connect()
     try:
-        filters = {}
-        if stakeholder_tag or include_children:
-            filters = {
-                "stakeholder_tag": stakeholder_tag,
-                "include_children": include_children,
-            }
         return list_tracker_table_rows(
             conn=conn,
             days_back=days_back,
             assignee_name=assignee_name,
             report_status=report_status,
             limit=limit,
-            **filters,
+            stakeholder_tag=stakeholder_tag,
+            include_children=include_children,
         )
     finally:
         close(conn)
