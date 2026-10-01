@@ -27,10 +27,10 @@ export const ExportCustomerMetricsButton: React.FC = () => {
     setLoading(true);
     try {
       const res: any = await apiGet(ENDPOINTS.METRICS_CUSTOMERS, {
-        response: true,
-        responseType: 'blob',
+        includeResponse: true,
+        parseAs: 'blob',
         headers: { Accept: 'text/csv' },
-        withCredentials: true
+        credentials: 'include'
       });
 
       // Extract filename from Content-Disposition header or use default

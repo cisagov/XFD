@@ -61,6 +61,13 @@ type ErrorStates = {
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
+type RegisterApprovalResponse = {
+  status_code: number;
+  body: string;
+  already_approved: boolean;
+  email_sent: boolean;
+};
+
 /** Refresh pending/member tables while admins work on this page (ms). */
 const REGISTRATION_USERS_REFRESH_INTERVAL_MS = 30_000;
 const INITIAL_ERROR_STATES: ErrorStates = {
@@ -263,7 +270,7 @@ export const RegionUsers: React.FC = () => {
       email_sent?: boolean;
     }> => {
       try {
-        const res = await apiPost(
+        const res = await apiPost<RegisterApprovalResponse>(
           ENDPOINTS.USERS_REGISTER_APPROVE.replace(
             '{user_id}',
             selectedUser.id
