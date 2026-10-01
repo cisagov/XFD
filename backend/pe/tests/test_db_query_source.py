@@ -20,6 +20,9 @@ os.environ.setdefault("PE_DB_PASSWORD", "test_password")
 os.environ.setdefault("DB_HOST", "localhost")
 os.environ.setdefault("PE_DB_PORT", "5432")
 os.environ.setdefault("PE_API_KEY", "test-key")
+os.environ.setdefault("DATABASE_NAME", "test_cyhy")
+os.environ.setdefault("DATABASE_USER", "test_user")
+os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 
 # Third-Party Libraries
 # First-Party Libraries

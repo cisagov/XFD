@@ -280,9 +280,6 @@ def dark_web(
     scorecard_dict["threat_actor_count"] = len(
         dark_web_actors[dark_web_actors["Grade"] > threshold]
     )
-    # Assemble executive alerts
-    exec_alerts = Cyber6.alerts_exec()
-    scorecard_dict["dark_web_executive_alerts_count"] = len(exec_alerts)
     # Assemble asset alerts
     asset_alerts = Cyber6.asset_alerts()
     scorecard_dict["dark_web_asset_alerts_count"] = len(asset_alerts)
@@ -299,7 +296,6 @@ def dark_web(
         "dark_web_sites": Cyber6.dark_web_sites(),
         "alerts_threats": Cyber6.alerts_threats(),
         "dark_web_actors": dark_web_actors,
-        "alerts_exec": exec_alerts[:10],
         "asset_alerts": asset_alerts[:10],
         "dark_web_act": Cyber6.dark_web_most_act(),
         "social_med_act": social_media,
@@ -389,8 +385,6 @@ def dark_web_flare(
     dark_web_posts = FlareObj.dark_web_mentions_other()
     # Get dark web asset alerts
     dark_web_asset_alerts = FlareObj.dark_web_alerts_assets()
-    # Get dark web executive alerts
-    dark_web_exec_alerts = FlareObj.dark_web_alerts_exec()
     # Get dark web threat actors
     dark_web_actors = FlareObj.dark_web_threat_actors()
     # Get dark web potential threat alerts
@@ -410,7 +404,6 @@ def dark_web_flare(
         "social_med_act": social_media_posts,
         "dark_web_act": dark_web_posts,
         "asset_alerts": dark_web_asset_alerts[:10],
-        "alerts_exec": dark_web_exec_alerts[:10],
         "dark_web_actors": dark_web_actors,
         "alerts_threats": dark_web_threat_alerts,
         "dark_web_sites": dark_web_sites,
@@ -421,7 +414,6 @@ def dark_web_flare(
     scorecard_dict["dark_web_mentions_count"] = dark_web_total_mentions
     scorecard_dict["dark_web_alerts_count"] = dark_web_total_alerts
     scorecard_dict["dark_web_asset_alerts_count"] = len(dark_web_asset_alerts)
-    scorecard_dict["dark_web_executive_alerts_count"] = len(dark_web_exec_alerts)
     scorecard_dict["threat_actor_count"] = len(dark_web_actors)
     circles_df = FlareObj.dark_web_counts_df()
     scorecard_dict["circles_df"] = circles_df

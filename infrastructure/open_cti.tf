@@ -117,14 +117,53 @@ data "aws_subnet" "open_cti" {
 }
 
 # LZ (!is_dmz) ONLY -- Terraform-managed, unlike the data-source adoption above, since a fresh LZ
-# deployment has nothing pre-existing to adopt. Egress-only: SSM Session Manager (this instance's
-# only administration path, same as db_accessor/email-sender) is outbound-initiated, needs no
-# inbound rule.
+# deployment has nothing pre-existing to adopt. SSM Session Manager (this instance's only
+# administration path, same as db_accessor/email-sender) is outbound-initiated and needs no
+# inbound rule of its own -- only the web UI ingress below is required.
+#
+# Ingress on 8080 (OpenCTI's own listener -- see docker-compose.yml) is scoped to the source CIDRs
+# already proven, by an existing/working rule, to be how DHS-VPN/Zscaler-brokered traffic actually
+# reaches a private-only service in this same VPC: the "VPC Endpoint - apigateway" SG (backing the
+# Crossfeed API Gateway's PRIVATE endpoint, see backend/serverless.yml + backend/env.yml) allows
+# 10.236.32.0/21 ("local vpc") and 10.234.96.0/21 ("tic3 west inbound") on 443 -- read directly off
+# that live SG (sg-0cf25475568046624) on 2026-08-31, not guessed. "tic3 west inbound" is inferred,
+# from its label plus TIC 3.0 being the standard federal architecture for routing agency traffic
+# through a vetted broker (Zscaler here), to be the Zscaler-routed path -- worth confirming with
+# Zscaler/the network team, but this is the strongest evidenced starting point available from
+# within this tenant account (network topology itself is IAM-denied to LZ-Tenant-Admin -- see
+# OpenCTI-connector.md). Per the TLS-termination decision already made, Zscaler/the VPN gateway is
+# expected to terminate TLS upstream and forward plain HTTP to this instance's 8080 -- 443 is opened
+# too, to the same CIDRs, purely as a margin against that assumption being wrong; nothing on this
+# instance listens on 443 today (see docker-compose.yml), so the rule is a no-op until/unless it
+# does.
 resource "aws_security_group" "open_cti_lz" {
-  count       = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
-  name        = "crossfeed-open-cti-${var.stage}"
+  count = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  name  = "crossfeed-open-cti-${var.stage}"
+  # `description` is a ForceNew attribute on aws_security_group (AWS has no UpdateSecurityGroup-
+  # Description API) -- and this SG is attached to the running, prevent_destroy'd instance's ENI,
+  # which AWS refuses to delete while attached. Changing this string plans a destroy+recreate that
+  # can never actually succeed via `apply` as long as the instance is up (confirmed the hard way,
+  # 2026-09-01: 15 minutes stuck "Still destroying...", then DependencyViolation). Left as its
+  # original, already-live text for that reason -- see the ingress/egress blocks' own descriptions,
+  # and the comment above this resource, for what's actually in effect.
   description = "OpenCTI EC2 (Landing Zone) -- egress only"
   vpc_id      = data.aws_ssm_parameter.vpc_id[0].value
+
+  ingress {
+    description = "OpenCTI web UI (var.open_cti_host) -- VPN/Zscaler-brokered access, same source CIDRs already granted to the Crossfeed API Gateway VPC endpoint SG in this VPC"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.236.32.0/21", "10.234.96.0/21"]
+  }
+
+  ingress {
+    description = "OpenCTI web UI over TLS, opened as a margin in case termination happens on-box rather than upstream -- unused while nothing listens on 443 (see docker-compose.yml)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.236.32.0/21", "10.234.96.0/21"]
+  }
 
   egress {
     from_port   = 0
@@ -245,6 +284,39 @@ locals {
   ]) : null
 }
 
+data "aws_subnet" "open_cti_lz" {
+  count = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  id    = data.aws_ssm_parameter.subnet_backend_id[0].value
+}
+
+resource "aws_ebs_volume" "open_cti_data" {
+  count             = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  availability_zone = data.aws_subnet.open_cti_lz[0].availability_zone
+  size              = var.open_cti_ebs_volume_size
+  type              = "gp3"
+  encrypted         = true
+  kms_key_id        = aws_kms_key.key.arn
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [availability_zone]
+  }
+
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Name    = "open-cti-data"
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_volume_attachment" "open_cti_data" {
+  count       = var.create_open_cti_instance && !var.is_dmz ? 1 : 0
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.open_cti_data[0].id
+  instance_id = aws_instance.open_cti[0].id
+}
+
 resource "aws_instance" "open_cti" {
   count = var.create_open_cti_instance ? 1 : 0
   # stage-cd (is_dmz): must match the already-running commercial-partition instance being
@@ -263,6 +335,12 @@ resource "aws_instance" "open_cti" {
   subnet_id              = var.is_dmz ? data.aws_subnet.open_cti[0].id : data.aws_ssm_parameter.subnet_backend_id[0].value
   vpc_security_group_ids = var.is_dmz ? [data.aws_security_group.open_cti[0].id] : [aws_security_group.open_cti_lz[0].id]
 
+  # LZ (!is_dmz) ONLY -- pins the instance's current private IP so an AMI refresh
+  # (destroy-then-create via `-replace`) reattaches the same IP instead of a new one from the
+  # subnet. Left unset (null) on stage-cd (is_dmz): that instance is adopted, not replaced, and its
+  # real IP isn't pinned here.
+  private_ip = var.is_dmz ? null : "10.236.34.5"
+
   iam_instance_profile = aws_iam_instance_profile.open_cti[0].id
 
   # See this file's header comment for why user_data_replace_on_change = false
@@ -278,7 +356,7 @@ resource "aws_instance" "open_cti" {
   tags = {
     Project = var.project
     Stage   = var.stage
-    Name    = "pe_ec2" # TO-DO: rename to "open-cti" instance and change this value.
+    Name    = "OpenCTI" # TO-DO: rename to "open-cti" instance and change this value.
     Owner   = "Crossfeed managed resource"
   }
 

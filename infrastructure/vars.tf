@@ -653,6 +653,12 @@ variable "open_cti_root_volume_size" {
   default     = 1000
 }
 
+variable "open_cti_ebs_volume_size" {
+  description = "Size in GiB of the additional EBS data volume attached to the OpenCTI EC2 instance (LZ only), holding /var/lib/docker/volumes. Same pattern as var.db_accessor_ebs_volume_size."
+  type        = number
+  default     = 1000
+}
+
 variable "open_cti_subnet_id" {
   description = "Subnet ID the existing OpenCTI EC2 instance is in."
   type        = string
@@ -769,6 +775,12 @@ variable "db_accessor_instance_class" {
   description = "db_accessor_instance_class"
   type        = string
   default     = "t3.micro"
+}
+
+variable "db_accessor_ebs_volume_size" {
+  description = "Size in GiB of the additional EBS data volume attached to the db_accessor instance"
+  type        = number
+  default     = 1000
 }
 
 variable "elk_instance_class" {
@@ -1074,6 +1086,10 @@ variable "ssm_mdl_password" {
   default     = "/crossfeed/staging/MDL_PASSWORD"
 }
 
+# NOTE: kept intentionally - redshift_cve_scan.py has NOT been converted yet
+# (still waiting on the DBX data model, per earlier discussion). These four remain
+# load-bearing for that one task until it's rewritten and query_redshift.py becomes
+# fully dead code. Do not delete in a cleanup pass without checking that first.
 variable "ssm_redshift_host" {
   description = "ssm_redshift_host"
   type        = string
@@ -1226,4 +1242,10 @@ variable "ssm_shodan_org_exception" {
   description = "ssm_shodan_org_exception"
   type        = string
   default     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
+}
+
+variable "ssm_pe_s3_bucket" {
+  description = "ssm_pe_s3_bucket"
+  type        = string
+  default     = "/crossfeed/staging/PE_S3_BUCKET"
 }

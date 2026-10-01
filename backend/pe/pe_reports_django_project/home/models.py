@@ -21,6 +21,20 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 
+class CIDRField(models.Field):
+    """Represent a PostgreSQL CIDR network column."""
+
+    description = "PostgreSQL CIDR network"
+
+    def db_type(self, connection):
+        """Return the PostgreSQL column type."""
+        return "cidr"
+
+    def get_internal_type(self):
+        """Identify the field as a character-like value to Django."""
+        return "CharField"
+
+
 class Users(models.Model):
     """Define Users model."""
 
@@ -230,7 +244,7 @@ class Cidrs(models.Model):
     """Define Cidrs model."""
 
     cidr_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
-    network = models.TextField()  # This field type is a guess.
+    network = CIDRField()
     organizations_uid = models.ForeignKey(
         "Organizations",
         on_delete=models.CASCADE,
@@ -760,28 +774,6 @@ class DotgovDomains(models.Model):
         db_table = "dotgov_domains"
 
 
-class Executives(models.Model):
-    """Define Executives model."""
-
-    executives_uid = models.UUIDField(primary_key=True)
-    organizations_uid = models.ForeignKey(
-        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
-    )
-    prefix = models.TextField(blank=True, null=True)
-    first_name = models.TextField(blank=True, null=True)
-    middle_initial = models.TextField(blank=True, null=True)
-    last_name = models.TextField(blank=True, null=True)
-    suffix = models.TextField(blank=True, null=True)
-    last_modified = models.DateField(blank=True, null=True)
-    sixgill_id = models.TextField(blank=True, null=True)
-
-    class Meta:
-        """Set Executives model metadata."""
-
-        managed = False
-        db_table = "executives"
-
-
 class Ips(models.Model):
     """Define Ips model."""
 
@@ -815,6 +807,9 @@ class IpsSubs(models.Model):
     sub_domain_uid = models.ForeignKey(
         "SubDomains", on_delete=models.CASCADE, db_column="sub_domain_uid"
     )
+    first_seen = models.DateField(blank=True, null=True)
+    last_seen = models.DateField(blank=True, null=True)
+    current = models.BooleanField(blank=True, null=True)
 
     class Meta:
         """Set IpsSubs model metadata."""
@@ -939,7 +934,6 @@ class Organizations(models.Model):
     state_name = models.TextField(blank=True, null=True)
     country = models.TextField(blank=True, null=True)
     country_name = models.TextField(blank=True, null=True)
-    exec_url = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set Organizations model metadata."""
@@ -1079,7 +1073,6 @@ class ReportSummaryStats(models.Model):
     threat_actor_count = models.IntegerField(blank=True, null=True)
     dark_web_alerts_count = models.IntegerField(blank=True, null=True)
     dark_web_mentions_count = models.IntegerField(blank=True, null=True)
-    dark_web_executive_alerts_count = models.IntegerField(blank=True, null=True)
     dark_web_asset_alerts_count = models.IntegerField(blank=True, null=True)
     pe_number_score = models.TextField(blank=True, null=True)
     pe_letter_grade = models.TextField(blank=True, null=True)
@@ -1138,6 +1131,45 @@ class TeamMembers(models.Model):
 
         managed = True
         db_table = "team_members"
+
+
+class Sectors(models.Model):
+    """Define Sectors model."""
+
+    sector_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    id = models.TextField(blank=True, null=True, unique=True)
+    acronym = models.TextField(blank=True, null=True)
+    name = models.TextField(blank=True, null=True)
+    email = models.TextField(blank=True, null=True)
+    contact_name = models.TextField(blank=True, null=True)
+    retired = models.BooleanField(blank=True, null=True)
+    first_seen = models.DateField(blank=True, null=True)
+    last_seen = models.DateField(blank=True, null=True)
+    run_scorecards = models.BooleanField(blank=True, null=True)
+    password = models.TextField(blank=True, null=True)
+    parent_sector_uid = models.UUIDField(blank=True, null=True)
+
+    class Meta:
+        """Set Sectors model metadata."""
+
+        managed = False
+        db_table = "sectors"
+
+
+class SectorsOrgs(models.Model):
+    """Define SectorsOrgs model."""
+
+    sector_org_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    sector_uid = models.UUIDField(blank=True, null=True)
+    organizations_uid = models.UUIDField(blank=True, null=True)
+    first_seen = models.DateField(blank=True, null=True)
+    last_seen = models.DateField(blank=True, null=True)
+
+    class Meta:
+        """Set SectorsOrgs model metadata."""
+
+        managed = False
+        db_table = "sectors_orgs"
 
 
 class ShodanAssets(models.Model):
@@ -1653,28 +1685,6 @@ class VwDarkwebAssetalerts(models.Model):
 
         managed = False  # Created from a view. Don't remove.
         db_table = "vw_darkweb_assetalerts"
-
-
-class VwDarkwebExecalerts(models.Model):
-    """Define VwDarkwebExecalerts model."""
-
-    organizations_uid = models.UUIDField(primary_key=True)
-    date = models.DateField(blank=True, null=True)
-    site = models.TextField(
-        db_column="Site", blank=True, null=True
-    )  # Field name made lowercase.
-    title = models.TextField(
-        db_column="Title", blank=True, null=True
-    )  # Field name made lowercase.
-    events = models.BigIntegerField(
-        db_column="Events", blank=True, null=True
-    )  # Field name made lowercase.
-
-    class Meta:
-        """Set VwDarkwebExecalerts model metadata."""
-
-        managed = False  # Created from a view. Don't remove.
-        db_table = "vw_darkweb_execalerts"
 
 
 class VwDarkwebThreatactors(models.Model):
@@ -2711,3 +2721,51 @@ class WasReport(models.Model):
         managed = False
         db_table = "was_report"
         unique_together = (("last_scan_date", "org_was_acronym"),)
+
+
+# --- CyHy Dash DB Tables ---
+class Cve(models.Model):
+    """Define Cve model."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    name = models.TextField(unique=True, blank=True, null=True)
+    publishedAt = models.DateTimeField(blank=True, null=True)
+    modifiedAt = models.DateTimeField(blank=True, null=True)
+    status = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    cvssV2Source = models.TextField(blank=True, null=True)
+    cvssV2Type = models.TextField(blank=True, null=True)
+    cvssV2Version = models.TextField(blank=True, null=True)
+    cvssV2VectorString = models.TextField(blank=True, null=True)
+    cvssV2BaseScore = models.FloatField(blank=True, null=True)
+    cvssV2BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV2ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV2ImpactScore = models.FloatField(blank=True, null=True)
+    cvssV3Source = models.TextField(blank=True, null=True)
+    cvssV3Type = models.TextField(blank=True, null=True)
+    cvssV3Version = models.TextField(blank=True, null=True)
+    cvssV3VectorString = models.TextField(blank=True, null=True)
+    cvssV3BaseScore = models.FloatField(blank=True, null=True)
+    cvssV3BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV3ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV3ImpactScore = models.FloatField(blank=True, null=True)
+    cvssV4Source = models.TextField(blank=True, null=True)
+    cvssV4Type = models.TextField(blank=True, null=True)
+    cvssV4Version = models.TextField(blank=True, null=True)
+    cvssV4VectorString = models.TextField(blank=True, null=True)
+    cvssV4BaseScore = models.FloatField(blank=True, null=True)
+    cvssV4BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV4ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV4ImpactScore = models.FloatField(blank=True, null=True)
+    weaknesses = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
+    references = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
+
+    class Meta:
+        """Set Cve model metadata."""
+
+        managed = False
+        db_table = "cve"

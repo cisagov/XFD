@@ -56,17 +56,9 @@ pe-test:
 	  python -m unittest discover -s tests -v
 
 # Audit pinned PE worker dependencies for known CVEs
-# Temporarily ignoring vulns to deploy to staging-cd, will be addressed in sprint 35 (CRASM-4160)
 pe-requirements-audit:
 	python -m pip install -q pip-audit
-	pip-audit -r pe/requirements.txt \
-		--ignore-vuln CVE-2026-48587 \
-		--ignore-vuln CVE-2026-6873 \
-		--ignore-vuln CVE-2026-8404 \
-		--ignore-vuln CVE-2026-48588 \
-		--ignore-vuln CVE-2026-53877 \
-		--ignore-vuln CVE-2026-53878 \
-		--ignore-vuln PYSEC-2026-3717
+	pip-audit -r pe/requirements.txt
 
 # Verify the pe-worker image built from backend/pe/Dockerfile
 PE_SMOKE_ENV = \
@@ -75,7 +67,10 @@ PE_SMOKE_ENV = \
 	-e PE_DB_PASSWORD=smoke \
 	-e PE_API_KEY=smoke-key \
 	-e DB_HOST=localhost \
-	-e PE_API_URL=http://127.0.0.1:8000
+	-e PE_API_URL=http://127.0.0.1:8000 \
+	-e DATABASE_NAME=smoke_cyhy \
+	-e DATABASE_USER=smoke \
+	-e DATABASE_PASSWORD=smoke
 
 pe-worker-smoke:
 	docker run --rm $(PE_SMOKE_ENV) pe-worker pe-source --help

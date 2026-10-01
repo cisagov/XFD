@@ -224,7 +224,7 @@ class RegistryTests(unittest.TestCase):
     def test_shodan_scans_registered(self):
         """Shodan scans should be in KEYED_SCANS."""
         self.assertIn("shodan", KEYED_SCANS)
-        self.assertIn("asmSync", KEYED_SCANS)
+        self.assertIn("asmsync", KEYED_SCANS)
         self.assertIn("shodan_top_cves", KEYED_SCANS)
 
 

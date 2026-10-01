@@ -398,7 +398,7 @@ export const ScanTasksView: React.FC = () => {
     'shodan',
     'lookingGlass',
     'dnstwist',
-    'redshift',
+    'databricks',
     'rootDomainSync',
     'was_sync',
     'was',
@@ -417,7 +417,7 @@ export const ScanTasksView: React.FC = () => {
   const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
 
   const filteredScanNameValues = isLocal
-    ? scanNameValues.filter((name) => name !== 'redshift')
+    ? scanNameValues.filter((name) => name !== 'databricks')
     : scanNameValues;
 
   const scanNameDropdown = (

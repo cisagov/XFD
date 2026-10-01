@@ -44,6 +44,15 @@ DATABASES = {
         "HOST": os.environ.get("DB_HOST", os.environ.get("PE_DB_HOST", "localhost")),
         "PORT": os.environ.get("PE_DB_PORT", "5432"),
     },
+    # CyHy dash DB connection
+    "cyhy_dash_db": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DATABASE_NAME", ""),
+        "USER": os.environ.get("DATABASE_USER", ""),
+        "PASSWORD": os.environ.get("DATABASE_PASSWORD", ""),
+        "HOST": os.environ.get("DATABASE_HOST", "localhost"),
+        "PORT": "5432",
+    },
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

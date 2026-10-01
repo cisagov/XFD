@@ -6,10 +6,6 @@ import os
 from django.core.management.base import BaseCommand
 from django.db import connections
 from xfd_api.tasks.helpers.syncdb_helpers.adjust_columns import adjust_column_types
-from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
-    populate_sample_data,
-    populate_scan_results,
-)
 from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (  # sync_es_cves,
     manage_elasticsearch_indices,
     sync_es_cves,
@@ -138,7 +134,13 @@ class Command(BaseCommand):
         # Step 4: Populate Sample Data
         if populate:
             self.stdout.write("Populating the database with sample data...")
-            populate_sample_data()
+            if os.getenv("IS_DMZ") or os.getenv("IS_LOCAL"):
+                # Third-Party Libraries
+                from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+                    populate_sample_data,
+                )
+
+                populate_sample_data()
 
             self.stdout.write("Sample data population complete.")
 
@@ -153,6 +155,12 @@ class Command(BaseCommand):
 
         # Step 6: Populate Scan Results
         if metrics:
-            self.stdout.write("Generating scan results...")
-            populate_scan_results()
-            self.stdout.write("Scan results population complete.")
+            if os.getenv("IS_DMZ") or os.getenv("IS_LOCAL"):
+                # Third-Party Libraries
+                from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+                    populate_scan_results,
+                )
+
+                self.stdout.write("Generating scan results...")
+                populate_scan_results()
+                self.stdout.write("Scan results population complete.")

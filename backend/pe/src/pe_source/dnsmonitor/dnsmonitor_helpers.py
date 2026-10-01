@@ -97,7 +97,7 @@ def get_domain_alerts(token, domain_ids, from_date, to_date):
     }
     # Make API Call
     try:
-        resp = session.get(url, headers=headers, json=payload, timeout=60)
+        resp = session.get(url, headers=headers, data=payload, timeout=60)
         resp.raise_for_status()
         resp = resp.json()
         return pd.DataFrame(resp)

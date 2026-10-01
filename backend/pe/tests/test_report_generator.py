@@ -13,6 +13,9 @@ import uuid
 os.environ.setdefault("PE_DB_NAME", "pe")
 os.environ.setdefault("PE_DB_USERNAME", "pe")
 os.environ.setdefault("PE_DB_PASSWORD", "test")  # nosec B105
+os.environ.setdefault("DATABASE_NAME", "test_cyhy")
+os.environ.setdefault("DATABASE_USER", "test_user")
+os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 
 # Third-Party Libraries
 from botocore.exceptions import ClientError
