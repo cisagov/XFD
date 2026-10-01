@@ -19,14 +19,14 @@ test Make commands, troubleshooting, updates, and rollback guidance.
 - [Daily report tracker schema](docs/daily_report_tracker_schema.md): canonical
   schema ownership, tracker fields, related tables, and read-only verification.
 - [Live Qualys equivalence runbook](docs/live_qualys_equivalence_runbook.md):
-  controlled evidence for legacy alignment and end-to-end validation.
+  controlled evidence for approved-baseline comparison and end-to-end validation.
 - [Qualys API inventory](docs/qualys_api_inventory.md): active and deliberately
   disabled API calls, request handling, and operational risk.
-- [Legacy workflow migration](docs/legacy_workflow_migration.md): legacy source
-  mapping and the current replacement entry points.
+- [Legacy workflow migration](docs/legacy_workflow_migration.md): historical
+  source mapping and the current replacement entry points.
 - [Authoritative email implementation](wasDailyWasReportMailer_20260910160638/README.md):
-  approved September 21 template composition, subjects, conditional sections,
-  addresses, attachments, and customer examples.
+  approved template composition, subjects, conditional sections, the September
+  30 sender notice, addresses, attachments, and customer examples.
 
 Update the relevant runbooks in the same review as any behavior, command,
 schema, configuration, safeguard, or side-effect change.
@@ -35,28 +35,37 @@ For isolated load testing and production timing metrics, see
 [Capacity testing](docs/capacity-testing.md). The target is 600 report outcomes
 within eight hours through persisted SES acceptance, with no operational tracker
 updates during the isolated test. Keep capacity database settings as
-`TEST_WAS_DB_*` alongside normal `WAS_DB_*` settings in the private `dev.env`
-copied to `.env` on EC2. The capacity launcher selects the test database;
+`TEST_WAS_DB_*` alongside normal `WAS_DB_*` settings only in the private,
+Git-ignored `.env` on EC2. The tracked `dev.env` is a placeholder-only key
+inventory and must never contain populated credentials. The capacity launcher
+selects the test database;
 normal commands retain their ordinary database settings. See the guide for all
 seven required test settings and isolation prerequisites.
 Use `make capacity-start`, `make capacity-continue`, or the explicitly destructive
 `make capacity-start-over`, with `TEST_RECIPIENTS` and `APPLY=1` to execute.
 Counts and new run IDs are automatic by default; omitting `APPLY=1` previews only.
+Capacity `BATCH_DAYS_BACK` must be a positive integer. `1` means today only and
+`7` means today plus the previous six calendar days. Capacity trials do not
+accept `all` because their workload must remain bounded. `BATCH_WORKERS` must be
+between `1` and `30`.
 
 For non-enrolled Qualys tags, see [Standalone reports](docs/standalone-reports.md)
 for the separate menu path, saved delivery address, and comprehensive schema
-reference. The operator has confirmed the standalone database changes are complete.
+reference. Verify each target database against that schema before enabling the
+workflow; a confirmation for another environment is not migration evidence.
 
 WAS Reporting generates Web Application Scanning PDF reports from Qualys data.
 The production implementation runs from `src/was_reports` and
-`src/was_mailer`. Legacy source directories may be retained outside the
-container for historical comparison, but they are not packaged or executable
-through supported commands.
+`src/was_mailer`. Historical runtime source is no longer tracked. A fresh
+checkout does not contain the former runtime directories or files. Any local,
+ignored copies are operator-owned reference material only, are unsupported, and
+must not be invoked by an operational command.
 
 ## Quick Start: Docker On EC2
 
 Operators need Git, Make, a running Docker engine, and approved repository
-access. Python and a uv environment are not required on the host for container
+access. Host production and applied capacity batches also require `tmux`.
+Python and a uv environment are not required on the host for container-only
 commands. The EC2 instance also needs database and Qualys connectivity, S3
 permissions, and permission to assume the configured SES sending role.
 The multi-container batch Make commands are an exception: `recent-scan-batch`
@@ -65,9 +74,11 @@ the project's Python environment and installed requirements (`make install`).
 
 ### First Checkout And Build
 
-From your EC2 home directory, clone the current WAS development branch using
-your approved GitHub SSH access. Do not repeat the clone if this checkout
-already exists; use the update cycle below instead.
+From your EC2 home directory, clone the branch under review using your approved
+GitHub SSH access. The example below is for branch validation only. A feature
+branch is not production deployment authorization. For production, use the
+approved deployment ref or commit recorded in the change record. Do not repeat
+the clone if this checkout already exists; use the update cycle below instead.
 
 ```bash
 mkdir -p ~/code
@@ -101,8 +112,10 @@ directly to customers.
 ### Update And Rebuild Cycle
 
 Finish or reconcile active report jobs before updating. Inspect the checkout
-first; if the branch is not `cd_WAS_update` or there are local source changes,
-resolve that before pulling. Do not discard local work or force-reset it.
+first. Confirm that its ref and commit match the approved change record and
+resolve any local source changes before pulling. Do not discard local work or
+force-reset it. The pull example below applies only while validating the branch
+under review; use the approved deployment ref for production.
 
 ```bash
 cd ~/code/cd_WAS_update
@@ -210,7 +223,12 @@ The script copies `dev.env` to `.env`, sets local file permissions to `600`, and
 refuses to overwrite an existing `.env`. Replace all placeholder values before
 running WAS.
 
-`dev.env` documents the required constants:
+The tracked `dev.env` file is the authoritative environment-key inventory and
+must remain placeholder-only. Never put populated credentials or other
+environment-specific secrets in it. The grouped example below is a reading aid,
+not a replacement for comparing `dev.env` with the ignored `.env` after every
+update. Preserve existing `.env` secrets and values when adding newly required
+keys.
 
 ```bash
 WAS_DB_HOST=replace-me-rds-endpoint
@@ -219,6 +237,14 @@ WAS_DB_USERNAME=was_app
 WAS_DB_PASSWORD=replace-me
 WAS_DB_PORT=5432
 WAS_DB_SSLMODE=require
+WAS_DB_CONNECT_TIMEOUT_SECONDS=10
+TEST_WAS_DB_HOST=replace-me-rds-endpoint
+TEST_WAS_DB_NAME=was_capacity_test
+TEST_WAS_DB_USERNAME=was_capacity_test_user
+TEST_WAS_DB_PASSWORD=replace-me
+TEST_WAS_DB_PORT=5432
+TEST_WAS_DB_SSLMODE=require
+TEST_WAS_DB_CONNECT_TIMEOUT_SECONDS=10
 WAS_QUALYS_USERNAME=replace-me
 WAS_QUALYS_PASSWORD=replace-me
 WAS_QUALYS_HOSTNAME=replace-me-qualys-hostname
@@ -247,13 +273,18 @@ WAS_OUTPUT_DIRECTORY=/output
 WAS_WORKSPACE_ROOT=/tmp/was-report-workspaces
 WAS_REPORT_STAGING_DIRECTORY=/tmp/was-report-storage
 WAS_REPORT_STORAGE=s3
-WAS_REPORTS_BUCKET_NAME=cisa-was-reports
+WAS_REPORTS_BUCKET_NAME=replace-me-approved-environment-bucket
 WAS_REPORTS_PREFIX=was_reports
 WAS_PASSWORD_LENGTH=24
 AWS_DEFAULT_REGION=us-east-1
 WAS_EMAIL_SOURCE=verified-sender@example.gov
 WAS_SES_ROLE_ARN=arn:aws:iam::246048611598:role/SesSendEmail-cyber.dhs.gov
 ```
+
+The current database default, `WAS_DB_SSLMODE=require`, encrypts the PostgreSQL
+connection but does not verify the database server certificate or hostname.
+Use an approved CA and `verify-full` when the deployed database supports that
+configuration. Do not describe the default as server-identity-verified TLS.
 
 Long-running report generation and report-email delivery refresh database lease
 timestamps every `WAS_OPERATION_HEARTBEAT_SECONDS`. A generation claim with no
@@ -267,8 +298,9 @@ Generation and email claims carry unique ownership tokens. An expired worker
 cannot update a replacement worker's state. Heartbeat failures stop subsequent
 side effects rather than silently continuing. S3 keys include a generation token
 so an old worker cannot overwrite the replacement artifact. If upload succeeds
-but database completion is uncertain, retain the object and reconcile the run;
-do not delete the object or resend email blindly.
+but database completion is uncertain, retain the object and preserve the run
+evidence; do not delete the object or resend email blindly. There is no general
+operator command for this state, so escalate for a reviewed recovery decision.
 SES SDK-level retries are disabled for delivery requests, so an uncertain send
 is not repeated internally before the application can place it on hold.
 
@@ -352,6 +384,9 @@ The EC2 role must allow `sts:AssumeRole` on the sending role, that role must
 trust the EC2 role, and the sending role must permit `ses:SendRawEmail` for the
 approved sender identity. Role-assumption failures fail delivery without
 falling back to the EC2 role for SES.
+The current `infrastructure/was-reporting.tf` role does not grant this
+`sts:AssumeRole` permission. Add an approved resource-scoped policy or verify an
+equivalent externally managed policy before any email workflow.
 
 On EC2, replace the unused `WAS_SES_PROFILE` entry in `.env` with the
 `WAS_SES_ROLE_ARN` entry above, retain `AWS_DEFAULT_REGION=us-east-1`, and set
@@ -441,22 +476,31 @@ run-specific key and the resulting S3 URI is stored in
 s3://<WAS_REPORTS_BUCKET_NAME>/<WAS_REPORTS_PREFIX>/<YYYY-MM-DD>/<TAG>/<REPORT_RUN_ID>/<FILENAME>
 ```
 
-The report task needs `s3:PutObject` and `s3:DeleteObject` for the configured
-prefix. Delete permission is used only to make an uploaded object unavailable
-when the corresponding database completion update fails. Because the reports
-bucket is versioned, this operation creates a delete marker rather than
-permanently deleting the stored version. Permanent version retention remains a
-separate bucket-governance decision and is not changed by this application.
-The mailer task needs
-`s3:GetObject` for the same prefix. Grant these permissions to the task or
-instance role, not the execution role or static AWS credentials. `s3:ListBucket`
-is not required. The configured bucket must block public access and encrypt data
-at rest.
+The report generator needs `s3:PutObject` for the configured object prefix, and
+the mailer needs `s3:GetObject` for that prefix. The active report and mailer
+paths do not require `s3:DeleteObject` or `s3:ListBucket`. Grant each process
+only the object action it uses through the task or instance role, not an
+execution role or static AWS credentials. The configured bucket must block
+public access and encrypt data at rest. Bucket versioning, lifecycle, and
+retention remain separate, approved governance decisions.
 
-The staging environment uses the dedicated `cisa-was-reports` bucket through
-`WAS_REPORTS_BUCKET_NAME`. WAS objects remain isolated under
-`WAS_REPORTS_PREFIX=was_reports`. Each deployed environment must supply its own
-bucket name and grant the two object-level permissions before deployment.
+If an S3 upload succeeds but the database completion update is uncertain, the
+current workflow retains the object. Do not delete it or retry report generation
+or email blindly. Preserve the exact S3 URI, run ID, batch ID, and logs, then
+escalate for a reviewed recovery decision after checking database and external
+delivery evidence. The customer-email reconciliation command does not reconcile
+an uncertain S3 completion.
+
+No bucket name is hardcoded by the runtime. `WAS_REPORTS_BUCKET_NAME` is the
+authoritative deployed-environment value, and `WAS_REPORTS_PREFIX` controls the
+object prefix. Do not reuse another environment's bucket. Supply the approved
+bucket name and prefix-scoped permissions before deployment.
+
+The current `infrastructure/was-reporting.tf` policy is not the final
+least-privilege runtime policy: it includes `s3:DeleteObject`, limits object
+access to `was_reports/*`, and does not authorize the capacity
+`capacity/<run-id>` prefix. Review and correct that policy, or verify an
+equivalent externally managed policy, before production or capacity use.
 
 Existing databases require a DBA-reviewed additive change for the report-run
 claim columns and indexes before deploying this code. Use
@@ -856,7 +900,16 @@ is non-destructive and does not delete Qualys web applications. It is not an
 isolated capacity test. Capacity workflows are also non-destructive. Both host
 workflows save their selected workload
 and include completed tracker reports still awaiting delivery. Existing
-running or sending operations require reconciliation before a new run.
+running or sending operations must be resolved through the supported
+customer-delivery reconciliation path or escalated before a new run.
+
+The menu's production delivery choice and a direct `docker run --recent-scans`
+command are single-process, non-destructive paths. They do not opt into Qualys
+web-application deletion. A row that requires deletion remains `MANUAL` on
+those paths. Only the host `make recent-scan-batch` command without test
+recipients enables the guarded deletion flow. Use that command only during an
+approved production operation, and review the tracker and Qualys deletion
+evidence before retrying a failed run.
 
 Quit and Back to main menu are always option `0`, displayed first. Enter `b`
 at a submenu selection as an alternate way to return to the main menu.
@@ -889,7 +942,8 @@ report processing, and the operator receives a specific correction message.
 A successful test delivery still marks its report run and linked tracker row as
 sent, so operators must use it only for approved test data. Production mode uses
 the customer technical and distribution addresses and requires the operator to
-type `SEND CUSTOMER REPORTS` before the batch starts. The operator can also
+type `SEND CUSTOMER REPORTS` before the batch starts. In the menu, production
+describes customer delivery, not Qualys deletion behavior. The operator can also
 enter a positive maximum report count, such as `25`, or accept `all` to process
 every eligible report. The limit applies after eligibility and duplicate checks.
 
@@ -914,9 +968,19 @@ such as `make menu` use the existing `was-reporting` image and do not rebuild it
 automatically. A rebuild is not required when only `.env` values change because
 Docker loads that file when each container starts.
 
+The current image is not a byte-for-byte reproducible build. Its base image uses
+the mutable `python:3.12-slim-trixie` tag and most entries in `requirements.txt`
+are not pinned to exact versions. Rebuilds therefore require normal validation
+even when the application commit has not changed.
+
 The image normalizes packaged source and resource permissions during the build
 so operators can run commands with the host user's UID instead of container
 root, even when the checkout was created with a restrictive host `umask`.
+The `Dockerfile` does not declare a `USER`, so a direct `docker run` command
+without `--user` runs as container root. Supported Make targets that write
+host-mounted output add the invoking operator's UID and GID. For a direct
+command that mounts host storage, supply `--user "$(id -u):$(id -g)"` unless
+the approved procedure specifically requires another identity.
 
 Smoke test the container command routing without database or Qualys access:
 
@@ -979,6 +1043,22 @@ run disjoint report partitions in multiple containers:
 ```bash
 make recent-scan-batch
 ```
+
+The host Make target submits a detached `tmux` session. Its successful return
+confirms submission, not batch success. Do not wrap it in `nohup`; `tmux`
+provides detachment, and a redirected launcher file captures only launcher
+output, not the retained coordinator console. Use the status, console, and log
+commands below to confirm that the coordinator started and reached each phase.
+
+Some invalid inputs fail before the coordinator can create batch state. An
+invalid production `BATCH_DAYS_BACK` value fails before a `tmux` session is
+created. Invalid worker counts, test recipients, database configuration, or
+other startup validation can fail inside the detached session before tracker
+refresh or preflight. In either case, no tracker-completion email or final
+summary is produced because no batch ran. Inspect the launcher output and then
+the session status, console, and batch logs. Correct the input or environment
+only after confirming that no external work began. Do not treat a missing
+summary by itself as authorization to retry.
 
 `BATCH_WORKERS` defaults to `30` and must be between `1` and `30`. Each worker
 container receives a non-overlapping stakeholder partition so two reports for
@@ -1060,11 +1140,25 @@ failures. It previews by default and rechecks sent, held, overlap, stakeholder,
 execution, and uncertain-creation safeguards before application. See
 [`docs/manual-report-recovery.md`](docs/manual-report-recovery.md).
 
-### Customer email dates and attachment names
+### Customer email sender notice, dates, and attachment names
 
-Customer email corrections approved September 23 retain the source questions
-address `vulnerability@cisa.dhs.gov`; the signature remains
-`reports@cyber.dhs.gov`. Customer PDF attachments use
+Every customer template, including All NWS and FCEB variants, begins with this
+approved notice in plain text and HTML:
+
+> *Notice: WAS reports now come from this email address:
+> reports@cyber.dhs.gov. Please reference the email, "Cyber Hygiene (CyHy) WAS
+> Report Email Address Change", sent from vulnerability@cisa.dhs.gov on
+> 9/30/26. Inquiries should still be sent to vulnerability@cisa.dhs.gov.*
+
+The notice is the first section of the customer template. In a redirected
+customer test delivery, the separate `TEST DELIVERY ONLY` safety banner is
+prepended outside that template and therefore appears above the notice.
+Analyst-only messages do not use the customer template and do not include this
+notice.
+
+Customer email corrections retain the source questions address
+`vulnerability@cisa.dhs.gov`; the signature remains `reports@cyber.dhs.gov`.
+Customer PDF attachments use
 `<TAG>_WAS_report_<YYYY-MM-DD>.pdf`. The date remains the existing report artifact
 date. Unique internal artifact paths and S3 keys are retained to avoid overwrites.
 
@@ -1164,7 +1258,9 @@ for existing tracker data; it does not discover every historical execution or
 override newest-row selection. Use it only for an intentional historical
 reconciliation. After refreshing
 the tracker and before starting any report worker, the Make target runs a
-read-only preflight. It prints the eligible candidate total, counts by template,
+read-only candidate-selection preflight. The preceding tracker refresh can
+write tracker rows and, in true host production, can perform guarded Qualys
+deletions. The preflight prints the eligible candidate total, counts by template,
 and the number of Qualys-error overlays. The five phase messages identify tracker
 refresh, preflight, generation, report delivery, and assignee digest delivery.
 Each worker also reports its candidate fraction, such as `3/8`.
@@ -1227,7 +1323,7 @@ docker run --rm \
   --continue-on-error \
   --send-email \
   --send-assignee-digests \
-  --test-recipients "operator@example.gov"
+  --test-recipients "approved.analyst@example.gov"
 ```
 
 Test one candidate without sending SES email. This still performs Qualys report
@@ -1242,7 +1338,7 @@ docker run --rm \
   --continue-on-error \
   --send-email \
   --send-assignee-digests \
-  --test-recipients "operator@example.gov" \
+  --test-recipients "approved.analyst@example.gov" \
   --dry-run-email \
   --limit 1
 ```
@@ -1285,7 +1381,7 @@ docker run --rm \
   --entrypoint ./worker/was-mailer-start.sh \
   was-reporting \
   --all-ready \
-  --test-recipients "operator@example.gov" \
+  --test-recipients "approved.analyst@example.gov" \
   --dry-run \
   --limit 1
 ```
@@ -1316,8 +1412,10 @@ Tracker templates control delivery behavior:
   successfully. A separate destructive-action audit record remains deferred to
   its approved future sprint.
 - Opt-in deletion first commits a `MANUAL QUALYS DELETION PENDING` tracker
-  claim. Interrupted or failed deletions require reconciliation, not automatic
-  replay. A non-destructive `QUALYS DELETION REQUIRED` row from an assignee-test
+  claim. Interrupted or failed deletions are not automatically replayed, and the
+  repository has no supported deletion-reconciliation command. Preserve the
+  evidence and escalate for per-URL Qualys verification. A non-destructive
+  `QUALYS DELETION REQUIRED` row from an assignee-test
   or capacity/test run can be processed by a subsequent true production or
   explicit deletion refresh before reporting has started.
 - Historical date-only rows with the same schedule and Eastern scan date
@@ -1332,9 +1430,12 @@ the approved Cyber Hygiene and scanner allowlist links, and retain the temporary
 sensitive-data attachment notice until Qualys restores that capability. Removal
 eligibility uses two consecutive inaccessible scans.
 
-The supplied Outlook `.msg` files are the source for customer-facing email
-wording. Their reusable sections are maintained in
-`src/was_mailer/customer_email_templates.py` and composed by
+The controlled September 21 template archive supersedes the earlier Outlook
+`.msg` examples as the approved source for customer-facing wording. Its reusable
+sections and recorded source hashes are maintained in
+`src/was_mailer/authoritative_email_sections.py`; the September 30 sender notice
+is maintained in `src/was_mailer/customer_email_templates.py`. The sections are
+composed by
 `src/was_mailer/message.py` according to the tracker outcome. Report-only
 sections are omitted for notification runs without a PDF, and NWS, FCEB,
 removed-target, and Qualys-error sections are included only when applicable.
@@ -1425,7 +1526,7 @@ docker run --rm \
   was-reporting \
   --assignee-digests \
   --batch-id BATCH_ID \
-  --test-recipients "operator@example.gov" \
+  --test-recipients "approved.analyst@example.gov" \
   --dry-run
 ```
 
@@ -1654,9 +1755,10 @@ It requires explicit confirmation internally and will not overwrite an existing
 sent date. In the interactive menu, this operation displays manual tracker rows
 first, with optional assignee, date-window, and row-limit filters, so the
 operator can select the correct tracker row ID without leaving the workflow.
-Do not use this tracker-only command for a linked held `was_report_runs` email.
-Use `make reconcile-email-delivery` so run, tracker, and batch-attempt state are
-changed together.
+Do not use this tracker-only command for a linked held customer-purpose
+`was_report_runs` email. Use `make reconcile-email-delivery` so run, tracker,
+and batch-attempt state are changed together. Held analyst-purpose and standalone
+delivery are not supported by that command and must be preserved and escalated.
 
 ### View Persisted Report Errors
 
@@ -1846,53 +1948,88 @@ transient container output alone is not a durable centralized audit log.
 
 ## Makefile Shortcuts
 
-Run these from `backend/was`:
+Run these from `backend/was`. Replace every example value with an approved real
+value. Placeholder recipient addresses are intentionally rejected by guarded
+targets.
 
-```bash
-make build
-make menu
-make test
-make lint
-make xml-help
-make inventory
-make admin-help
-make stakeholders-help
-make special-cases
-make stakeholder-export
-make tracker-csv
-make tracker-csv ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
-make tracker-table ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7
-make tracker-table REPORT_STATUS=manual DAYS_BACK=7
-make report-errors DAYS_BACK=7
-make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-02
-make update-tracker
-make update-tracker-delete-apps
-make assignee-digests
-make recent-scan-batch
-make recent-scan-batch BATCH_WORKERS=30
-make recent-scan-batch-assignee-test TEST_RECIPIENTS="analyst@example.gov"
-make recent-scan-batch-test TEST_RECIPIENTS="operator@example.gov"
-make recent-scan-batch-preflight
-make recent-scan-batch-cleanup
-make recent-scan-batch-cleanup TMUX_CLEANUP_APPLY=1
-make tmux-cleanup TMUX_CLEANUP_APPLY=1
-make single-report TAG="CUSTOMER_TAG"
-make manual-report TAG="CUSTOMER_TAG"
-make on-demand-report TAG="CUSTOMER_TAG"
-make recover-manual-reports MANUAL_TRACKER_IDS="123" \
-  RECOVERY_CAUSE="password-validation"
-make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="analyst@example.gov"
-make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123,456" \
-  TEST_RECIPIENTS="analyst@example.gov"
-make capacity-start TEST_RECIPIENTS="analyst@example.gov"
-make capacity-continue APPLY=1 TEST_RECIPIENTS="analyst@example.gov"
-make capacity-cleanup
-make capacity-cleanup TMUX_CLEANUP_APPLY=1
-make logs-latest
-make logs-summary LOG_BATCH_ID="<batch-uuid>"
-make logs-errors LOG_BATCH_ID="<batch-uuid>"
-make logs-tag LOG_BATCH_ID="<batch-uuid>" LOG_TAG="CUSTOMER_TAG"
-```
+### Build, help, and read-only inspection targets
+
+| Target | Required input and effect |
+| --- | --- |
+| `make install` | Installs the host Python requirements and editable package. |
+| `make test` | Runs the WAS unit-test suite. |
+| `make lint` | Runs the repository's WAS flake8 command. |
+| `make build` | Rebuilds the local `was-reporting` image. |
+| `make menu` | Opens the interactive menu with live environment access. Menu choices can write data or send email after confirmation. |
+| `make help`, `make report-help`, `make xml-help`, `make admin-help`, `make mailer-help`, `make stakeholders-help` | Displays the corresponding command help. |
+| `make inventory` | Queries live inventory and writes output under `local-output`; it does not change Qualys or the database. |
+| `make special-cases` | Lists active database special cases. |
+| `make stakeholder-export` | Reads stakeholder data and writes `local-output/was-stakeholders.csv`. |
+| `make tracker-csv` | Exports all tracker rows. `ASSIGNEE="ASSIGNEE NAME" DAYS_BACK=7` applies both filters. |
+| `make tracker-table DAYS_BACK=7` | Displays tracker rows. Optional `ASSIGNEE` and `REPORT_STATUS` narrow the query. |
+| `make report-errors DAYS_BACK=7` | Displays report errors. Optional `TAG` narrows the query. |
+| `make recent-scan-batch-preflight BATCH_DAYS_BACK=7` | Runs read-only candidate selection in the image. Optional `TAG` scopes it. It does not refresh the tracker. |
+| `make recent-scan-batch-preflight-local BATCH_DAYS_BACK=7` | Host-Python equivalent of the preceding read-only preflight. It requires the installed project environment. |
+| `make logs-latest` | Summarizes the latest retained batch logs. |
+| `make logs-summary LOG_BATCH_ID="<batch-uuid>"` | Summarizes one required batch ID. |
+| `make logs-errors LOG_BATCH_ID="<batch-uuid>"` | Shows errors for one required batch ID. |
+| `make logs-tag LOG_BATCH_ID="<batch-uuid>" LOG_TAG="CUSTOMER_TAG"` | Shows one required tag in one required batch. |
+
+### Data-changing and delivery targets
+
+| Target | Required input and effect |
+| --- | --- |
+| `make stakeholder-import INPUT_CSV="/approved/file.csv"` | Validates, prepares, and imports stakeholder rows after the command's confirmation checks. |
+| `make tracker-import INPUT_XLSX="/approved/file.xlsx"` | Imports tracker data after confirmation. |
+| `make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-02` | Writes the supplied sent date to the exact tracker row after confirmation. |
+| `make update-tracker` | Refreshes tracker data from Qualys without deleting web applications. |
+| `make update-tracker-delete-apps` | **Destructive.** Refreshes the tracker and opts into guarded deletion of eligible Qualys web applications. Use only in an approved production operation. |
+| `make assignee-digests BATCH_ID="<batch-uuid>"` | Requires `BATCH_ID` and renders the final combined summary in dry-run mode. It does not call SES. |
+| `make single-report TAG="CUSTOMER_TAG"` | Refreshes the exact tag, generates and uploads its eligible report, sends customer email, and updates database state. |
+| `make manual-report TAG="CUSTOMER_TAG"` | Processes one eligible manual tracker row without refreshing the tracker, then uploads, emails, and updates state. |
+| `make on-demand-report TAG="CUSTOMER_TAG"` | Creates a new analyst-purpose report and uploads it to S3. `SEND_EMAIL=1` additionally requires approved `TEST_RECIPIENTS`. |
+| `make recover-manual-reports MANUAL_TRACKER_IDS="123" RECOVERY_CAUSE="password-validation"` | Preview only by default. Only the documented password-validation and Qualys read-timeout recovery causes are supported. Apply requires the documented confirmation variables. |
+| `make reconcile-email-delivery REPORT_RUN_ID=3703` | Inspects one held run by default. State-changing actions require the documented evidence, confirmation, and apply variables. |
+| `make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a replay selection by default. Applied execution requires a stable `REPLAY_ID` and explicit source IDs. |
+| `make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123,456" TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a non-destructive Targets Removed replay by default. It never deletes Qualys applications. |
+
+### Production batch targets
+
+| Target | Required input and effect |
+| --- | --- |
+| `make recent-scan-batch` | Starts the detached host production coordinator with `30` workers and a seven-date report window by default. It refreshes the production tracker, enables guarded Qualys deletion, generates and uploads reports, sends customer email and both summaries, and writes tracker and run state. |
+| `make recent-scan-batch BATCH_WORKERS=30 BATCH_DAYS_BACK=7` | Same production workflow with explicit validated worker and report windows. Production also accepts the intentionally unbounded `BATCH_DAYS_BACK=all`. |
+| `make recent-scan-batch-assignee-test TEST_RECIPIENTS="approved.analyst@example.gov"` | Uses the production database and live Qualys/S3/SES paths, sends only to email-enabled assignees, updates successful tracker rows as sent, and disables Qualys web-application deletion. |
+| `make recent-scan-batch-test TEST_RECIPIENTS="approved.analyst@example.gov"` | Runs a one-candidate, single-container dry-run-email test. It still refreshes the production tracker, calls Qualys, can create a missing password, generates and uploads a report, and writes report-run state. It does not send SES email and does not prove the detached production coordinator. |
+| `make recent-scan-batch-status` | Reports the retained production session state. |
+| `make recent-scan-batch-console` | Prints the retained production coordinator console. Optional `TMUX_LINES` controls the line count. |
+| `make recent-scan-batch-attach` | Attaches interactively to the retained production session. Detach without terminating it. |
+| `make recent-scan-batch-stop` | Requests a guarded stop of the active production session. Confirm external state before any restart. |
+| `make recent-scan-batch-cleanup` | Previews eligible completed production sessions older than the configured retention window. `TMUX_CLEANUP_APPLY=1` performs the cleanup. Failed sessions require explicit acknowledgement and an exact `TMUX_SESSION`. |
+
+### Capacity targets
+
+| Target | Required input and effect |
+| --- | --- |
+| `make capacity-start TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a new isolated capacity trial by default. `APPLY=1` launches it in detached `tmux`, uses `TEST_WAS_DB_*`, and sends only to approved test recipients. |
+| `make capacity-continue TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews continuation of the latest unfinished trial. `APPLY=1` resumes it; `CAPACITY_CONTINUE_RUN_ID` selects a specific unfinished trial. |
+| `make capacity-start-over TEST_RECIPIENTS="approved.analyst@example.gov"` | **Destructive when `APPLY=1`.** Resets isolated capacity data and history, then starts a new applied trial. |
+| `make capacity-database-reset` | Previews an isolated capacity-database reset. `APPLY=1` performs the destructive reset. |
+| `make capacity-status`, `make capacity-console`, `make capacity-attach`, `make capacity-stop` | Status, retained console, interactive attach, and guarded stop for the capacity session. |
+| `make capacity-cleanup` | Previews eligible completed capacity sessions. `TMUX_CLEANUP_APPLY=1` performs cleanup; failed sessions require explicit acknowledgement and exact session selection. |
+| `make tmux-cleanup` | Previews both production and capacity cleanup. `TMUX_CLEANUP_APPLY=1` applies both cleanup workflows. |
+
+`capacity-test` is the shared implementation target behind `capacity-start` and
+`capacity-continue`; operators should use the named start and continuation
+commands. Targets beginning with an underscore are Makefile internals and are
+not supported operator entry points.
+
+The checked-in systemd cleanup unit is hardcoded for user and group `ubuntu`
+and working directory `/home/ubuntu/code/cd_WAS_update/backend/was`. It is valid
+only for that exact host layout. If the deployment account or path differs, do
+not install the unit verbatim. Have the system administrator review and adapt
+the unit under the approved change process, then verify its preview and applied
+cleanup behavior with the operator setup runbook.
 
 ## Reconcile Held Email Delivery
 
@@ -2057,9 +2194,9 @@ make on-demand-report TAG="CROSSFEED" SEND_EMAIL=1 \
 The command prints the new run ID, S3 reference, and SES message ID. It uses
 the stakeholder's stored encryption password, generating and storing one only
 if missing. It sends no assignee digest. Successful SES acceptance is not
-proof of inbox delivery. Every supplied recipient must match an active,
-email-enabled address in `was_assignees`; customer contacts are rejected for
-on-demand delivery.
+proof of inbox delivery. Every supplied recipient must match an email-enabled
+address in `was_assignees`; the assignee row may be inactive.
+Customer contacts are rejected for on-demand delivery.
 
 In `make menu`, select **Report generation**, then **4, Generate an on-demand
 report to S3 (optional email)**. Enter the enrolled stakeholder tag, choose whether
@@ -2071,10 +2208,16 @@ driven and are not force-generation commands.
 For a real, unsent tracker row belonging to this tag, add `TRACKER_ID=123` to
 the Make command or supply it at the menu prompt. Replace `123` with the actual
 tracker ID, not a report-run ID. The row must not already have a linked run.
-Analyst delivery does not mark that tracker row as sent to the customer.
+Analyst delivery does not mark that tracker row as sent to the customer, even
+when an explicit tracker link and override recipient are supplied. The link is
+provenance only and does not satisfy customer delivery.
 Without an explicit tracker ID, only `was_report_runs` is updated; no scan
-records or scan dates are fabricated. An override recipient still marks an
-explicitly linked tracker row sent, so use a designated test row for testing.
+records or scan dates are fabricated. A linked analyst run prevents ordinary
+tracker generation from creating another run for that row while the customer
+sent date remains empty. Use only a designated test or reconciliation row.
+There is no supported automatic unlink or conversion command. Preserve the run
+and tracker IDs and escalate for reviewed reconciliation instead of editing
+database state or regenerating blindly.
 
 On-demand reports start with `email_status=held`. Scheduled/bulk mailers do
 not pick them up, including when an explicit email attempt fails. This prevents
@@ -2097,8 +2240,9 @@ email; it is not an email-retry operation. Concurrent on-demand claims for the
 same tag serialize through a stakeholder-row lock and reject an existing active
 run. Existing scheduled batch eligibility is unchanged. A previous email error
 prevents the direct mailer from reclaiming the held run. A crashed run left in
-`running` or an uncertain email left in `sending` or `held` needs the guarded
-reconciliation workflow, not blind regeneration or database status resets.
+`running` or an uncertain analyst email left in `sending` or `held` must be
+preserved and escalated, not blindly regenerated or reset in the database. The
+guarded reconciliation command supports customer-purpose delivery only.
 
 The lower-level `was-report-on-demand` CLI defaults to archive-only and requires
 `--send-email` plus `--test-recipients` containing only email-enabled
@@ -2110,9 +2254,10 @@ recipients in the direct mailer as well as the menu. An initial held analyst run
 must have no previous email error. Reconciled held customer runs use a separate
 claim path that requires a one-time token bound to the selected recipient
 scope. Neither claim path changes the stored delivery purpose or customer
-template. The operator-confirmed database changes are complete; deploy
-against the comprehensive schema documented above. Verify schema readiness
-separately for any other environment.
+template. Deploy only after the target database has been verified against the
+comprehensive schema documented above. The repository has no startup
+schema-version check or complete migration chain, so an earlier confirmation
+for another environment is not sufficient.
 
 Follow `docs/live_qualys_equivalence_runbook.md` for S3, database, inbox, and
 failure verification. Do not declare the live test passed solely because a

@@ -13,15 +13,23 @@ inventory CLI remains available for explicit use.
 ## Report generation
 
 1. Run the complete recent scan batch. This action runs inside the single menu
-   container. For the normal production topology with the host coordinator and
-   separate parallel worker containers, exit the menu and use
-   `make recent-scan-batch`.
+   container. Both its test-recipient and customer-recipient choices keep Qualys
+   web-application deletion disabled. This menu action can generate, archive,
+   email, and update tracker delivery state, but it is not the destructive
+   production deletion path. For the normal production topology with the host
+   coordinator, separate parallel worker containers, and guarded deletion of
+   eligible non-FCEB inaccessible applications, exit the menu and use
+   `make recent-scan-batch` after following the production runbook.
 2. Process eligible automated tracker reports: no tag prompt, no report-count
    limit; uses existing tracker rows and asks for the window (7 days by default,
    or `all`). Existing newest-row eligibility and duplicate guards still apply.
    Requires confirmation before customer delivery.
 3. Process an eligible manual tracker report.
-4. Generate an on-demand report to S3 (optional email), for enrolled stakeholders.
+4. Generate an on-demand report to S3 (optional analyst email), for enrolled
+   stakeholders. A linked tracker row remains unsent because analyst delivery is
+   not customer delivery, but the report-run link prevents the ordinary customer
+   workflow from claiming that row. Use only a designated test row, not an
+   operational row that still needs customer delivery.
 5. Generate a standalone report for a Qualys tag NOT in the stakeholder database.
 
 Capacity testing is intentionally not in this menu. Use `make capacity-start`
@@ -52,7 +60,10 @@ remain. Additional actions:
   stale edits, sent rows, active digest delivery, or any row already linked to a
   report run. Identity, scan dates, passwords, assignments, and delivery history
   are protected. It never resets a claim, reruns generation, sends mail, or changes
-  Qualys. Existing failed/held report runs require separate reconciliation.
+  Qualys. The guarded reconciliation command supports held customer delivery
+  only. Held analyst or standalone delivery and pending or failed Qualys deletion
+  have no supported menu recovery action; preserve evidence and escalate rather
+  than editing the row.
   Customer email addresses must be corrected in Stakeholder Management.
 
 CLI examples:
@@ -75,7 +86,8 @@ removes a value. Add shows the known CI type, testing sector, subtype, and
 frequency options. State remains a direct entry with the INTERNATIONAL guidance.
 These suggestions do not introduce new enum validation.
 
-These menu/tracker changes require no additional schema migration. The operator
-has confirmed the standalone-report database changes are complete. This workflow
-assumes the schema described in [standalone reports](standalone-reports.md#database-schema-and-deployment),
+These menu and tracker changes introduce no separate schema beyond the
+requirements documented by their workflows. Verify every target environment
+against [standalone reports](standalone-reports.md#database-schema-and-deployment),
 with `schema/stakeholders_table_creation.sql` as the comprehensive reference.
+Do not treat an earlier confirmation for one database as evidence for another.

@@ -1,11 +1,12 @@
 # WAS Report Mailer Email Templates
 
 This directory documents the exported historical Power Automate flow named
-`dailywas - Report Mailer`. The original export may be reviewed locally under
-`Microsoft.Flow/flows/`, but it is intentionally excluded from source control
-because it contains tenant, connection, chat, SharePoint, and user identifiers.
-The active WAS Python mailer does not execute the exported flow or read email
-content from `definition.json`.
+`dailywas - Report Mailer`. Only this README is tracked in Git. A historical
+export may exist locally under `Microsoft.Flow/flows/`, but the export and its
+manifest are intentionally excluded from source control because they contain
+tenant, connection, chat, SharePoint, and user identifiers. The active WAS
+Python mailer does not execute the exported flow or read email content from
+`definition.json`.
 
 The current customer email implementation uses the approved Outlook `.msg`
 templates supplied with the WAS project. The approved wording was separated
@@ -24,7 +25,8 @@ The relevant runtime files are outside this export directory:
   recipients, and attachment, then sends the composed MIME message through SES.
 - `../src/was_reports/resources/assets/CISA_logo_email.png` is the packaged copy
   of the individual CISA logo used at the bottom of the HTML alternative. The
-  original remains at `../was_report/assets/CISA_logo_email.png`.
+  historical `../was_report/` source tree is absent from Git and is not a
+  runtime fallback.
 
 The Python mailer is the source of truth for current production behavior. The
 Power Automate JSON documents the workflow that preceded it.
@@ -33,18 +35,45 @@ Power Automate JSON documents the workflow that preceded it.
 
 The approved source is `WAS_EMAIL_templates_Newest9_21.zip`. Its component DOCX
 files and flowchart supersede the earlier Outlook `.msg` examples. The archive
-is not read at runtime. Exact text and formatting extracted from it are stored
-in `../src/was_mailer/authoritative_email_sections.py`, together with the source
-archive and component SHA-256 values. Customer wording must not be rewritten
-without a newly approved source.
+is not tracked in Git or read at runtime. Exact text and formatting extracted
+from the controlled source are stored in
+`../src/was_mailer/authoritative_email_sections.py`, together with the recorded
+source archive and component SHA-256 values. Customer wording must not be
+rewritten without a newly approved source.
 
 `customer_email_templates.py` performs only documented placeholder
 substitution and section selection. It does not paraphrase the source sections.
 
+## September 30 sender-change notice
+
+Every customer-template variant begins with this exact operator-approved
+notice:
+
+```text
+Notice: WAS reports now come from this email address: reports@cyber.dhs.gov. Please reference the email, "Cyber Hygiene (CyHy) WAS Report Email Address Change", sent from vulnerability@cisa.dhs.gov on 9/30/26. Inquiries should still be sent to vulnerability@cisa.dhs.gov.
+```
+
+This applies to `Results`, `Action Required`, `FCEB Action Required`, `Targets
+Removed`, `All NWS`, and `FCEB All NWS`. In plain text, the notice is the first
+body paragraph and is followed by one blank line. In HTML, it is the first body
+block, the notice is italicized, and both occurrences of
+`vulnerability@cisa.dhs.gov` are bold. The source title and POC line follow it.
+
+Redirected assignee-test and other test-recipient customer deliveries retain a
+mandatory `TEST DELIVERY ONLY` banner as the first overall block. In those
+messages, the sender-change notice is immediately after that safety banner and
+remains the first block of the preserved customer template. This placement
+prevents a test message from appearing to be a production customer delivery.
+
+Analyst-only report copies, standalone report delivery, assignee digests, and
+stakeholder exports do not render the customer template and therefore do not
+receive this customer sender-change notice.
+
 ## Composition strategy
 
-Customer deliveries start with the source title and the exact POC line. The
-mailer does not invent a `Hello` salutation when a POC is present:
+Customer deliveries start with the September 30 sender-change notice described
+above. The source title and exact POC line follow. The mailer does not invent a
+`Hello` salutation when a POC is present:
 
 ```text
 WAS Results for EXAMPLE
@@ -162,6 +191,8 @@ dates, and URLs are examples.
 ```text
 Subject: EXAMPLE - WAS Results
 
+Notice: WAS reports now come from this email address: reports@cyber.dhs.gov. Please reference the email, "Cyber Hygiene (CyHy) WAS Report Email Address Change", sent from vulnerability@cisa.dhs.gov on 9/30/26. Inquiries should still be sent to vulnerability@cisa.dhs.gov.
+
 WAS Results for EXAMPLE
 
 Jordan Smith,
@@ -190,7 +221,7 @@ Regards,
 Assigned Analyst
 Web Application Scanning (WAS)
 Cybersecurity and Infrastructure Security Agency (CISA)
-Email: reports@cyber.dhs.gov
+Email: reports@cyber.dhs.gov (Not monitored)
 
 [Individual CISA logo appears here in the HTML version]
 ```
@@ -245,6 +276,8 @@ An `All NWS` outcome does not attach a PDF and begins as follows:
 ```text
 Subject: EXAMPLE - WAS Report Not Generated - Action Required
 
+Notice: WAS reports now come from this email address: reports@cyber.dhs.gov. Please reference the email, "Cyber Hygiene (CyHy) WAS Report Email Address Change", sent from vulnerability@cisa.dhs.gov on 9/30/26. Inquiries should still be sent to vulnerability@cisa.dhs.gov.
+
 WAS Report for EXAMPLE could not be generated
 
 Jordan Smith,
@@ -266,7 +299,7 @@ Regards,
 Assigned Analyst
 Web Application Scanning (WAS)
 Cybersecurity and Infrastructure Security Agency (CISA)
-Email: reports@cyber.dhs.gov
+Email: reports@cyber.dhs.gov (Not monitored)
 
 [Individual CISA logo appears here in the HTML version]
 ```
@@ -276,6 +309,8 @@ Email: reports@cyber.dhs.gov
 The same content is sent as both plain text and HTML. The HTML alternative:
 
 - escapes all tracker and stakeholder values before rendering them;
+- places the italicized September 30 sender-change notice above the source
+  heading and bolds its inquiry address;
 - renders list values as semantic bullet lists;
 - preserves the approved bold, italic, underline, and highlighted sections;
 - includes a descriptive `WAS Results for <TAG>` heading;

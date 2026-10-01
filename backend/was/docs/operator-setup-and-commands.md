@@ -29,8 +29,8 @@ operational approval before any command that changes external state.
 Confirm the host has:
 
 - approved GitHub SSH access to `cisagov/XFD`;
-- Git, GNU Make, Python 3.12 or a compatible project-approved version, and
-  Docker;
+- Git, GNU Make, Python 3.12 or a compatible project-approved version, Docker,
+  and `tmux`;
 - network access to the configured PostgreSQL and Qualys endpoints;
 - an EC2 instance role with the approved S3 access and permission to assume
   `WAS_SES_ROLE_ARN`;
@@ -40,6 +40,31 @@ Confirm the host has:
 
 Do not put passwords, tokens, reports, database dumps, or `.env` in Git. Do not
 enable shell tracing while handling credentials.
+
+### Infrastructure and host rebuild boundary
+
+The repository Terraform creates the WAS EC2 instance, instance profile, SSM
+core attachment, and an object policy limited to `was_reports/*` in an existing
+bucket. It does not create the database, report bucket, SES sending role or trust
+policy, secrets, repository checkout, application image, cleanup timer, or
+central log forwarding. It also does not currently grant `sts:AssumeRole` for
+`WAS_SES_ROLE_ARN`, authorize the capacity `capacity/<run-id>` S3 prefix, or
+install `tmux`. Treat each missing prerequisite as a deployment blocker until an
+approved resource-scoped policy or separately managed control is verified.
+Because the bucket is external to this Terraform, separately verify its public
+access block, encryption, transport policy, ownership controls, approved
+versioning, lifecycle, retention, and logging configuration before live use.
+
+The tracked `scripts/capture_host_packages.py` script records a private host
+software inventory. The tracked `scripts/rebuild_was_host_ubuntu24.py` script is
+tailored to the recorded September 4, 2026 Ubuntu 24.04 x86-64 host inventory.
+It previews by default, requires `--apply --acknowledge-manual-items` for writes,
+and returns exit code `2` from `--verify` when software checks pass but manual
+rebuild items remain. Neither script is a complete production bootstrap. The
+rebuild script does not restore secrets, IAM, data, services, the checkout, or
+the image, and its current package list includes `screen` rather than required
+`tmux`. Use these scripts only through an approved host-recovery change, retain
+their evidence privately, and complete this runbook's prerequisites separately.
 
 ## First checkout
 
@@ -65,8 +90,8 @@ path to Make instead of creating the expected local environment:
 make install PYTHON="/absolute/path/to/python"
 ```
 
-`make install` must complete before using host-side batch, capacity, alignment,
-or structured-log commands. If Python reports that `pip` is unavailable, repair
+`make install` must complete before using host-side batch, capacity, or
+structured-log commands. If Python reports that `pip` is unavailable, repair
 or recreate the environment before continuing. Do not bypass dependency
 installation by invoking internal modules from an incomplete environment.
 
@@ -74,6 +99,16 @@ Populate `.env` from the approved secret source. `dev.env` documents names and
 safe defaults only. Replace every placeholder and keep the file private. See
 the [main README environment section](../README.md#local-environment-file) for
 the current variable inventory.
+
+Before every live use, verify the EC2 file is owned by the operator and has mode
+`0600`:
+
+```bash
+stat -c '%U %G %a %n' .env
+```
+
+Stop if the output is not the expected operator identity and permission mode.
+Do not print the file contents while troubleshooting permissions.
 
 ## Build and verify
 
@@ -90,6 +125,8 @@ Verify that Docker can start the image and expose the supported commands:
 
 ```bash
 docker image inspect was-reporting >/dev/null
+command -v tmux
+tmux -V
 make help
 make report-help
 make mailer-help
@@ -100,6 +137,18 @@ database identity, Qualys retrieval, S3 archival, SES acceptance, PDF content,
 or inbox delivery. Use the
 [live validation runbook](live_qualys_equivalence_runbook.md) for controlled
 end-to-end evidence.
+
+The current `Dockerfile` has no `USER` instruction. Direct `docker run`
+commands therefore run as container root unless they include `--user`.
+Supported Make targets that write mounted host output use the operator's UID and
+GID. The base image tag and most Python requirements are also not pinned to
+immutable versions, so every rebuild needs the validation above even when the
+application commit is unchanged.
+
+The default `WAS_DB_SSLMODE=require` encrypts PostgreSQL traffic but does not
+verify the database server certificate or hostname. Use an approved CA and
+`verify-full` when available, and verify that choice against the deployed RDS
+configuration before claiming server-identity-verified TLS.
 
 ## Start the operator menu
 
@@ -115,6 +164,23 @@ production topology is `make recent-scan-batch` on the host. See [operator menu
 workflows](operator-menu.md) before performing a write or email operation.
 
 ## Production batch workflow
+
+Before starting a production or capacity coordinator, verify that the host has
+no unreviewed WAS work still running or retained:
+
+```bash
+make recent-scan-batch-status
+make capacity-status
+docker ps --format '{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}'
+```
+
+`No matching tmux sessions were found.` is the clean tmux result for that
+workflow. A dead retained pane is evidence to review and archive through the
+cleanup workflow below. A live pane or WAS worker container must be understood
+before another coordinator is started. These host checks do not inspect
+PostgreSQL claims or prove that Qualys, S3, or SES state is settled. The
+coordinator performs its own database and configuration validation after the
+tmux submission.
 
 Preview the currently stored eligible workload without refreshing, generating,
 or sending:
@@ -148,6 +214,13 @@ make recent-scan-batch-attach TMUX_SESSION="was-production-<batch-UUID>"
 make logs-summary LOG_BATCH_ID="<batch-UUID>"
 ```
 
+Configuration, database-identity, coordinator-lock, active-operation, worker
+backend, or required-environment validation can fail before the coordinator
+creates a batch record or reaches preflight. In that case there is no tracker
+summary or final summary to receive. Use the retained console as the primary
+evidence, correct the prerequisite, and do not infer success or email delivery
+from the absence of summaries.
+
 Detaching from an attached session with `Ctrl-b d` leaves the batch running.
 To request a deliberate stop, use the exact printed session name:
 
@@ -158,7 +231,9 @@ make recent-scan-batch-stop TMUX_SESSION="was-production-<batch-UUID>"
 Stop sends `Ctrl-c` to the foreground coordinator so its cleanup can run. It
 does not kill the session or declare cleanup complete. Check status and console
 output afterward. Production does not provide a continuation command. Reconcile
-delivery and Qualys state before deciding how to recover an interrupted run.
+held customer delivery only through the guarded command after external
+verification. Preserve and escalate other uncertain Qualys, S3, analyst,
+standalone, or active database state before any replacement work.
 
 The coordinator refreshes the tracker once, records a workload snapshot, sends
 the tracker summary, launches separate worker containers, performs the final
@@ -167,7 +242,17 @@ normal stakeholder recipients. This true customer production path explicitly
 enables the guarded Qualys deletion flow for eligible non-FCEB web applications
 that were inaccessible in two consecutive scans. Before deletion, the tracker
 commits a `MANUAL QUALYS DELETION PENDING` claim. An interrupted or failed
-deletion stays manual and requires reconciliation rather than automatic replay.
+deletion stays manual and is not automatically replayed.
+
+There is currently no supported command that reconciles a
+`MANUAL QUALYS DELETION PENDING` or `MANUAL QUALYS DELETION FAILED` tracker row.
+Because deletion is performed one URL at a time, a failure can leave a partial
+external outcome. Stop automated retries, preserve the batch ID, tracker row,
+complete removed-target URL list, console, and structured logs, and escalate to
+the WAS and Qualys service owners. They must verify each URL's current Qualys
+state before an approved manual tracker correction is designed. Do not rerun the
+destructive refresh, use the generic tracker editor, or change the row directly
+to `Targets Removed`; those actions cannot prove which deletions completed.
 
 Both analyst notifications use semantic HTML tables with a matching plain-text
 table fallback. Time measurements use two decimal places, and final elapsed real
@@ -254,6 +339,13 @@ The repository includes an hourly systemd timer that applies this two-pass
 cleanup to both production and capacity sessions. The timer never acknowledges
 failed sessions. After deploying the same reviewed revision to the EC2 host,
 install and verify it with:
+
+The checked-in unit is intentionally bound to user `ubuntu` and the exact
+checkout `/home/ubuntu/code/cd_WAS_update/backend/was`. The commands below are
+valid only for that layout. If the approved host uses a different user, checkout,
+Python environment, tmux socket owner, or output directory, do not install the
+unit unchanged. Have the service definition reviewed with every absolute path,
+`User`, `Group`, and `ReadWritePaths` value updated for that host first.
 
 ```bash
 cd "$HOME/code/cd_WAS_update/backend/was"
@@ -378,9 +470,9 @@ error line. Reconcile the external outcome and persisted run first. Use the
 [manual recovery runbook](manual-report-recovery.md) only for its supported,
 explicitly reviewed failure categories.
 
-For a held SES delivery, use `make reconcile-email-delivery
+For a held **customer** SES delivery, use `make reconcile-email-delivery
 REPORT_RUN_ID=<id>` to inspect the linked run and tracker. The guarded command
-supports only two applied outcomes:
+supports only two applied outcomes for `delivery_purpose=customer`:
 
 - `confirm-delivered` records externally verified delivery without calling SES.
 - `retry-confirmed-undelivered` records externally verified non-delivery and
@@ -401,6 +493,13 @@ occurs before the SES request starts remains retryable for an ordinary, unheld
 customer delivery. Initial held analyst delivery is allowed only when no prior
 email error exists.
 
+The reconciliation command does not support `delivery_purpose=analyst` or
+`delivery_purpose=standalone`. If either delivery becomes held after an attempt,
+stop. Preserve the run ID and external SES or mailbox evidence, do not rerun
+generation or edit database status, and escalate for an approved recovery. The
+direct mailer cannot reclaim a held analyst run with a previous email error or a
+held standalone run.
+
 ## Capacity testing
 
 Capacity testing requires the isolated capacity database, the seven
@@ -411,7 +510,9 @@ at the capacity database and never point the capacity launcher at production.
 
 ## Update and rebuild
 
-Finish or reconcile active work before changing the checkout:
+Finish active work before changing the checkout. Complete supported held
+customer-delivery reconciliation first, and preserve and escalate any other
+uncertain state rather than updating code beneath it:
 
 ```bash
 cd "$HOME/code/cd_WAS_update"
@@ -443,7 +544,18 @@ credentials or report passwords.
 - Do not delete report runs or reset tracker state to force a retry.
 - Held email means SES acceptance may have occurred. Verify before delivery.
 - An uncertain Qualys create may have created a remote report. Reconcile by the
-  stored stable report name and ID before generation.
+  stored stable report name and ID before generation. No general operator command
+  resolves an uncertain creation outcome; preserve the run and Qualys evidence
+  and escalate rather than starting replacement generation.
+- There is no production continuation command. If interruption leaves `running`
+  generation or `sending` delivery state, preserve the session and database
+  evidence and stop new production starts. The coordinator rejects active or
+  uncertain operations, and its automatic stale-state handling is not a blanket
+  authorization to retry external side effects.
+- Customer held email can use the guarded reconciliation command after external
+  verification. Analyst and standalone held delivery, uncertain S3 completion,
+  and pending or failed Qualys web-application deletion currently require
+  escalation because no supported operator reconciliation command exists.
 - Application rollback means deploying a previously approved image after
   confirming its schema compatibility. Do not drop additive schema or delivery
   evidence merely to make an older image start.

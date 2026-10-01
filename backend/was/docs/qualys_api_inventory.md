@@ -129,20 +129,78 @@ source files.
 | `/delete/was/webapp` | `POST` | `delete_webapp` | Removes a web application from the Qualys subscription. | Implemented through `was-admin delete-webapp` and the opt-in tracker `--delete-apps` path. |
 | `/user.php` | Original method not explicit | `list_users` | Lists Qualys users. | Not exposed because no active original command called this function. Add a restricted command only if stakeholders confirm an operational need. |
 
+## Credentials, permissions, and deployment boundary
+
+The checked-in `dev.env` is an environment-key inventory containing placeholder
+values. Never put a Qualys username, password, API token, database password, or
+AWS credential in `dev.env`. For the supported local and current EC2 workflow,
+create the ignored `backend/was/.env` with `scripts/create-local-env.sh`, keep it
+at mode `0600`, replace every required placeholder, and pass that file to the
+container. Do not print its contents or include it in logs or support bundles.
+
+Current WAS code reads `WAS_QUALYS_USERNAME`, `WAS_QUALYS_PASSWORD`, and
+`WAS_QUALYS_HOSTNAME` from the process environment. The repository does not
+currently retrieve these values from AWS Secrets Manager or SSM Parameter
+Store, and the WAS EC2 Terraform does not grant secret-read permissions or
+inject managed secrets into the process. Managed-secret injection is a
+recommended production improvement, not a capability that operators may assume
+is already deployed. It requires a separately reviewed infrastructure and
+runtime change with resource-scoped read permissions.
+
+The Qualys service account and its roles are administered outside this
+repository. Before enabling a workflow, a Qualys administrator must verify that
+the account has only the permissions needed for the endpoint groups actually in
+use:
+
+- search, count, status, and download for read-only inventory, tracker, and
+  report generation;
+- report creation and temporary report deletion for report generation; and
+- web-application update, ignore, create, or delete only for separately
+  approved administrative and production-deletion workflows.
+
+Do not grant mutation permissions solely because the same account can generate
+reports. Record the account, subscription, approved endpoint groups, and
+validation evidence in the deployment change record without recording the
+credential values.
+
+AWS IAM is a separate boundary. The current WAS EC2 Terraform attaches SSM
+core access and object access under the configured bucket's `was_reports/*`
+prefix. It does not presently include the `sts:AssumeRole` permission required
+when `WAS_SES_ROLE_ARN` is configured, secret-read permissions, or access to a
+different S3 key prefix. Verify the deployed role against the enabled runtime
+features before production or capacity execution. Do not broaden it with
+wildcard permissions to compensate for a missing resource-specific policy.
+
+## Qualys report-template validation
+
+Current code fixes the web-application report template ID at `1994875` and the
+detail PDF template ID at `2201149`. `was-inventory` validates tags and web
+application counts, not report templates. The repository has no command that
+proves either template exists or is correct in a target Qualys subscription.
+
+Before deployment to each subscription, an authorized Qualys administrator must
+use the approved Qualys UI or API process to verify both IDs, the expected XML
+and PDF formats, required report fields, active status, and service-account
+access. Then generate a controlled nonproduction report and compare it with an
+independently approved baseline. Record the subscription, template IDs,
+validation date, and reviewer in the change evidence. Do not record credentials
+or raw sensitive report data. Missing or unverified templates are a deployment
+blocker.
+
 ## Current Concerns To Resolve
 
-- Qualys credentials are read from WAS environment constants. During local
-  execution those constants come from `backend/was/.env`; production should use
-  AWS Secrets Manager or SSM Parameter Store to inject the same constants at
-  runtime.
+- Qualys credentials are read from WAS environment constants. Production
+  Secrets Manager or SSM Parameter Store injection remains unimplemented and
+  requires a separately reviewed infrastructure and runtime change.
 - Some report downloads use direct `requests.Session` authentication instead of
   the `qualysapi` connection. These downloads use the same WAS-owned timeout and
   retry policy, but authentication remains specific to the direct download path.
 - Qualys mutation commands are separated from report generation and require
   explicit confirmation. Durable centralized audit retention still depends on
   the deployed logging configuration.
-- Report template IDs remain constants for output compatibility. Validate them
-  against each target Qualys subscription before deployment.
+- Report template IDs remain constants for output compatibility. Complete the
+  subscription-specific validation and evidence described above before
+  deployment.
 - Qualys XML response parsing is tightly coupled to current response shape. Any
   API update should be tested with representative XML fixtures before deployment.
 

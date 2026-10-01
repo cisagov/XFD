@@ -33,17 +33,29 @@ explicitly confirmed database copy and cleanup described later in this runbook.
    comprehensive schema and apply an approved additive change before testing.
    The application does not create or migrate schema objects automatically.
 3. Private, Git-ignored environment configuration. Keep the ordinary `WAS_DB_*`
-   settings and the capacity-only `TEST_WAS_DB_*` settings together in `dev.env`,
-   copied to `.env` on EC2. Only the capacity launcher selects the test settings;
+   settings and the capacity-only `TEST_WAS_DB_*` settings together only in
+   `.env` on EC2. The tracked `dev.env` is a placeholder-only key inventory and
+   must never contain populated credentials. Only the capacity launcher selects
+   the test settings;
    ordinary commands continue to use `WAS_DB_*`. Qualys and SES settings remain
    shared. Use the same EC2 size and relevant resource limits planned for
    production. The launcher enforces S3 storage under `capacity/<run-id>`.
+   The current WAS Terraform role grants object access only under
+   `was_reports/*`, not this capacity prefix. An approved, prefix-scoped IAM
+   change or equivalent externally managed policy is therefore required before
+   an applied capacity run.
 4. An email-enabled test assignee, such as the approved Zachary address. All
    report and summary stages receive the explicit override. Do not use customer
    destinations. Agree on mailbox volume and service load before running.
 5. An idle test window with no normal batch or other workload on the clone.
    Qualys and SES are real services: this is not a mock test. Confirm quotas and
    acceptable API load with the service owners before scaling up.
+6. `tmux` installed for applied trials. Before starting, run
+   `make capacity-status`, `make recent-scan-batch-status`, and review
+   `docker ps`. Do not overlap a new capacity trial with a live production or
+   capacity pane, an unreviewed WAS worker container, or unresolved database or
+   external-service state. A clean tmux result is
+   `No matching tmux sessions were found.` for both workflows.
 
 The clone must contain no active or pending/failed deliverable prior reports.
 The operator prepares eligible work in the clone only. Restore the approved
@@ -168,6 +180,26 @@ historical MANUAL failures. Overlapping coordinators in the same database are
 blocked. Production output evidence is under `local-output/batches/<run-id>`;
 capacity evidence remains under `local-output/capacity/<run-id>`.
 
+The supported Make variables controlling capacity scope are:
+
+- `BATCH_WORKERS`, default `30`, must be an integer from `1` through `30`.
+- `BATCH_DAYS_BACK`, default `7`, must be a positive integer for capacity. It is
+  the report candidate window in calendar dates including today. Capacity does
+  not accept the production-only `all` value.
+- `TRACKER_LOOKBACK_DAYS`, default `3`, must be a positive integer. It controls
+  tracker discovery and is independent of the report candidate window.
+- `CAPACITY_EXPECTED_CANDIDATES`, default `auto`, may instead be a positive
+  integer for a strict post-refresh candidate-count check.
+- `CAPACITY_WORKLOAD_LABEL`, default `capacity-trial`, must contain non-whitespace
+  text and may not exceed 200 characters.
+- `CAPACITY_RUN_ID` and `CAPACITY_CONTINUE_RUN_ID`, when supplied, must be UUIDs.
+
+The execution budget defaults to 28,800 seconds and cannot exceed eight hours.
+The Make workflow does not expose a variable for changing it; the lower-level
+Python CLI permits a shorter positive `--max-seconds` value. Continuation uses
+the original saved workload and does not broaden it based on newly supplied
+window values.
+
 ```bash
 make capacity-start \
   CAPACITY_WORKLOAD_LABEL="approved-baseline-2026-09-24" \
@@ -208,6 +240,13 @@ make capacity-attach TMUX_SESSION="was-capacity-<attempt-UUID>"
 make logs-summary LOG_BATCH_ID="<attempt-UUID>"
 ```
 
+Required-environment, test-database identity, coordinator-lock,
+active-operation, continuation-manifest, recipient, or worker-backend validation
+can fail before a batch row is created or preflight begins. Such a failure sends
+no tracker summary and no final summary. Inspect the retained console, correct
+the prerequisite, and do not count the submission or absence of email as a
+capacity result.
+
 Use `Ctrl-b d` to detach without stopping the coordinator. A read-only capacity
 preview, without `APPLY=1`, stays in the foreground so its checks remain visible.
 To interrupt an applied attempt, use the exact printed session name:
@@ -219,6 +258,12 @@ make capacity-stop TMUX_SESSION="was-capacity-<attempt-UUID>"
 This sends `Ctrl-c` rather than killing the session, allowing coordinator worker
 cleanup to run. Confirm cleanup through the status and console commands before
 starting or continuing another attempt.
+
+Completed panes are retained for evidence. Follow
+[Retained tmux session cleanup](operator-setup-and-commands.md#retained-tmux-session-cleanup)
+to preview archival, apply the retention policy, acknowledge a specific failed
+session when approved, and verify the optional systemd timer. Cleanup does not
+reconcile PostgreSQL, Qualys, S3, or SES state.
 
 Capacity testing is not offered in `make menu`. Use the host Make commands
 to run separate worker containers matching the production batch layout.
@@ -237,8 +282,12 @@ specific workload. Continuation creates a new attempt UUID and summary, preserve
 earlier evidence, and does not refresh or broaden the original workload. It skips
 accepted emails, reuses completed reports awaiting safe delivery, and retries
 safe failed generation. Held/sending deliveries, active generation, and uncertain
-Qualys creation outcomes are not blindly retried. Reconcile unsafe states before
-continuing; they are not a reason to remove duplicate-delivery protections.
+Qualys creation outcomes are not blindly retried. The guarded email
+reconciliation command applies only to a held customer-purpose delivery after
+external verification. There is no general operator command for uncertain
+Qualys creation, uncertain S3 completion, or other active state. Stop, preserve
+the attempt and external evidence, and escalate those states before continuing;
+do not remove duplicate-delivery protections or edit database status.
 The saved manifest and matching batch record must still exist. After a database
 reset, old disk manifests cannot be used to resume deleted batch records.
 If a run failed before saving a manifest, use a new start rather than continuation.

@@ -1,9 +1,16 @@
 # Legacy WAS Workflow Migration Checklist
 
-This checklist tracks the original `was_report/WAS_report_creator.py`
-functionality that must be incorporated into the modernized WAS project. The
-goal is an inclusive lift and shift with targeted improvements, not a partial
-rewrite.
+This checklist records how behavior historically associated with
+`was_report/WAS_report_creator.py` maps to the modernized WAS project. The
+legacy source tree and its tools are absent from Git. They are not packaged,
+imported, tested, installed, or exposed by a supported Make target. Function
+and file names in the historical columns below are mapping labels only, not
+invocable repository paths.
+
+An ignored local copy may exist on an individual workstation for comparison,
+but it is unsupported and must not be reintroduced into commits, container
+builds, runtime imports, or operator commands. Current behavior must be
+validated through the WAS-owned modules and entry points documented here.
 
 ## Migration Principles
 
@@ -50,7 +57,7 @@ active report-generation contract unless stakeholders explicitly restore them.
 ## Original Report Generation Path
 
 This path is implemented under `src/was_reports`. The historical report creator
-is retained only as local reference material and is not packaged or executable.
+is not in Git and is not a packaged or executable fallback.
 
 | Legacy Step | Legacy Function | Target Module | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -79,9 +86,9 @@ is retained only as local reference material and is not packaged or executable.
 
 ## Original Alternate Workflows
 
-These workflows are part of the original codebase and must receive explicit
-migration treatment. Some may become separate administrative commands rather
-than scheduled batch behavior.
+These historical workflows require explicit migration treatment. The legacy
+implementation is not available as a supported fallback. Some capabilities may
+become separate administrative commands rather than scheduled batch behavior.
 
 | Legacy Option | Legacy Function Path | Target Boundary | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -102,14 +109,14 @@ than scheduled batch behavior.
 
 ## Supporting Legacy Files
 
-| File | Purpose | Migration Status | Notes |
+| Historical file name | Purpose | Migration Status | Notes |
 | --- | --- | --- | --- |
-| `was_report/NEW_BIG.mustache` | LaTeX report template | Complete | The production copy is under `src/was_reports/resources`; historical source is not packaged. |
-| `was_report/assets/was_report.xml` | Qualys report request template | Complete | The production copy is under `src/was_reports/resources/assets`. |
-| `was_report/assets/was_report_details.xml` | Qualys detail report request template | Complete | The production copy is under `src/was_reports/resources/assets`. |
-| `was_report/redact_qualys.py` | Detail PDF redaction helper | Complete | The production-owned copy is under `src/was_reports/resources`; the historical source is not packaged. |
-| `was_report/pdf_redactor.py` | PDF redaction implementation | Complete | The production-owned copy is under `src/was_reports/resources`; the historical source is not packaged. |
-| `was_report/assets/*` | PDF backgrounds, logos, fonts, and graph placeholders | Complete | Production copies are staged from `src/was_reports/resources` under `/WAS_REPORT_RESOURCES`; the historical root is not packaged. |
+| `was_report/NEW_BIG.mustache` | LaTeX report template | Complete | This historical path is absent from Git. The production copy is under `src/was_reports/resources`. |
+| `was_report/assets/was_report.xml` | Qualys report request template | Complete | This historical path is absent from Git. The production copy is under `src/was_reports/resources/assets`. |
+| `was_report/assets/was_report_details.xml` | Qualys detail report request template | Complete | This historical path is absent from Git. The production copy is under `src/was_reports/resources/assets`. |
+| `was_report/redact_qualys.py` | Detail PDF redaction helper | Complete | This historical path is absent from Git. The production-owned copy is under `src/was_reports/resources`. |
+| `was_report/pdf_redactor.py` | PDF redaction implementation | Complete | This historical path is absent from Git. The production-owned copy is under `src/was_reports/resources`. |
+| `was_report/assets/*` | PDF backgrounds, logos, fonts, and graph placeholders | Complete | These historical paths are absent from Git. Production copies are staged from `src/was_reports/resources` under `/WAS_REPORT_RESOURCES`. |
 
 ## Remaining Modernization Work
 
@@ -132,6 +139,10 @@ than scheduled batch behavior.
   comparator validates both representations. Follow
   `docs/live_qualys_equivalence_runbook.md` for execution, evidence, failure,
   and cutover requirements.
+- There is no supported command in the current repository that executes or
+  compares against legacy code. Do not claim legacy parity by running an ignored
+  local legacy copy. Use the independently supplied approved baseline and the
+  supported current comparator described by the live-equivalence runbook.
 - Before an applied coordinated batch, use `make recent-scan-batch-preflight`
   to record the expected workload. After the run, use `make logs-latest` and the
   batch-ID-specific diagnostic commands to investigate errors without rerunning

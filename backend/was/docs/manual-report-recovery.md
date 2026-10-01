@@ -66,7 +66,36 @@ make tracker-mark-sent TRACKER_ID=123 SENT_DATE=2026-09-22
 This tracker-only command is for historical delivery performed outside the
 structured report-run workflow. For a linked report run whose email status is
 `held`, use `make reconcile-email-delivery REPORT_RUN_ID=<id>` so the report
-run, tracker, and batch attempt are reconciled together.
+run, tracker, and batch attempt are reconciled together. That command supports
+held **customer** delivery only. It does not reconcile standalone delivery or
+analyst summary and digest delivery.
+
+## Unsupported recovery paths
+
+The repository does not provide a safe automated recovery command for these
+states:
+
+- A held standalone delivery. The ordinary standalone mail command blocks the
+  run even when previous failures are included.
+- A held analyst-purpose report delivery, batch summary, or assignee digest
+  delivery.
+- An uncertain Qualys report-creation outcome.
+- A partially completed Qualys web-application deletion.
+- Target-removal or deletion reconciliation after the production tracker has
+  recorded manual follow-up.
+
+For held standalone or analyst email, preserve the report-run and delivery
+evidence, determine the SES outcome through the approved AWS investigation
+process, and escalate for a reviewed recovery decision. Do not reset delivery
+rows, regenerate a report, or send a replacement message merely because the
+outcome is unknown. The customer-only reconciliation command must not be used
+for these delivery purposes.
+
+Production web-application deletion can partially succeed before a later
+Qualys request fails. The tracker records manual follow-up instead of blindly
+replaying the deletion set. Verify the current Qualys state against the
+tracker evidence and escalate the remaining work. The guarded manual-report
+recovery command is not a deletion-retry command.
 
 Do not use recovery to bypass `manual_report`, explicit operator notes,
 unresolved Qualys operation failures, held delivery, or uncertain Qualys

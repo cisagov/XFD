@@ -87,10 +87,12 @@ the current stakeholder, standalone target, report-run, assignee, tracker,
 special-case, batch-summary, capacity-attempt, and test-replay structures,
 including their indexes, constraints, and foreign keys.
 
-The currently managed WAS database is assumed to have already received the
-approved schema changes. Do not rerun the comprehensive creation file against
-an existing populated database: it contains unconditional `CREATE TABLE`
-statements and is a desired-state reference, not an idempotent migration.
+Do not assume that an existing WAS database has received every approved schema
+change. The repository has no automated schema-version table or startup
+migration check that proves this. Do not rerun the comprehensive creation file
+against an existing populated database: it contains unconditional `CREATE
+TABLE` statements and is a desired-state reference, not an idempotent
+migration.
 
 Incremental files retained locally under `schema/updates/` are historical or
 operator-specific records. They are intentionally ignored by Git and are not
@@ -100,7 +102,22 @@ migration from the canonical desired state, back up the database, stop writers,
 apply it through the approved change process, verify it, and update both the
 canonical schema and this document in the same code change.
 
+The read-only queries later in this document verify selected high-risk tables,
+columns, and indexes. They are not a complete schema diff and cannot establish
+that all types, defaults, constraints, foreign keys, triggers, and indexes match
+the canonical file. For a new empty database, apply the comprehensive schema
+through the approved DBA process. For an existing database, the DBA must compare
+the actual schema with the canonical desired state and produce an
+environment-specific, reviewed migration. If that comparison or migration is
+not available, deployment is blocked. Application startup does not perform this
+work.
+
 ### Additive batch-lineage deployment
+
+The SQL in this section is a one-time migration for the specific
+batch-lineage transition described here. It is not a complete migration chain,
+and it must not be applied as a general repair for an environment with unknown
+schema history.
 
 Deploy the batch-lineage columns to the production database and every existing
 capacity-test clone before deploying code that writes them. A capacity reset

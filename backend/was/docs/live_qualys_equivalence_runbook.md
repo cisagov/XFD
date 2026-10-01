@@ -40,10 +40,16 @@ Confirm all of the following before starting:
   `ses:SendRawEmail` for the approved sender; no named profile is needed.
 - Docker is running and the production image has been rebuilt from the current
   source.
+- `tmux` is installed for host production and capacity coordinators. Before a
+  coordinated test, `make recent-scan-batch-status` and `make capacity-status`
+  must show no unreviewed live work, and the operator must review `docker ps` for
+  remaining WAS worker containers. A clean tmux result is
+  `No matching tmux sessions were found.` for each workflow.
 - The database matches the authoritative desired state in
-  `schema/stakeholders_table_creation.sql`. The currently managed database is
-  assumed to have received the approved changes. Use the read-only checks in
-  `daily_report_tracker_schema.md` to verify it before testing.
+  `schema/stakeholders_table_creation.sql`. Do not assume that an environment
+  has received the approved changes. Use the read-only checks in
+  `daily_report_tracker_schema.md` as minimum evidence, and require a
+  DBA-reviewed comparison or migration for an existing database before testing.
 - Existing `running`, `sending`, or `held` operations have been reviewed. Do
   not clear claims or delivery evidence merely to make a test eligible.
 
@@ -64,9 +70,12 @@ For approved live validation, verify that:
 - A repeated tracker refresh does not add another row for an existing exact
   scan execution; a later recurring execution has a different key.
 - Request/poll progress and sanitized failure metadata appear in the log.
-- An on-demand artifact is saved under its generation-specific S3 key and
-  can only be emailed to active analyst addresses, including via direct CLI.
-- An uncertain email or database completion is reconciled before any retry.
+- An on-demand artifact is saved under its generation-specific S3 key and can
+  only be emailed to email-enabled functional-test recipients, including via
+  direct CLI. An email-enabled recipient may be inactive for assignment.
+- An uncertain customer email has external evidence and completes the supported
+  guarded reconciliation before any retry. Unsupported analyst, standalone, or
+  database-completion uncertainty is preserved and escalated without retry.
 - Digest completion marks only its claimed rows, not every row on that date.
 
 Synthetic and database tests do not replace checking the PDF content and the
@@ -155,11 +164,13 @@ printf 'Functional test exit code: %s\n' "$RUN_STATUS"
 This is an on-demand report test independent of tracker processing: without
 `TRACKER_ID`, it creates a report-run record but does not invent or change a
 daily tracker row. It still requires an enrolled stakeholder. Use the separate
-standalone workflow for a Qualys tag that is not enrolled. To validate tracker
-delivery, first select an actual matching unsent row without an existing report
-run, then explicitly pass its ID as `TRACKER_ID`. A test-recipient send marks
-that linked row sent; do not use an operational row that must still be sent to
-customer recipients.
+standalone workflow for a Qualys tag that is not enrolled. To validate a
+tracker-linked analyst report, first select an actual matching unsent row without
+an existing report run, then explicitly pass its ID as `TRACKER_ID`. Analyst
+delivery does **not** set `report_sent_date`, because it is not customer
+delivery. The new report-run link nevertheless prevents the normal customer
+workflow from claiming that tracker row. Use only a designated test row, never
+an operational row that must still be delivered to customer recipients.
 
 Using the new run ID printed in the log, query the WAS database:
 
@@ -182,11 +193,12 @@ WHERE runs.id = NEW_RUN_ID;
 ```
 
 For an unlinked on-demand run, zero tracker rows is expected, not a failure.
-Copy the exact object key from `output_path`, omitting
-`s3://cisa-was-reports/`:
+Copy the configured bucket and exact object key from the complete S3 URI stored
+in `output_path`. Do not assume a literal bucket name. Replace both placeholders
+below with the values from that URI:
 
 ```bash
-aws s3api head-object --bucket cisa-was-reports --key "EXACT_OBJECT_KEY"
+aws s3api head-object --bucket "CONFIGURED_BUCKET" --key "EXACT_OBJECT_KEY"
 ```
 
 The object must exist and have nonzero size. Verify its encryption metadata
@@ -196,12 +208,16 @@ Review that the temporarily disabled sensitive-finding data is labelled
 unavailable, not zero. Record the source commit, run ID, S3 reference, message
 ID, and recipient confirmation, but never record the report password.
 
-For an email failure, the PDF remains archived and the on-demand run remains
-held for explicit delivery. Use `was-mailer --report-run-id` with the approved
-recipient override to retry, not a new generation command. For failed upload,
-there must be no successful completion or SES acceptance. If S3 succeeded but
-the completion write failed, preserve the artifact and reconcile the run. If
-SES accepted but the database update failed, verify delivery before retrying:
+For an email failure, the PDF remains archived and the on-demand analyst run is
+held. The direct mailer cannot reclaim it after an email error, and the guarded
+reconciliation command supports customer-purpose delivery only. Stop, preserve
+the run ID and SES or mailbox evidence, and escalate for an approved recovery;
+do not start replacement generation or edit the status. The same restriction
+applies to a held standalone delivery. For failed upload, there must be no
+successful completion or SES acceptance. If S3 succeeded but the completion
+write failed, preserve the artifact and escalate with the run ID and exact S3
+URI. No supported operator command reconciles that uncertain completion. If SES
+may have accepted the message, verify the external outcome before any recovery:
 exactly-once delivery across SES and Postgres is not guaranteed.
 
 ## Compare With An Approved Baseline
@@ -286,6 +302,10 @@ The operational EC2 workflow is the host-side coordinator invoked by
 preflight, partitions eligible work among separate worker containers, completes
 pending delivery, and sends the shared tracker and final analyst summaries. It
 uses the same phase engine and Docker worker launcher as capacity testing.
+The similarly named complete-batch action inside `make menu` is a single
+container path and always keeps Qualys web-application deletion disabled, even
+when customer recipients are selected. It is not evidence for the host
+production deletion path described here.
 
 Before any write or email side effects, preview the current eligible workload:
 
@@ -314,7 +334,9 @@ encrypts reports, archives them to S3, sends SES email, and records successful
 tracker rows as sent. It does not use customer POC addresses, but it processes
 the complete eligible workload in the selected window. Its recipient override
 keeps the tracker refresh non-destructive: it does not delete Qualys web
-applications, and eligible removals remain manual for reconciliation. Capacity
+applications, and eligible removals remain marked for analyst action. A later
+true customer production refresh can process a still-eligible
+`QUALYS DELETION REQUIRED` row before reporting has started. Capacity
 and other test workflows are also non-destructive. Use it only when that
 workload and all test recipients have been approved.
 
@@ -324,6 +346,14 @@ After controlled coordinator validation, the production command is:
 make recent-scan-batch
 ```
 
+The detached-session submission can succeed before coordinator validation.
+Configuration, database identity, the coordinator lock, active report
+operations, required environment, or the Docker worker backend can then fail
+before a batch record or preflight exists. That path sends neither the tracker
+summary nor the final summary. Inspect the retained tmux console and correct the
+prerequisite; absence of both messages does not mean that an empty batch
+completed.
+
 The production command uses normal customer recipients. `BATCH_WORKERS`
 defaults to 30, `BATCH_DAYS_BACK` defaults to seven calendar dates including
 today, and `TRACKER_LOOKBACK_DAYS` defaults to three days for tracker discovery.
@@ -331,7 +361,14 @@ Unlike the controlled recipient and capacity/test workflows, this true customer
 production path explicitly enables guarded deletion for eligible non-FCEB web
 applications that were inaccessible in two consecutive scans. The flow commits
 a `MANUAL QUALYS DELETION PENDING` claim before deletion. Interrupted or failed
-deletions stay manual and require reconciliation rather than automatic replay.
+deletions stay manual and are not automatically replayed. There is currently no
+supported command to reconcile a `MANUAL QUALYS DELETION PENDING` or
+`MANUAL QUALYS DELETION FAILED` row. Because URLs are deleted sequentially, a
+failure may represent a partial external outcome. Stop automated retries,
+preserve the batch ID, tracker row, complete removed-target URL list, console,
+and structured logs, and escalate to the WAS and Qualys service owners. Verify
+each URL's current Qualys state before any approved corrective work. Do not use
+the generic tracker editor or direct database changes to claim `Targets Removed`.
 Numeric `BATCH_DAYS_BACK` values must be integers of at least `1`; `1` means
 today only, and `0` is invalid.
 Changing those values changes operational scope and must be intentional.

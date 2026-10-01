@@ -45,14 +45,19 @@ the run and use `was-mailer --report-run-id <ID> --delivery-purpose standalone`.
 It uses the saved recipient and does not accept `--test-recipients`. Archive-only
 runs with pending delivery remain eligible. Held uncertain deliveries remain
 blocked, including when `--include-previous-failures` is supplied. Verify the SES
-outcome and reconcile the run before any further delivery attempt; the ordinary
-standalone mail command does not override a hold. Do not blindly regenerate them.
+outcome before any further delivery decision; the ordinary standalone mail
+command does not override a hold. The current customer-delivery reconciliation
+command does not support `delivery_purpose = 'standalone'`, and there is no
+supported standalone hold-reconciliation command in this repository. Preserve
+the run and delivery evidence and escalate for a reviewed recovery decision. Do
+not reset database state, blindly regenerate the report, or resend it while the
+outcome is unknown.
 
 ## Database schema and deployment
 
-The operator confirmed the database modifications are complete on September 24,
-2026. This workflow assumes that updated schema is already installed; there is no
-outstanding migration step for the confirmed database.
+An operator confirmation on September 24, 2026 covered one managed database.
+It is not evidence that any other database has the required schema. This
+workflow can be used only after the target environment has been verified.
 
 The authoritative, comprehensive definition is
 [`schema/stakeholders_table_creation.sql`](../schema/stakeholders_table_creation.sql).
@@ -71,5 +76,9 @@ After the schema changes, deploy the matching application code and rebuild the
 image. Do not rerun the full creation script against an existing database. Other
 environments must be checked against the comprehensive schema before deployment;
 the operator's confirmation does not establish their migration status.
-Incremental SQL remains local and ignored, not a required repository artifact.
-The application does not apply migrations automatically.
+The repository does not contain a complete, ordered migration chain for an
+existing database, and the application does not apply migrations automatically.
+An approved DBA must prepare and review an environment-specific migration before
+this feature is deployed to a database that does not already match the
+authoritative schema. Treat the absence of that verified migration as a
+deployment blocker.
