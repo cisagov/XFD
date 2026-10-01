@@ -2,10 +2,13 @@
 
 # Standard Python Libraries
 import unittest
+from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands.stakeholder_import import (
+    SOURCE_TO_DATABASE,
+    import_prepared_rows,
     normalize_imported_report_password,
     normalize_value,
 )
@@ -13,6 +16,43 @@ from was_reports.commands.stakeholder_import import (
 
 class StakeholderImportTests(unittest.TestCase):
     """Validate imported stakeholder field normalization."""
+
+    @patch("was_reports.commands.stakeholder_import.execute_values")
+    @patch("was_reports.commands.stakeholder_import.lock_tracker_tag")
+    @patch("was_reports.commands.stakeholder_import.close")
+    @patch("was_reports.commands.stakeholder_import.connect")
+    def test_import_locks_stakeholder_tags_in_stable_order(
+        self,
+        connect,
+        close,
+        lock_tracker_tag,
+        execute_values,
+    ) -> None:
+        """Coordinate bulk stakeholder creation with external deletion."""
+        conn = MagicMock()
+        connect.return_value = conn
+        execute_values.return_value = [("A-TAG",), ("Z-TAG",)]
+        source_columns = [source for source, _ in SOURCE_TO_DATABASE]
+        first_row = ["\\N"] * len(source_columns)
+        second_row = ["\\N"] * len(source_columns)
+        tag_index = source_columns.index("Tag")
+        first_row[tag_index] = "Z-TAG"
+        second_row[tag_index] = "A-TAG"
+
+        result = import_prepared_rows(
+            [tuple(first_row), tuple(second_row)],
+            "\\N",
+        )
+
+        self.assertEqual(result, (2, 0))
+        self.assertEqual(
+            lock_tracker_tag.call_args_list,
+            [
+                unittest.mock.call(conn, "A-TAG"),
+                unittest.mock.call(conn, "Z-TAG"),
+            ],
+        )
+        close.assert_called_once_with(conn)
 
     def test_state_requires_exact_uppercase_valid_code(self) -> None:
         """Accept valid state codes and reject lowercase or unknown values."""

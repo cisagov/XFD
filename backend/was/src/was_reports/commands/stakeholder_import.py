@@ -13,6 +13,7 @@ from typing import Optional
 from psycopg2.extras import execute_values
 
 # First-Party Libraries
+from was_reports.data.daily_report_tracker import lock_tracker_tag
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import configure_logging
 from was_reports.utils.passwords import DEFAULT_PASSWORD_LENGTH
@@ -318,6 +319,12 @@ def import_prepared_rows(
 
     conn = connect()
     try:
+        tag_index = columns.index("tag")
+        stakeholder_tags = sorted(
+            {str(database_row[tag_index]) for database_row in database_rows}
+        )
+        for stakeholder_tag in stakeholder_tags:
+            lock_tracker_tag(conn, stakeholder_tag)
         with conn.cursor() as cursor:
             inserted_rows = execute_values(
                 cursor,

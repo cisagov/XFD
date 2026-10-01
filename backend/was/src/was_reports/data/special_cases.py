@@ -7,6 +7,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+# Third-Party Libraries
+# First-Party Libraries
+from was_reports.data.daily_report_tracker import lock_tracker_tag
+
 if TYPE_CHECKING:
     # Third-Party Libraries
     from psycopg2.extensions import connection
@@ -83,6 +87,7 @@ def upsert_special_case(
     """Insert or reactivate a WAS special case."""
     normalized_value = normalize_special_case_value(value)
     try:
+        lock_tracker_tag(conn, normalized_value)
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -116,6 +121,7 @@ def deactivate_special_case(
     """Deactivate a WAS special case and return whether a row changed."""
     normalized_value = normalize_special_case_value(value)
     try:
+        lock_tracker_tag(conn, normalized_value)
         with conn.cursor() as cursor:
             cursor.execute(
                 """

@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 import unittest
+from unittest.mock import patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -88,11 +89,13 @@ class SpecialCaseTests(unittest.TestCase):
         """Insert or reactivate a special case."""
         conn = FakeConnection(row=(3, "SCCCS", True))
 
-        special_case = special_cases.upsert_special_case(
-            value="scccs",
-            conn=conn,
-        )
+        with patch.object(special_cases, "lock_tracker_tag") as lock_tag:
+            special_case = special_cases.upsert_special_case(
+                value="scccs",
+                conn=conn,
+            )
 
+        lock_tag.assert_called_once_with(conn, "SCCCS")
         self.assertEqual(special_case.value, "SCCCS")
         self.assertTrue(special_case.active)
         self.assertTrue(conn.committed)
@@ -102,8 +105,10 @@ class SpecialCaseTests(unittest.TestCase):
         """Deactivate one active special case."""
         conn = FakeConnection(rowcount=1)
 
-        changed = special_cases.deactivate_special_case("CBOE", conn)
+        with patch.object(special_cases, "lock_tracker_tag") as lock_tag:
+            changed = special_cases.deactivate_special_case("CBOE", conn)
 
+        lock_tag.assert_called_once_with(conn, "CBOE")
         self.assertTrue(changed)
         self.assertTrue(conn.committed)
         self.assertEqual(

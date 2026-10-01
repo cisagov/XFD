@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 import unittest
+from unittest.mock import patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -64,6 +65,32 @@ class FakeConnection:
 class StakeholderDataTests(unittest.TestCase):
     """Validate stakeholder maintenance and export helpers."""
 
+    def test_create_stakeholder_takes_deletion_safety_lock(self) -> None:
+        """Coordinate a new exact stakeholder with an active child deletion."""
+        values: dict[str, object] = {
+            column_name: None
+            for column_name in stakeholders.STAKEHOLDER_CREATE_COLUMNS
+            if column_name != "report_password"
+        }
+        values["tag"] = "TAG1"
+        values["state"] = "DC"
+        conn = FakeConnection(row=("TAG1",))
+
+        with patch.object(stakeholders, "validate_required_fields"), patch.object(
+            stakeholders,
+            "validate_email_value",
+        ), patch.object(
+            stakeholders,
+            "generate_report_password",
+            return_value="generated-password",
+        ), patch.object(
+            stakeholders, "lock_tracker_tag"
+        ) as lock_tag:
+            created_tag = stakeholders.create_stakeholder(values, conn)
+
+        self.assertEqual(created_tag, "TAG1")
+        lock_tag.assert_called_once_with(conn, "TAG1")
+
     def test_update_stakeholder_contacts_updates_only_selected_fields(self) -> None:
         """Update selected contacts with parameterized values."""
         conn = FakeConnection(row=("TAG1",))
@@ -107,13 +134,15 @@ class StakeholderDataTests(unittest.TestCase):
         """Parameterize selected business-field updates and refresh updated_at."""
         conn = FakeConnection(row=("TAG1",))
 
-        stakeholders.update_stakeholder_fields(
-            tag=" TAG1 ",
-            updates={"comments": None, "retired": True, "state": "OK"},
-            conn=conn,
-        )
+        with patch.object(stakeholders, "lock_tracker_tag") as lock_tag:
+            stakeholders.update_stakeholder_fields(
+                tag=" TAG1 ",
+                updates={"comments": None, "retired": True, "state": "OK"},
+                conn=conn,
+            )
 
         self.assertTrue(conn.committed)
+        lock_tag.assert_called_once_with(conn, "TAG1")
         self.assertIn("comments = %s", conn.cursor_instance.query)
         self.assertIn("retired = %s", conn.cursor_instance.query)
         self.assertIn("state = %s", conn.cursor_instance.query)
@@ -122,6 +151,19 @@ class StakeholderDataTests(unittest.TestCase):
             conn.cursor_instance.parameters,
             (None, True, "OK", "TAG1"),
         )
+
+    def test_nonsafety_stakeholder_update_does_not_take_deletion_lock(self) -> None:
+        """Avoid serializing ordinary metadata changes with external deletion."""
+        conn = FakeConnection(row=("TAG1",))
+
+        with patch.object(stakeholders, "lock_tracker_tag") as lock_tag:
+            stakeholders.update_stakeholder_fields(
+                tag="TAG1",
+                updates={"comments": "Updated"},
+                conn=conn,
+            )
+
+        lock_tag.assert_not_called()
 
     def test_update_stakeholder_fields_rejects_protected_columns(self) -> None:
         """Prevent general updates to identifiers and report passwords."""

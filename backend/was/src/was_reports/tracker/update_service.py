@@ -22,6 +22,7 @@ from was_reports.data.daily_report_tracker import (
     lock_tracker_tag,
     record_tracker_digest_failure,
 )
+from was_reports.data.special_cases import normalize_special_case_value
 from was_reports.data.stakeholders import (
     StakeholderDetails,
     get_stakeholder_details,
@@ -520,6 +521,59 @@ def validate_webapp_tags(
         )
 
 
+def validate_current_deletion_safety(
+    conn: connection,
+    item: TrackerItem,
+) -> None:
+    """Lock and require the current stakeholder and exemption state to be safe."""
+    normalized_tag = normalize_special_case_value(item.tag)
+    candidate_tags = [normalized_tag]
+    if "_" in normalized_tag:
+        candidate_tags.append(normalized_tag.split("_", 1)[0])
+
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT tag, manual_report, fceb, retired "
+            "FROM was_stakeholders "
+            "WHERE tag = ANY(%s) "
+            "ORDER BY CASE WHEN tag = %s THEN 0 ELSE 1 END "
+            "LIMIT 1 FOR UPDATE",
+            (candidate_tags, normalized_tag),
+        )
+        stakeholder = cursor.fetchone()
+        if stakeholder is None:
+            raise RuntimeError(
+                "Stakeholder deletion safety state is unavailable; "
+                "manual reconciliation is required."
+            )
+        stakeholder_tag, manual_report, fceb, retired = stakeholder
+        if retired or manual_report or fceb:
+            raise RuntimeError(
+                "Stakeholder deletion safety state changed for {}; "
+                "manual reconciliation is required.".format(stakeholder_tag)
+            )
+
+        cursor.execute(
+            "SELECT 1 FROM was_special_cases "
+            "WHERE value = %s AND active IS TRUE FOR UPDATE",
+            (normalized_tag,),
+        )
+        if cursor.fetchone() is not None:
+            raise RuntimeError(
+                "Stakeholder tag {} is exempt from automatic deletion; "
+                "manual reconciliation is required.".format(normalized_tag)
+            )
+
+
+def deletion_safety_lock_tags(tag: str) -> tuple[str, ...]:
+    """Return exact and governing parent tags in deterministic lock order."""
+    normalized_tag = normalize_special_case_value(tag)
+    lock_tags = {normalized_tag}
+    if "_" in normalized_tag:
+        lock_tags.add(normalized_tag.split("_", 1)[0])
+    return tuple(sorted(lock_tags))
+
+
 def delete_validated_webapp(
     client: QualysClient,
     conn: connection,
@@ -538,6 +592,7 @@ def delete_validated_webapp(
     validate_webapp_tags(conn, current_identity, item.tag_id)
     validate_latest_deletion_execution(client, item, execution_key)
     validate_deletion_claim(conn, row_id, item, execution_key)
+    validate_current_deletion_safety(conn, item)
     delete_webapp(
         client,
         webapp_url,
@@ -730,7 +785,8 @@ def update_execution(
         # The preliminary commit makes the deletion claim durable but releases
         # transaction locks. Reacquire the same tag lock and hold it through
         # revalidation, external deletion, and finalization.
-        lock_tracker_tag(conn, item.tag)
+        for safety_tag in deletion_safety_lock_tags(item.tag):
+            lock_tracker_tag(conn, safety_tag)
         for webapp_url in applications:
             delete_validated_webapp(
                 client,

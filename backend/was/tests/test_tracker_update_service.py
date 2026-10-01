@@ -27,6 +27,7 @@ from was_reports.tracker.update_service import (
     combined_email_value,
     convert_qualys_date,
     delete_validated_webapp,
+    deletion_safety_lock_tags,
     has_legacy_execution_overlap,
     tracker_result_fields,
     update_execution,
@@ -39,6 +40,16 @@ from was_reports.tracker.update_service import (
 
 class TrackerUpdateServiceTests(unittest.TestCase):
     """Validate tracker result and database-row transformations."""
+
+    def test_child_deletion_safety_locks_parent_and_exact_tag_in_stable_order(
+        self,
+    ) -> None:
+        """Coordinate child deletion with both exact and governing parent changes."""
+        self.assertEqual(
+            deletion_safety_lock_tags(" parent_child "),
+            ("PARENT", "PARENT_CHILD"),
+        )
+        self.assertEqual(deletion_safety_lock_tags("tag"), ("TAG",))
 
     def test_actual_scan_bounds_do_not_change_parent_execution_identity(self) -> None:
         """Persist real timing separately from parent-based identity and scan day."""
@@ -1058,12 +1069,19 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         )
 
     @patch("was_reports.tracker.update_service.delete_webapp")
+    @patch("was_reports.tracker.update_service.validate_current_deletion_safety")
     @patch("was_reports.tracker.update_service.validate_deletion_claim")
     @patch("was_reports.tracker.update_service.validate_latest_deletion_execution")
     @patch("was_reports.tracker.update_service.validate_webapp_tags")
     @patch("was_reports.tracker.update_service.find_webapp_identity")
     def test_deletion_revalidates_stable_identity_immediately_before_delete(
-        self, find_identity, validate_tags, validate_latest, validate_claim, delete
+        self,
+        find_identity,
+        validate_tags,
+        validate_latest,
+        validate_claim,
+        validate_safety,
+        delete,
     ) -> None:
         """Bind deletion to two matching identity reads and all current guards."""
         identity = WebAppIdentity("42", "https://example.gov", ("9",))
@@ -1079,6 +1097,90 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         validate_tags.assert_called_once_with(conn, identity, 9)
         validate_latest.assert_called_once()
         validate_claim.assert_called_once_with(conn, 17, item, "execution")
+        validate_safety.assert_called_once_with(conn, item)
+        delete.assert_called_once_with(
+            unittest.mock.ANY,
+            "https://example.gov",
+            webapp_id="42",
+        )
+
+    @patch("was_reports.tracker.update_service.delete_webapp")
+    @patch("was_reports.tracker.update_service.validate_deletion_claim")
+    @patch("was_reports.tracker.update_service.validate_latest_deletion_execution")
+    @patch("was_reports.tracker.update_service.validate_webapp_tags")
+    @patch("was_reports.tracker.update_service.find_webapp_identity")
+    def test_current_stakeholder_safety_state_blocks_external_delete(
+        self,
+        find_identity,
+        validate_tags,
+        validate_latest,
+        validate_claim,
+        delete,
+    ) -> None:
+        """Fail closed for missing, manual, FCEB, retired, or exempt tags."""
+        identity = WebAppIdentity("42", "https://example.gov", ("9",))
+        unsafe_states = (
+            ("missing", [None], "safety state is unavailable"),
+            ("manual", [("TAG", True, False, False)], "safety state changed"),
+            ("fceb", [("TAG", False, True, False)], "safety state changed"),
+            ("retired", [("TAG", False, False, True)], "safety state changed"),
+            (
+                "special case",
+                [("TAG", False, False, False), (1,)],
+                "exempt from automatic deletion",
+            ),
+        )
+
+        for state_name, database_rows, expected_message in unsafe_states:
+            with self.subTest(state=state_name):
+                find_identity.reset_mock(side_effect=True)
+                find_identity.side_effect = [identity, identity]
+                delete.reset_mock()
+                conn = MagicMock()
+                cursor = conn.cursor.return_value.__enter__.return_value
+                cursor.fetchone.side_effect = database_rows
+
+                with self.assertRaisesRegex(RuntimeError, expected_message):
+                    delete_validated_webapp(
+                        Mock(),
+                        conn,
+                        17,
+                        self.removal_item(False),
+                        "execution",
+                        "https://example.gov",
+                    )
+
+                delete.assert_not_called()
+
+    @patch("was_reports.tracker.update_service.delete_webapp")
+    @patch("was_reports.tracker.update_service.validate_deletion_claim")
+    @patch("was_reports.tracker.update_service.validate_latest_deletion_execution")
+    @patch("was_reports.tracker.update_service.validate_webapp_tags")
+    @patch("was_reports.tracker.update_service.find_webapp_identity")
+    def test_current_safe_stakeholder_reaches_external_delete(
+        self,
+        find_identity,
+        validate_tags,
+        validate_latest,
+        validate_claim,
+        delete,
+    ) -> None:
+        """Preserve deletion after every current database safety check passes."""
+        identity = WebAppIdentity("42", "https://example.gov", ("9",))
+        find_identity.side_effect = [identity, identity]
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [("TAG", False, False, False), None]
+
+        delete_validated_webapp(
+            Mock(),
+            conn,
+            17,
+            self.removal_item(False),
+            "execution",
+            "https://example.gov",
+        )
+
         delete.assert_called_once_with(
             unittest.mock.ANY,
             "https://example.gov",

@@ -23,7 +23,8 @@ DELIVERY_RECONCILIATION = "delivery_reconciliation"
 
 def lock_tracker_tag(conn: connection, stakeholder_tag: str) -> None:
     """Serialize tracker writes and report claims for one stakeholder tag."""
-    lock_identity = "was-tracker-tag:{}".format(stakeholder_tag)
+    normalized_tag = stakeholder_tag.strip().upper()
+    lock_identity = "was-tracker-tag:{}".format(normalized_tag)
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",

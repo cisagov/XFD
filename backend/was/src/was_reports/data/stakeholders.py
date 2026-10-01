@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 # Third-Party Libraries
+# First-Party Libraries
+from was_reports.data.daily_report_tracker import lock_tracker_tag
 from was_reports.utils.passwords import (
     generate_report_password,
     validate_report_password,
@@ -50,6 +52,7 @@ class StakeholderDetails:
     report_password: str | None = None
     manual_report: bool = False
     fceb: bool = False
+    retired: bool = False
 
 
 STAKEHOLDER_EXPORT_COLUMNS = (
@@ -115,6 +118,7 @@ STAKEHOLDER_VIEW_COLUMNS = STAKEHOLDER_CREATE_COLUMNS + (
 STAKEHOLDER_MUTABLE_COLUMNS = frozenset(STAKEHOLDER_CREATE_COLUMNS).difference(
     {"tag", "report_password"}
 )
+DELETION_SAFETY_COLUMNS = frozenset({"fceb", "manual_report", "retired"})
 
 
 def get_stakeholder(tag: str, conn: connection) -> Stakeholder | None:
@@ -152,7 +156,8 @@ def get_stakeholder_details(
                 comments,
                 report_password,
                 manual_report,
-                fceb
+                fceb,
+                retired
             FROM was_stakeholders
             WHERE tag = %s
             """,
@@ -172,6 +177,7 @@ def get_stakeholder_details(
         report_password=row[5],
         manual_report=bool(row[6]),
         fceb=bool(row[7]),
+        retired=bool(row[8]),
     )
 
 
@@ -259,6 +265,8 @@ def update_stakeholder_fields(
         ", ".join(assignments)
     )
     try:
+        if DELETION_SAFETY_COLUMNS.intersection(validated_updates):
+            lock_tracker_tag(conn, normalized_tag)
         with conn.cursor() as cursor:
             cursor.execute(query, tuple(parameters))
             row = cursor.fetchone()
@@ -362,6 +370,7 @@ def create_stakeholder(values: dict[str, object], conn: connection) -> str:
         "ON CONFLICT (tag) DO NOTHING RETURNING tag"
     ).format(", ".join(columns), placeholders)
     try:
+        lock_tracker_tag(conn, str(insert_values["tag"]))
         with conn.cursor() as cursor:
             cursor.execute(
                 query,

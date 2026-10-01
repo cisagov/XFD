@@ -7,7 +7,11 @@ from unittest.mock import Mock, patch
 
 # Third-Party Libraries
 from lxml import etree
-from was_reports.tracker.item_builder import create_multiscan, previous_run_name
+from was_reports.tracker.item_builder import (
+    create_multiscan,
+    previous_run_name,
+    stakeholder_flags,
+)
 
 # First-Party Libraries
 from was_reports.tracker.models import (
@@ -35,6 +39,20 @@ from was_reports.tracker.qualys_scans import (
 
 class TrackerQualysScansTests(unittest.TestCase):
     """Validate tracker schedule parsing and matching."""
+
+    @patch("was_reports.tracker.item_builder.get_stakeholder_details_by_tag")
+    def test_retired_stakeholder_is_classified_manual(
+        self,
+        mock_get_stakeholder,
+    ) -> None:
+        """Keep retired stakeholders out of automatic report and deletion flows."""
+        mock_get_stakeholder.return_value = Mock(
+            manual_report=False,
+            retired=True,
+            fceb=True,
+        )
+
+        self.assertEqual(stakeholder_flags("RETIRED-TAG"), ("RETIRED", True))
 
     def test_schedule_payload_requests_one_thousand_results(self) -> None:
         """Request the larger schedule page while preserving the supplied offset."""

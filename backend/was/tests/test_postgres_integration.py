@@ -22,6 +22,7 @@ from was_reports.data import (
     tracker_corrections,
 )
 from was_reports.data import daily_report_tracker as tracker
+from was_reports.qualys.qualys_admin import WebAppIdentity
 from was_reports.tracker import tracker_import, update_service
 from was_reports.tracker.models import TrackerItem
 
@@ -871,3 +872,75 @@ class PostgresIntegrationTests(unittest.TestCase):
                 0,
             )
             delete.assert_called_once()
+
+    def test_concurrent_retirement_blocks_external_deletion(self) -> None:
+        """Re-read safety state after a coordinated retirement wins the tag lock."""
+        item = TrackerItem(
+            tag="TEST",
+            scan_name="TEST Scan",
+            status="Finished",
+            result="No Web Service",
+            launched_date="2026-09-01T12:00:00Z",
+            next_scan_date="2026-10-01T12:00:00Z",
+            nws=True,
+            recent_nws="<br>https://example.test",
+            removed_nws="<br>https://example.test",
+            manual="",
+            fceb=False,
+            schedule_id=1,
+            qualys_errors="",
+            tag_id=9,
+            scan_execution_key="concurrent-retirement",
+        )
+        identity = WebAppIdentity("42", "https://example.test", ("9",))
+        mutation_connection = self.connect()
+        deletion_connection = self.connect()
+        deletion_waiting = Event()
+
+        tracker.lock_tracker_tag(mutation_connection, "TEST")
+        with mutation_connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE was_stakeholders SET retired = TRUE WHERE tag = 'TEST'"
+            )
+
+        def attempt_delete() -> None:
+            """Wait for the shared tag lock, then revalidate before deletion."""
+            deletion_waiting.set()
+            tracker.lock_tracker_tag(deletion_connection, "test")
+            update_service.delete_validated_webapp(
+                object(),
+                deletion_connection,
+                17,
+                item,
+                "concurrent-retirement",
+                "https://example.test",
+            )
+
+        try:
+            with patch.object(
+                update_service,
+                "find_webapp_identity",
+                side_effect=[identity, identity],
+            ), patch.object(
+                update_service,
+                "validate_webapp_tags",
+            ), patch.object(
+                update_service,
+                "validate_latest_deletion_execution",
+            ), patch.object(
+                update_service,
+                "validate_deletion_claim",
+            ), patch.object(
+                update_service,
+                "delete_webapp",
+            ) as delete:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    deletion = executor.submit(attempt_delete)
+                    self.assertTrue(deletion_waiting.wait(timeout=5))
+                    mutation_connection.commit()
+                    with self.assertRaisesRegex(RuntimeError, "safety state changed"):
+                        deletion.result(timeout=5)
+                delete.assert_not_called()
+        finally:
+            mutation_connection.close()
+            deletion_connection.close()

@@ -185,6 +185,8 @@ def stakeholder_flags(tag: str) -> tuple[str, bool]:
             tag,
         )
         return "MANUAL", False
+    if stakeholder.retired:
+        return "RETIRED", stakeholder.fceb
     manual = "CHILD TAG / OTHER" if stakeholder.manual_report else ""
     return manual, stakeholder.fceb
 
