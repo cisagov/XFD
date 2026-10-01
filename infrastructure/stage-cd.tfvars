@@ -120,7 +120,7 @@ ssm_redshift_password                = "/crossfeed/staging/REDSHIFT_PASSWORD"
 create_elasticache_cluster           = true
 create_email_sender_instance         = true
 email_sender_instance_type           = "t3.small"
-create_open_cti_instance             = true
+create_open_cti_instance             = false
 open_cti_instance_type               = "m5.4xlarge"
 create_was_reporting_instance        = true
 # Confirmed against stage-cd's real, running .env on 2026-08-17.
