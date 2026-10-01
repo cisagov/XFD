@@ -12,7 +12,10 @@ from uuid import uuid4
 
 # Third-Party Libraries
 from psycopg2 import sql
-from was_reports.data.daily_report_tracker import record_tracker_digest_failure
+from was_reports.data.daily_report_tracker import (
+    lock_tracker_tag,
+    record_tracker_digest_failure,
+)
 
 if TYPE_CHECKING:
     # Third-Party Libraries
@@ -673,11 +676,12 @@ def create_report_run(
     email_status: str = EMAIL_PENDING,
     delivery_purpose: str = "customer",
 ) -> ReportRun | None:
-    """Claim a scheduled execution and return its running report record."""
+    """Claim one per-tag generation slot and return its running report record."""
     if delivery_purpose not in {"customer", "analyst"}:
         raise ValueError("Delivery purpose must be customer or analyst.")
     generation_token = str(uuid4())
     try:
+        lock_tracker_tag(conn, stakeholder_tag)
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -690,7 +694,13 @@ def create_report_run(
                     generation_token,
                     delivery_purpose
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                SELECT %s, %s, %s, %s, %s, %s, %s
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM was_report_runs AS active_run
+                    WHERE active_run.stakeholder_tag = %s
+                      AND active_run.status = %s
+                )
                 ON CONFLICT DO NOTHING
                 RETURNING id, stakeholder_tag, status
                 """,
@@ -702,6 +712,8 @@ def create_report_run(
                     email_status,
                     generation_token,
                     delivery_purpose,
+                    stakeholder_tag,
+                    RUNNING,
                 ),
             )
             row = cursor.fetchone()
@@ -854,6 +866,7 @@ def create_on_demand_report_run(
     conn = connect()
     try:
         recover_stale_report_operations(conn)
+        lock_tracker_tag(conn, stakeholder_tag)
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -868,8 +881,11 @@ def create_on_demand_report_run(
             cursor.execute(
                 """
                 SELECT id FROM was_report_runs
-                WHERE stakeholder_tag = %s AND scheduled_epoch IS NULL
-                  AND (status = 'running' OR email_status = 'sending')
+                WHERE stakeholder_tag = %s
+                  AND (
+                        status = 'running'
+                     OR (scheduled_epoch IS NULL AND email_status = 'sending')
+                  )
                 LIMIT 1
                 """,
                 (stakeholder_tag,),
@@ -925,8 +941,7 @@ def create_report_run_for_tracker(
 ) -> ReportRun | None:
     """Claim a tracker row, optionally rechecking automated eligibility under lock.
 
-    Automated claims for a schedule/date serialize across tracker IDs and tags.
-    Imports do not share this lock; run imports outside active report batches.
+    Automated claims serialize with same-tag tracker refreshes and imports.
     """
     # Third-Party Libraries
     from was_reports.utils.database import close, connect
@@ -962,29 +977,25 @@ def _lock_eligible_automated_tracker(
     """Hold execution and row locks while checking the current candidate query."""
     # First-Party Libraries
     # Third-Party Libraries
-    from was_reports.data.daily_report_tracker import list_ready_report_candidates
+    from was_reports.data.daily_report_tracker import (
+        list_ready_report_candidates,
+        lock_tracker_tag,
+    )
 
+    lock_tracker_tag(conn, stakeholder_tag)
     with conn.cursor() as cursor:
-        cursor.execute(
-            "SELECT schedule_id, scan_start_date FROM was_daily_report_tracker "
-            "WHERE id = %s",
-            (source_tracker_id,),
-        )
-        identity = cursor.fetchone()
-        if identity is None or identity[0] is None or identity[1] is None:
-            return False
-        lock_key = "was-tracker-report:{}:{}".format(identity[0], identity[1])
-        cursor.execute(
-            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
-            (lock_key,),
-        )
         cursor.execute(
             "SELECT tag, schedule_id, scan_start_date FROM was_daily_report_tracker "
             "WHERE id = %s FOR UPDATE",
             (source_tracker_id,),
         )
         locked_row = cursor.fetchone()
-        if locked_row != (stakeholder_tag, identity[0], identity[1]):
+        if (
+            locked_row is None
+            or locked_row[0] != stakeholder_tag
+            or locked_row[1] is None
+            or locked_row[2] is None
+        ):
             return False
     candidates = list_ready_report_candidates(
         conn,
@@ -999,13 +1010,25 @@ def retry_failed_report_run_for_tracker(
     conn: connection,
     safe_only: bool = False,
 ) -> ReportRun | None:
-    """Atomically reclaim one failed tracker report run for generation."""
+    """Atomically reclaim one failed run within its per-tag generation slot."""
     generation_token = str(uuid4())
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                UPDATE was_report_runs
+                SELECT pg_advisory_xact_lock(
+                    hashtextextended('was-tracker-tag:' || stakeholder_tag, 0)
+                )
+                FROM was_report_runs
+                WHERE source_tracker_id = %s
+                  AND status = %s
+                  AND delivery_purpose = 'customer'
+                """,
+                (source_tracker_id, FAILED),
+            )
+            cursor.execute(
+                """
+                UPDATE was_report_runs AS claimed_run
                 SET status = %s,
                     generation_token = %s,
                     email_claim_token = NULL,
@@ -1020,6 +1043,12 @@ def retry_failed_report_run_for_tracker(
                 WHERE source_tracker_id = %s
                   AND status = %s
                   AND delivery_purpose = 'customer'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM was_report_runs AS active_run
+                      WHERE active_run.stakeholder_tag = claimed_run.stakeholder_tag
+                        AND active_run.status = %s
+                  )
                   AND (
                       NOT %s OR (
                           emailed_at IS NULL
@@ -1038,6 +1067,7 @@ def retry_failed_report_run_for_tracker(
                     EMAIL_PENDING,
                     source_tracker_id,
                     FAILED,
+                    RUNNING,
                     safe_only,
                 ),
             )

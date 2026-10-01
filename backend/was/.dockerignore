@@ -1,11 +1,14 @@
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.venv/
-cd_WAS_update/
-.env
-was_config.txt
-*.log
-Reports/
-Report_Mailer/
+# Deny the complete local workspace by default.  Only the inputs explicitly
+# copied by Dockerfile may enter the build context.
+**
+
+!Dockerfile
+!requirements.txt
+!setup.py
+
+!schema/
+!schema/**
+!src/
+!src/**
+!worker/
+!worker/**

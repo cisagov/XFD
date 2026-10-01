@@ -258,6 +258,8 @@ WAS_QUALYS_CREATE_RECONCILE_TIMEOUT_SECONDS=1800
 WAS_QUALYS_CREATE_RECONCILE_POLL_SECONDS=30
 WAS_QUALYS_REPORT_XML_MAX_BYTES=10737418240
 WAS_QUALYS_REPORT_XML_MIN_FREE_BYTES=5368709120
+WAS_QUALYS_DETAIL_PDF_MAX_BYTES=10737418240
+WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES=5368709120
 WAS_QUALYS_REPORT_POLL_SECONDS=60
 WAS_QUALYS_REPORT_PROGRESS_SECONDS=300
 WAS_QUALYS_REPORT_POLL_TIMEOUT_SECONDS=0
@@ -275,6 +277,8 @@ WAS_REPORT_STAGING_DIRECTORY=/tmp/was-report-storage
 WAS_REPORT_STORAGE=s3
 WAS_REPORTS_BUCKET_NAME=replace-me-approved-environment-bucket
 WAS_REPORTS_PREFIX=was_reports
+WAS_REPORTS_S3_ENCRYPTION=bucket-default
+WAS_REPORTS_KMS_KEY_ID=
 WAS_PASSWORD_LENGTH=24
 AWS_DEFAULT_REGION=us-east-1
 WAS_EMAIL_SOURCE=verified-sender@example.gov
@@ -323,18 +327,13 @@ Log files are owner-readable only, including rotated files. Standalone random
 suffixes and coordinated role and worker filenames prevent concurrent
 containers from sharing a file. Qualys requests log endpoint, elapsed time, and
 safe HTTP error metadata.
-A final Qualys request failure logs the exact prepared request URL and API
-version in a credential-free `curl` replay command containing the HTTP method
-and sanitized XML request. It also logs the HTTP status, approved response
-headers, and sanitized response XML limited to 16,384 characters. A network
-failure that produced no response is identified explicitly. The command
-references the existing
-`WAS_QUALYS_USERNAME`, `WAS_QUALYS_PASSWORD`, and `WAS_QUALYS_HOSTNAME`
-environment variables instead of printing their values. Review the command and
-run it only from an approved environment because its sanitized payload may
-still identify the stakeholder tag or report ID. Authorization, cookies,
-tokens, credential values, unapproved response headers, and unsanitizable
-response bodies are not logged. Database failures include
+A final Qualys request failure records the HTTP method, path without query
+values, request and response byte counts, SHA-256 digests, status, and approved
+response headers. Request bodies, response bodies, query values, authorization,
+cookies, tokens, credentials, customer tags, URLs, comments, and vulnerability
+findings are not logged. Operators must reproduce a failure from approved
+private source data rather than copying a payload from logs. A network failure
+that produced no response is identified explicitly. Database failures include
 SQLSTATE and available table/column names without SQL values. Connection
 establishment is bounded by `WAS_DB_CONNECT_TIMEOUT_SECONDS` (default `10`).
 Inventory queries also show which stakeholder count is being retrieved and
@@ -384,9 +383,10 @@ The EC2 role must allow `sts:AssumeRole` on the sending role, that role must
 trust the EC2 role, and the sending role must permit `ses:SendRawEmail` for the
 approved sender identity. Role-assumption failures fail delivery without
 falling back to the EC2 role for SES.
-The current `infrastructure/was-reporting.tf` role does not grant this
-`sts:AssumeRole` permission. Add an approved resource-scoped policy or verify an
-equivalent externally managed policy before any email workflow.
+The Terraform-managed WAS instance role grants `sts:AssumeRole` only for
+`was_reporting_ses_role_arn`. The destination role trust policy remains managed
+outside this repository and must trust the exact WAS instance role before any
+email workflow.
 
 On EC2, replace the unused `WAS_SES_PROFILE` entry in `.env` with the
 `WAS_SES_ROLE_ARN` entry above, retain `AWS_DEFAULT_REGION=us-east-1`, and set
@@ -437,6 +437,14 @@ The streaming parser disables entity resolution, DTD loading, network access,
 DTD validation, and attribute defaults. It rejects an actual document DTD while
 allowing inert declaration-like text inside comments or CDATA.
 
+Qualys detail PDFs use the same bounded streaming model.
+`WAS_QUALYS_DETAIL_PDF_MAX_BYTES` defaults to 10 GiB and
+`WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES` defaults to 5 GiB. Each response streams
+to a unique mode `0600` partial file, must begin with a PDF signature and contain
+an end-of-file marker, and atomically replaces the final path only after
+validation. Size, disk-reserve, cancellation, network, and content failures
+remove the partial file and preserve any existing final PDF.
+
 Active Qualys detail and XML report IDs, current statuses, and last-poll
 timestamps are stored on `was_report_runs`. If a tracker-linked failed run is
 reclaimed after a container interruption, report generation reuses those IDs
@@ -481,8 +489,12 @@ the mailer needs `s3:GetObject` for that prefix. The active report and mailer
 paths do not require `s3:DeleteObject` or `s3:ListBucket`. Grant each process
 only the object action it uses through the task or instance role, not an
 execution role or static AWS credentials. The configured bucket must block
-public access and encrypt data at rest. Bucket versioning, lifecycle, and
-retention remain separate, approved governance decisions.
+public access and encrypt data at rest. `WAS_REPORTS_S3_ENCRYPTION=bucket-default`
+avoids overriding the bucket policy. Use `AES256` only when the approved policy
+explicitly requires SSE-S3. Use `aws:kms` only with an exact approved key ARN in
+`WAS_REPORTS_KMS_KEY_ID` and the matching
+`was_reporting_reports_kms_key_arn` Terraform input. Bucket versioning,
+lifecycle, and retention remain separate, approved governance decisions.
 
 If an S3 upload succeeds but the database completion update is uncertain, the
 current workflow retains the object. Do not delete it or retry report generation
@@ -496,11 +508,11 @@ authoritative deployed-environment value, and `WAS_REPORTS_PREFIX` controls the
 object prefix. Do not reuse another environment's bucket. Supply the approved
 bucket name and prefix-scoped permissions before deployment.
 
-The current `infrastructure/was-reporting.tf` policy is not the final
-least-privilege runtime policy: it includes `s3:DeleteObject`, limits object
-access to `was_reports/*`, and does not authorize the capacity
-`capacity/<run-id>` prefix. Review and correct that policy, or verify an
-equivalent externally managed policy, before production or capacity use.
+The Terraform-managed role permits only `s3:GetObject` and `s3:PutObject` under
+`was_reports/*` and `capacity/*`; it does not grant `s3:DeleteObject`. When a KMS
+key is configured, the same role receives only the required decrypt, describe,
+and data-key permissions for that exact key. Confirm the bucket policy accepts
+the selected runtime encryption mode before production or capacity use.
 
 Existing databases require a DBA-reviewed additive change for the report-run
 claim columns and indexes before deploying this code. Use
@@ -508,8 +520,10 @@ claim columns and indexes before deploying this code. Use
 but do not execute the complete creation file against an existing database.
 
 The unique active-schedule index prevents separate report containers from
-generating the same stakeholder schedule concurrently. Email delivery uses an
-atomic database claim before calling SES. Any exception after the SES request
+generating the same stakeholder schedule concurrently. A transaction-level
+stakeholder-tag advisory lock serializes tracker writes, automated claims,
+imports, and manual recovery while newest-row eligibility is rechecked. Email
+delivery uses an atomic database claim before calling SES. Any exception after the SES request
 starts is treated as an uncertain delivery, including a response-parsing error
 that occurs before an SES message ID is available. The report run is held for
 manual reconciliation rather than being retried automatically. Failures before
@@ -968,19 +982,18 @@ such as `make menu` use the existing `was-reporting` image and do not rebuild it
 automatically. A rebuild is not required when only `.env` values change because
 Docker loads that file when each container starts.
 
-The current image is not a byte-for-byte reproducible build. Its base image uses
-the mutable `python:3.12-slim-trixie` tag and most entries in `requirements.txt`
-are not pinned to exact versions. Rebuilds therefore require normal validation
-even when the application commit has not changed.
+The image pins the Python base image by version and digest, and runtime Python
+requirements use exact versions. Dependency updates must be reviewed, scanned,
+tested, and committed explicitly; a rebuild must not silently resolve a newer
+runtime dependency set.
 
 The image normalizes packaged source and resource permissions during the build
 so operators can run commands with the host user's UID instead of container
 root, even when the checkout was created with a restrictive host `umask`.
-The `Dockerfile` does not declare a `USER`, so a direct `docker run` command
-without `--user` runs as container root. Supported Make targets that write
-host-mounted output add the invoking operator's UID and GID. For a direct
-command that mounts host storage, supply `--user "$(id -u):$(id -g)"` unless
-the approved procedure specifically requires another identity.
+The `Dockerfile` declares the unprivileged `was-reporting` runtime user.
+Supported Make targets that write host-mounted output continue to override that
+identity with the invoking operator's UID and GID so private artifacts remain
+readable without `sudo`. Direct image execution remains non-root by default.
 
 Smoke test the container command routing without database or Qualys access:
 
@@ -1062,8 +1075,10 @@ summary by itself as authorization to retry.
 
 `BATCH_WORKERS` defaults to `30` and must be between `1` and `30`. Each worker
 container receives a non-overlapping stakeholder partition so two reports for
-the same stakeholder cannot run concurrently. Existing database claims prevent
-duplicate tracker-row report runs. A worker emails each report after successful
+the same stakeholder cannot run concurrently. A shared stakeholder-tag advisory
+lock serializes tracker writes and report claims, and the claim rechecks that it
+still represents the newest eligible execution. Existing unique database claims
+prevent duplicate tracker-row report runs. A worker emails each report after successful
 S3 archival. After all workers exit, one mailer container retries any remaining
 completed deliveries and one mailer container sends the shared final analyst
 summary. A separate shared summary is sent after tracker refresh and preflight.
@@ -1137,7 +1152,10 @@ Historical recovery is separate from daily discovery. The guarded
 `recover-manual-reports` command accepts explicit tracker IDs only for
 log-confirmed historical password-validation or safe Qualys read-timeout
 failures. It previews by default and rechecks sent, held, overlap, stakeholder,
-execution, and uncertain-creation safeguards before application. See
+execution, and uncertain-creation safeguards before application. An applied
+`TEST_RECIPIENTS` run additionally requires a stable `REPLAY_ID` and creates an
+isolated analyst-purpose replay. It does not reclaim the customer run, clear its
+failure, stamp the tracker sent date, or represent customer delivery. See
 [`docs/manual-report-recovery.md`](docs/manual-report-recovery.md).
 
 ### Customer email sender notice, dates, and attachment names
@@ -1412,9 +1430,14 @@ Tracker templates control delivery behavior:
   successfully. A separate destructive-action audit record remains deferred to
   its approved future sprint.
 - Opt-in deletion first commits a `MANUAL QUALYS DELETION PENDING` tracker
-  claim. Interrupted or failed deletions are not automatically replayed, and the
-  repository has no supported deletion-reconciliation command. Preserve the
-  evidence and escalate for per-URL Qualys verification. A non-destructive
+  claim, reacquires the stakeholder-tag lock, and revalidates the exact Qualys
+  web-application identity, expected stakeholder tag, latest finished execution,
+  and unchanged tracker claim immediately before each deletion. Duplicate URL
+  identities, changed tag associations, a newer execution, or unverifiable
+  state stop deletion and record manual failure. Interrupted or failed
+  deletions are not automatically replayed, and the repository has no supported
+  deletion-reconciliation command. Preserve the evidence and escalate for
+  per-URL Qualys verification. A non-destructive
   `QUALYS DELETION REQUIRED` row from an assignee-test
   or capacity/test run can be processed by a subsequent true production or
   explicit deletion refresh before reporting has started.

@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from threading import Event, Lock
 from types import SimpleNamespace
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -80,10 +80,7 @@ class ReportRunTests(unittest.TestCase):
         """Reject a stale row when a newer row or safety hold replaces it."""
         conn = connect.return_value
         cursor = conn.cursor.return_value.__enter__.return_value
-        cursor.fetchone.side_effect = [
-            (42, date(2026, 9, 21)),
-            ("TAG", 42, date(2026, 9, 21)),
-        ]
+        cursor.fetchone.return_value = ("TAG", 42, date(2026, 9, 21))
         candidates.return_value = [SimpleNamespace(id=102)]
         result = report_runs.create_report_run_for_tracker(
             "TAG", 101, enforce_automated_eligibility=True, days_back=7
@@ -97,8 +94,11 @@ class ReportRunTests(unittest.TestCase):
             isolation_level="READ COMMITTED", autocommit=False
         )
         queries = [str(call.args[0]) for call in cursor.execute.call_args_list]
-        self.assertIn("pg_advisory_xact_lock", queries[1])
-        self.assertIn("FOR UPDATE", queries[2])
+        self.assertIn("pg_advisory_xact_lock", queries[0])
+        self.assertEqual(
+            cursor.execute.call_args_list[0].args[1], ("was-tracker-tag:TAG",)
+        )
+        self.assertIn("FOR UPDATE", queries[1])
 
     @patch("was_reports.utils.database.close")
     @patch("was_reports.utils.database.connect")
@@ -110,10 +110,7 @@ class ReportRunTests(unittest.TestCase):
         """Do not claim a row whose execution changed while acquiring its lock."""
         conn = connect.return_value
         cursor = conn.cursor.return_value.__enter__.return_value
-        cursor.fetchone.side_effect = [
-            (42, date(2026, 9, 21)),
-            ("TAG", 43, date(2026, 9, 21)),
-        ]
+        cursor.fetchone.return_value = ("OTHER", 43, date(2026, 9, 21))
         self.assertIsNone(
             report_runs.create_report_run_for_tracker(
                 "TAG", 101, enforce_automated_eligibility=True
@@ -167,7 +164,7 @@ class ReportRunTests(unittest.TestCase):
     def test_sibling_claims_serialize_before_rechecking(
         self, candidates, create_run, connect, close
     ) -> None:
-        """Model blocking DB locks: two tags/IDs cannot claim the same execution."""
+        """Model tag serialization for two IDs from different executions."""
         execution_lock = Lock()
         first_check = Event()
         second_lock_attempt = Event()
@@ -180,10 +177,7 @@ class ReportRunTests(unittest.TestCase):
             conn = MagicMock()
             connection_ids[id(conn)] = row_id
             cursor = conn.cursor.return_value.__enter__.return_value
-            cursor.fetchone.side_effect = [
-                (42, date(2026, 9, 21)),
-                (tag, 42, date(2026, 9, 21)),
-            ]
+            cursor.fetchone.return_value = (tag, row_id, date(2026, 9, 21))
 
             def execute(query, parameters):
                 """Use a local mutex to model PostgreSQL's transaction lock."""
@@ -200,7 +194,7 @@ class ReportRunTests(unittest.TestCase):
             return conn
 
         first_conn = connection_for(101, "TAG")
-        second_conn = connection_for(102, "TAG_ALIAS")
+        second_conn = connection_for(102, "TAG")
         connect.side_effect = [first_conn, second_conn]
 
         def eligible(conn, **kwargs):
@@ -225,12 +219,12 @@ class ReportRunTests(unittest.TestCase):
             )
             self.assertTrue(first_check.wait(timeout=5))
             second = workers.submit(
-                report_runs.create_report_run_for_tracker, "TAG_ALIAS", 102, True, 7
+                report_runs.create_report_run_for_tracker, "TAG", 102, True, 7
             )
             self.assertIsNotNone(first.result(timeout=5))
             self.assertIsNone(second.result(timeout=5))
         self.assertEqual(claimed_ids, [101])
-        self.assertEqual(lock_keys, ["was-tracker-report:42:2026-09-21"] * 2)
+        self.assertEqual(lock_keys, ["was-tracker-tag:TAG"] * 2)
         self.assertEqual(candidates.call_count, 2)
 
     def test_creation_intent_commits_before_authorizing_post(self) -> None:
@@ -752,9 +746,12 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 report_run.generation_token,
                 "customer",
+                "TAG1",
+                report_runs.RUNNING,
             ),
         )
         self.assertIn("ON CONFLICT", conn.cursor_instance.query)
+        self.assertIn("active_run.status = %s", conn.cursor_instance.query)
 
     def test_create_report_run_skips_an_active_schedule_claim(self) -> None:
         """Return no run when another worker already claimed the schedule."""
@@ -791,8 +788,50 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 report_run.generation_token,
                 "customer",
+                "TAG2",
+                report_runs.RUNNING,
             ),
         )
+
+    @patch("was_reports.utils.database.close")
+    @patch("was_reports.utils.database.connect")
+    @patch("was_reports.data.report_runs.create_report_run")
+    @patch("was_reports.data.report_runs.lock_tracker_tag")
+    @patch("was_reports.data.report_runs.recover_stale_report_operations")
+    def test_on_demand_claim_locks_tag_before_mutable_rows(
+        self,
+        recover_stale,
+        lock_tag,
+        create_run,
+        connect,
+        close,
+    ) -> None:
+        """Keep on-demand creation in the shared advisory-first lock order."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [(False,), None]
+        connect.return_value = connection
+        create_run.return_value = SimpleNamespace(id=17)
+        sequence = MagicMock()
+        sequence.attach_mock(recover_stale, "recover")
+        sequence.attach_mock(lock_tag, "lock_tag")
+        sequence.attach_mock(cursor.execute, "execute")
+        sequence.attach_mock(create_run, "create_run")
+
+        result = report_runs.create_on_demand_report_run("TAG1")
+
+        self.assertEqual(result.id, 17)
+        self.assertEqual(sequence.mock_calls[0], call.recover(connection))
+        self.assertEqual(
+            sequence.mock_calls[1],
+            call.lock_tag(connection, "TAG1"),
+        )
+        stakeholder_query = str(sequence.mock_calls[2].args[0])
+        active_query = str(sequence.mock_calls[3].args[0])
+        self.assertIn("was_stakeholders", stakeholder_query)
+        self.assertIn("status = 'running'", active_query)
+        self.assertEqual(sequence.mock_calls[4][0], "create_run")
+        close.assert_called_once_with(connection)
 
     def test_complete_report_run_sets_completed_status(self) -> None:
         """Mark an existing report execution as completed."""
@@ -835,10 +874,30 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 42,
                 report_runs.FAILED,
+                report_runs.RUNNING,
                 False,
             ),
         )
         self.assertIn("error_message = NULL", conn.cursor_instance.query)
+        self.assertIn("active_run.status = %s", conn.cursor_instance.query)
+
+    def test_retry_failed_tracker_run_locks_tag_before_reclaim(self) -> None:
+        """Serialize failed-run retries with every same-tag generation claim."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (7, "TAG1", report_runs.RUNNING)
+
+        report_runs.retry_failed_report_run_for_tracker(42, connection)
+
+        lock_query = str(cursor.execute.call_args_list[0].args[0])
+        update_query = str(cursor.execute.call_args_list[1].args[0])
+        self.assertIn("pg_advisory_xact_lock", lock_query)
+        self.assertEqual(
+            cursor.execute.call_args_list[0].args[1],
+            (42, report_runs.FAILED),
+        )
+        self.assertIn("NOT EXISTS", update_query)
+        self.assertIn("active_run.status = %s", update_query)
 
     def test_complete_report_run_can_store_output_metadata(self) -> None:
         """Mark a report complete with artifact details."""

@@ -10,10 +10,9 @@ from email.utils import parsedate_to_datetime
 import hashlib
 import logging
 import random
-import shlex
 import time
 from typing import Any, Callable, TypeVar, cast
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 # Third-Party Libraries
 from defusedxml import ElementTree
@@ -61,7 +60,6 @@ SAFE_RESPONSE_HEADERS = frozenset(
         "x-request-id",
     }
 )
-MAX_LOGGED_RESPONSE_CHARACTERS = 16384
 OperationResult = TypeVar("OperationResult")
 
 
@@ -216,7 +214,7 @@ def sanitized_qualys_payload(payload: str | None) -> str | None:
 
 
 def _safe_request_url(url: str) -> str:
-    """Return a request URL with credentials and sensitive query values removed."""
+    """Return a request URL without credentials, fragments, or query values."""
     parsed_url = urlsplit(url)
     hostname = parsed_url.hostname or ""
     if ":" in hostname and not hostname.startswith("["):
@@ -224,18 +222,12 @@ def _safe_request_url(url: str) -> str:
     netloc = hostname
     if parsed_url.port is not None:
         netloc = "{}:{}".format(netloc, parsed_url.port)
-    sanitized_query = []
-    for name, value in parse_qsl(parsed_url.query, keep_blank_values=True):
-        normalized_name = name.lower().replace("-", "_")
-        if normalized_name in SENSITIVE_XML_NAMES:
-            value = "REDACTED"
-        sanitized_query.append((name, value))
     return urlunsplit(
         (
             parsed_url.scheme,
             netloc,
             parsed_url.path,
-            urlencode(sanitized_query),
+            "",
             "",
         )
     )
@@ -252,21 +244,29 @@ def _prepared_request(error: Exception) -> requests.PreparedRequest | None:
     return None
 
 
-def _request_body(payload: Any) -> str | None:
-    """Return a request body as text when it can be sanitized safely."""
+def _request_body_bytes(payload: Any) -> bytes | None:
+    """Return exact request bytes for content-free size and hash metadata."""
     if payload is None:
         return None
     if isinstance(payload, bytes):
-        return payload.decode("utf-8", errors="replace")
-    return str(payload)
+        return payload
+    if isinstance(payload, str):
+        return payload.encode("utf-8")
+    return str(payload).encode("utf-8")
+
+
+def _safe_endpoint(endpoint: str) -> str:
+    """Return an endpoint path without query or fragment content."""
+    return urlsplit(endpoint).path
 
 
 def _fallback_qualys_url(endpoint: str) -> str:
     """Return the expected URL when an exception has no prepared request."""
-    api_version = "1.0" if endpoint.lstrip("/").startswith("search/am/") else "3.0"
+    safe_endpoint = _safe_endpoint(endpoint)
+    api_version = "1.0" if safe_endpoint.lstrip("/").startswith("search/am/") else "3.0"
     return "${{WAS_QUALYS_HOSTNAME%/}}/qps/rest/{}/{}".format(
         api_version,
-        endpoint.lstrip("/"),
+        safe_endpoint.lstrip("/"),
     )
 
 
@@ -274,45 +274,35 @@ def qualys_replay_command(
     qualys_request: QualysRequest,
     error: Exception | None = None,
 ) -> str:
-    """Build a credential-free curl command for reproducing a failed request."""
+    """Return safe request metadata without logging request content."""
     prepared_request = _prepared_request(error) if error is not None else None
     method = prepared_request.method if prepared_request is not None else None
     if method is None:
         method = qualys_request.http_method
     if method is None:
         method = "POST" if qualys_request.payload is not None else "GET"
-    command_parts = [
-        "curl",
-        "--fail-with-body",
-        "--user",
-        '"${WAS_QUALYS_USERNAME}:${WAS_QUALYS_PASSWORD}"',
-        "--request",
-        method.upper(),
-    ]
-    payload = qualys_request.payload
+    payload_bytes = _request_body_bytes(qualys_request.payload)
     if prepared_request is not None:
-        payload = _request_body(prepared_request.body)
-    sanitized_payload = sanitized_qualys_payload(payload)
-    if sanitized_payload is not None:
-        command_parts.extend(
-            [
-                "--header",
-                shlex.quote("Content-Type: application/xml"),
-                "--data-binary",
-                shlex.quote(sanitized_payload),
-            ]
-        )
+        payload_bytes = _request_body_bytes(prepared_request.body)
     request_url = _fallback_qualys_url(qualys_request.endpoint)
     if prepared_request is not None and prepared_request.url:
         request_url = _safe_request_url(prepared_request.url)
-        command_parts.append(shlex.quote(request_url))
+    if payload_bytes is None:
+        payload_metadata = "request body=none"
     else:
-        command_parts.append('"{}"'.format(request_url))
-    return " ".join(command_parts)
+        payload_metadata = "request body bytes={}; request body sha256={}".format(
+            len(payload_bytes),
+            hashlib.sha256(payload_bytes).hexdigest(),
+        )
+    return "method={}; url={}; {}".format(
+        method.upper(),
+        request_url,
+        payload_metadata,
+    )
 
 
 def qualys_failure_response_summary(error: Exception) -> str:
-    """Return bounded and sanitized response evidence for a failed request."""
+    """Return response metadata and a body hash for a failed request."""
     if not isinstance(error, requests.RequestException) or error.response is None:
         return "No HTTP response was received."
 
@@ -322,18 +312,15 @@ def qualys_failure_response_summary(error: Exception) -> str:
         if name.lower() in SAFE_RESPONSE_HEADERS:
             safe_headers.append("{}={}".format(name, value))
     header_summary = ", ".join(sorted(safe_headers)) or "none"
-    body = sanitized_qualys_payload(response.text)
-    if body is None:
-        body = "none"
-    if len(body) > MAX_LOGGED_RESPONSE_CHARACTERS:
-        body = "{}...[truncated; original characters={}]".format(
-            body[:MAX_LOGGED_RESPONSE_CHARACTERS],
-            len(body),
-        )
-    return "HTTP status={}; safe headers={}; sanitized body={}".format(
+    response_body = response.content or b""
+    return (
+        "HTTP status={}; safe headers={}; response body bytes={}; "
+        "response body sha256={}"
+    ).format(
         response.status_code,
         header_summary,
-        body,
+        len(response_body),
+        hashlib.sha256(response_body).hexdigest(),
     )
 
 
@@ -343,7 +330,9 @@ def is_retry_safe(qualys_request: QualysRequest) -> bool:
         return qualys_request.retry_safe
     if (qualys_request.http_method or "").lower() == "get":
         return True
-    endpoint_root = qualys_request.endpoint.lstrip("/").split("/", 1)[0].lower()
+    endpoint_root = (
+        _safe_endpoint(qualys_request.endpoint).lstrip("/").split("/", 1)[0].lower()
+    )
     return endpoint_root in RETRY_SAFE_ENDPOINT_PREFIXES
 
 
@@ -476,7 +465,8 @@ class QualysClient:
         """Execute a Qualys request, retrying only read-safe transient failures."""
         raise_if_operation_cancelled()
         started = time.monotonic()
-        LOGGER.info("Requesting Qualys %s.", qualys_request.endpoint)
+        endpoint_label = _safe_endpoint(qualys_request.endpoint)
+        LOGGER.info("Requesting Qualys %s.", endpoint_label)
         attempt_number = 0
 
         def perform_request() -> str:
@@ -496,7 +486,7 @@ class QualysClient:
             finally:
                 emit_metric(
                     "qualys_attempt",
-                    endpoint=urlsplit(qualys_request.endpoint).path,
+                    endpoint=endpoint_label,
                     attempt_number=attempt_number,
                     duration_seconds=time.monotonic() - attempt_started,
                     outcome=outcome,
@@ -509,7 +499,7 @@ class QualysClient:
             else:
                 result = execute_retryable_operation(
                     operation=perform_request,
-                    operation_name=qualys_request.endpoint,
+                    operation_name=endpoint_label,
                     policy=self._retry_policy,
                     sleep_function=self._sleep_function,
                     random_function=self._random_function,
@@ -517,20 +507,20 @@ class QualysClient:
         except OperationCancelledError:
             LOGGER.info(
                 "Qualys %s cancelled by operator after %.1f seconds.",
-                qualys_request.endpoint,
+                endpoint_label,
                 time.monotonic() - started,
             )
             raise
         except Exception as error:
             LOGGER.warning(
                 "Qualys %s failed after %.1f seconds: %s.",
-                qualys_request.endpoint,
+                endpoint_label,
                 time.monotonic() - started,
                 exception_details(error),
                 extra={"event": "qualys_request_failed"},
             )
             LOGGER.error(
-                "Qualys failure replay command, credentials omitted: %s",
+                "Qualys failure request metadata, content omitted: %s",
                 qualys_replay_command(qualys_request, error=error),
                 extra={"event": "qualys_replay_available"},
             )
@@ -542,7 +532,7 @@ class QualysClient:
             raise
         LOGGER.info(
             "Qualys %s completed in %.1f seconds.",
-            qualys_request.endpoint,
+            endpoint_label,
             time.monotonic() - started,
         )
         raise_if_operation_cancelled()

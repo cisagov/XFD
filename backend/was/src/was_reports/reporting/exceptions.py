@@ -20,3 +20,24 @@ class ReportXmlDiskSpaceError(OSError):
 
 class ReportXmlUnsafeContentError(ValueError):
     """Indicate that downloaded XML contains a prohibited DTD declaration."""
+
+
+class ReportPdfSizeLimitError(ValueError):
+    """Indicate that a streamed Qualys PDF exceeds its disk limit."""
+
+    def __init__(self, actual_bytes: int, maximum_bytes: int) -> None:
+        """Store safe size diagnostics without retaining report contents."""
+        self.actual_bytes = actual_bytes
+        self.maximum_bytes = maximum_bytes
+        super().__init__(
+            "Qualys detail PDF size {} bytes exceeds the configured {} byte "
+            "disk safety limit.".format(actual_bytes, maximum_bytes)
+        )
+
+
+class ReportPdfDiskSpaceError(OSError):
+    """Indicate that PDF streaming must stop to preserve free disk capacity."""
+
+
+class ReportPdfUnsafeContentError(ValueError):
+    """Indicate that downloaded content is not a PDF document."""

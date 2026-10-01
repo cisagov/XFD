@@ -5,17 +5,24 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import os
 from pathlib import Path
-from threading import Barrier
+import tempfile
+from threading import Barrier, Event
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
 # Third-Party Libraries
+from openpyxl import Workbook
 import psycopg2
 from psycopg2 import sql
+from was_reports.data import (
+    manual_recovery,
+    report_runs,
+    standalone_targets,
+    tracker_corrections,
+)
 from was_reports.data import daily_report_tracker as tracker
-from was_reports.data import report_runs, standalone_targets, tracker_corrections
-from was_reports.tracker import update_service
+from was_reports.tracker import tracker_import, update_service
 from was_reports.tracker.models import TrackerItem
 
 
@@ -234,6 +241,257 @@ class PostgresIntegrationTests(unittest.TestCase):
             results = list(executor.map(lambda unused: insert(), range(2)))
         self.assertEqual(results[0], results[1])
         self.assertNotEqual(results[0], self.tracker_row("next"))
+
+    def test_tracker_import_and_writer_use_one_lock_order(self) -> None:
+        """A same-tag import and writer complete without a table/advisory deadlock."""
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "tracker.xlsx"
+            workbook = Workbook()
+            worksheet = workbook.active
+            worksheet.append(list(tracker_import.WORKBOOK_HEADERS))
+            worksheet.append(
+                [
+                    date.today(),
+                    "TEST",
+                    "Legacy TEST Scan",
+                    None,
+                    "Finished",
+                    "Successful",
+                    None,
+                    None,
+                    date.today(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    "1",
+                    "Results",
+                    None,
+                    None,
+                    None,
+                    501,
+                    None,
+                ]
+            )
+            workbook.save(input_path)
+
+            import_connection = self.connect()
+            writer_connection = self.connect()
+            import_waiting = Event()
+            original_lock = tracker.lock_tracker_tag
+            original_lock(writer_connection, "TEST")
+
+            def import_lock(connection, stakeholder_tag: str) -> None:
+                """Signal immediately before the importer waits for the tag."""
+                import_waiting.set()
+                original_lock(connection, stakeholder_tag)
+
+            try:
+                with patch.object(
+                    tracker_import, "connect", return_value=import_connection
+                ), patch.object(tracker_import, "close"), patch.object(
+                    tracker_import, "lock_tracker_tag", side_effect=import_lock
+                ):
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        imported = executor.submit(
+                            tracker_import.import_tracker_workbook,
+                            input_path,
+                        )
+                        self.assertTrue(import_waiting.wait(timeout=5))
+                        written = executor.submit(
+                            tracker.insert_daily_report_tracker_row,
+                            tracker.DailyReportTrackerRow(
+                                tag="TEST",
+                                scan_execution_key="live-writer",
+                            ),
+                            writer_connection,
+                        )
+                        self.assertGreater(written.result(timeout=5), 0)
+                        self.assertEqual(imported.result(timeout=5).inserted_rows, 1)
+            finally:
+                import_connection.close()
+                writer_connection.close()
+
+    def test_same_tag_report_creations_share_one_generation_slot(self) -> None:
+        """Due and tracker paths cannot create overlapping same-tag generations."""
+        tracker_id = self.tracker_row("generation-slot")
+        barrier = Barrier(2)
+
+        def create_run(scheduled: bool):
+            """Race two supported creation identities on independent connections."""
+            connection = self.connect()
+            try:
+                barrier.wait(timeout=5)
+                return report_runs.create_report_run(
+                    "TEST",
+                    1720000001 if scheduled else None,
+                    connection,
+                    source_tracker_id=None if scheduled else tracker_id,
+                )
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(create_run, (True, False)))
+
+        self.assertEqual(sum(result is not None for result in results), 1)
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) FROM was_report_runs "
+                "WHERE stakeholder_tag = 'TEST' AND status = 'running'"
+            )
+            self.assertEqual(cursor.fetchone()[0], 1)
+
+    def test_newer_tracker_write_precedes_automated_claim_recheck(self) -> None:
+        """A concurrent newer row makes an older automated claim ineligible."""
+        older_id = tracker.insert_daily_report_tracker_row(
+            conn=self.connection,
+            row=tracker.DailyReportTrackerRow(
+                tag="TEST",
+                scan_name="older",
+                status="Finished",
+                result="Successful",
+                data_pull_date=date.today(),
+                scan_start_date=date.today(),
+                schedule_id=101,
+                scan_execution_key="older-automated",
+            ),
+        )
+        writer_connection = self.connect()
+        claim_connection = self.connect()
+        claim_waiting = Event()
+        original_lock = tracker.lock_tracker_tag
+        original_lock(writer_connection, "TEST")
+
+        def observed_lock(connection, stakeholder_tag: str) -> None:
+            """Signal immediately before the claim blocks on the writer lock."""
+            if connection is claim_connection:
+                claim_waiting.set()
+            original_lock(connection, stakeholder_tag)
+
+        try:
+            with patch.object(
+                tracker, "lock_tracker_tag", side_effect=observed_lock
+            ), patch(
+                "was_reports.utils.database.connect", return_value=claim_connection
+            ), patch(
+                "was_reports.utils.database.close"
+            ):
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    claim = executor.submit(
+                        report_runs.create_report_run_for_tracker,
+                        "TEST",
+                        older_id,
+                        True,
+                        7,
+                    )
+                    self.assertTrue(claim_waiting.wait(timeout=5))
+                    tracker.insert_daily_report_tracker_row(
+                        conn=writer_connection,
+                        row=tracker.DailyReportTrackerRow(
+                            tag="TEST",
+                            scan_name="newer",
+                            status="Finished",
+                            result="Successful",
+                            data_pull_date=date.today(),
+                            scan_start_date=date.today(),
+                            schedule_id=102,
+                            scan_execution_key="newer-automated",
+                        ),
+                    )
+                    self.assertIsNone(claim.result(timeout=5))
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM was_report_runs WHERE source_tracker_id = %s",
+                    (older_id,),
+                )
+                self.assertEqual(cursor.fetchone()[0], 0)
+        finally:
+            writer_connection.close()
+            claim_connection.close()
+
+    def test_newer_tracker_write_precedes_manual_recovery_recheck(self) -> None:
+        """Manual recovery cannot reclaim a run superseded during its claim."""
+        note = next(
+            iter(manual_recovery.FAILURE_NOTES[manual_recovery.QUALYS_READ_TIMEOUT])
+        )
+        older_id = tracker.insert_daily_report_tracker_row(
+            conn=self.connection,
+            row=tracker.DailyReportTrackerRow(
+                tag="TEST",
+                scan_name="older recovery",
+                status="Finished",
+                result="Successful",
+                report_scan_notes=note,
+                data_pull_date=date.today(),
+                scan_start_date=date.today(),
+                schedule_id=201,
+                scan_execution_key="older-recovery",
+            ),
+        )
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO was_report_runs "
+                "(stakeholder_tag, source_tracker_id, status, email_status, "
+                "error_message, delivery_purpose) "
+                "VALUES ('TEST', %s, 'failed', 'failed', 'ReadTimeout', 'customer') "
+                "RETURNING id",
+                (older_id,),
+            )
+            report_run_id = cursor.fetchone()[0]
+        self.connection.commit()
+        writer_connection = self.connect()
+        recovery_connection = self.connect()
+        recovery_waiting = Event()
+        original_lock = tracker.lock_tracker_tag
+        original_lock(writer_connection, "TEST")
+
+        def observed_lock(connection, stakeholder_tag: str) -> None:
+            """Signal immediately before recovery blocks on the writer lock."""
+            recovery_waiting.set()
+            original_lock(connection, stakeholder_tag)
+
+        try:
+            with patch.object(
+                manual_recovery, "lock_tracker_tag", side_effect=observed_lock
+            ):
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    recovery = executor.submit(
+                        manual_recovery.claim_manual_report_recovery,
+                        recovery_connection,
+                        older_id,
+                        manual_recovery.QUALYS_READ_TIMEOUT,
+                        7,
+                    )
+                    self.assertTrue(recovery_waiting.wait(timeout=5))
+                    tracker.insert_daily_report_tracker_row(
+                        conn=writer_connection,
+                        row=tracker.DailyReportTrackerRow(
+                            tag="TEST",
+                            scan_name="newer recovery",
+                            status="Finished",
+                            result="Successful",
+                            data_pull_date=date.today(),
+                            scan_start_date=date.today(),
+                            schedule_id=202,
+                            scan_execution_key="newer-recovery",
+                        ),
+                    )
+                    self.assertIsNone(recovery.result(timeout=5))
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT status FROM was_report_runs WHERE id = %s",
+                    (report_run_id,),
+                )
+                self.assertEqual(cursor.fetchone()[0], "failed")
+                cursor.execute(
+                    "SELECT report_scan_notes FROM was_daily_report_tracker WHERE id = %s",
+                    (older_id,),
+                )
+                self.assertEqual(cursor.fetchone()[0], note)
+        finally:
+            writer_connection.close()
+            recovery_connection.close()
 
     def test_reclaimed_run_rejects_previous_generation_token(self) -> None:
         """A stale worker cannot complete or heartbeat a newly reclaimed run."""

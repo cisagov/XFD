@@ -298,6 +298,7 @@ recover-manual-reports:
 	if [ -n "$(TEST_RECIPIENTS)" ] && [ "$(TEST_RECIPIENTS)" != 'operator@example.gov' ]; then \
 	  set -- "$$@" --test-recipients "$(TEST_RECIPIENTS)"; \
 	fi; \
+	if [ -n "$(REPLAY_ID)" ]; then set -- "$$@" --replay-id "$(REPLAY_ID)"; fi; \
 	case "$(APPLY)" in \
 	  0) ;; \
 	  1) test "$(RECOVERY_CONFIRM)" = 'RECOVER' || { echo 'APPLY=1 requires RECOVERY_CONFIRM=RECOVER.' >&2; exit 2; }; \

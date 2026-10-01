@@ -266,7 +266,15 @@ class OnDemandClaimTests(unittest.TestCase):
             [(False,), None, (8, "CROSSFEED", "running")]
         )
         self.assertEqual(result.id, 8)
-        self.assertIn("FOR UPDATE", cursor.execute.call_args_list[0].args[0])
+        self.assertIn(
+            "pg_advisory_xact_lock",
+            cursor.execute.call_args_list[0].args[0],
+        )
+        self.assertEqual(
+            cursor.execute.call_args_list[0].args[1],
+            ("was-tracker-tag:CROSSFEED",),
+        )
+        self.assertIn("FOR UPDATE", cursor.execute.call_args_list[1].args[0])
         self.assertEqual(
             cursor.execute.call_args.args[1][:5],
             ("CROSSFEED", "running", None, None, "held"),

@@ -1,11 +1,12 @@
 """Tests for the cross-platform WAS EC2 access scripts."""
 
 # Standard Python Libraries
+import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1] / "scripts" / "awsAccessScripts"
 sys.path.insert(0, str(SCRIPT_DIRECTORY))
@@ -14,6 +15,7 @@ sys.path.insert(0, str(SCRIPT_DIRECTORY))
 # First-Party Libraries
 import aws_access_common
 import checkAccessorWAS
+import screenConnectAccessorWAS
 import sshConnectWAS
 import startAccessorWAS
 
@@ -93,6 +95,133 @@ class CheckAccessorTests(unittest.TestCase):
         mock_start_instance.assert_called_once_with("i-example")
         self.assertEqual(mock_get_state.call_count, 4)
         self.assertEqual(mock_sleep.call_args_list, [call(5), call(5), call(5)])
+
+
+class TunnelSupervisorTests(unittest.TestCase):
+    """Validate that recorded PIDs are bound to the managed tunnel identity."""
+
+    def test_process_identity_requires_matching_script_and_token(self) -> None:
+        """Reject a reused PID even when it runs the same starter script."""
+        tunnel = screenConnectAccessorWAS.ManagedTunnel(1234, "expected-token")
+        starter_path = str(
+            Path(screenConnectAccessorWAS.__file__).resolve().parent
+            / "startAccessorWAS.py"
+        )
+
+        with patch.object(
+            screenConnectAccessorWAS,
+            "process_is_running",
+            return_value=True,
+        ), patch.object(
+            screenConnectAccessorWAS,
+            "process_arguments",
+            return_value=[
+                sys.executable,
+                starter_path,
+                "--managed-tunnel-token=another-token",
+            ],
+        ):
+            self.assertFalse(
+                screenConnectAccessorWAS.process_matches_managed_tunnel(tunnel)
+            )
+
+        with patch.object(
+            screenConnectAccessorWAS,
+            "process_is_running",
+            return_value=True,
+        ), patch.object(
+            screenConnectAccessorWAS,
+            "process_arguments",
+            return_value=[
+                sys.executable,
+                starter_path,
+                "--managed-tunnel-token=expected-token",
+            ],
+        ):
+            self.assertTrue(
+                screenConnectAccessorWAS.process_matches_managed_tunnel(tunnel)
+            )
+
+    def test_stop_refuses_unrelated_live_pid(self) -> None:
+        """Do not signal a live process whose identity does not match the record."""
+        with tempfile.TemporaryDirectory() as directory:
+            pid_path = Path(directory) / "tunnel.pid"
+            pid_path.write_text(
+                json.dumps({"process_id": 1234, "token": "expected-token"}),
+                encoding="utf-8",
+            )
+            with patch.object(
+                screenConnectAccessorWAS,
+                "TUNNEL_PID_PATH",
+                pid_path,
+            ), patch.object(
+                screenConnectAccessorWAS,
+                "process_matches_managed_tunnel",
+                return_value=False,
+            ), patch.object(
+                screenConnectAccessorWAS,
+                "process_is_running",
+                return_value=True,
+            ), patch.object(
+                screenConnectAccessorWAS.os,
+                "killpg",
+            ) as mock_kill_process_group, patch.object(
+                screenConnectAccessorWAS,
+                "write_output",
+            ) as mock_write_output:
+                screenConnectAccessorWAS.stop_managed_tunnel()
+
+        mock_kill_process_group.assert_not_called()
+        mock_write_output.assert_called_once()
+        self.assertFalse(pid_path.exists())
+
+    def test_start_records_token_used_by_child_process(self) -> None:
+        """Persist the same random token supplied to the detached starter."""
+        with tempfile.TemporaryDirectory() as directory:
+            state_directory = Path(directory)
+            pid_path = state_directory / "tunnel.pid"
+            log_path = state_directory / "tunnel.log"
+            process = Mock(pid=4321)
+            with patch.object(
+                screenConnectAccessorWAS,
+                "TUNNEL_PID_PATH",
+                pid_path,
+            ), patch.object(
+                screenConnectAccessorWAS,
+                "TUNNEL_LOG_PATH",
+                log_path,
+            ), patch.object(
+                screenConnectAccessorWAS,
+                "ensure_state_directory",
+                return_value=state_directory,
+            ), patch.object(
+                screenConnectAccessorWAS,
+                "detached_process_flags",
+                return_value=(True, 0),
+            ), patch.object(
+                screenConnectAccessorWAS.secrets,
+                "token_hex",
+                return_value="launch-token",
+            ), patch.object(
+                screenConnectAccessorWAS.subprocess,
+                "Popen",
+                return_value=process,
+            ) as mock_popen:
+                result = screenConnectAccessorWAS.start_managed_tunnel()
+
+            state = json.loads(pid_path.read_text(encoding="utf-8"))
+            state_mode = pid_path.stat().st_mode & 0o777
+
+        self.assertIs(result, process)
+        self.assertEqual(
+            state,
+            {"process_id": 4321, "token": "launch-token"},
+        )
+        self.assertEqual(state_mode, 0o600)
+        self.assertIn(
+            "--managed-tunnel-token=launch-token",
+            mock_popen.call_args.args[0],
+        )
 
 
 class SshConnectTests(unittest.TestCase):

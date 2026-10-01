@@ -44,16 +44,22 @@ enable shell tracing while handling credentials.
 ### Infrastructure and host rebuild boundary
 
 The repository Terraform creates the WAS EC2 instance, instance profile, SSM
-core attachment, and an object policy limited to `was_reports/*` in an existing
-bucket. It does not create the database, report bucket, SES sending role or trust
-policy, secrets, repository checkout, application image, cleanup timer, or
-central log forwarding. It also does not currently grant `sts:AssumeRole` for
-`WAS_SES_ROLE_ARN`, authorize the capacity `capacity/<run-id>` S3 prefix, or
-install `tmux`. Treat each missing prerequisite as a deployment blocker until an
-approved resource-scoped policy or separately managed control is verified.
+core attachment, exact SES assume-role permission, and object
+permissions for `was_reports/*` and `capacity/*` in an existing bucket. It does
+not create the database, report bucket, SES sending role or trust policy,
+secrets, repository checkout, application image, cleanup timer, central log
+forwarding, or `tmux`. Treat each missing prerequisite as a deployment blocker
+until an approved separately managed control is verified. The runtime role does
+not receive `s3:DeleteObject`; optional KMS permissions are limited to the exact
+configured key.
 Because the bucket is external to this Terraform, separately verify its public
 access block, encryption, transport policy, ownership controls, approved
 versioning, lifecycle, retention, and logging configuration before live use.
+The runtime defaults to `WAS_REPORTS_S3_ENCRYPTION=bucket-default`, which does
+not override the bucket's approved default. Select `AES256` only for an approved
+SSE-S3 policy. Select `aws:kms` only when `WAS_REPORTS_KMS_KEY_ID` and the
+Terraform `was_reporting_reports_kms_key_arn` identify the same exact key and
+the bucket policy accepts that key.
 
 The tracked `scripts/capture_host_packages.py` script records a private host
 software inventory. The tracked `scripts/rebuild_was_host_ubuntu24.py` script is
@@ -138,12 +144,11 @@ or inbox delivery. Use the
 [live validation runbook](live_qualys_equivalence_runbook.md) for controlled
 end-to-end evidence.
 
-The current `Dockerfile` has no `USER` instruction. Direct `docker run`
-commands therefore run as container root unless they include `--user`.
-Supported Make targets that write mounted host output use the operator's UID and
-GID. The base image tag and most Python requirements are also not pinned to
-immutable versions, so every rebuild needs the validation above even when the
-application commit is unchanged.
+The current `Dockerfile` pins its Python base by version and digest, pins runtime
+Python dependencies, and declares the unprivileged `was-reporting` user.
+Supported Make targets that write mounted host output continue to use the
+operator's UID and GID. Review, scan, test, and explicitly commit every base or
+dependency update.
 
 The default `WAS_DB_SSLMODE=require` encrypts PostgreSQL traffic but does not
 verify the database server certificate or hostname. Use an approved CA and
@@ -433,6 +438,13 @@ workspace can support the configured worker concurrency. A
 changing a limit or retrying the affected tracker row.
 The secure streaming parser rejects an actual document DTD. Declaration-like
 text inside comments or CDATA is inert and is not classified as a DTD.
+
+Detail PDFs are also streamed to private partial files. Set
+`WAS_QUALYS_DETAIL_PDF_MAX_BYTES` and
+`WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES` to the approved limits, normally the
+same 10 GiB and 5 GiB defaults as XML. A PDF is published only after its header
+and end marker pass validation; failures preserve any existing final file and
+remove the partial download.
 
 ## Batch troubleshooting
 

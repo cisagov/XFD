@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import random
 import shutil
+import tempfile
 import time
 from typing import Any, Callable
 
@@ -23,6 +24,9 @@ from was_reports.qualys.qualys_client import (
     execute_retryable_operation,
 )
 from was_reports.reporting.exceptions import (
+    ReportPdfDiskSpaceError,
+    ReportPdfSizeLimitError,
+    ReportPdfUnsafeContentError,
     ReportXmlDiskSpaceError,
     ReportXmlSizeLimitError,
 )
@@ -39,7 +43,10 @@ DETAIL_PROGRESS_SECONDS = 300
 DETAIL_POLL_TIMEOUT_SECONDS = 0
 DEFAULT_REPORT_XML_MAX_BYTES = 10 * 1024 * 1024 * 1024
 DEFAULT_REPORT_XML_MIN_FREE_BYTES = 5 * 1024 * 1024 * 1024
+DEFAULT_DETAIL_PDF_MAX_BYTES = 10 * 1024 * 1024 * 1024
+DEFAULT_DETAIL_PDF_MIN_FREE_BYTES = 5 * 1024 * 1024 * 1024
 REPORT_XML_CHUNK_BYTES = 1024 * 1024
+DETAIL_PDF_CHUNK_BYTES = 1024 * 1024
 TERMINAL_FAILURE_STATUSES = frozenset(
     {"CANCELED", "CANCELLED", "DELETED", "ERROR", "FAILED"}
 )
@@ -242,13 +249,6 @@ def wait_for_report_completion(
         )
 
 
-def _download_response(session: Any, url: str) -> Any:
-    """Download and validate one Qualys detail-report response."""
-    response = session.get(url)
-    response.raise_for_status()
-    return response
-
-
 def _stream_report_xml_once(
     session: Any,
     url: str,
@@ -311,6 +311,89 @@ def _stream_report_xml_once(
         partial_path.unlink(missing_ok=True)
 
 
+def _stream_detail_pdf_once(
+    session: Any,
+    url: str,
+    output_path: Path,
+    maximum_bytes: int,
+    minimum_free_bytes: int,
+) -> Path:
+    """Stream and validate one Qualys PDF before atomically replacing output."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    file_descriptor, partial_name = tempfile.mkstemp(
+        prefix=".{}.part.".format(output_path.name),
+        dir=output_path.parent,
+    )
+    partial_path = Path(partial_name)
+    response = None
+    total_bytes = 0
+    header_bytes = bytearray()
+    tail_bytes = bytearray()
+    try:
+        response = session.get(url, stream=True)
+        response.raise_for_status()
+        content_length = getattr(response, "headers", {}).get("Content-Length")
+        if content_length is not None:
+            try:
+                expected_bytes = int(content_length)
+            except ValueError as error:
+                raise ValueError(
+                    "Qualys returned an invalid Content-Length."
+                ) from error
+            if expected_bytes < 0:
+                raise ValueError("Qualys returned an invalid Content-Length.")
+            if expected_bytes > maximum_bytes:
+                raise ReportPdfSizeLimitError(expected_bytes, maximum_bytes)
+
+        with os.fdopen(file_descriptor, "wb") as output_file:
+            file_descriptor = -1
+            for chunk in response.iter_content(chunk_size=DETAIL_PDF_CHUNK_BYTES):
+                raise_if_operation_cancelled()
+                if not chunk:
+                    continue
+                total_bytes += len(chunk)
+                if total_bytes > maximum_bytes:
+                    raise ReportPdfSizeLimitError(total_bytes, maximum_bytes)
+                free_bytes = shutil.disk_usage(output_path.parent).free
+                if free_bytes - len(chunk) < minimum_free_bytes:
+                    raise ReportPdfDiskSpaceError(
+                        "Qualys detail PDF download stopped to preserve the "
+                        "configured free-disk reserve."
+                    )
+                if len(header_bytes) < 5:
+                    remaining_header_bytes = 5 - len(header_bytes)
+                    header_bytes.extend(chunk[:remaining_header_bytes])
+                tail_bytes.extend(chunk)
+                if len(tail_bytes) > 1024:
+                    del tail_bytes[:-1024]
+                try:
+                    output_file.write(chunk)
+                except OSError as error:
+                    if error.errno == errno.ENOSPC:
+                        raise ReportPdfDiskSpaceError(
+                            "Qualys detail PDF download exhausted local disk space."
+                        ) from error
+                    raise
+        if bytes(header_bytes) != b"%PDF-" or b"%%EOF" not in tail_bytes:
+            raise ReportPdfUnsafeContentError(
+                "Qualys detail report response is not a valid PDF document."
+            )
+        os.replace(partial_path, output_path)
+        output_path.chmod(0o600)
+        LOGGER.info(
+            "Streamed Qualys detail PDF %s to private storage (%s bytes).",
+            output_path.name,
+            total_bytes,
+        )
+        return output_path
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)
+        if response is not None:
+            response.close()
+        partial_path.unlink(missing_ok=True)
+
+
 def download_report_xml(
     report_id: str,
     output_path: Path,
@@ -360,25 +443,35 @@ def download_detail_pdf(
     sleep_function: Callable[[float], None] = time.sleep,
     random_function: Callable[[], float] = random.random,
 ) -> Path:
-    """Download a Qualys detail PDF to disk."""
+    """Stream a bounded Qualys detail PDF to private local storage."""
     resolved_retry_policy = retry_policy or QualysRetryPolicy.from_environment()
+    maximum_bytes = positive_byte_setting(
+        "WAS_QUALYS_DETAIL_PDF_MAX_BYTES",
+        DEFAULT_DETAIL_PDF_MAX_BYTES,
+    )
+    minimum_free_bytes = positive_byte_setting(
+        "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES",
+        DEFAULT_DETAIL_PDF_MIN_FREE_BYTES,
+    )
     if session_factory is None:
         session = TimeoutSession(resolved_retry_policy.request_timeout_seconds)
     else:
         session = session_factory()
     session.auth = (credentials.username, credentials.password)
     download_url = build_download_url(credentials.hostname, report_id)
-    response = execute_retryable_operation(
-        operation=lambda: _download_response(session, download_url),
+    return execute_retryable_operation(
+        operation=lambda: _stream_detail_pdf_once(
+            session,
+            download_url,
+            output_path,
+            maximum_bytes,
+            minimum_free_bytes,
+        ),
         operation_name="download detail report {}".format(report_id),
         policy=resolved_retry_policy,
         sleep_function=sleep_function,
         random_function=random_function,
     )
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(response.content)
-    return output_path
 
 
 def download_and_process_detail_report(

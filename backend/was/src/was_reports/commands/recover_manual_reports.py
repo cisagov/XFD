@@ -4,11 +4,13 @@
 import argparse
 import sys
 from typing import Sequence
+from uuid import UUID
 
 # Third-Party Libraries
 # First-Party Libraries
 from was_mailer.message import AnalystRecipientError, approved_analyst_recipients
 from was_reports.commands.batch_runner import run_recent_scan_reports
+from was_reports.commands.test_replay import main as run_test_replay
 from was_reports.data.manual_recovery import (
     PASSWORD_VALIDATION,
     QUALYS_READ_TIMEOUT,
@@ -71,7 +73,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--test-recipients",
-        help="Override all customer recipients for a controlled recovery test.",
+        help=(
+            "Generate an isolated analyst replay instead of changing customer "
+            "recovery state."
+        ),
+    )
+    parser.add_argument(
+        "--replay-id",
+        help="Stable UUID required for an applied test-recipient replay.",
     )
     parser.add_argument(
         "--resource-root",
@@ -94,6 +103,17 @@ def _validate_arguments(arguments: argparse.Namespace) -> str | None:
         raise ValueError("--apply requires --send-email for complete recovery.")
     if not arguments.apply and (arguments.confirm or arguments.send_email):
         raise ValueError("--confirm and --send-email require --apply.")
+    if arguments.replay_id and arguments.test_recipients is None:
+        raise ValueError("--replay-id requires --test-recipients.")
+    if arguments.apply and arguments.test_recipients and not arguments.replay_id:
+        raise ValueError(
+            "Applied test-recipient recovery requires a stable --replay-id UUID."
+        )
+    if arguments.replay_id:
+        try:
+            arguments.replay_id = str(UUID(arguments.replay_id))
+        except ValueError as error:
+            raise ValueError("--replay-id must be a UUID.") from error
     if arguments.test_recipients is None:
         return None
     try:
@@ -140,14 +160,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
 
+    source_email = require_env("WAS_EMAIL_SOURCE")
+    if test_recipients is not None:
+        return run_test_replay(
+            [
+                "--days-back",
+                str(arguments.days_back),
+                "--test-recipients",
+                test_recipients,
+                "--manual-tracker-ids",
+                ",".join(str(value) for value in arguments.tracker_ids),
+                "--replay-id",
+                arguments.replay_id,
+                "--apply",
+                "--source-email",
+                source_email,
+                "--resource-root",
+                arguments.resource_root,
+                "--output-directory",
+                arguments.output_directory,
+                "--storage-mode",
+                S3_STORAGE,
+            ]
+        )
+
     summary = run_recent_scan_reports(
         resource_root=arguments.resource_root,
         python_executable=sys.executable,
         output_directory=arguments.output_directory,
         storage_mode=S3_STORAGE,
         send_email=True,
-        source_email=require_env("WAS_EMAIL_SOURCE"),
-        test_recipients=test_recipients,
+        source_email=source_email,
+        test_recipients=None,
         include_manual=True,
         continue_on_error=True,
         retry_ready_emails=False,

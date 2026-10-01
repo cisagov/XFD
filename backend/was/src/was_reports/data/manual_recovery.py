@@ -9,6 +9,7 @@ from uuid import uuid4
 from psycopg2.extensions import connection
 
 # First-Party Libraries
+from was_reports.data.daily_report_tracker import lock_tracker_tag
 from was_reports.data.report_runs import EMAIL_PENDING, RUNNING, ReportRun
 from was_reports.utils.passwords import (
     ExistingReportPasswordError,
@@ -225,7 +226,21 @@ def claim_manual_report_recovery(
         raise ValueError("Days back must be at least 1.")
     generation_token = str(uuid4())
     try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT tag FROM was_daily_report_tracker WHERE id = %s",
+                (tracker_id,),
+            )
+            tracker_identity = cursor.fetchone()
+        if tracker_identity is None or tracker_identity[0] is None:
+            conn.rollback()
+            return None
+        locked_tag = str(tracker_identity[0])
+        lock_tracker_tag(conn, locked_tag)
         state = _fetch_recovery_state(conn, tracker_id, days_back, lock=True)
+        if state is None or state[0] != locked_tag:
+            conn.rollback()
+            return None
         check = _evaluate_recovery_state(tracker_id, cause, state)
         if not check.eligible:
             conn.rollback()
@@ -247,8 +262,15 @@ def claim_manual_report_recovery(
                     email_claimed_at = NULL,
                     updated_at = NOW()
                 WHERE id = %s
+                  AND stakeholder_tag = %s
                   AND status = 'failed'
                   AND delivery_purpose = 'customer'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM was_report_runs AS active_run
+                      WHERE active_run.stakeholder_tag = %s
+                        AND active_run.status = %s
+                  )
                   AND emailed_at IS NULL
                   AND COALESCE(email_status, 'pending') IN ('pending', 'failed')
                   AND POSITION('QualysReportCreationUncertainError'
@@ -257,7 +279,15 @@ def claim_manual_report_recovery(
                       IN COALESCE(error_message, '')) = 0
                 RETURNING id, stakeholder_tag, status
                 """,
-                (RUNNING, generation_token, EMAIL_PENDING, check.report_run_id),
+                (
+                    RUNNING,
+                    generation_token,
+                    EMAIL_PENDING,
+                    check.report_run_id,
+                    locked_tag,
+                    locked_tag,
+                    RUNNING,
+                ),
             )
             row = cursor.fetchone()
             if row is None:

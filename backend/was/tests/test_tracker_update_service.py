@@ -12,6 +12,7 @@ import requests
 
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
+from was_reports.qualys.qualys_admin import WebAppIdentity
 from was_reports.tracker.item_builder import (
     combined_status_and_result,
     create_tracker_items,
@@ -25,11 +26,14 @@ from was_reports.tracker.update_service import (
     build_tracker_row,
     combined_email_value,
     convert_qualys_date,
+    delete_validated_webapp,
     has_legacy_execution_overlap,
     tracker_result_fields,
     update_execution,
     update_stakeholder_scan_metadata,
     update_tracker,
+    validate_latest_deletion_execution,
+    validate_webapp_tags,
 )
 
 
@@ -109,6 +113,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                         "stable-parent-key",
                     )
                 self.assertEqual(count, 1)
+                first_query, first_parameters = cursor.execute.call_args_list[0].args
+                self.assertIn("pg_advisory_xact_lock", str(first_query))
+                self.assertEqual(first_parameters, ("was-tracker-tag:TAG",))
                 query, parameters = cursor.execute.call_args.args
                 self.assertIn("scan_started_at", str(query))
                 self.assertIn("scan_ended_at", str(query))
@@ -1024,7 +1031,12 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=row,
-        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete, patch(
+            "was_reports.tracker.update_service.lock_tracker_tag"
+        ) as tag_lock:
+            sequence.attach_mock(tag_lock, "lock")
             sequence.attach_mock(delete, "delete")
             update_execution(
                 Mock(),
@@ -1037,12 +1049,136 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             )
         self.assertEqual(
             [entry[0] for entry in sequence.mock_calls],
-            ["commit", "delete", "commit"],
+            ["lock", "commit", "lock", "delete", "commit"],
         )
+        self.assertEqual(tag_lock.call_count, 2)
         self.assertEqual(
             cursor.execute.call_args.args[1],
             ("Targets Removed", "", 17, "MANUAL QUALYS DELETION PENDING"),
         )
+
+    @patch("was_reports.tracker.update_service.delete_webapp")
+    @patch("was_reports.tracker.update_service.validate_deletion_claim")
+    @patch("was_reports.tracker.update_service.validate_latest_deletion_execution")
+    @patch("was_reports.tracker.update_service.validate_webapp_tags")
+    @patch("was_reports.tracker.update_service.find_webapp_identity")
+    def test_deletion_revalidates_stable_identity_immediately_before_delete(
+        self, find_identity, validate_tags, validate_latest, validate_claim, delete
+    ) -> None:
+        """Bind deletion to two matching identity reads and all current guards."""
+        identity = WebAppIdentity("42", "https://example.gov", ("9",))
+        find_identity.side_effect = [identity, identity]
+        conn = MagicMock()
+        item = self.removal_item(False)
+
+        delete_validated_webapp(
+            Mock(), conn, 17, item, "execution", "https://example.gov"
+        )
+
+        self.assertEqual(find_identity.call_count, 2)
+        validate_tags.assert_called_once_with(conn, identity, 9)
+        validate_latest.assert_called_once()
+        validate_claim.assert_called_once_with(conn, 17, item, "execution")
+        delete.assert_called_once_with(
+            unittest.mock.ANY,
+            "https://example.gov",
+            webapp_id="42",
+        )
+
+    @patch("was_reports.tracker.update_service.delete_webapp")
+    @patch("was_reports.tracker.update_service.find_webapp_identity")
+    def test_changed_webapp_identity_routes_to_manual_without_delete(
+        self, find_identity, delete
+    ) -> None:
+        """Reject a URL whose Qualys object identity changed between reads."""
+        find_identity.side_effect = [
+            WebAppIdentity("42", "https://example.gov", ("9",)),
+            WebAppIdentity("43", "https://example.gov", ("9",)),
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, "identity changed"):
+            delete_validated_webapp(
+                Mock(),
+                MagicMock(),
+                17,
+                self.removal_item(False),
+                "execution",
+                "https://example.gov",
+            )
+        delete.assert_not_called()
+
+    @patch("was_reports.tracker.update_service.delete_webapp")
+    @patch("was_reports.tracker.update_service.validate_deletion_claim")
+    @patch("was_reports.tracker.update_service.validate_latest_deletion_execution")
+    @patch("was_reports.tracker.update_service.validate_webapp_tags")
+    @patch("was_reports.tracker.update_service.find_webapp_identity")
+    def test_changed_tag_or_execution_never_reaches_delete(
+        self, find_identity, validate_tags, validate_latest, validate_claim, delete
+    ) -> None:
+        """Stop the destructive call when either current safety guard changes."""
+        identity = WebAppIdentity("42", "https://example.gov", ("9",))
+        find_identity.side_effect = [identity, identity, identity, identity]
+        for guard, message in (
+            (validate_tags, "tag changed"),
+            (validate_latest, "execution changed"),
+        ):
+            with self.subTest(message=message):
+                validate_tags.reset_mock(side_effect=True)
+                validate_latest.reset_mock(side_effect=True)
+                validate_claim.reset_mock(side_effect=True)
+                guard.side_effect = RuntimeError(message)
+                with self.assertRaisesRegex(RuntimeError, message):
+                    delete_validated_webapp(
+                        Mock(),
+                        MagicMock(),
+                        17,
+                        self.removal_item(False),
+                        "execution",
+                        "https://example.gov",
+                    )
+        delete.assert_not_called()
+
+    def test_changed_or_multiple_stakeholder_tags_block_deletion(self) -> None:
+        """Require the expected tag and no second configured stakeholder tag."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        for identity, configured, message in (
+            (
+                WebAppIdentity("42", "https://example.gov", ("10",)),
+                [],
+                "tag changed",
+            ),
+            (
+                WebAppIdentity("42", "https://example.gov", ("9", "10")),
+                [(9,), (10,)],
+                "multiple stakeholder tags",
+            ),
+        ):
+            with self.subTest(message=message):
+                cursor.fetchall.return_value = configured
+                with self.assertRaisesRegex(RuntimeError, message):
+                    validate_webapp_tags(conn, identity, 9)
+
+    @patch("was_reports.tracker.update_service.search_schedules")
+    def test_changed_latest_execution_blocks_deletion(self, search) -> None:
+        """Reject deletion after Qualys advances the schedule execution."""
+        search.return_value = {
+            "new": TrackerStakeholder(
+                name="Customer",
+                tag_id=9,
+                next_scan_date=None,
+                launched_date="2026-09-02T00:00:00Z",
+                schedule_id=1,
+                cadence="MONTHLY",
+                tag="TAG",
+                latest_scan_status="FINISHED",
+            )
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "execution changed"):
+            validate_latest_deletion_execution(
+                Mock(), self.removal_item(False), "execution"
+            )
 
     def test_duplicate_and_pending_claims_never_delete(self) -> None:
         """Completed, pending, and report-linked executions are not replayed."""
@@ -1067,7 +1203,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             conn = MagicMock()
             cursor = conn.cursor.return_value.__enter__.return_value
             cursor.fetchone.side_effect = [existing, (True,)]
-            with patch("was_reports.tracker.update_service.delete_webapp") as delete:
+            with patch(
+                "was_reports.tracker.update_service.delete_validated_webapp"
+            ) as delete:
                 update_execution(
                     Mock(),
                     self.removal_item(False),
@@ -1090,7 +1228,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 "was_reports.tracker.update_service.build_tracker_row",
                 return_value=DailyReportTrackerRow(tag="TAG"),
             ), patch(
-                "was_reports.tracker.update_service.delete_webapp",
+                "was_reports.tracker.update_service.delete_validated_webapp",
                 side_effect=RuntimeError("failure"),
             ) as delete, patch(
                 "was_reports.tracker.update_service.record_tracker_digest_failure"
@@ -1138,7 +1276,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=DailyReportTrackerRow(tag="TAG"),
-        ), patch("was_reports.tracker.update_service.delete_webapp"), patch(
+        ), patch("was_reports.tracker.update_service.delete_validated_webapp"), patch(
             "was_reports.tracker.update_service.record_tracker_digest_failure"
         ) as digest_failure, self.assertLogs(
             "was_reports.tracker.update_service", level="ERROR"
@@ -1177,7 +1315,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             with patch(
                 "was_reports.tracker.update_service.build_tracker_row",
                 return_value=DailyReportTrackerRow(),
-            ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+            ), patch(
+                "was_reports.tracker.update_service.delete_validated_webapp"
+            ) as delete:
                 sequence.attach_mock(delete, "delete")
                 count = update_execution(
                     Mock(),
@@ -1194,7 +1334,11 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                     [entry[0] for entry in sequence.mock_calls],
                     ["commit", "delete", "commit"],
                 )
-                claim = cursor.execute.call_args_list[2]
+                claim = next(
+                    call
+                    for call in cursor.execute.call_args_list
+                    if "UPDATE was_daily_report_tracker SET" in str(call.args[0])
+                )
                 self.assertEqual(claim.args[1][-2:], [17, "QUALYS DELETION REQUIRED"])
                 self.assertIn("MANUAL QUALYS DELETION PENDING", claim.args[1])
             else:
@@ -1219,7 +1363,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=DailyReportTrackerRow(),
-        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
             self.assertEqual(
                 update_execution(
                     Mock(),
@@ -1243,7 +1389,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=DailyReportTrackerRow(tag="TAG"),
-        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
             update_execution(
                 Mock(),
                 self.removal_item(False),
@@ -1268,7 +1416,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=DailyReportTrackerRow(status="Finished"),
-        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
             update_execution(
                 Mock(),
                 self.removal_item(False),
@@ -1310,7 +1460,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 result="Successful",
                 report_scan_notes="",
             ),
-        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
             self.assertEqual(
                 update_execution(
                     Mock(),
@@ -1469,7 +1621,9 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=DailyReportTrackerRow(),
-        ), patch("was_reports.tracker.update_service.delete_webapp") as delete:
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
             with self.assertRaises(RuntimeError):
                 update_execution(
                     Mock(),
@@ -1515,6 +1669,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             fceb=fceb,
             schedule_id=1,
             qualys_errors="",
+            tag_id=9,
         )
 
 

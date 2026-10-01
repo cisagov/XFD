@@ -2,7 +2,12 @@
 """Start and supervise a detached, cross-platform WAS SSM tunnel."""
 
 # Standard Python Libraries
+from dataclasses import dataclass
+import json
 import os
+from pathlib import Path
+import secrets
+import shlex
 import signal
 import subprocess  # nosec B404
 import sys
@@ -23,13 +28,26 @@ from aws_access_common import (
 TUNNEL_READY_TIMEOUT_SECONDS = 30
 
 
-def read_managed_pid() -> int | None:
-    """Return the recorded tunnel supervisor process ID when valid."""
+@dataclass(frozen=True)
+class ManagedTunnel:
+    """Identity recorded for a tunnel process started by this supervisor."""
+
+    process_id: int
+    token: str
+
+
+def read_managed_tunnel() -> ManagedTunnel | None:
+    """Return the recorded tunnel identity when its state is well formed."""
     if not TUNNEL_PID_PATH.is_file():
         return None
     try:
-        return int(TUNNEL_PID_PATH.read_text(encoding="utf-8").strip())
-    except ValueError:
+        state = json.loads(TUNNEL_PID_PATH.read_text(encoding="utf-8"))
+        process_id = int(state["process_id"])
+        token = state["token"]
+        if process_id < 1 or not isinstance(token, str) or not token:
+            raise ValueError("Invalid managed tunnel identity.")
+        return ManagedTunnel(process_id=process_id, token=token)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         TUNNEL_PID_PATH.unlink(missing_ok=True)
         return None
 
@@ -43,18 +61,65 @@ def process_is_running(process_id: int) -> bool:
     return True
 
 
+def process_arguments(process_id: int) -> list[str]:
+    """Return process arguments without invoking a command shell."""
+    proc_command_line = Path("/proc") / str(process_id) / "cmdline"
+    if proc_command_line.is_file():
+        return [
+            argument.decode("utf-8", errors="replace")
+            for argument in proc_command_line.read_bytes().split(b"\0")
+            if argument
+        ]
+    if os.name == "nt":
+        command = [
+            require_command("powershell"),
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-CimInstance Win32_Process -Filter 'ProcessId = {}').CommandLine".format(
+                process_id
+            ),
+        ]
+        result = subprocess.run(  # nosec B603
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return shlex.split(result.stdout.strip(), posix=False) if result.stdout else []
+    result = subprocess.run(  # nosec B603
+        [require_command("ps"), "-p", str(process_id), "-o", "command="],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return shlex.split(result.stdout.strip()) if result.stdout else []
+
+
+def process_matches_managed_tunnel(tunnel: ManagedTunnel) -> bool:
+    """Return whether the live PID has this supervisor's script and launch token."""
+    if not process_is_running(tunnel.process_id):
+        return False
+    expected_script = str(
+        (Path(__file__).resolve().parent / "startAccessorWAS.py").resolve()
+    )
+    expected_token = "--managed-tunnel-token={}".format(tunnel.token)
+    arguments = process_arguments(tunnel.process_id)
+    return expected_script in arguments and expected_token in arguments
+
+
 def stop_managed_tunnel() -> None:
-    """Stop only the tunnel process recorded by this script."""
-    process_id = read_managed_pid()
-    if process_id is None:
+    """Stop a recorded tunnel only after validating its live process identity."""
+    tunnel = read_managed_tunnel()
+    if tunnel is None:
         return
-    if process_is_running(process_id):
+    if process_matches_managed_tunnel(tunnel):
         if os.name == "nt":
             subprocess.run(  # nosec B603
                 [
                     require_command("taskkill"),
                     "/PID",
-                    str(process_id),
+                    str(tunnel.process_id),
                     "/T",
                     "/F",
                 ],
@@ -63,9 +128,15 @@ def stop_managed_tunnel() -> None:
             )
         else:
             try:
-                os.killpg(process_id, signal.SIGTERM)
+                os.killpg(tunnel.process_id, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+    elif process_is_running(tunnel.process_id):
+        write_output(
+            "Recorded tunnel PID {} belongs to another process. Refusing to "
+            "terminate it.".format(tunnel.process_id),
+            error=True,
+        )
     TUNNEL_PID_PATH.unlink(missing_ok=True)
 
 
@@ -93,18 +164,33 @@ def detached_process_flags() -> tuple[bool, int]:
 def start_managed_tunnel() -> subprocess.Popen:
     """Launch the tunnel starter with output written to a persistent log."""
     ensure_state_directory()
-    starter_path = os.path.join(os.path.dirname(__file__), "startAccessorWAS.py")
+    starter_path = str(Path(__file__).resolve().parent / "startAccessorWAS.py")
+    tunnel_token = secrets.token_hex(16)
     start_new_session, creation_flags = detached_process_flags()
     with TUNNEL_LOG_PATH.open("a", encoding="utf-8") as log_file:
         process = subprocess.Popen(  # nosec B603
-            [sys.executable, starter_path],
+            [
+                sys.executable,
+                starter_path,
+                "--managed-tunnel-token={}".format(tunnel_token),
+            ],
             stdin=subprocess.DEVNULL,
             stdout=log_file,
             stderr=subprocess.STDOUT,
             creationflags=creation_flags,
             start_new_session=start_new_session,
         )
-    TUNNEL_PID_PATH.write_text(str(process.pid), encoding="utf-8")
+    try:
+        state_descriptor = os.open(
+            TUNNEL_PID_PATH,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+        with os.fdopen(state_descriptor, "w", encoding="utf-8") as state_file:
+            json.dump({"process_id": process.pid, "token": tunnel_token}, state_file)
+    except OSError as error:
+        process.terminate()
+        raise RuntimeError("Unable to record the managed tunnel identity.") from error
     return process
 
 

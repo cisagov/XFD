@@ -82,23 +82,26 @@ Tunnel diagnostics are written to `~/.was-access/tunnel.log`.
 
 `checkAccessorWAS.py` inspects the instance, starts it only when it is stopped,
 uploads the configured public key, and launches a detached Session Manager port
-forward. It records the managed process ID in `~/.was-access/tunnel.pid`. If the
-command is run again, it stops only that recorded managed tunnel before starting
-a replacement. It refuses to terminate an unknown process when the configured
-local port remains occupied.
+forward. It records the managed PID and random launch token in
+`~/.was-access/tunnel.pid`. If the
+command is run again, it validates the recorded PID against both the expected
+starter script and a random launch token before stopping that exact process
+group. The state file is JSON containing the PID and token, not a bare PID. A
+stale or reused PID is reported and never terminated. The script also refuses
+to terminate an unknown process when the configured local port remains occupied.
 
 `sshConnectWAS.py` opens the interactive SSH client through the existing local
 tunnel. Ending the SSH session does not end the detached tunnel. The repository
 does not currently provide a supported stop-only command. When access is no
 longer needed, inspect `tunnel.pid` and `tunnel.log`, verify that the recorded
-process is the tunnel started by these scripts, and terminate that exact process
-through the organization-approved OS process controls. Do not kill an arbitrary
-process merely because it is listening on port 7777. A future repository change
-should add an explicit cross-platform stop command.
+identity belongs to the tunnel started by these scripts, and terminate that
+exact process through the organization-approved OS process controls. Do not kill
+an arbitrary process merely because it is listening on port 7777. A future
+repository change should add an explicit cross-platform stop command.
 
-The state directory is created with owner-only permissions. Treat the PID and
-log as operationally sensitive because diagnostics can contain AWS account,
-instance, Region, user, and connection metadata. Do not attach the log to a
+The state directory is created with owner-only permissions. Treat the PID/token
+state and log as operationally sensitive because they can contain AWS account,
+instance, Region, user, and connection metadata. Do not attach either file to a
 ticket until it has been reviewed and sanitized. The scripts do not disable SSH
 host-key checking; resolve any host-key warning through the approved host
 identity process rather than bypassing it.

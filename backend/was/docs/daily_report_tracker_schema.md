@@ -78,6 +78,10 @@ workbook:
 - `source_tracker_id` on `was_report_runs` is unique when present. Together with
   report-run claims and `scan_execution_key`, this prevents the same tracker row
   from being generated concurrently or delivered as a new customer run twice.
+- Tracker writes, imports, automated report claims, and manual recovery use the
+  same transaction-level advisory lock keyed by stakeholder tag. Claims recheck
+  newest-row eligibility after acquiring that lock, preventing an older row
+  from being claimed while a newer execution is being inserted.
 
 ## Canonical Schema And Deployment State
 

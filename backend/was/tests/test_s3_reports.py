@@ -2,10 +2,11 @@
 
 # Standard Python Libraries
 from datetime import date
+import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -41,8 +42,8 @@ class S3ReportStorageTests(unittest.TestCase):
                 prefix="was_reports",
             )
 
-    def test_upload_report_uses_server_side_encryption(self) -> None:
-        """Upload PDFs with content metadata and S3-managed encryption."""
+    def test_upload_report_honors_bucket_default_encryption(self) -> None:
+        """Avoid overriding an approved bucket default encryption policy."""
         client = Mock()
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "TAG1_report_2026-08-28.pdf"
@@ -69,9 +70,71 @@ class S3ReportStorageTests(unittest.TestCase):
             "was_reports/2026-08-28/TAG1/42/TAG1_report_2026-08-28.pdf",
             ExtraArgs={
                 "ContentType": "application/pdf",
-                "ServerSideEncryption": "AES256",
             },
         )
+
+    def test_upload_report_can_use_exact_kms_key(self) -> None:
+        """Request KMS encryption only with an exact approved key ARN."""
+        client = Mock()
+        key_arn = "arn:aws:kms:us-east-1:111122223333:key/example-key-id"
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {
+                "WAS_REPORTS_S3_ENCRYPTION": "aws:kms",
+                "WAS_REPORTS_KMS_KEY_ID": key_arn,
+            },
+            clear=False,
+        ):
+            report_path = Path(directory) / "report.pdf"
+            report_path.write_bytes(b"%PDF")
+
+            s3_reports.upload_report(
+                report_path=report_path,
+                stakeholder_tag="TAG1",
+                report_date=date(2026, 8, 28),
+                report_run_id=42,
+                s3_client=client,
+                bucket="reports-bucket",
+                prefix="was_reports",
+            )
+
+        self.assertEqual(
+            client.upload_file.call_args.kwargs["ExtraArgs"],
+            {
+                "ContentType": "application/pdf",
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": key_arn,
+            },
+        )
+
+    def test_kms_encryption_rejects_missing_or_non_key_arn(self) -> None:
+        """Do not accept an alias, blank value, or ambiguous KMS identifier."""
+        for key_id in ("", "alias/was-reports"):
+            with self.subTest(key_id=key_id), patch.dict(
+                os.environ,
+                {
+                    "WAS_REPORTS_S3_ENCRYPTION": "aws:kms",
+                    "WAS_REPORTS_KMS_KEY_ID": key_id,
+                },
+                clear=False,
+            ):
+                with self.assertRaisesRegex(ValueError, "exact KMS key ARN"):
+                    s3_reports.upload_extra_args()
+
+    def test_upload_can_explicitly_request_s3_managed_encryption(self) -> None:
+        """Retain an explicit AES256 compatibility option without forcing it."""
+        with patch.dict(
+            os.environ,
+            {"WAS_REPORTS_S3_ENCRYPTION": "AES256"},
+            clear=False,
+        ):
+            self.assertEqual(
+                s3_reports.upload_extra_args(),
+                {
+                    "ContentType": "application/pdf",
+                    "ServerSideEncryption": "AES256",
+                },
+            )
 
     def test_materialize_report_downloads_and_removes_temporary_file(self) -> None:
         """Download an S3 report privately and remove it after use."""

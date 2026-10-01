@@ -50,7 +50,11 @@ class WasMailerTests(unittest.TestCase):
             ["one@example.gov", "two@example.gov", "three@example.gov"],
         )
 
-    def test_recipient_addresses_uses_override_recipients(self) -> None:
+    @patch(
+        "was_mailer.message.list_functional_test_recipient_emails_from_db",
+        return_value=["test@example.gov"],
+    )
+    def test_recipient_addresses_uses_override_recipients(self, configured) -> None:
         """Use test recipients instead of stakeholder recipients when supplied."""
         report_email = ReportRunEmail(
             id=1,
@@ -68,6 +72,71 @@ class WasMailerTests(unittest.TestCase):
         )
 
         self.assertEqual(recipients, ["test@example.gov"])
+
+    @patch(
+        "was_mailer.message.list_functional_test_recipient_emails_from_db",
+        return_value=["analyst@example.gov"],
+    )
+    def test_customer_override_requires_approved_assignee(self, configured) -> None:
+        """Reject every non-null customer override outside the assignee allowlist."""
+        report_email = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email="poc@example.gov",
+            was_report_poc=None,
+        )
+
+        for recipients in ("", "disabled@example.gov", "not-an-email"):
+            with self.subTest(recipients=recipients), self.assertRaises(
+                AnalystRecipientError
+            ):
+                recipient_addresses(report_email, recipients)
+
+    @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    @patch(
+        "was_mailer.message.list_functional_test_recipient_emails_from_db",
+        return_value=["analyst@example.gov"],
+    )
+    def test_invalid_customer_override_never_calls_ses(
+        self,
+        configured,
+        claim,
+        mark_failed,
+    ) -> None:
+        """Fail a direct customer test override before any SES request."""
+        claim.return_value = ReportRunEmail(
+            id=1,
+            stakeholder_tag="TAG1",
+            output_path=None,
+            report_password=None,
+            distro_email="customer@example.gov",
+            tech_poc_email=None,
+            was_report_poc=None,
+            template="All NWS",
+            delivery_purpose="customer",
+            email_claim_token="token",
+        )
+        ses_client = Mock()
+
+        with self.assertRaises(AnalystRecipientError):
+            email_reports.send_report_run_email(
+                1,
+                "sender@example.gov",
+                override_recipients="disabled@example.gov",
+                ses_client=ses_client,
+            )
+
+        ses_client.send_raw_email.assert_not_called()
+        mark_failed.assert_called_once_with(
+            report_run_id=1,
+            error_message="WAS report email delivery failed.",
+            email_claim_token="token",
+            hold_for_manual_retry=False,
+        )
 
     def test_recipient_addresses_combines_stakeholder_contacts(self) -> None:
         """Include both technical and distribution stakeholder recipients."""

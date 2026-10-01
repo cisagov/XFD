@@ -56,8 +56,5 @@ class StakeholderExportStorageTests(unittest.TestCase):
             str(export_path),
             "reports",
             "was_reports/stakeholder_exports/file.csv",
-            ExtraArgs={
-                "ContentType": "text/csv",
-                "ServerSideEncryption": "AES256",
-            },
+            ExtraArgs={"ContentType": "text/csv"},
         )

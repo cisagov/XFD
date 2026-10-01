@@ -1,6 +1,7 @@
 """Guarded Qualys administration operations for WAS resources."""
 
 # Standard Python Libraries
+from dataclasses import dataclass
 from typing import Iterable
 
 # Third-Party Libraries
@@ -12,6 +13,15 @@ from lxml.builder import E  # nosec B410
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient, QualysRequest
+
+
+@dataclass(frozen=True)
+class WebAppIdentity:
+    """Qualys identity and tag associations for one exact web application."""
+
+    webapp_id: str
+    webapp_url: str
+    tag_ids: tuple[str, ...]
 
 
 def _serialize_xml(root: etree._Element) -> str:
@@ -93,6 +103,41 @@ def find_webapp_id(client: QualysClient, webapp_url: str) -> str:
     return webapp_id
 
 
+def find_webapp_identity(client: QualysClient, webapp_url: str) -> WebAppIdentity:
+    """Return one unambiguous exact-URL identity with its current tag IDs."""
+    response_xml = client.request(
+        QualysRequest(
+            endpoint="/search/was/webapp",
+            payload=build_webapp_lookup_payload(webapp_url),
+            http_method="POST",
+        )
+    )
+    root = _parse_xml(
+        response_xml,
+        "Qualys returned invalid XML while validating the web application.",
+    )
+    webapps = root.findall("./data/WebApp")
+    if (root.findtext("count") or "").strip() != "1" or len(webapps) != 1:
+        raise LookupError(
+            "Qualys exact URL lookup did not return exactly one web application."
+        )
+    webapp = webapps[0]
+    returned_id = (webapp.findtext("id") or "").strip()
+    returned_url = (webapp.findtext("url") or "").strip()
+    tag_ids = tuple(
+        dict.fromkeys(
+            value.strip()
+            for value in webapp.xpath("./tags//Tag/id/text()")
+            if value.strip()
+        )
+    )
+    if not returned_id or returned_url != webapp_url or not tag_ids:
+        raise LookupError(
+            "Qualys could not confirm the web application identity and tags."
+        )
+    return WebAppIdentity(returned_id, returned_url, tag_ids)
+
+
 def build_tag_update_payload(tag_id: str, action: str) -> str:
     """Build an add or remove tag request for a Qualys web application."""
     if action not in {"add", "remove"}:
@@ -158,13 +203,14 @@ def mark_false_positive(
     _parse_response(response_xml, "false-positive update")
 
 
-def build_delete_webapp_payload(webapp_url: str) -> str:
-    """Build a request that deletes a web application by exact URL."""
+def build_delete_webapp_payload(webapp_url: str, webapp_id: str | None = None) -> str:
+    """Build a request that deletes an exact URL and optional stable identity."""
+    criteria = [E.Criteria(webapp_url, field="url", operator="EQUALS")]
+    if webapp_id is not None:
+        criteria.append(E.Criteria(webapp_id, field="id", operator="EQUALS"))
     return _serialize_xml(
         E.ServiceRequest(
-            E.filters(
-                E.Criteria(webapp_url, field="url", operator="EQUALS"),
-            ),
+            E.filters(*criteria),
             E.data(
                 E.WebApp(
                     E.removeFromSubscription("true"),
@@ -174,12 +220,16 @@ def build_delete_webapp_payload(webapp_url: str) -> str:
     )
 
 
-def delete_webapp(client: QualysClient, webapp_url: str) -> None:
-    """Delete one Qualys web application and remove its subscription."""
+def delete_webapp(
+    client: QualysClient,
+    webapp_url: str,
+    webapp_id: str | None = None,
+) -> None:
+    """Delete one exact Qualys identity and remove its subscription."""
     response_xml = client.request(
         QualysRequest(
             endpoint="/delete/was/webapp",
-            payload=build_delete_webapp_payload(webapp_url),
+            payload=build_delete_webapp_payload(webapp_url, webapp_id),
             http_method="POST",
         )
     )

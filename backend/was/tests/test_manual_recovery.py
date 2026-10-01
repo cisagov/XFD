@@ -108,6 +108,7 @@ class ManualRecoveryTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [
+            ("TAG1",),
             eligible_state(note),
             (77, "TAG1", "running"),
             (42,),
@@ -121,11 +122,21 @@ class ManualRecoveryTests(unittest.TestCase):
         self.assertEqual(result.status, "running")
         conn.commit.assert_called_once_with()
         queries = [call.args[0] for call in cursor.execute.call_args_list]
-        self.assertIn("FOR UPDATE OF tracker, stakeholders, runs", queries[0])
-        self.assertIn("emailed_at IS NULL", queries[1])
-        self.assertIn("email_status", queries[1])
-        self.assertIn("report_scan_notes = %s", queries[2])
-        self.assertEqual(cursor.execute.call_args_list[2].args[1], (42, note))
+        self.assertIn("SELECT tag", queries[0])
+        self.assertIn("pg_advisory_xact_lock", queries[1])
+        self.assertEqual(
+            cursor.execute.call_args_list[1].args[1], ("was-tracker-tag:TAG1",)
+        )
+        self.assertIn("FOR UPDATE OF tracker, stakeholders, runs", queries[2])
+        self.assertIn("emailed_at IS NULL", queries[3])
+        self.assertIn("email_status", queries[3])
+        self.assertIn("active_run.status = %s", queries[3])
+        self.assertEqual(
+            cursor.execute.call_args_list[3].args[1][-3:],
+            ("TAG1", "TAG1", manual_recovery.RUNNING),
+        )
+        self.assertIn("report_scan_notes = %s", queries[4])
+        self.assertEqual(cursor.execute.call_args_list[4].args[1], (42, note))
 
     @patch("was_reports.data.manual_recovery._fetch_recovery_state")
     def test_claim_rolls_back_when_state_changes(self, fetch_state) -> None:
@@ -133,6 +144,9 @@ class ManualRecoveryTests(unittest.TestCase):
         state = list(eligible_state("MANUAL"))
         fetch_state.return_value = tuple(state)
         conn = MagicMock()
+        conn.cursor.return_value.__enter__.return_value.fetchone.return_value = (
+            "TAG1",
+        )
         self.assertIsNone(
             manual_recovery.claim_manual_report_recovery(
                 conn, 42, manual_recovery.PASSWORD_VALIDATION

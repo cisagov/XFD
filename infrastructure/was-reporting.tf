@@ -55,15 +55,56 @@ resource "aws_iam_role_policy" "was_reporting_s3_reports" {
 
   policy = jsonencode({
     Version = "2012-10-17"
+    Statement = concat(
+      [
+        {
+          Sid    = "ProductionReportsPrefix"
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:PutObject",
+          ]
+          Resource = "${data.aws_s3_bucket.was_reporting_reports[0].arn}/was_reports/*"
+        },
+        {
+          Sid    = "CapacityReportsPrefix"
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:PutObject",
+          ]
+          Resource = "${data.aws_s3_bucket.was_reporting_reports[0].arn}/capacity/*"
+        }
+      ],
+      var.was_reporting_reports_kms_key_arn == null ? [] : [
+        {
+          Sid    = "ReportsKmsKey"
+          Effect = "Allow"
+          Action = [
+            "kms:Decrypt",
+            "kms:DescribeKey",
+            "kms:GenerateDataKey",
+          ]
+          Resource = var.was_reporting_reports_kms_key_arn
+        }
+      ]
+    )
+  })
+}
+
+resource "aws_iam_role_policy" "was_reporting_ses_assume_role" {
+  count = local.create_was_reporting_instance ? 1 : 0
+  name  = "crossfeed-was-reporting-${var.stage}-ses-assume-role"
+  role  = aws_iam_role.was_reporting[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "s3:DeleteObject",
-          "s3:GetObject",
-          "s3:PutObject",
-        ]
-        Resource = "${data.aws_s3_bucket.was_reporting_reports[0].arn}/was_reports/*"
+        Sid      = "AssumeExactSesRole"
+        Effect   = "Allow"
+        Action   = "sts:AssumeRole"
+        Resource = var.was_reporting_ses_role_arn
       }
     ]
   })
@@ -133,5 +174,6 @@ resource "aws_instance" "was_reporting" {
     aws_iam_instance_profile.was_reporting,
     aws_iam_role_policy_attachment.was_reporting_ssm_core,
     aws_iam_role_policy.was_reporting_s3_reports,
+    aws_iam_role_policy.was_reporting_ses_assume_role,
   ]
 }

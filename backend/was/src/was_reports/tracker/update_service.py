@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Standard Python Libraries
 from dataclasses import fields, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import hashlib
 import logging
 import time
@@ -19,6 +19,7 @@ from psycopg2 import sql
 from was_reports.data.assignees import list_active_assignee_names, upsert_assignee
 from was_reports.data.daily_report_tracker import (
     DailyReportTrackerRow,
+    lock_tracker_tag,
     record_tracker_digest_failure,
 )
 from was_reports.data.stakeholders import (
@@ -26,7 +27,11 @@ from was_reports.data.stakeholders import (
     get_stakeholder_details,
     update_scan_metadata_for_tag,
 )
-from was_reports.qualys.qualys_admin import delete_webapp
+from was_reports.qualys.qualys_admin import (
+    WebAppIdentity,
+    delete_webapp,
+    find_webapp_identity,
+)
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.qualys.report_data import count_webapps
 from was_reports.tracker.assignments import round_robin_assignee
@@ -37,7 +42,7 @@ from was_reports.tracker.models import (
     is_recoverable_qualys_manual,
     scheduled_execution_key,
 )
-from was_reports.tracker.qualys_scans import normalize_schedule_name
+from was_reports.tracker.qualys_scans import normalize_schedule_name, search_schedules
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import exception_details
 
@@ -404,6 +409,142 @@ def update_tracker(
     return persisted_count
 
 
+def validate_deletion_claim(
+    conn: connection,
+    row_id: int,
+    item: TrackerItem,
+    execution_key: str,
+) -> None:
+    """Require the committed tracker claim to remain exact and unconsumed."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT tag, status, result, report_scan_notes, scan_execution_key,
+                   tag_id, remove_nws, report_sent_date,
+                   EXISTS (SELECT 1 FROM was_report_runs
+                           WHERE source_tracker_id = tracker.id)
+            FROM was_daily_report_tracker AS tracker
+            WHERE id = %s
+            """,
+            (row_id,),
+        )
+        current = cursor.fetchone()
+    expected = (
+        item.tag,
+        "Finished",
+        item.result,
+        "MANUAL QUALYS DELETION PENDING",
+        execution_key,
+        item.tag_id,
+        item.removed_nws,
+        None,
+        False,
+    )
+    if current != expected:
+        raise RuntimeError(
+            "Tracker deletion claim changed; manual reconciliation is required."
+        )
+
+
+def validate_latest_deletion_execution(
+    client: QualysClient,
+    item: TrackerItem,
+    execution_key: str,
+) -> None:
+    """Re-resolve the schedule and require the same latest finished execution."""
+    if item.schedule_id is None or item.tag_id is None or item.launched_date is None:
+        raise RuntimeError(
+            "Qualys deletion identity is incomplete; manual reconciliation is required."
+        )
+    launched_at = datetime.fromisoformat(item.launched_date.replace("Z", "+00:00"))
+    if launched_at.tzinfo is None:
+        raise RuntimeError(
+            "Qualys deletion launch time is invalid; manual reconciliation is required."
+        )
+    schedules = search_schedules(
+        client,
+        launched_at - timedelta(seconds=1),
+        set(),
+        stakeholder_tag=item.tag,
+    )
+    matches = [
+        stakeholder
+        for stakeholder in schedules.values()
+        if stakeholder.schedule_id == item.schedule_id
+    ]
+    if len(matches) != 1:
+        raise RuntimeError(
+            "Qualys latest execution could not be confirmed; manual reconciliation is required."
+        )
+    current = matches[0]
+    current_key = scheduled_execution_key(
+        current.schedule_id,
+        current.launched_date,
+    )
+    if (
+        current_key != execution_key
+        or current.tag_id != item.tag_id
+        or current.latest_scan_status.strip().upper() != "FINISHED"
+    ):
+        raise RuntimeError(
+            "Qualys latest execution changed; manual reconciliation is required."
+        )
+
+
+def validate_webapp_tags(
+    conn: connection,
+    identity: WebAppIdentity,
+    expected_tag_id: int | None,
+) -> None:
+    """Require the expected tag and reject another configured stakeholder tag."""
+    if expected_tag_id is None or str(expected_tag_id) not in identity.tag_ids:
+        raise RuntimeError(
+            "Qualys web application tag changed; manual reconciliation is required."
+        )
+    numeric_tag_ids = [
+        int(tag_id)
+        for tag_id in identity.tag_ids
+        if tag_id.isascii() and tag_id.isdigit()
+    ]
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT qualys_tag_id FROM was_stakeholders "
+            "WHERE qualys_tag_id = ANY(%s)",
+            (numeric_tag_ids,),
+        )
+        stakeholder_tag_ids = {str(row[0]) for row in cursor.fetchall()}
+    if stakeholder_tag_ids - {str(expected_tag_id)}:
+        raise RuntimeError(
+            "Qualys web application has multiple stakeholder tags; "
+            "manual reconciliation is required."
+        )
+
+
+def delete_validated_webapp(
+    client: QualysClient,
+    conn: connection,
+    row_id: int,
+    item: TrackerItem,
+    execution_key: str,
+    webapp_url: str,
+) -> None:
+    """Revalidate identity, tags, claim, and latest execution before deletion."""
+    first_identity = find_webapp_identity(client, webapp_url)
+    current_identity = find_webapp_identity(client, webapp_url)
+    if current_identity != first_identity:
+        raise RuntimeError(
+            "Qualys web application identity changed; manual reconciliation is required."
+        )
+    validate_webapp_tags(conn, current_identity, item.tag_id)
+    validate_latest_deletion_execution(client, item, execution_key)
+    validate_deletion_claim(conn, row_id, item, execution_key)
+    delete_webapp(
+        client,
+        webapp_url,
+        webapp_id=current_identity.webapp_id,
+    )
+
+
 def update_execution(
     client: QualysClient,
     item: TrackerItem,
@@ -414,6 +555,7 @@ def update_execution(
     execution_key: str,
 ) -> int:
     """Return one for a persisted execution, zero for a safely skipped claim."""
+    lock_tracker_tag(conn, item.tag)
     claim_required_deletion = False
     promote_schedule_review = False
     review_key = (
@@ -585,8 +727,19 @@ def update_execution(
     if not permitted:
         return 1
     try:
+        # The preliminary commit makes the deletion claim durable but releases
+        # transaction locks. Reacquire the same tag lock and hold it through
+        # revalidation, external deletion, and finalization.
+        lock_tracker_tag(conn, item.tag)
         for webapp_url in applications:
-            delete_webapp(client, webapp_url)
+            delete_validated_webapp(
+                client,
+                conn,
+                row_id,
+                item,
+                execution_key,
+                webapp_url,
+            )
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE was_daily_report_tracker SET template = %s, report_scan_notes = %s "

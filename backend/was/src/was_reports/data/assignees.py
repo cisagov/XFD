@@ -149,27 +149,22 @@ def upsert_assignee(
     conn: connection,
     email: str | None = None,
 ) -> Assignee:
-    """Insert or return an existing WAS assignee."""
+    """Insert or return an assignee without ending the caller's transaction."""
     normalized_name = normalize_assignee_name(name)
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO was_assignees (name, email)
-                VALUES (%s, %s)
-                ON CONFLICT (name)
-                DO UPDATE SET
-                    email = COALESCE(EXCLUDED.email, was_assignees.email),
-                    updated_at = NOW()
-                RETURNING id, name, email, active, email_enabled
-                """,
-                (normalized_name, email),
-            )
-            row = cursor.fetchone()
-            conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO was_assignees (name, email)
+            VALUES (%s, %s)
+            ON CONFLICT (name)
+            DO UPDATE SET
+                email = COALESCE(EXCLUDED.email, was_assignees.email),
+                updated_at = NOW()
+            RETURNING id, name, email, active, email_enabled
+            """,
+            (normalized_name, email),
+        )
+        row = cursor.fetchone()
 
     return Assignee(
         id=row[0],
@@ -187,6 +182,11 @@ def upsert_assignee_in_db(name: str, email: str | None = None) -> Assignee:
 
     conn = connect()
     try:
-        return upsert_assignee(name=name, conn=conn, email=email)
+        assignee = upsert_assignee(name=name, conn=conn, email=email)
+        conn.commit()
+        return assignee
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         close(conn)

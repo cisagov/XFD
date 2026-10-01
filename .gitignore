@@ -57,6 +57,9 @@ backend/was/scripts/diagnose_report_alignment.py
 backend/was/tests/test_compare_tracker_selection.py
 backend/was/tests/test_report_alignment_diagnostic.py
 
+# Generated render of the superseded legacy WAS analysis, retained locally only.
+was_analysis_render/
+
 .serverless
 .build
 dist

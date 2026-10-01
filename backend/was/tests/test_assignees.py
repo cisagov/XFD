@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 import unittest
+from unittest.mock import patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -89,16 +90,30 @@ class AssigneeTests(unittest.TestCase):
         self.assertIsNone(assignee)
 
     def test_upsert_assignee_returns_inserted_or_existing_assignee(self) -> None:
-        """Insert or return an existing assignee."""
+        """Insert or return an assignee without ending the caller transaction."""
         conn = FakeConnection(row=(7, "Tenesa Ellis", None, True, True))
 
         assignee = assignees.upsert_assignee(" Tenesa Ellis ", conn)
 
         self.assertEqual(assignee.id, 7)
         self.assertEqual(assignee.name, "Tenesa Ellis")
-        self.assertTrue(conn.committed)
+        self.assertFalse(conn.committed)
+        self.assertFalse(conn.rolled_back)
         self.assertIn("ON CONFLICT", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, ("Tenesa Ellis", None))
+
+    def test_managed_upsert_commits_the_owned_transaction(self) -> None:
+        """Keep the managed convenience wrapper's persistence behavior."""
+        conn = FakeConnection(row=(7, "Tenesa Ellis", None, True, True))
+        with patch("was_reports.utils.database.connect", return_value=conn), patch(
+            "was_reports.utils.database.close"
+        ) as close:
+            result = assignees.upsert_assignee_in_db("Tenesa Ellis")
+
+        self.assertEqual(result.id, 7)
+        self.assertTrue(conn.committed)
+        self.assertFalse(conn.rolled_back)
+        close.assert_called_once_with(conn)
 
     def test_list_active_assignee_names_orders_by_database_id(self) -> None:
         """Return active assignee names in database order."""

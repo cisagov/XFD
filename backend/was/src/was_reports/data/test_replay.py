@@ -8,6 +8,7 @@ from datetime import date
 from uuid import UUID, uuid4
 
 # Third-Party Libraries
+from was_reports.data.daily_report_tracker import lock_tracker_tag
 from was_reports.data.report_runs import ReportRun
 from was_reports.utils.database import close, connect
 
@@ -119,6 +120,8 @@ def reserve_replay_run(
         raise ValueError("A recipient and valid replay action are required.")
     conn = connect()
     try:
+        if candidate.action in {"manual", "targets_removed"}:
+            lock_tracker_tag(conn, candidate.tag)
         with conn.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO was_test_replay_batches (replay_id, recipient) "

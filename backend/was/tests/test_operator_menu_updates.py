@@ -223,7 +223,7 @@ class TrackerExportTests(unittest.TestCase):
     @patch.object(tracker_exports, "reports_bucket_name", return_value="test")
     @patch.object(tracker_exports, "reports_prefix", return_value="was_reports")
     def test_s3_key_and_encryption(self, prefix, bucket):
-        """Use the tracker export prefix and server-side encryption in S3."""
+        """Use the tracker export prefix and bucket encryption policy in S3."""
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "export.csv"
             path.touch()
@@ -231,10 +231,8 @@ class TrackerExportTests(unittest.TestCase):
             uri = tracker_exports.upload_tracker_export(path, client)
             self.assertIn("/tracker_exports/", uri)
             self.assertEqual(
-                client.upload_file.call_args.kwargs["ExtraArgs"][
-                    "ServerSideEncryption"
-                ],
-                "AES256",
+                client.upload_file.call_args.kwargs["ExtraArgs"],
+                {"ContentType": "text/csv"},
             )
 
     def test_child_query_uses_recursive_parent_relationship_not_tag_prefix(self):

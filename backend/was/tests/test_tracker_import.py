@@ -5,7 +5,7 @@ from datetime import date, datetime
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 # Third-Party Libraries
 from openpyxl import Workbook
@@ -192,6 +192,57 @@ class TrackerImportTests(unittest.TestCase):
         connection.rollback.assert_not_called()
         mock_close.assert_called_once_with(connection)
 
+    @patch("was_reports.tracker.tracker_import.update_converted_rows")
+    @patch("was_reports.tracker.tracker_import.insert_converted_rows")
+    @patch("was_reports.tracker.tracker_import.assignee_identifiers")
+    @patch("was_reports.tracker.tracker_import.existing_tracker_rows")
+    @patch("was_reports.tracker.tracker_import.read_workbook_rows")
+    @patch("was_reports.tracker.tracker_import.lock_tracker_tag")
+    @patch("was_reports.tracker.tracker_import.close")
+    @patch("was_reports.tracker.tracker_import.connect")
+    def test_import_locks_sorted_tags_before_the_tracker_table(
+        self,
+        mock_connect,
+        mock_close,
+        mock_lock_tag,
+        mock_read_rows,
+        mock_existing,
+        mock_assignees,
+        mock_insert,
+        mock_update,
+    ) -> None:
+        """Use the same advisory-before-table lock order as tracker writers."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        mock_connect.return_value = connection
+        mock_read_rows.return_value = iter(
+            [
+                (2, workbook_row(tag="Z-TAG", schedule_id=100)),
+                (3, workbook_row(tag="A-TAG", schedule_id=101)),
+            ]
+        )
+        mock_existing.return_value = {}
+        mock_assignees.return_value = {"analyst": 8}
+        mock_insert.return_value = 2
+        mock_update.return_value = 0
+        sequence = MagicMock()
+        sequence.attach_mock(mock_lock_tag, "lock_tag")
+        sequence.attach_mock(cursor.execute, "execute")
+
+        tracker_import.import_tracker_workbook(Path("tracker.xlsx"))
+
+        self.assertEqual(
+            sequence.mock_calls[:3],
+            [
+                call.lock_tag(connection, "A-TAG"),
+                call.lock_tag(connection, "Z-TAG"),
+                call.execute(
+                    "LOCK TABLE was_daily_report_tracker IN SHARE ROW EXCLUSIVE MODE"
+                ),
+            ],
+        )
+        mock_close.assert_called_once_with(connection)
+
     @patch("was_reports.tracker.tracker_import.read_workbook_rows")
     @patch("was_reports.tracker.tracker_import.assignee_identifiers")
     @patch("was_reports.tracker.tracker_import.existing_tracker_rows")
@@ -206,8 +257,6 @@ class TrackerImportTests(unittest.TestCase):
         mock_read_rows,
     ) -> None:
         """Roll back the complete import when one row cannot be converted."""
-        connection = MagicMock()
-        mock_connect.return_value = connection
         mock_existing.return_value = {}
         mock_assignees.return_value = {}
         invalid_values = list(workbook_row())
@@ -217,9 +266,10 @@ class TrackerImportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Workbook row 22"):
             tracker_import.import_tracker_workbook(Path("tracker.xlsx"))
 
-        connection.rollback.assert_called_once_with()
-        connection.commit.assert_not_called()
-        mock_close.assert_called_once_with(connection)
+        mock_connect.assert_not_called()
+        mock_existing.assert_not_called()
+        mock_assignees.assert_not_called()
+        mock_close.assert_not_called()
 
     def test_fingerprint_is_stable_for_equivalent_dates(self) -> None:
         """Produce the same key after equivalent workbook date conversion."""

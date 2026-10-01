@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from contextlib import redirect_stdout
+import hashlib
 from io import StringIO
 import unittest
 from unittest.mock import patch
@@ -301,12 +302,12 @@ class QualysClientTests(unittest.TestCase):
 
         self.assertEqual(len(connection.calls), 1)
 
-    def test_failed_request_logs_credential_free_replay_command(self) -> None:
-        """Log a copyable failed Qualys request without authentication values."""
+    def test_failed_request_logs_only_safe_metadata_and_hashes(self) -> None:
+        """Log failure metadata without customer or vulnerability content."""
         connection = FakeQualysConnection([http_error(403)])
         client = QualysClient(connection)
         request = QualysRequest(
-            endpoint="/search/was/finding",
+            endpoint="/search/was/finding?customer=TAG1",
             payload=(
                 "<ServiceRequest><password>private-secret</password>"
                 '<filters><Criteria field="tag">TAG1</Criteria></filters>'
@@ -322,29 +323,30 @@ class QualysClientTests(unittest.TestCase):
             client.request(request)
 
         log_output = "\n".join(captured_logs.output)
-        self.assertIn("curl --fail-with-body", log_output)
+        self.assertIn("request body sha256=", log_output)
         self.assertIn("/search/was/finding", log_output)
-        self.assertIn("TAG1", log_output)
-        self.assertIn("REDACTED", log_output)
+        self.assertNotIn("TAG1", log_output)
         self.assertNotIn("private-secret", log_output)
 
-    def test_replay_command_uses_environment_credentials(self) -> None:
-        """Reference environment credentials without placing values in logs."""
+    def test_request_metadata_omits_credentials_and_content(self) -> None:
+        """Retain method and endpoint metadata without a request body."""
         command = qualys_replay_command(
             QualysRequest(endpoint="/download/was/report/123")
         )
 
-        self.assertIn("${WAS_QUALYS_USERNAME}", command)
-        self.assertIn("${WAS_QUALYS_PASSWORD}", command)
         self.assertIn("${WAS_QUALYS_HOSTNAME%/}", command)
-        self.assertIn("--request GET", command)
+        self.assertIn("method=GET", command)
+        self.assertIn("request body=none", command)
 
-    def test_replay_command_uses_exact_prepared_request_url(self) -> None:
-        """Replay the actual API version and URL retained by requests."""
+    def test_request_metadata_uses_path_but_omits_query_values(self) -> None:
+        """Retain the actual API path without logging query parameters."""
         prepared_request = requests.Request(
             method="POST",
-            url="https://qualys.example/qps/rest/1.0/search/am/tag",
-            data="<ServiceRequest />",
+            url=(
+                "https://qualys.example/qps/rest/1.0/search/am/tag"
+                "?customer=PRIVATE_TAG"
+            ),
+            data="<ServiceRequest><tag>PRIVATE_TAG</tag></ServiceRequest>",
         ).prepare()
         error = requests.ConnectionError(request=prepared_request)
 
@@ -355,9 +357,11 @@ class QualysClientTests(unittest.TestCase):
 
         self.assertIn("/qps/rest/1.0/search/am/tag", command)
         self.assertNotIn("/qps/rest/3.0/search/am/tag", command)
+        self.assertNotIn("PRIVATE_TAG", command)
+        self.assertIn("request body sha256=", command)
 
-    def test_failure_response_summary_sanitizes_and_limits_evidence(self) -> None:
-        """Expose safe response evidence without credentials or unsafe headers."""
+    def test_failure_response_summary_uses_metadata_and_body_hash(self) -> None:
+        """Expose safe response metadata without response content."""
         response = requests.Response()
         response.status_code = 400
         response.headers["Content-Type"] = "application/xml"
@@ -370,11 +374,13 @@ class QualysClientTests(unittest.TestCase):
         error = requests.HTTPError(response=response)
 
         summary = qualys_failure_response_summary(error)
+        expected_hash = hashlib.sha256(response.content).hexdigest()
 
         self.assertIn("HTTP status=400", summary)
         self.assertIn("X-Request-ID=request-123", summary)
-        self.assertIn("Invalid request", summary)
-        self.assertIn("REDACTED", summary)
+        self.assertIn("response body bytes={}".format(len(response.content)), summary)
+        self.assertIn("response body sha256={}".format(expected_hash), summary)
+        self.assertNotIn("Invalid request", summary)
         self.assertNotIn("private-secret", summary)
         self.assertNotIn("private-cookie", summary)
 

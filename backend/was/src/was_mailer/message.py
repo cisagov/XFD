@@ -72,8 +72,8 @@ def recipient_addresses(
         raise ValueError("Unknown WAS report delivery purpose.")
     if report_run_email.delivery_purpose == "analyst":
         return approved_analyst_recipients(override_recipients)
-    if override_recipients:
-        return unique_addresses(parse_email_addresses(override_recipients))
+    if override_recipients is not None:
+        return approved_analyst_recipients(override_recipients)
 
     addresses = []
     addresses.extend(parse_email_addresses(report_run_email.tech_poc_email))

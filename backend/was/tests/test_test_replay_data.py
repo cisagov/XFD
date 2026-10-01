@@ -105,7 +105,7 @@ class ReplayDataTests(unittest.TestCase):
         self.connection.rollback.assert_called_once()
 
     def test_manual_cannot_overlap_active_generation(self):
-        """Use the stakeholder lock before checking live generation ownership."""
+        """Use the shared tag lock before checking live generation ownership."""
         manual = test_replay.ReplayCandidate(
             1, "TAG", "manual", 2, None, 3, "Customer", None
         )
@@ -119,6 +119,11 @@ class ReplayDataTests(unittest.TestCase):
             test_replay.reserve_replay_run(self.replay_id, "test@example.gov", manual)
         self.connection.rollback.assert_called_once()
         queries = [call.args[0] for call in self.cursor.execute.call_args_list]
+        self.assertIn("pg_advisory_xact_lock", queries[0])
+        self.assertEqual(
+            self.cursor.execute.call_args_list[0].args[1],
+            ("was-tracker-tag:TAG",),
+        )
         self.assertTrue(
             any(
                 "FOR UPDATE" in query and "was_stakeholders" in query

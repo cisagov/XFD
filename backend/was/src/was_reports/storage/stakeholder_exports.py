@@ -14,6 +14,7 @@ from was_reports.storage.s3_reports import (
     reports_bucket_name,
     reports_prefix,
     s3_uri,
+    upload_extra_args,
 )
 
 
@@ -66,9 +67,6 @@ def upload_stakeholder_export(
         str(export_path),
         resolved_bucket,
         object_key,
-        ExtraArgs={
-            "ContentType": "text/csv",
-            "ServerSideEncryption": "AES256",
-        },
+        ExtraArgs=upload_extra_args("text/csv"),
     )
     return s3_uri(resolved_bucket, object_key)

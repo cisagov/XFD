@@ -21,6 +21,16 @@ MANUAL_WORK = "manual"
 DELIVERY_RECONCILIATION = "delivery_reconciliation"
 
 
+def lock_tracker_tag(conn: connection, stakeholder_tag: str) -> None:
+    """Serialize tracker writes and report claims for one stakeholder tag."""
+    lock_identity = "was-tracker-tag:{}".format(stakeholder_tag)
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (lock_identity,),
+        )
+
+
 def is_legacy_sent_note(report_scan_notes: str | None) -> bool:
     """Return whether the first note line is an exact legacy sent marker."""
     if not report_scan_notes:
@@ -190,6 +200,8 @@ def insert_daily_report_tracker_row(
 ) -> int:
     """Insert one WAS daily report tracker row and return the row ID."""
     try:
+        if row.tag is not None:
+            lock_tracker_tag(conn, row.tag)
         with conn.cursor() as cursor:
             cursor.execute(
                 """

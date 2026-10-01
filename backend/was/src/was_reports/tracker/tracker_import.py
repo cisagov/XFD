@@ -18,7 +18,10 @@ from openpyxl.utils.datetime import from_excel
 from psycopg2.extras import execute_values
 
 # First-Party Libraries
-from was_reports.data.daily_report_tracker import DailyReportTrackerRow
+from was_reports.data.daily_report_tracker import (
+    DailyReportTrackerRow,
+    lock_tracker_tag,
+)
 from was_reports.utils.database import close, connect
 
 if TYPE_CHECKING:
@@ -520,16 +523,54 @@ def import_tracker_workbook(
     except StopIteration:
         first_row = None
     report_status(status_callback, "Tracker import: workbook headers are valid.")
+    converted_by_key: dict[
+        TrackerImportKey,
+        tuple[DailyReportTrackerRow, str],
+    ] = {}
+    source_rows = 0
+    workbook_duplicates = 0
+    blank_rows = 0
+    workbook_rows = chain(row_iterator)
+    if first_row is not None:
+        workbook_rows = chain((first_row,), row_iterator)
+    for row_number, values in workbook_rows:
+        if not values:
+            blank_rows += 1
+            continue
+        source_rows += 1
+        try:
+            row = workbook_values_to_row(values)
+        except ValueError as error:
+            raise ValueError("Workbook row {}: {}".format(row_number, error)) from error
+        if source_rows % 5000 == 0:
+            report_status(
+                status_callback,
+                "Tracker import: processed {} nonblank workbook rows.".format(
+                    source_rows
+                ),
+            )
+        fingerprint = tracker_fingerprint(row)
+        import_key = tracker_import_key(row)
+        if import_key in converted_by_key:
+            workbook_duplicates += 1
+        converted_by_key[import_key] = (row, fingerprint)
+
+    report_status(status_callback, "Tracker import: workbook conversion is complete.")
     report_status(
         status_callback,
-        "Tracker import: connecting to Postgres and loading duplicate checks.",
+        "Tracker import: connecting to Postgres and acquiring tracker locks.",
     )
+    conn = connect()
     try:
-        conn = connect()
-    except Exception:
-        row_iterator.close()
-        raise
-    try:
+        imported_tags = sorted(
+            {
+                row.tag
+                for row, unused_fingerprint in converted_by_key.values()
+                if row.tag is not None
+            }
+        )
+        for stakeholder_tag in imported_tags:
+            lock_tracker_tag(conn, stakeholder_tag)
         with conn.cursor() as cursor:
             cursor.execute(
                 "LOCK TABLE was_daily_report_tracker IN SHARE ROW EXCLUSIVE MODE"
@@ -546,43 +587,7 @@ def import_tracker_workbook(
             status_callback,
             "Tracker import: loaded {} assignee mappings.".format(len(assignees)),
         )
-        report_status(status_callback, "Tracker import: converting workbook rows.")
-        converted_by_key: dict[
-            TrackerImportKey,
-            tuple[DailyReportTrackerRow, str],
-        ] = {}
         unknown_assignees: set[str] = set()
-        source_rows = 0
-        workbook_duplicates = 0
-        blank_rows = 0
-
-        workbook_rows = chain(row_iterator)
-        if first_row is not None:
-            workbook_rows = chain((first_row,), row_iterator)
-        for row_number, values in workbook_rows:
-            if not values:
-                blank_rows += 1
-                continue
-            source_rows += 1
-            try:
-                row = workbook_values_to_row(values)
-            except ValueError as error:
-                raise ValueError(
-                    "Workbook row {}: {}".format(row_number, error)
-                ) from error
-            if source_rows % 5000 == 0:
-                report_status(
-                    status_callback,
-                    "Tracker import: processed {} nonblank workbook rows.".format(
-                        source_rows
-                    ),
-                )
-            fingerprint = tracker_fingerprint(row)
-            import_key = tracker_import_key(row)
-            if import_key in converted_by_key:
-                workbook_duplicates += 1
-            converted_by_key[import_key] = (row, fingerprint)
-
         converted_rows: list[tuple[object, ...]] = []
         rows_to_update: list[tuple[object, ...]] = []
         updated_import_keys = 0

@@ -17,6 +17,12 @@ LOCAL_STORAGE = "local"
 S3_STORAGE = "s3"
 S3_URI_PREFIX = "s3://"
 VALID_STORAGE_MODES = (LOCAL_STORAGE, S3_STORAGE)
+BUCKET_DEFAULT_ENCRYPTION = "bucket-default"
+S3_MANAGED_ENCRYPTION = "aes256"
+KMS_ENCRYPTION = "aws:kms"
+VALID_S3_ENCRYPTION_MODES = frozenset(
+    {BUCKET_DEFAULT_ENCRYPTION, S3_MANAGED_ENCRYPTION, KMS_ENCRYPTION}
+)
 
 
 def reports_bucket_name() -> str:
@@ -120,6 +126,47 @@ def create_s3_client():
     return boto3.client("s3")
 
 
+def _validated_kms_key_arn(value: str) -> str:
+    """Return an exact KMS key ARN suitable for WAS report encryption."""
+    parts = value.split(":", 5)
+    if (
+        len(parts) != 6
+        or parts[0] != "arn"
+        or not parts[1].startswith("aws")
+        or parts[2] != "kms"
+        or not parts[3]
+        or len(parts[4]) != 12
+        or not parts[4].isdigit()
+        or not parts[5].startswith("key/")
+        or not parts[5][4:]
+    ):
+        raise ValueError("WAS_REPORTS_KMS_KEY_ID must be an exact KMS key ARN.")
+    return value
+
+
+def upload_extra_args(content_type: str = "application/pdf") -> dict[str, str]:
+    """Return upload metadata for the configured S3 encryption policy."""
+    mode = (
+        (getenv("WAS_REPORTS_S3_ENCRYPTION", BUCKET_DEFAULT_ENCRYPTION) or "")
+        .strip()
+        .lower()
+    )
+    if mode not in VALID_S3_ENCRYPTION_MODES:
+        raise ValueError(
+            "WAS_REPORTS_S3_ENCRYPTION must be bucket-default, AES256, or aws:kms."
+        )
+    arguments = {"ContentType": content_type}
+    if mode == BUCKET_DEFAULT_ENCRYPTION:
+        return arguments
+    if mode == S3_MANAGED_ENCRYPTION:
+        arguments["ServerSideEncryption"] = "AES256"
+        return arguments
+    kms_key_arn = (getenv("WAS_REPORTS_KMS_KEY_ID") or "").strip()
+    arguments["ServerSideEncryption"] = KMS_ENCRYPTION
+    arguments["SSEKMSKeyId"] = _validated_kms_key_arn(kms_key_arn)
+    return arguments
+
+
 def upload_report(
     report_path: Path,
     stakeholder_tag: str,
@@ -150,10 +197,7 @@ def upload_report(
         str(report_path),
         resolved_bucket,
         object_key,
-        ExtraArgs={
-            "ContentType": "application/pdf",
-            "ServerSideEncryption": "AES256",
-        },
+        ExtraArgs=upload_extra_args(),
     )
     return s3_uri(resolved_bucket, object_key)
 

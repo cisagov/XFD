@@ -102,7 +102,73 @@ class RecoverManualReportsTests(unittest.TestCase):
         )
         self.assertTrue(run_batch.call_args.kwargs["include_manual"])
         self.assertFalse(run_batch.call_args.kwargs["retry_ready_emails"])
+        self.assertIsNone(run_batch.call_args.kwargs["test_recipients"])
         require_env.assert_called_once_with("WAS_EMAIL_SOURCE")
+
+    @patch.object(
+        recover_manual_reports, "require_env", return_value="sender@example.gov"
+    )
+    @patch.object(
+        recover_manual_reports,
+        "approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
+    @patch.object(recover_manual_reports, "run_test_replay", return_value=0)
+    @patch.object(recover_manual_reports, "run_recent_scan_reports")
+    @patch.object(recover_manual_reports, "check_manual_report_recovery_by_id")
+    def test_test_recipient_apply_uses_isolated_analyst_replay(
+        self, preview, run_batch, run_replay, approved_recipients, require_env
+    ) -> None:
+        """Never reclaim or mark customer delivery for a redirected test."""
+        preview.return_value = check(4)
+        replay_id = "12345678-1234-5678-1234-567812345678"
+
+        with redirect_stdout(StringIO()):
+            result = recover_manual_reports.main(
+                [
+                    "--tracker-ids",
+                    "4",
+                    "--cause",
+                    "password-validation",
+                    "--test-recipients",
+                    "analyst@example.gov",
+                    "--replay-id",
+                    replay_id,
+                    "--apply",
+                    "--confirm",
+                    "RECOVER",
+                    "--send-email",
+                ]
+            )
+
+        self.assertEqual(result, 0)
+        run_batch.assert_not_called()
+        replay_arguments = run_replay.call_args.args[0]
+        self.assertIn("--manual-tracker-ids", replay_arguments)
+        self.assertIn("4", replay_arguments)
+        self.assertIn("--replay-id", replay_arguments)
+        self.assertIn(replay_id, replay_arguments)
+        self.assertIn("--storage-mode", replay_arguments)
+        self.assertIn("s3", replay_arguments)
+        require_env.assert_called_once_with("WAS_EMAIL_SOURCE")
+
+    def test_test_recipient_apply_requires_stable_replay_id(self) -> None:
+        """Require idempotency identity before any redirected applied recovery."""
+        with self.assertRaisesRegex(ValueError, "stable --replay-id"):
+            recover_manual_reports.main(
+                [
+                    "--tracker-ids",
+                    "4",
+                    "--cause",
+                    "qualys-read-timeout",
+                    "--test-recipients",
+                    "analyst@example.gov",
+                    "--apply",
+                    "--confirm",
+                    "RECOVER",
+                    "--send-email",
+                ]
+            )
 
     def test_apply_requires_typed_confirmation_and_delivery(self) -> None:
         """Prevent state transitions without deliberate complete recovery."""

@@ -14,6 +14,9 @@ import requests
 from was_reports.qualys.qualys_client import QualysClient, QualysRetryPolicy
 from was_reports.reporting import detail_reports
 from was_reports.reporting.exceptions import (
+    ReportPdfDiskSpaceError,
+    ReportPdfSizeLimitError,
+    ReportPdfUnsafeContentError,
     ReportXmlDiskSpaceError,
     ReportXmlSizeLimitError,
 )
@@ -74,11 +77,13 @@ class FakeSession:
         """Initialize captured HTTP state."""
         self.auth = None
         self.urls = []
-        self.response = FakeResponse(b"pdf-content")
+        self.response = FakeResponse(b"%PDF-1.7\ncontent\n%%EOF\n")
+        self.options = []
 
     def get(self, url: str, **kwargs):
         """Capture requested URL and return a fake response."""
         self.urls.append(url)
+        self.options.append(kwargs)
         return self.response
 
 
@@ -93,6 +98,7 @@ class RetryingFakeSession(FakeSession):
     def get(self, url: str, **kwargs):
         """Capture a URL and return or raise the next queued outcome."""
         self.urls.append(url)
+        self.options.append(kwargs)
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
@@ -327,7 +333,17 @@ class DetailReportsTests(unittest.TestCase):
             hostname="qualys.example",
         )
 
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_DETAIL_PDF_MAX_BYTES": "1024",
+                "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
             output_path = Path(directory) / "report.pdf"
             result = detail_reports.download_detail_pdf(
                 report_id="123",
@@ -337,7 +353,12 @@ class DetailReportsTests(unittest.TestCase):
             )
 
             self.assertEqual(result, output_path)
-            self.assertEqual(output_path.read_bytes(), b"pdf-content")
+            self.assertEqual(
+                output_path.read_bytes(),
+                b"%PDF-1.7\ncontent\n%%EOF\n",
+            )
+            self.assertEqual(output_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(output_path.parent.glob(".report.pdf.part.*")), [])
 
         self.assertEqual(session.auth, ("user", "secret"))
         self.assertEqual(
@@ -345,10 +366,11 @@ class DetailReportsTests(unittest.TestCase):
             ["https://qualys.example/qps/rest/3.0/download/was/report/123"],
         )
         self.assertTrue(session.response.raise_for_status_called)
+        self.assertEqual(session.options, [{"stream": True}])
 
     def test_download_detail_pdf_retries_transient_failure(self) -> None:
         """Retry a transient detail-report download without duplicating reports."""
-        response = FakeResponse(b"pdf-content")
+        response = FakeResponse(b"%PDF-1.7\ncontent\n%%EOF\n")
         session = RetryingFakeSession(
             [requests.ConnectionError("connection failed"), response]
         )
@@ -359,7 +381,17 @@ class DetailReportsTests(unittest.TestCase):
         )
         sleep_calls: list[float] = []
 
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_DETAIL_PDF_MAX_BYTES": "1024",
+                "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
             output_path = Path(directory) / "report.pdf"
             detail_reports.download_detail_pdf(
                 report_id="123",
@@ -371,10 +403,120 @@ class DetailReportsTests(unittest.TestCase):
                 random_function=lambda: 0.0,
             )
 
-            self.assertEqual(output_path.read_bytes(), b"pdf-content")
+            self.assertEqual(
+                output_path.read_bytes(),
+                b"%PDF-1.7\ncontent\n%%EOF\n",
+            )
 
         self.assertEqual(len(session.urls), 2)
         self.assertEqual(sleep_calls, [1.0])
+
+    def test_download_detail_pdf_rejects_declared_oversize_and_cleans_up(
+        self,
+    ) -> None:
+        """Reject an oversized Content-Length without replacing an existing PDF."""
+        session = FakeSession()
+        session.response = FakeResponse(
+            b"%PDF-1.7\nunused\n%%EOF\n",
+            headers={"Content-Length": "2048"},
+        )
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_DETAIL_PDF_MAX_BYTES": "1024",
+                "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES": "1",
+            },
+        ):
+            output_path = Path(directory) / "report.pdf"
+            output_path.write_bytes(b"%PDF-1.7\nexisting\n%%EOF\n")
+            with self.assertRaises(ReportPdfSizeLimitError):
+                detail_reports.download_detail_pdf(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertEqual(
+                output_path.read_bytes(),
+                b"%PDF-1.7\nexisting\n%%EOF\n",
+            )
+            self.assertEqual(list(output_path.parent.glob(".report.pdf.part.*")), [])
+        self.assertTrue(session.response.closed)
+
+    def test_download_detail_pdf_enforces_chunked_size_limit(self) -> None:
+        """Stop a chunked response that grows beyond the configured limit."""
+        session = FakeSession()
+        session.response = FakeResponse(b"%PDF-1.7\n0123456789\n%%EOF\n")
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_DETAIL_PDF_MAX_BYTES": "10",
+                "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
+            output_path = Path(directory) / "report.pdf"
+            with self.assertRaises(ReportPdfSizeLimitError):
+                detail_reports.download_detail_pdf(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+            self.assertEqual(list(output_path.parent.glob(".report.pdf.part.*")), [])
+        self.assertTrue(session.response.closed)
+
+    def test_download_detail_pdf_rejects_non_pdf_and_cleans_up(self) -> None:
+        """Reject non-PDF content without leaving output or a partial file."""
+        session = FakeSession()
+        session.response = FakeResponse(b"<html>private error</html>")
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_DETAIL_PDF_MAX_BYTES": "1024",
+                "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES": "1",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=10_000),
+        ):
+            output_path = Path(directory) / "report.pdf"
+            with self.assertRaises(ReportPdfUnsafeContentError):
+                detail_reports.download_detail_pdf(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+            self.assertEqual(list(output_path.parent.glob(".report.pdf.part.*")), [])
+        self.assertTrue(session.response.closed)
+
+    def test_download_detail_pdf_preserves_free_disk_reserve(self) -> None:
+        """Stop PDF streaming before consuming the configured disk reserve."""
+        session = FakeSession()
+        credentials = QualysCredentials("user", "secret", "qualys.example")
+
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "WAS_QUALYS_DETAIL_PDF_MAX_BYTES": "1024",
+                "WAS_QUALYS_DETAIL_PDF_MIN_FREE_BYTES": "100",
+            },
+        ), patch.object(
+            detail_reports.shutil,
+            "disk_usage",
+            return_value=SimpleNamespace(free=100),
+        ):
+            output_path = Path(directory) / "report.pdf"
+            with self.assertRaises(ReportPdfDiskSpaceError):
+                detail_reports.download_detail_pdf(
+                    "123", output_path, credentials, session_factory=lambda: session
+                )
+            self.assertFalse(output_path.exists())
+            self.assertEqual(list(output_path.parent.glob(".report.pdf.part.*")), [])
 
     def test_download_report_xml_streams_to_private_file(self) -> None:
         """Stream XML chunks to disk without retaining response content copies."""

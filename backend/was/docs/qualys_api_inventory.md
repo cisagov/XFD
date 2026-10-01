@@ -62,7 +62,7 @@ report service.
 | Endpoint | Method | Legacy Function | Purpose | Payload Source | Response Use | Migration Risk |
 | --- | --- | --- | --- | --- | --- | --- |
 | `/create/was/report` | `POST` | `create_details_report` | Creates a Qualys PDF detail report for a tag or web application ID. | Production templates under `src/was_reports/resources/assets`. | Reads `responseCode` and `data.Report.id`. | High, template ID `2201149` should be confirmed for the target Qualys subscription. |
-| `/download/was/report/<id>` | `GET` through the WAS direct-download boundary | `download_report` | Downloads the Qualys-generated PDF detail report. | Environment-backed credentials and the shared timeout and retry policy. | Writes detail PDF, watermarks it, and redacts it. | Medium, direct-download authentication and response handling require live validation. |
+| `/download/was/report/<id>` | `GET` through the WAS direct-download boundary | `download_report` | Downloads the Qualys-generated PDF detail report. | Environment-backed credentials, shared timeout and retry policy, maximum-byte limit, and free-space reserve. | Streams to a private partial file, validates PDF structure, atomically publishes it, then watermarks and redacts it. | Medium, direct-download authentication and representative live PDF validation remain required. |
 | `/delete/was/report/<id>` | Not explicitly set by legacy call | `delete_report` | Deletes temporary Qualys reports after use. | Report ID. | Used as cleanup. | Medium, cleanup failure could leave reports in Qualys. |
 | `/status/was/report/<id>` | `GET` | `get_report_status` | Checks generated report status. | Report ID. | Determines when report download can proceed. | Medium, polling states and timeout behavior need explicit handling. |
 
@@ -164,12 +164,13 @@ validation evidence in the deployment change record without recording the
 credential values.
 
 AWS IAM is a separate boundary. The current WAS EC2 Terraform attaches SSM
-core access and object access under the configured bucket's `was_reports/*`
-prefix. It does not presently include the `sts:AssumeRole` permission required
-when `WAS_SES_ROLE_ARN` is configured, secret-read permissions, or access to a
-different S3 key prefix. Verify the deployed role against the enabled runtime
-features before production or capacity execution. Do not broaden it with
-wildcard permissions to compensate for a missing resource-specific policy.
+core access, exact `sts:AssumeRole` permission for the configured SES role, and
+`s3:GetObject` and `s3:PutObject` under the configured bucket's
+`was_reports/*` and `capacity/*` prefixes. It does not grant secret-read or
+`s3:DeleteObject` permissions. Optional KMS permissions are limited to one
+exact key ARN. Verify the deployed role and external SES trust policy against
+the enabled runtime features before production or capacity execution. Do not
+broaden it with wildcard permissions.
 
 ## Qualys report-template validation
 
@@ -226,14 +227,12 @@ blocker.
 - Create-timeout reconciliation searches `/search/was/report` using only the
   unique report name and format filters accepted by the documented Qualys
   filtered-search request.
-- Retry logs include the endpoint, attempt number, and delay. A final failure
-  logs a credential-free `curl` replay command derived from the exact prepared
-  request, including its HTTP method, API version, URL, and sanitized XML body.
-  Failure evidence also includes the HTTP status, approved correlation and
-  transport headers, and sanitized response XML limited to 16,384 characters.
-  Credential-like XML fields are replaced with `REDACTED`; malformed XML is
-  represented only by its SHA-256 digest. Authorization, cookies, tokens,
-  credential values, and unapproved response headers are not logged.
+- Retry logs include the endpoint path, attempt number, and delay. A final
+  failure records the HTTP method, path without query values, HTTP status,
+  approved correlation and transport headers, byte counts, and SHA-256 digests.
+  Request and response bodies, query values, customer identifiers, URLs,
+  comments, findings, credentials, authorization, cookies, tokens, and
+  unapproved response headers are not logged.
 
 ## Update Checklist
 

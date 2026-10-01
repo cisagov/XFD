@@ -39,16 +39,27 @@ make recover-manual-reports \
   RECOVERY_CAUSE="password-validation" \
   DAYS_BACK=7 \
   TEST_RECIPIENTS="approved.analyst@example.gov" \
+  REPLAY_ID="$(uuidgen)" \
   APPLY=1 \
   RECOVERY_CONFIRM=RECOVER
 ```
 
-The command rechecks each row immediately before reclaiming it. It requires a
-current non-legacy execution within the requested window, an active automated
-stakeholder, the exact matching historical failure note, and the existing
-failed customer report run. Sent, held, active, unrelated-manual, overlapping,
-and uncertain-creation records are blocked. Password recovery also requires
-the current stored password to pass the existing-password validator.
+Save the replay ID. Reuse that exact UUID if the command is interrupted. A
+test-recipient recovery creates and sends an isolated analyst-purpose replay.
+It does not reclaim the failed customer report run, clear the customer failure,
+stamp `report_sent_date`, or otherwise record customer delivery. The source
+tracker and customer delivery history remain unchanged. Without
+`TEST_RECIPIENTS`, the applied command retains the ordinary customer recovery
+behavior described below.
+
+The command acquires the same stakeholder-tag transaction lock used by tracker
+writes and automated claims, then rechecks each row immediately before
+reclaiming it. It requires a current non-legacy execution within the requested
+window, an active automated stakeholder, the exact matching historical failure
+note, and the existing failed customer report run. Sent, held, active,
+unrelated-manual, overlapping, superseded, and uncertain-creation records are
+blocked. Password recovery also requires the current stored password to pass
+the existing-password validator.
 
 Recovery preserves the original report-run row and its identity. It rotates
 the generation lease, clears only the exact matching failure note, regenerates
