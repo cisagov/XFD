@@ -1,0 +1,469 @@
+"""Tests for the WAS Qualys client boundary."""
+
+# Standard Python Libraries
+from contextlib import redirect_stdout
+import hashlib
+from io import StringIO
+import unittest
+from unittest.mock import patch
+
+# Third-Party Libraries
+import requests
+
+# First-Party Libraries
+from was_reports.qualys.qualys_client import (
+    QualysClient,
+    QualysRequest,
+    QualysRetryPolicy,
+    TimeoutSession,
+    create_qualys_client,
+    is_retry_safe,
+    qualys_failure_response_summary,
+    qualys_replay_command,
+    sanitized_qualys_payload,
+)
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    clear_operation_cancellation,
+    request_operation_cancellation,
+)
+from was_reports.utils.qualys_config import QualysCredentials
+
+
+class FakeQualysConnection:
+    """Small Qualys connection test double."""
+
+    def __init__(self, responses=None):
+        """Initialize captured request state."""
+        self.calls = []
+        self.responses = list(responses or [])
+        self.session: object | None = None
+
+    def request(self, endpoint, payload=None, http_method=None):
+        """Capture request arguments and return a fake XML response."""
+        self.calls.append(
+            {
+                "endpoint": endpoint,
+                "payload": payload,
+                "http_method": http_method,
+            }
+        )
+        if self.responses:
+            response = self.responses.pop(0)
+            if isinstance(response, Exception):
+                raise response
+            return response
+        return "<response />"
+
+
+def http_error(status_code: int, retry_after: str = "") -> requests.HTTPError:
+    """Return an HTTP error with response metadata for retry tests."""
+    response = requests.Response()
+    response.status_code = status_code
+    if retry_after:
+        response.headers["Retry-After"] = retry_after
+    return requests.HTTPError(response=response)
+
+
+class QualysClientTests(unittest.TestCase):
+    """Validate legacy-compatible Qualys request behavior."""
+
+    def tearDown(self) -> None:
+        """Prevent cancellation state from leaking into another client test."""
+        clear_operation_cancellation()
+
+    @patch.dict(
+        "os.environ",
+        {"WAS_QUALYS_AUTH_RETRY_DELAY_SECONDS": "7.5"},
+    )
+    def test_retry_policy_loads_authentication_delay_from_environment(self) -> None:
+        """Load the one-time authentication retry delay from configuration."""
+        policy = QualysRetryPolicy.from_environment()
+
+        self.assertEqual(policy.authentication_retry_delay_seconds, 7.5)
+
+    def test_operator_cancellation_does_not_call_or_log_api_failure(self) -> None:
+        """Treat a requested stop as cancellation rather than an API defect."""
+        connection = FakeQualysConnection()
+        client = QualysClient(connection)
+        request_operation_cancellation()
+
+        with self.assertRaises(OperationCancelledError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(connection.calls, [])
+
+    @patch("requests.Session.post")
+    def test_http_error_does_not_reach_connector_payload_logging(
+        self, mock_post
+    ) -> None:
+        """Raise at the session boundary before Qualys prints bodies or headers."""
+        response = requests.Response()
+        response.status_code = 403
+        response._content = b"sensitive scanner response"
+        mock_post.return_value = response
+        output = StringIO()
+        with redirect_stdout(output), self.assertRaises(requests.HTTPError):
+            TimeoutSession(10).post("https://qualys.example/test")
+        self.assertEqual(output.getvalue(), "")
+
+    def test_request_without_payload_uses_endpoint_only(self) -> None:
+        """Call the legacy connection with only an endpoint."""
+        connection = FakeQualysConnection()
+        client = QualysClient(connection)
+
+        response = client.request(QualysRequest(endpoint="/download/was/report/1"))
+
+        self.assertEqual(response, "<response />")
+        self.assertEqual(
+            connection.calls[0],
+            {
+                "endpoint": "/download/was/report/1",
+                "payload": None,
+                "http_method": None,
+            },
+        )
+
+    def test_request_with_payload_forwards_payload(self) -> None:
+        """Call the legacy connection with endpoint and payload."""
+        connection = FakeQualysConnection()
+        client = QualysClient(connection)
+
+        client.request(
+            QualysRequest(endpoint="/search/was/webapp", payload="<ServiceRequest />")
+        )
+
+        self.assertEqual(connection.calls[0]["endpoint"], "/search/was/webapp")
+        self.assertEqual(connection.calls[0]["payload"], "<ServiceRequest />")
+        self.assertIsNone(connection.calls[0]["http_method"])
+
+    def test_request_with_method_forwards_http_method(self) -> None:
+        """Call the legacy connection with endpoint, payload, and method."""
+        connection = FakeQualysConnection()
+        client = QualysClient(connection)
+
+        client.request(
+            QualysRequest(
+                endpoint="/create/was/report",
+                payload="<ServiceRequest />",
+                http_method="POST",
+            )
+        )
+
+        self.assertEqual(connection.calls[0]["endpoint"], "/create/was/report")
+        self.assertEqual(connection.calls[0]["payload"], "<ServiceRequest />")
+        self.assertEqual(connection.calls[0]["http_method"], "POST")
+
+    def test_request_with_method_only_forwards_http_method(self) -> None:
+        """Call the legacy connection with endpoint and method only."""
+        connection = FakeQualysConnection()
+        client = QualysClient(connection)
+
+        client.request(
+            QualysRequest(endpoint="/download/was/report/1", http_method="get")
+        )
+
+        self.assertEqual(connection.calls[0]["endpoint"], "/download/was/report/1")
+        self.assertIsNone(connection.calls[0]["payload"])
+        self.assertEqual(connection.calls[0]["http_method"], "get")
+
+    def test_search_request_retries_transient_connection_failures(self) -> None:
+        """Retry a read-safe POST search using bounded exponential backoff."""
+        connection = FakeQualysConnection(
+            [
+                requests.ConnectionError("connection failed"),
+                requests.Timeout("request timed out"),
+                "<response />",
+            ]
+        )
+        sleep_calls: list[float] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=sleep_calls.append,
+            random_function=lambda: 0.0,
+        )
+
+        response = client.request(
+            QualysRequest(
+                endpoint="/search/was/finding",
+                payload="<ServiceRequest />",
+                http_method="POST",
+            )
+        )
+
+        self.assertEqual(response, "<response />")
+        self.assertEqual(len(connection.calls), 3)
+        self.assertEqual(sleep_calls, [1.0, 2.0])
+
+    def test_retry_honors_retry_after_within_configured_maximum(self) -> None:
+        """Use a Qualys rate-limit delay when it exceeds exponential backoff."""
+        connection = FakeQualysConnection([http_error(429, "12"), "<response />"])
+        sleep_calls: list[float] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=2),
+            sleep_function=sleep_calls.append,
+            random_function=lambda: 0.0,
+        )
+
+        client.request(QualysRequest(endpoint="/count/was/webapp"))
+
+        self.assertEqual(sleep_calls, [12.0])
+
+    def test_create_request_does_not_retry_transient_failure(self) -> None:
+        """Avoid duplicate reports by keeping create operations single-attempt."""
+        connection = FakeQualysConnection([requests.Timeout("request timed out")])
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=lambda seconds: self.fail("Unexpected retry sleep."),
+        )
+
+        with self.assertRaises(requests.Timeout):
+            client.request(
+                QualysRequest(
+                    endpoint="/create/was/report",
+                    payload="<ServiceRequest />",
+                    http_method="POST",
+                )
+            )
+
+        self.assertEqual(len(connection.calls), 1)
+
+    def test_read_safe_request_retries_authentication_failure_once(self) -> None:
+        """Retry one intermittent authentication rejection on read-safe calls."""
+        connection = FakeQualysConnection([http_error(401), "<response />"])
+        sleep_calls: list[float] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(
+                max_attempts=4,
+                authentication_retry_delay_seconds=5.0,
+            ),
+            sleep_function=sleep_calls.append,
+        )
+
+        response = client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(response, "<response />")
+        self.assertEqual(len(connection.calls), 2)
+        self.assertEqual(sleep_calls, [5.0])
+
+    def test_read_safe_request_retries_authentication_failure_only_once(self) -> None:
+        """Fail after a second authentication rejection without more retries."""
+        connection = FakeQualysConnection(
+            [http_error(401), http_error(401), "<response />"]
+        )
+        sleep_calls: list[float] = []
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=sleep_calls.append,
+        )
+
+        with self.assertRaises(requests.HTTPError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(len(connection.calls), 2)
+        self.assertEqual(sleep_calls, [5.0])
+
+    def test_create_request_does_not_retry_authentication_failure(self) -> None:
+        """Keep mutating calls single-attempt after authentication rejection."""
+        connection = FakeQualysConnection([http_error(401), "<response />"])
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=lambda seconds: self.fail("Unexpected retry sleep."),
+        )
+
+        with self.assertRaises(requests.HTTPError):
+            client.request(
+                QualysRequest(
+                    endpoint="/create/was/report",
+                    payload="<ServiceRequest />",
+                    http_method="POST",
+                )
+            )
+
+        self.assertEqual(len(connection.calls), 1)
+
+    def test_nontransient_client_error_does_not_retry(self) -> None:
+        """Do not retry authorization or validation failures."""
+        connection = FakeQualysConnection([http_error(403)])
+        client = QualysClient(
+            connection,
+            retry_policy=QualysRetryPolicy(max_attempts=4),
+            sleep_function=lambda seconds: self.fail("Unexpected retry sleep."),
+        )
+
+        with self.assertRaises(requests.HTTPError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
+
+        self.assertEqual(len(connection.calls), 1)
+
+    def test_failed_request_logs_only_safe_metadata_and_hashes(self) -> None:
+        """Log failure metadata without customer or vulnerability content."""
+        connection = FakeQualysConnection([http_error(403)])
+        client = QualysClient(connection)
+        request = QualysRequest(
+            endpoint="/search/was/finding?customer=TAG1",
+            payload=(
+                "<ServiceRequest><password>private-secret</password>"
+                '<filters><Criteria field="tag">TAG1</Criteria></filters>'
+                "</ServiceRequest>"
+            ),
+            http_method="POST",
+        )
+
+        with self.assertLogs(
+            "was_reports.qualys.qualys_client",
+            level="WARNING",
+        ) as captured_logs, self.assertRaises(requests.HTTPError):
+            client.request(request)
+
+        log_output = "\n".join(captured_logs.output)
+        self.assertIn("request body sha256=", log_output)
+        self.assertIn("/search/was/finding", log_output)
+        self.assertNotIn("TAG1", log_output)
+        self.assertNotIn("private-secret", log_output)
+
+    def test_request_metadata_omits_credentials_and_content(self) -> None:
+        """Retain method and endpoint metadata without a request body."""
+        command = qualys_replay_command(
+            QualysRequest(endpoint="/download/was/report/123")
+        )
+
+        self.assertIn("${WAS_QUALYS_HOSTNAME%/}", command)
+        self.assertIn("method=GET", command)
+        self.assertIn("request body=none", command)
+
+    def test_request_metadata_uses_path_but_omits_query_values(self) -> None:
+        """Retain the actual API path without logging query parameters."""
+        prepared_request = requests.Request(
+            method="POST",
+            url=(
+                "https://qualys.example/qps/rest/1.0/search/am/tag"
+                "?customer=PRIVATE_TAG"
+            ),
+            data="<ServiceRequest><tag>PRIVATE_TAG</tag></ServiceRequest>",
+        ).prepare()
+        error = requests.ConnectionError(request=prepared_request)
+
+        command = qualys_replay_command(
+            QualysRequest(endpoint="/search/am/tag"),
+            error=error,
+        )
+
+        self.assertIn("/qps/rest/1.0/search/am/tag", command)
+        self.assertNotIn("/qps/rest/3.0/search/am/tag", command)
+        self.assertNotIn("PRIVATE_TAG", command)
+        self.assertIn("request body sha256=", command)
+
+    def test_failure_response_summary_uses_metadata_and_body_hash(self) -> None:
+        """Expose safe response metadata without response content."""
+        response = requests.Response()
+        response.status_code = 400
+        response.headers["Content-Type"] = "application/xml"
+        response.headers["X-Request-ID"] = "request-123"
+        response.headers["Set-Cookie"] = "private-cookie"
+        response._content = (
+            b"<ServiceResponse><password>private-secret</password>"
+            b"<errorMessage>Invalid request</errorMessage></ServiceResponse>"
+        )
+        error = requests.HTTPError(response=response)
+
+        summary = qualys_failure_response_summary(error)
+        expected_hash = hashlib.sha256(response.content).hexdigest()
+
+        self.assertIn("HTTP status=400", summary)
+        self.assertIn("X-Request-ID=request-123", summary)
+        self.assertIn("response body bytes={}".format(len(response.content)), summary)
+        self.assertIn("response body sha256={}".format(expected_hash), summary)
+        self.assertNotIn("Invalid request", summary)
+        self.assertNotIn("private-secret", summary)
+        self.assertNotIn("private-cookie", summary)
+
+    def test_failure_response_summary_identifies_absent_response(self) -> None:
+        """Tell operators when a network failure produced no HTTP response."""
+        summary = qualys_failure_response_summary(requests.ConnectionError())
+
+        self.assertEqual(summary, "No HTTP response was received.")
+
+    def test_invalid_replay_xml_is_hashed_instead_of_logged(self) -> None:
+        """Do not emit malformed request content that cannot be redacted."""
+        payload = "<password>private-secret"
+
+        sanitized_payload = sanitized_qualys_payload(payload)
+
+        self.assertIn("invalid-xml sha256=", sanitized_payload)
+        self.assertNotIn("private-secret", sanitized_payload)
+
+    def test_replay_xml_rejects_doctype_and_external_entity(self) -> None:
+        """Hash unsafe XML without reading or exposing an external entity."""
+        payload = (
+            '<!DOCTYPE request [<!ENTITY secret SYSTEM "file:///etc/passwd">]>'
+            "<request><password>&secret;</password></request>"
+        )
+
+        sanitized_payload = sanitized_qualys_payload(payload)
+
+        self.assertIn("invalid-xml sha256=", sanitized_payload)
+        self.assertNotIn("root:", sanitized_payload)
+
+    def test_tls_error_is_not_retried(self) -> None:
+        """Reject TLS configuration failures instead of repeatedly contacting Qualys."""
+        connection = FakeQualysConnection(
+            [requests.exceptions.SSLError("invalid trust")]
+        )
+        client = QualysClient(
+            connection, sleep_function=lambda seconds: self.fail("retry")
+        )
+        with self.assertRaises(requests.exceptions.SSLError):
+            client.request(QualysRequest(endpoint="/search/was/webapp"))
+        self.assertEqual(len(connection.calls), 1)
+
+    def test_retry_safe_classification_allows_explicit_override(self) -> None:
+        """Allow callers to explicitly disable inferred retry safety."""
+        self.assertTrue(is_retry_safe(QualysRequest(endpoint="search/am/tag")))
+        self.assertFalse(
+            is_retry_safe(QualysRequest(endpoint="search/am/tag", retry_safe=False))
+        )
+
+    @patch("requests.Session.get")
+    def test_timeout_session_applies_default_timeout(self, mock_get) -> None:
+        """Apply a timeout to connector requests that omit one."""
+        session = TimeoutSession(timeout_seconds=45.0)
+
+        session.get("https://qualys.example/test")
+
+        self.assertEqual(mock_get.call_args.kwargs["timeout"], 45.0)
+
+    @patch("qualysapi.connector.QGConnector")
+    def test_create_qualys_client_uses_credentials_directly(
+        self,
+        mock_connector,
+    ) -> None:
+        """Create a Qualys connector without writing a configuration file."""
+        connection = FakeQualysConnection()
+        mock_connector.return_value = connection
+        credentials = QualysCredentials(
+            username="user",
+            password="secret",
+            hostname="qualys.example",
+        )
+
+        retry_policy = QualysRetryPolicy(request_timeout_seconds=45.0)
+        client = create_qualys_client(credentials, retry_policy=retry_policy)
+
+        self.assertIsInstance(client, QualysClient)
+        mock_connector.assert_called_once_with(
+            auth=("user", "secret"),
+            server="qualys.example",
+            max_retries=0,
+        )
+        self.assertIsInstance(connection.session, TimeoutSession)
+
+
+if __name__ == "__main__":
+    unittest.main()
