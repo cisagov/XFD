@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview or restore the reviewed WAS host software on Ubuntu 24.04 x86-64.
+"""Preview or restore the reviewed WAS host software on Ubuntu 22.04 x86-64.
 
 Tailored to was-host-inventory-20260904T123202Z.tar.gz, SHA256:
 e59fbb9bbfb55fd11ce04960ffdaedd43718c4bbe64d82c7f22ed50bb93f0088
@@ -45,6 +45,7 @@ APT_PACKAGES = (
     "rsync",
     "screen",
     "tar",
+    "tmux",
     "wget",
 )
 DOCKER_PACKAGES = (
@@ -75,7 +76,7 @@ UV_SHA256 = "2e2b37e9811e17675a9e70bed5e1a58fc8c0388be63d751d72cc735188c149ff"
 DOCKER_KEY_URL = "https://download.docker.com/linux/ubuntu/gpg"
 DOCKER_SOURCE = (
     "Types: deb\nURIs: https://download.docker.com/linux/ubuntu\n"
-    "Suites: noble\nComponents: stable\nArchitectures: amd64\n"
+    "Suites: jammy\nComponents: stable\nArchitectures: amd64\n"
     "Signed-By: /etc/apt/keyrings/was-docker.asc\n"
 )
 MANUAL_ITEMS = (
@@ -130,8 +131,8 @@ def check_host() -> None:
         name, separator, value = line.partition("=")
         if separator:
             values[name] = value.strip('"')
-    if values.get("ID") != "ubuntu" or values.get("VERSION_ID") != "24.04":
-        raise RuntimeError("Installation and verification require Ubuntu 24.04.")
+    if values.get("ID") != "ubuntu" or values.get("VERSION_ID") != "22.04":
+        raise RuntimeError("Installation and verification require Ubuntu 22.04.")
     if platform.machine() not in ("x86_64", "amd64"):
         raise RuntimeError("This inventory and pinned uv binary require x86-64.")
     if os.geteuid() == 0 or os.environ.get("SUDO_USER"):
@@ -140,10 +141,10 @@ def check_host() -> None:
 
 def show_plan(extra_packages: List[str]) -> None:
     """Separate automatically restorable software from unknown or missing data."""
-    write_output("WAS Ubuntu 24.04 host rebuild, based on the 2026-09-04 inventory")
+    write_output("WAS Ubuntu 22.04 host rebuild, based on the 2026-09-04 inventory")
     write_output("APT: {}".format(", ".join(APT_PACKAGES + tuple(extra_packages))))
     write_output(
-        "Docker official noble repository: {}".format(", ".join(DOCKER_PACKAGES))
+        "Docker official jammy repository: {}".format(", ".join(DOCKER_PACKAGES))
     )
     write_output(
         "APT/Docker: install missing packages at configured repository candidates, not old focal versions."
@@ -159,7 +160,7 @@ def show_plan(extra_packages: List[str]) -> None:
         )
     )
     write_output(
-        "AWS CLI: use Ubuntu 24.04's awscli package; validate scripts against the resulting version."
+        "AWS CLI: use Ubuntu 22.04's awscli package; validate scripts against the resulting version."
     )
     write_output(
         "No Node/npm installation: none was detected; npm globals and uv tool lists were empty."
@@ -209,7 +210,7 @@ def install_apt(packages: List[str]) -> None:
 
 
 def docker_repository() -> None:
-    """Add only this script's scoped noble source, never overwrite existing sources."""
+    """Add only this script's scoped jammy source, never overwrite existing sources."""
     source_path = Path("/etc/apt/sources.list.d/was-docker.sources")
     key_path = Path("/etc/apt/keyrings/was-docker.asc")
     other_sources = [Path("/etc/apt/sources.list")]
@@ -220,7 +221,7 @@ def docker_repository() -> None:
             continue
         if "download.docker.com" in path.read_text():
             raise RuntimeError(
-                "An existing Docker source needs review. Configure its noble packages manually, then rerun."
+                "An existing Docker source needs review. Configure its jammy packages manually, then rerun."
             )
     if source_path.is_symlink() or key_path.is_symlink():
         raise RuntimeError("Refusing symlinked Docker repository configuration.")
@@ -362,7 +363,7 @@ def main() -> int:
         "--extra-apt",
         nargs="*",
         default=[],
-        help="Additional operator-reviewed Ubuntu 24.04 package names.",
+        help="Additional operator-reviewed Ubuntu 22.04 package names.",
     )
     args = parser.parse_args()
     for package in args.extra_apt:

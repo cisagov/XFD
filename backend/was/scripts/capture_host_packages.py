@@ -343,7 +343,7 @@ def capture_backup_manifest(output: Path, warnings: List[str]) -> None:
     )
     (output / "REBUILD-NOTES.txt").write_text(
         "This directory is evidence, NOT a full backup or a restore script.\n"
-        "1. Review APT/Snap packages for Ubuntu 24.04 compatibility.\n"
+        "1. Review APT/Snap packages for Ubuntu 22.04 compatibility.\n"
         "2. Review host-tools.csv, npm-global-packages.csv, and uv-*.txt.\n"
         "3. Unknown installation sources require investigation, not guessed install commands.\n"
         "4. Securely back up custom scripts and required configurations listed in backup-manifest.csv.\n"
@@ -459,7 +459,7 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
             "npm globals and uv tools/Python lists reflect the detected runtimes and current user's configuration.",
             "backup-manifest.csv contains metadata only; no script or service file contents were backed up.",
             "No .env, AWS credentials, shell history, or raw APT command lines are collected.",
-            "This is an inventory, not a restore script; review package compatibility on Ubuntu 24.04.",
+            "This is an inventory, not a restore script; review package compatibility on Ubuntu 22.04.",
         ],
     }
     (output / "summary.json").write_text(

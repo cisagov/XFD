@@ -62,15 +62,16 @@ Terraform `was_reporting_reports_kms_key_arn` identify the same exact key and
 the bucket policy accepts that key.
 
 The tracked `scripts/capture_host_packages.py` script records a private host
-software inventory. The tracked `scripts/rebuild_was_host_ubuntu24.py` script is
-tailored to the recorded September 4, 2026 Ubuntu 24.04 x86-64 host inventory.
+software inventory. The tracked `scripts/rebuild_was_host_ubuntu22.py` script is
+tailored to the recorded September 4, 2026 host inventory and restores the
+reviewed software on Ubuntu 22.04 x86-64.
 It previews by default, requires `--apply --acknowledge-manual-items` for writes,
 and returns exit code `2` from `--verify` when software checks pass but manual
 rebuild items remain. Neither script is a complete production bootstrap. The
 rebuild script does not restore secrets, IAM, data, services, the checkout, or
-the image, and its current package list includes `screen` rather than required
-`tmux`. Use these scripts only through an approved host-recovery change, retain
-their evidence privately, and complete this runbook's prerequisites separately.
+the image. Use these scripts only through an approved host-recovery change,
+retain their evidence privately, and complete this runbook's prerequisites
+separately.
 
 ## First checkout
 

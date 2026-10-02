@@ -904,9 +904,9 @@ variable "was_reporting_ses_role_arn" {
 }
 
 variable "was_reporting_ami_id" {
-  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment. Initially matches the OpenCTI DMZ AMI but can evolve independently."
+  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment."
   type        = string
-  default     = "ami-0fb0b230890ccd1e6"
+  default     = "ami-05a3e9423ae4d7a19"
 }
 
 variable "was_reporting_instance_type" {
