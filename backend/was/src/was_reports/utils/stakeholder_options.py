@@ -1,0 +1,45 @@
+"""Menu suggestions matching the stakeholder model; not new enum enforcement."""
+
+STAKEHOLDER_OPTIONS = {
+    "ci_type": (
+        "CI_CHEMICAL",
+        "CI_COMMERCIAL_FACILITIES",
+        "CI_COMMUNICATIONS",
+        "CI_CRITICAL_MANUFACTURING",
+        "CI_DAMS",
+        "CI_DEFENSE_INDUSTRIAL_BASE",
+        "CI_EMERGENCY_SERVICES",
+        "CI_ENERGY",
+        "CI_FINANCIAL_SERVICES",
+        "CI_FOOD_AND_AGRICULTURE",
+        "CI_GOVERNMENT_FACILITIES",
+        "CI_HEALTHCARE_AND_PUBLIC_HEALTH",
+        "CI_INFORMATION_TECHNOLOGY",
+        "CI_NUCLEAR_REACTORS_MATERIALS_AND_WASTE",
+        "CI_TRANSPORTATION_SYSTEMS",
+        "CI_WATER_AND_WASTEWATER_SYSTEMS",
+    ),
+    "testing_sector": (
+        "Federal Government Entity",
+        "State Government Entity",
+        "Local Government Entity",
+        "Tribal Government Entity",
+        "Territorial Government Entity",
+        "Private Sector Entity",
+        "Other",
+    ),
+    "subtype": (
+        "EDUCATION",
+        "HOSPITALITY",
+        "LEGAL SERVICES",
+        "NON-PROFIT",
+        "SPORTS ORGANIZATIONS",
+    ),
+    "frequency": (
+        "Monthly",
+        "Bi-weekly",
+        "Quarterly",
+        "Annually",
+        "Other",
+    ),
+}

@@ -1,0 +1,1153 @@
+"""Batch runner for scheduled WAS report generation."""
+
+# Standard Python Libraries
+import argparse
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from functools import partial
+import logging
+import os
+from pathlib import Path
+import subprocess  # nosec B404
+import sys
+from tempfile import TemporaryDirectory, gettempdir
+from time import monotonic
+from typing import List, Optional, cast
+from uuid import uuid4
+
+# Third-Party Libraries
+from requests.exceptions import ReadTimeout
+from was_mailer.email_reports import send_ready_report_emails, send_report_run_email
+from was_mailer.message import AnalystRecipientError, approved_analyst_recipients
+
+# First-Party Libraries
+from was_reports.commands import report_generator
+from was_reports.commands.batch_progress import (
+    log_candidate_progress,
+    log_preflight_summary,
+    summarize_candidates,
+)
+from was_reports.commands.update_tracker_cli import run_update_tracker
+from was_reports.data.daily_report_tracker import list_ready_report_candidates_from_db
+from was_reports.data.manual_recovery import claim_manual_report_recovery_by_id
+from was_reports.data.report_runs import (
+    ActiveReportOperationError,
+    ReportRun,
+    complete_report_run_by_id,
+    create_report_run_for_tag,
+    create_report_run_for_tracker,
+    fail_report_run_by_id,
+    recover_stale_report_operations_in_db,
+    retry_failed_report_run_for_tracker_by_id,
+    touch_report_run_by_id,
+)
+from was_reports.data.stakeholders import list_due_stakeholders_for_report
+from was_reports.qualys.report_data import QualysReportCreationUncertainError
+from was_reports.reporting.exceptions import (
+    ReportXmlDiskSpaceError,
+    ReportXmlSizeLimitError,
+    ReportXmlUnsafeContentError,
+)
+from was_reports.storage.s3_reports import (
+    S3_STORAGE,
+    VALID_STORAGE_MODES,
+    resolve_storage_mode,
+    upload_report,
+)
+from was_reports.utils.capacity_scope import capacity_tracker_ids
+from was_reports.utils.env import getenv, require_env
+from was_reports.utils.logging_config import (
+    bind_logging_context,
+    configure_logging,
+    exception_details,
+    reset_logging_context,
+)
+from was_reports.utils.operation_cancellation import (
+    OperationCancelledError,
+    raise_if_operation_cancelled,
+)
+from was_reports.utils.operation_lease import (
+    OperationLeaseLostError,
+    check_operation_ownership,
+    operation_heartbeat,
+)
+from was_reports.utils.outputs import expected_pdf_output_path
+from was_reports.utils.passwords import ExistingReportPasswordError
+
+LOGGER = logging.getLogger(__name__)
+DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
+NO_REPORT_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
+DEFAULT_RECENT_SCAN_DAYS_BACK = 7
+ALL_DAYS_BACK = "all"
+
+
+def parse_days_back(value: str) -> int | str:
+    """Return a positive calendar-date count or the unlimited marker."""
+    normalized_value = value.strip().lower()
+    if normalized_value == ALL_DAYS_BACK:
+        return ALL_DAYS_BACK
+    try:
+        return int(normalized_value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "Days back must be a positive integer or 'all'."
+        ) from error
+
+
+@dataclass(frozen=True)
+class BatchExecutionSummary:
+    """Counts produced by one recent-scan report batch."""
+
+    candidates: int
+    generated: int
+    sent: int
+    failed: int
+
+
+def current_epoch_seconds() -> int:
+    """Return the current UTC epoch timestamp in seconds."""
+    return int(datetime.now(timezone.utc).timestamp())
+
+
+def summarize_report_failure(exception: Exception) -> str:
+    """Return a safe report failure summary for database storage."""
+    if isinstance(exception, QualysReportCreationUncertainError):
+        return (
+            "Qualys report creation outcome is uncertain; reconcile before retrying. "
+            "{}".format(exception_details(exception))
+        )
+
+    if isinstance(exception, ExistingReportPasswordError):
+        return "ExistingReportPasswordError occurred during report generation."
+
+    if isinstance(exception, ReadTimeout):
+        return "QualysReadTimeout occurred during report generation."
+
+    if isinstance(exception, ReportXmlSizeLimitError):
+        return "ReportXmlSizeLimitError occurred during report generation."
+
+    if isinstance(exception, ReportXmlDiskSpaceError):
+        return "ReportXmlDiskSpaceError occurred during report generation."
+
+    if isinstance(exception, ReportXmlUnsafeContentError):
+        return "ReportXmlUnsafeContentError occurred during report generation."
+
+    if isinstance(exception, subprocess.CalledProcessError):
+        return "Report generation failed with exit code {}.".format(
+            exception.returncode
+        )
+
+    if isinstance(exception, FileNotFoundError):
+        return "Required report file was not found."
+
+    return "{} occurred during report generation.".format(
+        exception_details(exception, include_origin=False)
+    )
+
+
+def record_generation_failure(
+    report_run: ReportRun, failure_summary: str, error: Exception
+) -> None:
+    """Record failure only while the original generation claim remains owned."""
+    if isinstance(error, (ActiveReportOperationError, OperationLeaseLostError)):
+        return
+    try:
+        fail_report_run_by_id(
+            report_run_id=report_run.id,
+            error_message=failure_summary,
+            generation_token=report_run.generation_token,
+        )
+    except Exception as error:
+        LOGGER.error(
+            "Unable to persist generation failure for run %s; retaining artifacts: "
+            "%s",
+            report_run.id,
+            exception_details(error),
+        )
+
+
+def build_report_arguments(
+    report_run_id: int,
+    stakeholder_tag: str,
+    resource_root: str,
+    output_directory: str,
+    python_executable: str,
+    create_missing_password: bool,
+    generation_token: str,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = False,
+) -> List[str]:
+    """Build arguments for one WAS report generation call."""
+    arguments = [
+        "--tag",
+        stakeholder_tag,
+        "--report-run-id",
+        str(report_run_id),
+        "--generation-token",
+        generation_token,
+        "--resource-root",
+        resource_root,
+        "--output-directory",
+        output_directory,
+        "--python-executable",
+        python_executable,
+    ]
+
+    if create_missing_password:
+        arguments.append("--create-missing-password")
+    if tag_id is not None:
+        arguments.extend(["--tag-id", str(tag_id)])
+    if organization_name:
+        arguments.extend(["--organization-name", organization_name])
+    if allow_tag_lookup:
+        arguments.append("--allow-tag-lookup")
+
+    return arguments
+
+
+def generate_report_output(
+    report_run_id: int,
+    stakeholder_tag: str,
+    resource_root: str,
+    python_executable: str,
+    create_missing_password: bool,
+    output_directory: str,
+    storage_mode: str,
+    staging_directory: str,
+    generation_token: str,
+    tag_id: int | None = None,
+    organization_name: str | None = None,
+    allow_tag_lookup: bool = False,
+    password_override: str | None = None,
+) -> str:
+    """Generate one report and return its durable output reference."""
+    check_operation_ownership()
+    if not touch_report_run_by_id(report_run_id, generation_token=generation_token):
+        raise OperationLeaseLostError("WAS generation ownership was lost.")
+    current_time = datetime.now(timezone.utc)
+    report_date = current_time.date()
+    if storage_mode == S3_STORAGE:
+        staging_root = Path(staging_directory)
+        staging_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(
+            prefix="was-run-{}-".format(report_run_id),
+            dir=str(staging_root),
+        ) as run_directory:
+            report_arguments = build_report_arguments(
+                report_run_id=report_run_id,
+                generation_token=generation_token,
+                stakeholder_tag=stakeholder_tag,
+                resource_root=resource_root,
+                output_directory=run_directory,
+                python_executable=python_executable,
+                create_missing_password=create_missing_password,
+                tag_id=tag_id,
+                organization_name=organization_name,
+                allow_tag_lookup=allow_tag_lookup,
+            )
+            check_operation_ownership()
+            password_options = (
+                {}
+                if password_override is None
+                else {"password_override": password_override}
+            )
+            report_generator.main(
+                report_arguments, current_time=current_time, **password_options
+            )
+            local_output_path = expected_pdf_output_path(
+                stakeholder_tag=stakeholder_tag,
+                output_directory=run_directory,
+                report_date=report_date,
+            )
+            check_operation_ownership()
+            if not touch_report_run_by_id(
+                report_run_id, generation_token=generation_token
+            ):
+                raise OperationLeaseLostError("WAS generation ownership was lost.")
+            unique_path = local_output_path.with_name(
+                "{}-{}.pdf".format(local_output_path.stem, generation_token)
+            )
+            local_output_path.rename(unique_path)
+            return upload_report(
+                report_path=unique_path,
+                stakeholder_tag=stakeholder_tag,
+                report_date=report_date,
+                report_run_id=report_run_id,
+            )
+
+    output_directory = str(
+        Path(output_directory) / "{}-{}".format(report_run_id, generation_token)
+    )
+    report_arguments = build_report_arguments(
+        report_run_id=report_run_id,
+        generation_token=generation_token,
+        stakeholder_tag=stakeholder_tag,
+        resource_root=resource_root,
+        output_directory=output_directory,
+        python_executable=python_executable,
+        create_missing_password=create_missing_password,
+        tag_id=tag_id,
+        organization_name=organization_name,
+        allow_tag_lookup=allow_tag_lookup,
+    )
+    check_operation_ownership()
+    password_options = (
+        {} if password_override is None else {"password_override": password_override}
+    )
+    report_generator.main(
+        report_arguments, current_time=current_time, **password_options
+    )
+    return str(
+        expected_pdf_output_path(
+            stakeholder_tag=stakeholder_tag,
+            output_directory=output_directory,
+            report_date=report_date,
+        )
+    )
+
+
+def run_due_reports(
+    resource_root: str,
+    python_executable: str,
+    current_epoch: int,
+    create_missing_password: bool = False,
+    include_manual: bool = False,
+    include_retired: bool = False,
+    limit: Optional[int] = None,
+    continue_on_error: bool = False,
+    output_directory: str = "/output",
+    storage_mode: str = S3_STORAGE,
+    staging_directory: str = DEFAULT_STAGING_DIRECTORY,
+) -> int:
+    """Generate reports for all due stakeholders."""
+    stakeholders = list_due_stakeholders_for_report(
+        current_epoch=current_epoch,
+        include_manual=include_manual,
+        include_retired=include_retired,
+        limit=limit,
+    )
+    failed_count = 0
+    resolved_storage_mode = resolve_storage_mode(storage_mode)
+
+    for stakeholder in stakeholders:
+        raise_if_operation_cancelled()
+        report_run = create_report_run_for_tag(
+            stakeholder_tag=stakeholder.tag,
+            scheduled_epoch=stakeholder.next_scheduled,
+        )
+        if report_run is None:
+            LOGGER.info(
+                "Skipping stakeholder tag %s because schedule %s is already claimed.",
+                stakeholder.tag,
+                stakeholder.next_scheduled,
+            )
+            continue
+        completion_attempted = False
+        try:
+            with operation_heartbeat(
+                heartbeat=partial(
+                    touch_report_run_by_id,
+                    report_run.id,
+                    generation_token=report_run.generation_token,
+                ),
+                operation_name="report run {} generation".format(report_run.id),
+            ):
+                output_reference = generate_report_output(
+                    report_run_id=report_run.id,
+                    generation_token=report_run.generation_token,
+                    stakeholder_tag=stakeholder.tag,
+                    resource_root=resource_root,
+                    python_executable=python_executable,
+                    create_missing_password=create_missing_password,
+                    output_directory=output_directory,
+                    storage_mode=resolved_storage_mode,
+                    staging_directory=staging_directory,
+                    tag_id=stakeholder.qualys_tag_id,
+                    organization_name=stakeholder.customer_name,
+                )
+            completion_attempted = True
+            complete_report_run_by_id(
+                report_run.id,
+                generation_token=report_run.generation_token,
+                output_path=output_reference,
+                artifact_type="pdf",
+            )
+        except OperationCancelledError as exception:
+            record_generation_failure(
+                report_run,
+                summarize_report_failure(exception),
+                exception,
+            )
+            raise
+        except Exception as exception:
+            failed_count += 1
+            failure_summary = summarize_report_failure(exception)
+            if not completion_attempted:
+                record_generation_failure(report_run, failure_summary, exception)
+            else:
+                LOGGER.error(
+                    "Report completion is uncertain for run %s; retaining artifacts: "
+                    "%s",
+                    report_run.id,
+                    exception_details(exception),
+                )
+            LOGGER.error(
+                "WAS report generation failed for stakeholder tag %s: %s",
+                stakeholder.tag,
+                exception_details(exception),
+            )
+            if not continue_on_error:
+                raise
+
+    return failed_count
+
+
+def run_recent_scan_reports(
+    resource_root: str,
+    python_executable: str,
+    create_missing_password: bool = False,
+    stakeholder_tag: Optional[str] = None,
+    limit: Optional[int] = None,
+    continue_on_error: bool = True,
+    output_directory: str = "/output",
+    storage_mode: str = S3_STORAGE,
+    staging_directory: str = DEFAULT_STAGING_DIRECTORY,
+    send_email: bool = False,
+    send_assignee_digests: bool = False,
+    source_email: Optional[str] = None,
+    test_recipients: Optional[str] = None,
+    dry_run_email: bool = False,
+    include_manual: bool = False,
+    worker_count: int | None = None,
+    worker_index: int | None = None,
+    retry_ready_emails: bool = True,
+    days_back: int | None = None,
+    analyst_batch_id: str | None = None,
+    recovery_causes: dict[int, str] | None = None,
+) -> BatchExecutionSummary:
+    """Generate and deliver reports for recent tracker rows with delivery gaps."""
+    tracker_scope = capacity_tracker_ids()
+    candidates = list_ready_report_candidates_from_db(
+        stakeholder_tag=stakeholder_tag,
+        limit=limit,
+        include_manual=include_manual,
+        worker_count=worker_count,
+        worker_index=worker_index,
+        days_back=days_back,
+    )
+    if tracker_scope is not None:
+        candidates = [
+            candidate for candidate in candidates if candidate.id in tracker_scope
+        ]
+    if recovery_causes is not None:
+        requested_ids = frozenset(recovery_causes)
+        candidates = [
+            candidate for candidate in candidates if candidate.id in requested_ids
+        ]
+        selected_ids = frozenset(candidate.id for candidate in candidates)
+        if selected_ids != requested_ids:
+            missing_ids = sorted(requested_ids - selected_ids)
+            raise ValueError(
+                "Recovery tracker rows are no longer selectable: {}.".format(
+                    ", ".join(str(tracker_id) for tracker_id in missing_ids)
+                )
+            )
+    capacity_continuation = (
+        tracker_scope is not None and os.environ.get("WAS_CAPACITY_CONTINUATION") == "1"
+    )
+    if capacity_continuation:
+        candidate_ids = {candidate.id for candidate in candidates}
+        manual_candidates = list_ready_report_candidates_from_db(
+            stakeholder_tag=stakeholder_tag,
+            include_manual=True,
+            worker_count=worker_count,
+            worker_index=worker_index,
+            days_back=days_back,
+        )
+        candidates.extend(
+            candidate
+            for candidate in manual_candidates
+            if candidate.id in tracker_scope
+            and candidate.id not in candidate_ids
+            and candidate.report_run_status == "failed"
+        )
+    log_preflight_summary(
+        LOGGER,
+        summarize_candidates(candidates),
+        days_back=days_back,
+    )
+    resolved_storage_mode = resolve_storage_mode(storage_mode)
+    generated_count = 0
+    sent_count = 0
+    failed_count = 0
+    analyst_batch_id = analyst_batch_id or os.environ.get("WAS_ANALYST_BATCH_ID")
+    if send_assignee_digests and not dry_run_email:
+        analyst_batch_id = analyst_batch_id or str(uuid4())
+    if analyst_batch_id and not dry_run_email:
+        # Third-Party Libraries
+        from was_reports.reporting import analyst_summaries
+
+        analyst_summaries.start_batch(analyst_batch_id, worker_count=worker_count)
+
+    try:
+        if analyst_batch_id and send_assignee_digests and not dry_run_email:
+            analyst_summaries.send_tracker_summary(
+                analyst_batch_id,
+                candidate_ids=[candidate.id for candidate in candidates],
+                source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                override_recipients=test_recipients,
+            )
+        if send_email and not include_manual and retry_ready_emails:
+            raise_if_operation_cancelled()
+            retry_options = (
+                {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+            )
+            sent_count += send_ready_report_emails(
+                source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                override_recipients=test_recipients,
+                dry_run=dry_run_email,
+                stakeholder_tag=stakeholder_tag,
+                days_back=days_back,
+                **retry_options,
+            )
+        for candidate_index, candidate in enumerate(candidates, start=1):
+            candidate_context = bind_logging_context(
+                phase="report_processing",
+                tag=candidate.tag,
+                tracker_id=candidate.id,
+                report_run_id=candidate.report_run_id,
+            )
+            run_context = None
+            attempt_started = None
+            delivery_started = None
+            generation_duration = 0.0
+            notification_completed = False
+            attempt_error = None
+            attempted = False
+            attempt_report_run_id = candidate.report_run_id
+            before_generated, before_sent = generated_count, sent_count
+            try:
+                raise_if_operation_cancelled()
+                log_candidate_progress(
+                    LOGGER,
+                    candidate_index=candidate_index,
+                    candidate_count=len(candidates),
+                    stakeholder_tag=candidate.tag,
+                )
+                if candidate.report_run_status == "completed":
+                    attempted = True
+                    if candidate.report_run_id is None:
+                        raise RuntimeError("Completed manual report run has no run id.")
+                    try:
+                        delivery_started = monotonic()
+                        message_id = send_report_run_email(
+                            report_run_id=candidate.report_run_id,
+                            source_email=source_email
+                            or require_env("WAS_EMAIL_SOURCE"),
+                            override_recipients=test_recipients,
+                            dry_run=dry_run_email,
+                            include_previous_failure=True,
+                        )
+                        if message_id or dry_run_email:
+                            sent_count += 1
+                    except OperationCancelledError:
+                        raise
+                    except Exception as error:
+                        attempt_error = type(error).__name__
+                        failed_count += 1
+                        LOGGER.error(
+                            "Manual WAS report email retry failed for tracker row %s: %s",
+                            candidate.id,
+                            exception_details(error),
+                            extra={"event": "ses_delivery_failed"},
+                        )
+                        if not continue_on_error:
+                            raise
+                    continue
+                if recovery_causes is not None:
+                    report_run = claim_manual_report_recovery_by_id(
+                        candidate.id,
+                        recovery_causes[candidate.id],
+                        days_back=days_back or DEFAULT_RECENT_SCAN_DAYS_BACK,
+                    )
+                elif capacity_continuation and candidate.report_run_status == "failed":
+                    report_run = retry_failed_report_run_for_tracker_by_id(
+                        candidate.id,
+                        safe_only=True,
+                    )
+                else:
+                    report_run = create_report_run_for_tracker(
+                        stakeholder_tag=candidate.tag,
+                        source_tracker_id=candidate.id,
+                        enforce_automated_eligibility=not include_manual,
+                        days_back=days_back,
+                    )
+                if (
+                    report_run is None
+                    and include_manual
+                    and not capacity_continuation
+                    and recovery_causes is None
+                ):
+                    report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
+                if report_run is None:
+                    if recovery_causes is not None:
+                        failed_count += 1
+                        LOGGER.error(
+                            "Recovery tracker row %s changed after preview and was not reclaimed.",
+                            candidate.id,
+                            extra={"event": "manual_recovery_race"},
+                        )
+                        continue
+                    LOGGER.info(
+                        "Skipping tracker row %s because it was claimed or is no longer eligible.",
+                        candidate.id,
+                    )
+                    continue
+
+                attempted = True
+                attempt_report_run_id = report_run.id
+                run_context = bind_logging_context(report_run_id=report_run.id)
+                attempt_started = monotonic()
+                if candidate.template in NO_REPORT_TEMPLATES:
+                    try:
+                        complete_report_run_by_id(
+                            report_run.id,
+                            artifact_type="notification",
+                            generation_token=report_run.generation_token,
+                        )
+                        notification_completed = True
+                        generation_duration = monotonic() - attempt_started
+                        attempt_started = None
+                        LOGGER.info(
+                            "Tracker row %s requires a %s notification without a PDF.",
+                            candidate.id,
+                            candidate.template,
+                        )
+                        if send_email:
+                            raise_if_operation_cancelled()
+                            delivery_started = monotonic()
+                            message_id = send_report_run_email(
+                                report_run_id=report_run.id,
+                                source_email=(
+                                    source_email or require_env("WAS_EMAIL_SOURCE")
+                                ),
+                                override_recipients=test_recipients,
+                                dry_run=dry_run_email,
+                            )
+                            if message_id or dry_run_email:
+                                sent_count += 1
+                    except OperationCancelledError:
+                        raise
+                    except Exception as error:
+                        attempt_error = type(error).__name__
+                        failed_count += 1
+                        LOGGER.error(
+                            "Notification completion or delivery is uncertain for run %s: %s",
+                            report_run.id,
+                            exception_details(error),
+                            extra={"event": "notification_delivery_uncertain"},
+                        )
+                        LOGGER.error(
+                            "WAS no-report notification failed for tracker row %s: %s",
+                            candidate.id,
+                            exception_details(error),
+                            extra={"event": "notification_failed"},
+                        )
+                        if not continue_on_error:
+                            raise
+                    continue
+
+                completion_attempted = False
+                try:
+                    with operation_heartbeat(
+                        heartbeat=partial(
+                            touch_report_run_by_id,
+                            report_run.id,
+                            generation_token=report_run.generation_token,
+                        ),
+                        operation_name="report run {} generation".format(report_run.id),
+                    ):
+                        output_reference = generate_report_output(
+                            report_run_id=report_run.id,
+                            generation_token=report_run.generation_token,
+                            stakeholder_tag=candidate.tag,
+                            resource_root=resource_root,
+                            python_executable=python_executable,
+                            create_missing_password=create_missing_password,
+                            output_directory=output_directory,
+                            storage_mode=resolved_storage_mode,
+                            staging_directory=staging_directory,
+                            tag_id=candidate.tag_id,
+                            organization_name=candidate.organization_name,
+                        )
+                    completion_attempted = True
+                    complete_report_run_by_id(
+                        report_run.id,
+                        generation_token=report_run.generation_token,
+                        output_path=output_reference,
+                        artifact_type="pdf",
+                    )
+                    generated_count += 1
+                    generation_duration = monotonic() - attempt_started
+                    attempt_started = None
+                except OperationCancelledError as exception:
+                    record_generation_failure(
+                        report_run,
+                        summarize_report_failure(exception),
+                        exception,
+                    )
+                    raise
+                except Exception as exception:
+                    attempt_error = type(exception).__name__
+                    failed_count += 1
+                    failure_summary = summarize_report_failure(exception)
+                    if not completion_attempted:
+                        record_generation_failure(
+                            report_run, failure_summary, exception
+                        )
+                    else:
+                        LOGGER.error(
+                            "Report completion is uncertain for run %s; retaining artifacts: "
+                            "%s",
+                            report_run.id,
+                            exception_details(exception),
+                            extra={"event": "report_completion_uncertain"},
+                        )
+                    LOGGER.error(
+                        "WAS report generation failed for tracker row %s and tag %s: %s",
+                        candidate.id,
+                        candidate.tag,
+                        exception_details(exception),
+                        extra={"event": "report_generation_failed"},
+                    )
+                    if not continue_on_error:
+                        raise
+                    continue
+
+                if send_email:
+                    raise_if_operation_cancelled()
+                    try:
+                        delivery_started = monotonic()
+                        message_id = send_report_run_email(
+                            report_run_id=report_run.id,
+                            source_email=source_email
+                            or require_env("WAS_EMAIL_SOURCE"),
+                            override_recipients=test_recipients,
+                            dry_run=dry_run_email,
+                        )
+                        if message_id or dry_run_email:
+                            sent_count += 1
+                    except OperationCancelledError:
+                        raise
+                    except Exception as error:
+                        attempt_error = type(error).__name__
+                        failed_count += 1
+                        LOGGER.error(
+                            "WAS report email failed for tracker row %s and run id %s: %s",
+                            candidate.id,
+                            report_run.id,
+                            exception_details(error),
+                            extra={"event": "ses_delivery_failed"},
+                        )
+                        if not continue_on_error:
+                            raise
+
+            finally:
+                try:
+                    if analyst_batch_id and attempted and not dry_run_email:
+                        active_error = sys.exc_info()[1]
+                        analyst_summaries.record_report_attempt(
+                            analyst_batch_id,
+                            candidate.id,
+                            duration_seconds=(
+                                monotonic() - cast(float, attempt_started)
+                                if attempt_started is not None
+                                else generation_duration
+                            ),
+                            generated=(
+                                notification_completed
+                                or generated_count > before_generated
+                            ),
+                            sent=sent_count > before_sent,
+                            error=(
+                                attempt_error
+                                or (
+                                    type(active_error).__name__
+                                    if active_error
+                                    else None
+                                )
+                            ),
+                            report_run_id=attempt_report_run_id,
+                            delivery_duration_seconds=(
+                                monotonic() - delivery_started
+                                if delivery_started is not None
+                                else None
+                            ),
+                            artifact_type=(
+                                "notification"
+                                if candidate.template in NO_REPORT_TEMPLATES
+                                else "pdf"
+                            ),
+                        )
+                finally:
+                    if run_context is not None:
+                        reset_logging_context(run_context)
+                    reset_logging_context(candidate_context)
+
+    finally:
+        if analyst_batch_id and not dry_run_email and worker_index is None:
+            analyst_summaries.finish_batch(
+                analyst_batch_id,
+                outcome="failed" if failed_count or sys.exc_info()[1] else "completed",
+            )
+        if send_assignee_digests and not dry_run_email:
+            LOGGER.info("Phase 5/5: Sending combined analyst batch summary.")
+            analyst_summaries.send_batch_summary(
+                analyst_batch_id,
+                source_email=source_email or require_env("WAS_EMAIL_SOURCE"),
+                override_recipients=test_recipients,
+                days_back=days_back,
+            )
+
+    summary = BatchExecutionSummary(
+        candidates=len(candidates),
+        generated=generated_count,
+        sent=sent_count,
+        failed=failed_count,
+    )
+    LOGGER.info(
+        "Recent-scan WAS batch completed: candidates=%d generated=%d sent=%d "
+        "failed=%d",
+        summary.candidates,
+        summary.generated,
+        summary.sent,
+        summary.failed,
+    )
+    return summary
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    """Parse command line arguments for scheduled WAS reports."""
+    default_resource_root = getenv("WAS_RESOURCE_ROOT", "/WAS_REPORT_RESOURCES")
+
+    parser = argparse.ArgumentParser(
+        description="Generate WAS reports for stakeholders whose schedule is due."
+    )
+    parser.add_argument(
+        "--analyst-batch-id",
+        default=os.environ.get("WAS_ANALYST_BATCH_ID"),
+        help="Shared analyst-summary identity for all stages of one batch.",
+    )
+    parser.add_argument(
+        "--resource-root",
+        default=default_resource_root,
+        help="Directory containing production WAS templates and report assets.",
+    )
+    parser.add_argument(
+        "--python-executable",
+        default=sys.executable,
+        help="Python executable used for report helper subprocesses.",
+    )
+    parser.add_argument(
+        "--current-epoch",
+        type=int,
+        default=current_epoch_seconds(),
+        help="UTC epoch seconds used for due-report selection.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum number of due stakeholder reports to generate.",
+    )
+    parser.add_argument(
+        "--days-back",
+        type=parse_days_back,
+        help=(
+            "Process this many calendar dates, including today, or use 'all'. "
+            "Automated recent-scan batches default to 7."
+        ),
+    )
+    parser.add_argument(
+        "--recent-scans",
+        action="store_true",
+        help=(
+            "Refresh recent Qualys scans, then generate reports for tracker rows "
+            "that have not been sent."
+        ),
+    )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help=(
+            "Summarize existing tracker rows without refreshing, recovering, "
+            "claiming, generating, or emailing them."
+        ),
+    )
+    parser.add_argument(
+        "--skip-tracker-refresh",
+        action="store_true",
+        help="Use existing tracker rows without querying Qualys for recent scans.",
+    )
+    parser.add_argument(
+        "--worker-count",
+        type=int,
+        help="Total parallel report workers, from 1 through 30.",
+    )
+    parser.add_argument(
+        "--worker-index",
+        type=int,
+        help="Zero-based partition assigned to this report worker.",
+    )
+    parser.add_argument(
+        "-t",
+        "--tag",
+        help="Limit recent-scan discovery and reporting to one stakeholder tag.",
+    )
+    parser.add_argument(
+        "--create-missing-password",
+        action="store_true",
+        help="Create stakeholder report passwords when missing.",
+    )
+    parser.add_argument(
+        "--include-manual",
+        action="store_true",
+        help="Include stakeholders marked for manual reporting.",
+    )
+    parser.add_argument(
+        "--include-retired",
+        action="store_true",
+        help="Include retired stakeholders.",
+    )
+    parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="Continue generating remaining reports after a stakeholder failure.",
+    )
+    parser.add_argument(
+        "--send-email",
+        action="store_true",
+        help="Send ready reports through SES after generation.",
+    )
+    parser.add_argument(
+        "--skip-ready-email-retry",
+        action="store_true",
+        help="Skip the pre-generation retry of previously completed report emails.",
+    )
+    parser.add_argument(
+        "--send-assignee-digests",
+        action="store_true",
+        help="Send tracker statistics and assignments to WAS assignees.",
+    )
+    parser.add_argument(
+        "--source-email",
+        default=getenv("WAS_EMAIL_SOURCE"),
+        help="Verified SES sender address used by recent-scan batch delivery.",
+    )
+    parser.add_argument(
+        "--test-recipients",
+        help="Override report and digest recipients for controlled testing.",
+    )
+    parser.add_argument(
+        "--dry-run-email",
+        action="store_true",
+        help="Build report and digest emails without sending them through SES.",
+    )
+    parser.add_argument(
+        "--output-directory",
+        default=getenv("WAS_OUTPUT_DIRECTORY", "/output"),
+        help="Directory where generated WAS PDF reports are written.",
+    )
+    parser.add_argument(
+        "--storage-mode",
+        choices=VALID_STORAGE_MODES,
+        default=resolve_storage_mode(),
+        help="Store completed reports in S3 or retain them on local disk.",
+    )
+    parser.add_argument(
+        "--staging-directory",
+        default=getenv("WAS_REPORT_STAGING_DIRECTORY", DEFAULT_STAGING_DIRECTORY),
+        help="Temporary report directory used before S3 upload.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Run scheduled WAS report generation."""
+    configure_logging()
+    args = parse_args(argv)
+    if args.recent_scans:
+        test_recipients = args.test_recipients
+        if test_recipients is not None:
+            try:
+                test_recipients = ",".join(approved_analyst_recipients(test_recipients))
+            except AnalystRecipientError as error:
+                LOGGER.warning("Batch analyst recipient validation failed.")
+                print("Error: {}".format(error), file=sys.stderr)
+                return 2
+        stakeholder_tag = args.tag.strip() if args.tag else None
+        if args.tag and not stakeholder_tag:
+            raise ValueError("Stakeholder tag must not be empty.")
+        if args.include_manual and stakeholder_tag is None:
+            raise ValueError("Manual report generation requires --tag.")
+        if args.include_manual and not args.send_email:
+            raise ValueError("Manual report generation requires --send-email.")
+        if isinstance(args.days_back, int) and args.days_back < 1:
+            raise ValueError("Days back must be at least 1.")
+        if args.days_back == ALL_DAYS_BACK:
+            resolved_days_back = None
+        elif args.days_back is not None:
+            resolved_days_back = args.days_back
+        elif args.include_manual:
+            resolved_days_back = None
+        else:
+            resolved_days_back = DEFAULT_RECENT_SCAN_DAYS_BACK
+        if (args.worker_count is None) != (args.worker_index is None):
+            raise ValueError("Worker count and worker index must be provided together.")
+        if args.worker_count is not None:
+            if args.worker_count < 1 or args.worker_count > 30:
+                raise ValueError("Worker count must be between 1 and 30.")
+            if args.worker_index < 0 or args.worker_index >= args.worker_count:
+                raise ValueError(
+                    "Worker index must be between 0 and worker count minus 1."
+                )
+            if args.limit is not None:
+                raise ValueError(
+                    "Report limit cannot be combined with parallel worker partitions."
+                )
+            if not args.skip_tracker_refresh:
+                raise ValueError("Parallel workers require --skip-tracker-refresh.")
+            if args.send_assignee_digests:
+                raise ValueError(
+                    "Parallel workers cannot send assignee digests individually."
+                )
+            LOGGER.info(
+                "Starting report worker %s of %s.",
+                args.worker_index + 1,
+                args.worker_count,
+            )
+        if not args.preflight_only and capacity_tracker_ids() is None:
+            LOGGER.info("Recovering interrupted report operations before batch work.")
+            recover_stale_report_operations_in_db()
+        analyst_batch_id = args.analyst_batch_id
+        if (
+            args.send_assignee_digests
+            and not args.dry_run_email
+            and not args.preflight_only
+        ):
+            analyst_batch_id = analyst_batch_id or str(uuid4())
+        if not args.skip_tracker_refresh and not args.preflight_only:
+            LOGGER.info("Updating the WAS daily report tracker.")
+            tracker_options = {}
+            if args.dry_run_email:
+                tracker_options["summary_enabled"] = False
+            if analyst_batch_id and not args.dry_run_email:
+                tracker_options["analyst_batch_id"] = analyst_batch_id
+            try:
+                run_update_tracker(
+                    delete_apps=False,
+                    stakeholder_tag=stakeholder_tag,
+                    **tracker_options,
+                )
+            except Exception:
+                if (
+                    args.send_assignee_digests
+                    and analyst_batch_id
+                    and not args.dry_run_email
+                ):
+                    # Third-Party Libraries
+                    from was_reports.reporting import analyst_summaries
+
+                    analyst_summaries.finish_batch(analyst_batch_id, outcome="failed")
+                    analyst_summaries.send_batch_summary(
+                        analyst_batch_id,
+                        source_email=args.source_email
+                        or require_env("WAS_EMAIL_SOURCE"),
+                        override_recipients=test_recipients,
+                        days_back=resolved_days_back,
+                    )
+                raise
+        else:
+            LOGGER.info("Using existing WAS daily report tracker rows.")
+        if args.preflight_only:
+            candidates = list_ready_report_candidates_from_db(
+                stakeholder_tag=stakeholder_tag,
+                limit=args.limit,
+                include_manual=args.include_manual,
+                worker_count=args.worker_count,
+                worker_index=args.worker_index,
+                days_back=resolved_days_back,
+            )
+            log_preflight_summary(
+                LOGGER,
+                summarize_candidates(candidates),
+                days_back=resolved_days_back,
+            )
+            LOGGER.info(
+                "Preflight-only batch completed without report claims, "
+                "generation, or email delivery."
+            )
+            return 0
+        summary_options = (
+            {"analyst_batch_id": analyst_batch_id} if analyst_batch_id else {}
+        )
+        summary = run_recent_scan_reports(
+            resource_root=args.resource_root,
+            python_executable=args.python_executable,
+            create_missing_password=args.create_missing_password,
+            stakeholder_tag=stakeholder_tag,
+            limit=args.limit,
+            continue_on_error=args.continue_on_error,
+            output_directory=args.output_directory,
+            storage_mode=args.storage_mode,
+            staging_directory=args.staging_directory,
+            send_email=args.send_email,
+            send_assignee_digests=args.send_assignee_digests,
+            source_email=args.source_email,
+            test_recipients=test_recipients,
+            dry_run_email=args.dry_run_email,
+            include_manual=args.include_manual,
+            worker_count=args.worker_count,
+            worker_index=args.worker_index,
+            retry_ready_emails=not args.skip_ready_email_retry,
+            days_back=resolved_days_back,
+            **summary_options,
+        )
+        return 1 if summary.failed else 0
+
+    recent_scan_only_options = [
+        args.skip_tracker_refresh,
+        args.preflight_only,
+        args.days_back is not None,
+        args.worker_count is not None,
+        args.worker_index is not None,
+        args.tag is not None,
+        args.send_email,
+        args.skip_ready_email_retry,
+        args.send_assignee_digests,
+        args.test_recipients is not None,
+        args.dry_run_email,
+    ]
+    if any(recent_scan_only_options):
+        raise ValueError("Recent-scan batch options require --recent-scans.")
+    recover_stale_report_operations_in_db()
+    failed_count = run_due_reports(
+        resource_root=args.resource_root,
+        python_executable=args.python_executable,
+        current_epoch=args.current_epoch,
+        create_missing_password=args.create_missing_password,
+        include_manual=args.include_manual,
+        include_retired=args.include_retired,
+        limit=args.limit,
+        continue_on_error=args.continue_on_error,
+        output_directory=args.output_directory,
+        storage_mode=args.storage_mode,
+        staging_directory=args.staging_directory,
+    )
+    if failed_count:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
