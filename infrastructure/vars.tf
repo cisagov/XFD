@@ -653,6 +653,12 @@ variable "open_cti_root_volume_size" {
   default     = 1000
 }
 
+variable "open_cti_ebs_volume_size" {
+  description = "Size in GiB of the additional EBS data volume attached to the OpenCTI EC2 instance (LZ only), holding /var/lib/docker/volumes. Same pattern as var.db_accessor_ebs_volume_size."
+  type        = number
+  default     = 1000
+}
+
 variable "open_cti_subnet_id" {
   description = "Subnet ID the existing OpenCTI EC2 instance is in."
   type        = string
@@ -771,6 +777,12 @@ variable "db_accessor_instance_class" {
   default     = "t3.micro"
 }
 
+variable "db_accessor_ebs_volume_size" {
+  description = "Size in GiB of the additional EBS data volume attached to the db_accessor instance"
+  type        = number
+  default     = 1000
+}
+
 variable "elk_instance_class" {
   description = "elk_instance_class"
   type        = string
@@ -819,6 +831,78 @@ variable "create_was_reporting_instance" {
   default     = false
 }
 
+variable "was_reporting_reports_bucket_name" {
+  description = "Name of the existing S3 bucket used for WAS report storage."
+  type        = string
+  default     = "cisa-was-reports"
+}
+
+variable "was_reporting_reports_kms_key_arn" {
+  description = "Optional exact KMS key ARN approved for WAS report object encryption. Leave null to use the bucket default encryption policy."
+  type        = string
+  default     = null
+
+  validation {
+    condition = var.was_reporting_reports_kms_key_arn == null || try(
+      length(split(":", var.was_reporting_reports_kms_key_arn)) == 6 &&
+      split(":", var.was_reporting_reports_kms_key_arn)[0] == "arn" &&
+      contains(
+        ["aws", "aws-cn", "aws-us-gov", "aws-iso", "aws-iso-b", "aws-iso-e", "aws-iso-f"],
+        split(":", var.was_reporting_reports_kms_key_arn)[1]
+      ) &&
+      split(":", var.was_reporting_reports_kms_key_arn)[2] == "kms" &&
+      split(":", var.was_reporting_reports_kms_key_arn)[3] != "" &&
+      length(split(":", var.was_reporting_reports_kms_key_arn)[4]) == 12 &&
+      length([
+        for index in range(12) : substr(split(":", var.was_reporting_reports_kms_key_arn)[4], index, 1)
+        if contains(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], substr(split(":", var.was_reporting_reports_kms_key_arn)[4], index, 1))
+      ]) == 12 &&
+      length(split("/", split(":", var.was_reporting_reports_kms_key_arn)[5])) == 2 &&
+      split("/", split(":", var.was_reporting_reports_kms_key_arn)[5])[0] == "key" &&
+      split("/", split(":", var.was_reporting_reports_kms_key_arn)[5])[1] != "" &&
+      replace(split(":", var.was_reporting_reports_kms_key_arn)[5], "*", "") == split(":", var.was_reporting_reports_kms_key_arn)[5] &&
+      replace(split(":", var.was_reporting_reports_kms_key_arn)[5], "?", "") == split(":", var.was_reporting_reports_kms_key_arn)[5],
+      false
+    )
+    error_message = "The WAS reporting KMS value must be null or an exact KMS key ARN."
+  }
+}
+
+variable "was_reporting_ses_role_arn" {
+  description = "Exact IAM role ARN the WAS reporting instance may assume for SES delivery."
+  type        = string
+  default     = "arn:aws:iam::246048611598:role/SesSendEmail-cyber.dhs.gov"
+
+  validation {
+    condition = try(
+      length(split(":", var.was_reporting_ses_role_arn)) == 6 &&
+      split(":", var.was_reporting_ses_role_arn)[0] == "arn" &&
+      contains(
+        ["aws", "aws-cn", "aws-us-gov", "aws-iso", "aws-iso-b", "aws-iso-e", "aws-iso-f"],
+        split(":", var.was_reporting_ses_role_arn)[1]
+      ) &&
+      split(":", var.was_reporting_ses_role_arn)[2] == "iam" &&
+      split(":", var.was_reporting_ses_role_arn)[3] == "" &&
+      length(split(":", var.was_reporting_ses_role_arn)[4]) == 12 &&
+      length([
+        for index in range(12) : substr(split(":", var.was_reporting_ses_role_arn)[4], index, 1)
+        if contains(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], substr(split(":", var.was_reporting_ses_role_arn)[4], index, 1))
+      ]) == 12 &&
+      length(split(":", var.was_reporting_ses_role_arn)[5]) > 5 &&
+      substr(split(":", var.was_reporting_ses_role_arn)[5], 0, 5) == "role/" &&
+      !contains(split("/", substr(
+        split(":", var.was_reporting_ses_role_arn)[5],
+        5,
+        length(split(":", var.was_reporting_ses_role_arn)[5]) - 5
+      )), "") &&
+      replace(split(":", var.was_reporting_ses_role_arn)[5], "*", "") == split(":", var.was_reporting_ses_role_arn)[5] &&
+      replace(split(":", var.was_reporting_ses_role_arn)[5], "?", "") == split(":", var.was_reporting_ses_role_arn)[5],
+      false
+    )
+    error_message = "The WAS reporting SES role must be an exact IAM role ARN."
+  }
+}
+
 variable "was_reporting_ami_id" {
   description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment. Initially matches the OpenCTI DMZ AMI but can evolve independently."
   type        = string
@@ -832,7 +916,7 @@ variable "was_reporting_instance_type" {
 }
 
 variable "was_reporting_root_volume_size" {
-  description = "Size in GiB of the encrypted WAS reporting root volume."
+  description = "Size in GiB of the WAS reporting root volume."
   type        = number
   default     = 50
 
@@ -1068,6 +1152,10 @@ variable "ssm_mdl_password" {
   default     = "/crossfeed/staging/MDL_PASSWORD"
 }
 
+# NOTE: kept intentionally - redshift_cve_scan.py has NOT been converted yet
+# (still waiting on the DBX data model, per earlier discussion). These four remain
+# load-bearing for that one task until it's rewritten and query_redshift.py becomes
+# fully dead code. Do not delete in a cleanup pass without checking that first.
 variable "ssm_redshift_host" {
   description = "ssm_redshift_host"
   type        = string

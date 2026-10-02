@@ -144,7 +144,7 @@ const ScansView: React.FC = () => {
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      const scan = await apiPost(ENDPOINTS.SCANS, {
+      const scan = await apiPost<Scan>(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
@@ -153,6 +153,7 @@ const ScansView: React.FC = () => {
           tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
         }
       });
+
       setScans(scans.concat(scan));
       setSnackbarMsg('Scan created successfully!');
       setSnackbarOpen(true);

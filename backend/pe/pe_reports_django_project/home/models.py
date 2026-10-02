@@ -774,28 +774,6 @@ class DotgovDomains(models.Model):
         db_table = "dotgov_domains"
 
 
-class Executives(models.Model):
-    """Define Executives model."""
-
-    executives_uid = models.UUIDField(primary_key=True)
-    organizations_uid = models.ForeignKey(
-        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
-    )
-    prefix = models.TextField(blank=True, null=True)
-    first_name = models.TextField(blank=True, null=True)
-    middle_initial = models.TextField(blank=True, null=True)
-    last_name = models.TextField(blank=True, null=True)
-    suffix = models.TextField(blank=True, null=True)
-    last_modified = models.DateField(blank=True, null=True)
-    sixgill_id = models.TextField(blank=True, null=True)
-
-    class Meta:
-        """Set Executives model metadata."""
-
-        managed = False
-        db_table = "executives"
-
-
 class Ips(models.Model):
     """Define Ips model."""
 
@@ -956,7 +934,6 @@ class Organizations(models.Model):
     state_name = models.TextField(blank=True, null=True)
     country = models.TextField(blank=True, null=True)
     country_name = models.TextField(blank=True, null=True)
-    exec_url = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set Organizations model metadata."""
@@ -1096,7 +1073,6 @@ class ReportSummaryStats(models.Model):
     threat_actor_count = models.IntegerField(blank=True, null=True)
     dark_web_alerts_count = models.IntegerField(blank=True, null=True)
     dark_web_mentions_count = models.IntegerField(blank=True, null=True)
-    dark_web_executive_alerts_count = models.IntegerField(blank=True, null=True)
     dark_web_asset_alerts_count = models.IntegerField(blank=True, null=True)
     pe_number_score = models.TextField(blank=True, null=True)
     pe_letter_grade = models.TextField(blank=True, null=True)
@@ -1709,28 +1685,6 @@ class VwDarkwebAssetalerts(models.Model):
 
         managed = False  # Created from a view. Don't remove.
         db_table = "vw_darkweb_assetalerts"
-
-
-class VwDarkwebExecalerts(models.Model):
-    """Define VwDarkwebExecalerts model."""
-
-    organizations_uid = models.UUIDField(primary_key=True)
-    date = models.DateField(blank=True, null=True)
-    site = models.TextField(
-        db_column="Site", blank=True, null=True
-    )  # Field name made lowercase.
-    title = models.TextField(
-        db_column="Title", blank=True, null=True
-    )  # Field name made lowercase.
-    events = models.BigIntegerField(
-        db_column="Events", blank=True, null=True
-    )  # Field name made lowercase.
-
-    class Meta:
-        """Set VwDarkwebExecalerts model metadata."""
-
-        managed = False  # Created from a view. Don't remove.
-        db_table = "vw_darkweb_execalerts"
 
 
 class VwDarkwebThreatactors(models.Model):
@@ -2767,3 +2721,51 @@ class WasReport(models.Model):
         managed = False
         db_table = "was_report"
         unique_together = (("last_scan_date", "org_was_acronym"),)
+
+
+# --- CyHy Dash DB Tables ---
+class Cve(models.Model):
+    """Define Cve model."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    name = models.TextField(unique=True, blank=True, null=True)
+    publishedAt = models.DateTimeField(blank=True, null=True)
+    modifiedAt = models.DateTimeField(blank=True, null=True)
+    status = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    cvssV2Source = models.TextField(blank=True, null=True)
+    cvssV2Type = models.TextField(blank=True, null=True)
+    cvssV2Version = models.TextField(blank=True, null=True)
+    cvssV2VectorString = models.TextField(blank=True, null=True)
+    cvssV2BaseScore = models.FloatField(blank=True, null=True)
+    cvssV2BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV2ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV2ImpactScore = models.FloatField(blank=True, null=True)
+    cvssV3Source = models.TextField(blank=True, null=True)
+    cvssV3Type = models.TextField(blank=True, null=True)
+    cvssV3Version = models.TextField(blank=True, null=True)
+    cvssV3VectorString = models.TextField(blank=True, null=True)
+    cvssV3BaseScore = models.FloatField(blank=True, null=True)
+    cvssV3BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV3ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV3ImpactScore = models.FloatField(blank=True, null=True)
+    cvssV4Source = models.TextField(blank=True, null=True)
+    cvssV4Type = models.TextField(blank=True, null=True)
+    cvssV4Version = models.TextField(blank=True, null=True)
+    cvssV4VectorString = models.TextField(blank=True, null=True)
+    cvssV4BaseScore = models.FloatField(blank=True, null=True)
+    cvssV4BaseSeverity = models.TextField(blank=True, null=True)
+    cvssV4ExploitabilityScore = models.FloatField(blank=True, null=True)
+    cvssV4ImpactScore = models.FloatField(blank=True, null=True)
+    weaknesses = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
+    references = ArrayField(
+        models.TextField(blank=True, null=True), blank=True, null=True
+    )
+
+    class Meta:
+        """Set Cve model metadata."""
+
+        managed = False
+        db_table = "cve"

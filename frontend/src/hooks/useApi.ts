@@ -1,13 +1,119 @@
 import { useState, useCallback, useMemo } from 'react';
 // import { useMatomo } from '@datapunt/matomo-tracker-react';
 
+/**
+ * Helper function to extract a human-readable error message from an API response payload.
+ * Many files in the project may include API responses with a `detail`, `message`, or `error` field.
+ */
+
+function getPayloadMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+
+  const value = payload as Record<string, unknown>;
+
+  if (typeof value.detail === 'string') {
+    return value.detail;
+  }
+
+  if (typeof value.message === 'string') {
+    return value.message;
+  }
+
+  if (typeof value.error === 'string') {
+    return value.error;
+  }
+
+  return undefined;
+}
+
+/**
+ * Type guard to check if an error is an instance of ApiError.
+ */
+
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    (
+      error as {
+        isApiError?: unknown;
+      }
+    ).isApiError === true
+  );
+}
+
+/**
+ * Custom error class for API errors, encapsulating the response and payload.
+ */
+export class ApiError<TPayload = unknown> extends Error {
+  readonly name = 'ApiError';
+  readonly isApiError = true;
+
+  readonly ok: Response['ok'];
+  readonly status: Response['status'];
+  readonly statusText: Response['statusText'];
+  readonly headers: Record<string, string>;
+  readonly url: Response['url'];
+  readonly redirected: Response['redirected'];
+  readonly type: Response['type'];
+  readonly bodyUsed: Response['bodyUsed'];
+
+  readonly payload: TPayload; // Raw payload from the API response
+  readonly payloadMessage?: string; // User-friendly message extracted from the payload
+
+  constructor(response: Response, payload?: TPayload, message?: string) {
+    const payloadMessage = getPayloadMessage(payload);
+
+    /**
+     * Construct the error message using the provided message, the extracted user-friendly message from the payload,
+     * the response status text, or a default message.
+     */
+
+    super(
+      message ||
+        payloadMessage ||
+        response.statusText ||
+        `Request failed with status ${response.status}`
+    );
+
+    Object.setPrototypeOf(this, ApiError.prototype);
+
+    this.ok = response.ok;
+    this.status = response.status;
+    this.statusText = response.statusText;
+
+    /**
+     * Need to double check if normalizeHeaders is necessary anymore
+     */
+    this.headers = normalizeHeaders(
+      Object.fromEntries(response.headers.entries())
+    );
+    this.url = response.url;
+    this.redirected = response.redirected;
+    this.type = response.type;
+    this.bodyUsed = response.bodyUsed;
+
+    this.payload = payload as TPayload;
+    this.payloadMessage = payloadMessage;
+  }
+}
+
+/**
+ * Base headers for all API requests.
+ * Only contains the Accept header for JSON responses.
+ * Does not include the Content-Type header by default, allowing flexibility for different request payload types.
+ * Content-Type is set lower in the request handling logic based on the type of the request body.
+ */
+
 const baseHeaders: HeadersInit = {
-  'Content-Type': 'application/json',
   Accept: 'application/json'
 };
 
-type ApiMethod = 'GET' | 'POST' | 'DELETE';
+type ApiMethod = 'GET' | 'POST' | 'DELETE'; // Supported HTTP methods for the API requests
 type OnError = (e: Error) => Promise<void>;
+type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none'; //
 
 const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
 const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
@@ -16,43 +122,66 @@ const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
 );
 
 /**
+ * The ApiInit type represents the initialization options for an API request.
+ */
+
+type ApiInit = Omit<RequestInit, 'method' | 'body'> & {
+  body?: unknown; // The request payload, will be processed and the Content-Type header set accordingly based on its type
+  showLoading?: boolean; // Whether to show a loading indicator during the request
+  includeResponse?: false; // Does not include the full response object in the return value
+  parseAs?: ParseAs; // The expected response type, used to parse the response accordingly
+};
+
+/**
+ * The ApiInitWithResponse type represents the initialization options for an API request
+ * that includes the full response object in the return value.
+ * This only appears to be used to accommodate Matomo.
+ */
+
+type ApiInitWithResponse = Omit<ApiInit, 'includeResponse'> & {
+  includeResponse: true; // Force inclusion of the full response object in the return value
+};
+
+/**
+ * The ApiResponse type represents the structure of the response returned by the API.
+ */
+
+export type ApiResult<T> = {
+  data: T; // The parsed response data, such as JSON, text, or blob depending on the request and parseAs option
+  headers: Record<string, string>; // The normalized response headers
+  rawResponse?: Response; // The original fetch Response metadata, if included
+};
+
+/**
+ * The ApiFn type represents a function for making API requests.
+ * It supports both requests that include the full response and those that only return the parsed data.
+ */
+
+type ApiFn = {
+  <T = unknown>(path: string, init: ApiInitWithResponse): Promise<ApiResult<T>>;
+
+  <T = unknown>(path: string, init?: ApiInit): Promise<T>;
+};
+
+/**
  * Normalize header-ish shapes to support both Fetch Headers and plain objects.
  */
-const normalizeHeaders = (header: any): Record<string, string> => {
-  if (!header) return {};
 
-  // Plain object
-  if (
-    typeof header === 'object' &&
-    !('forEach' in header) &&
-    !('entries' in header)
-  ) {
-    const out: Record<string, string> = {};
-    for (const [name, value] of Object.entries(header)) {
-      out[String(name).toLowerCase()] = String(value);
-    }
-    return out;
+const normalizeHeaders = (
+  headers: HeadersInit | undefined
+): Record<string, string> => {
+  if (!headers) {
+    return {};
   }
 
-  // Headers-like (forEach)
-  if (typeof header?.forEach === 'function') {
-    const out: Record<string, string> = {};
-    header.forEach((v: any, k: any) => {
-      out[String(k).toLowerCase()] = String(v);
-    });
-    return out;
-  }
+  const normalized = new Headers(headers);
+  const out: Record<string, string> = {};
 
-  // Iterable (entries)
-  if (typeof header?.entries === 'function') {
-    const out: Record<string, string> = {};
-    for (const [name, value] of header.entries()) {
-      out[String(name).toLowerCase()] = String(value);
-    }
-    return out;
-  }
+  normalized.forEach((value, key) => {
+    out[key.toLowerCase()] = value;
+  });
 
-  return {};
+  return out;
 };
 
 const sendClientTelemetry = (payload: any) => {
@@ -91,131 +220,157 @@ export const useApi = (onError?: OnError) => {
     }
   };
 
-  const prepareInit = useCallback(async (init: any) => {
-    const { headers, ...rest } = init;
-    const token = getToken();
+  const createFetchOptions = useCallback(
+    (
+      method: ApiMethod,
+      init: ApiInit | ApiInitWithResponse = {}
+    ): RequestInit => {
+      const {
+        headers,
+        body,
+        showLoading,
+        includeResponse,
+        parseAs,
+        ...fetchOptions
+      } = init;
 
-    return {
-      ...rest,
-      headers: {
-        ...baseHeaders, // put base first
-        ...headers, // allow caller to override (e.g., Accept: text/csv)
-        ...(token
-          ? {
-              Authorization: token.startsWith('Bearer ')
-                ? token
-                : `Bearer ${token}`
-            }
-          : {})
+      const token = getToken();
+
+      const callerHeaders = new Headers(headers);
+      const mergedHeaders = new Headers(baseHeaders);
+
+      callerHeaders.forEach((value, key) => {
+        mergedHeaders.set(key, value);
+      });
+
+      if (token) {
+        mergedHeaders.set(
+          'Authorization',
+          token.startsWith('Bearer ') ? token : `Bearer ${token}`
+        );
       }
-    };
-  }, []);
+
+      const options: RequestInit = {
+        ...fetchOptions,
+        method,
+        headers: mergedHeaders
+      };
+
+      // Set the body and Content-Type header based on the type of body provided
+
+      if (body !== undefined && method !== 'GET') {
+        // FormData requests should not set the Content-Type header explicitly
+        if (body instanceof FormData) {
+          options.body = body;
+          mergedHeaders.delete('Content-Type');
+          // URLSearchParams requests should set the Content-Type header to application/x-www-form-urlencoded
+        } else if (body instanceof URLSearchParams) {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set(
+              'Content-Type',
+              'application/x-www-form-urlencoded; charset=UTF-8'
+            );
+          }
+          // Blob requests should set the Content-Type header to the blob's type if available
+          // If not provided, the Content-Type header is removed and the browser will set it automatically for the request
+        } else if (body instanceof Blob) {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            if (body.type) {
+              mergedHeaders.set('Content-Type', body.type);
+            } else {
+              mergedHeaders.delete('Content-Type');
+            }
+          }
+          // ArrayBuffer requests should set the Content-Type header to application/octet-stream
+        } else if (body instanceof ArrayBuffer) {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set('Content-Type', 'application/octet-stream');
+          }
+        } else if (typeof body === 'string') {
+          options.body = body;
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set('Content-Type', 'application/json');
+          }
+        } else {
+          options.body = JSON.stringify(body);
+          if (!callerHeaders.has('Content-Type')) {
+            mergedHeaders.set('Content-Type', 'application/json');
+          }
+        }
+      }
+      return options;
+    },
+    []
+  );
 
   const apiMethod = useCallback(
-    (method: ApiMethod) =>
-      async <T extends object = any>(path: string, init: any = {}) => {
-        const { showLoading = true, ...rest } = init;
+    (method: ApiMethod): ApiFn => {
+      const fn = async <T = unknown>(
+        path: string,
+        init: ApiInit | ApiInitWithResponse = {}
+      ): Promise<T | ApiResult<T>> => {
+        const {
+          showLoading = true,
+          includeResponse = false,
+          parseAs = 'json'
+        } = init;
+
         try {
-          showLoading && setRequestCount((cnt) => cnt + 1);
-          const options = await prepareInit(rest);
-          const {
-            body,
-            response: includeResponse,
-            responseType,
-            withCredentials
-          } = options;
+          if (showLoading) {
+            setRequestCount((cnt) => cnt + 1);
+          }
+
           const requestPath = path.startsWith('/') ? path : `/${path}`;
-          const response = await fetch(`${apiBaseUrl}${requestPath}`, {
-            method,
-            headers: options.headers,
-            body:
-              body === undefined ||
-              body instanceof FormData ||
-              typeof body === 'string'
-                ? body
-                : JSON.stringify(body),
-            credentials: withCredentials ? 'include' : undefined
-          });
+          const response = await fetch(
+            `${apiBaseUrl}${requestPath}`,
+            createFetchOptions(method, init)
+          );
 
-          const statusCode = response.status;
+          let result: unknown;
 
-          let result: any;
           try {
-            result =
-              responseType === 'blob'
-                ? await response.blob()
-                : await response.json();
-          } catch {
+            if (parseAs === 'none' || response.status === 204) {
+              result = undefined;
+            } else if (parseAs === 'json') {
+              result = await response.json();
+            } else if (parseAs === 'text') {
+              result = await response.text();
+            } else if (parseAs === 'blob') {
+              result = await response.blob();
+            } else if (parseAs === 'arrayBuffer') {
+              result = await response.arrayBuffer();
+            } else if (parseAs === 'formData') {
+              result = await response.formData();
+            }
+          } catch (error) {
+            // Handle parsing errors if necessary
             result = undefined;
           }
 
           if (!response.ok) {
-            const error = new Error(
-              result?.detail ||
-                result?.message ||
-                `Request failed with status code ${statusCode}`
-            );
-            throw Object.assign(error, {
-              statusCode,
-              body: result,
-              response: { status: statusCode, headers: response.headers }
-            });
+            throw new ApiError(response, result);
           }
 
-          showLoading && setRequestCount((cnt) => cnt - 1);
           if (includeResponse) {
             return {
-              data: result,
-              headers: Object.fromEntries(response.headers.entries())
-            } as T;
+              data: result as T,
+              headers: normalizeHeaders(response.headers),
+              rawResponse: response
+            };
           }
+
           return result as T;
-        } catch (e: any) {
-          showLoading && setRequestCount((cnt) => cnt - 1);
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e : new Error(String(e));
 
-          const status =
-            e?.response?.statusCode ??
-            e?.response?.status ??
-            e?.status ??
-            e?.statusCode ??
-            (e?.message?.includes('401') ? 401 : undefined);
-
-          const errorDetail = (
-            e?.message ||
-            e?.body?.detail ||
-            e?.response?.data?.detail ||
-            ''
-          ).toLowerCase();
-
-          // TODO: CRASM-4093 Add more robust checks for expired tokens and other error codes; current implementation may not cover all cases.
-
-          // 2. Detect if this is an expired token:
-          //    - Explicit 401 status
-          //    - Error message referencing explicit token expiration or invalidity
-          const isAuthError =
-            status === 401 ||
-            errorDetail.includes('token has expired') ||
-            errorDetail.includes('jwt expired') ||
-            errorDetail.includes('invalid token') ||
-            errorDetail.includes('not authenticated');
-
-          if (isAuthError) {
-            // Standardize error shape so AuthContextProvider.handleError receives status 401
-            e.statusCode = 401;
-            if (!e.response) {
-              e.response = { status: 401 };
-            }
-          }
+          const status = isApiError(e) ? e.status : undefined;
 
           if (!isLocal) {
             try {
-              const headersRaw =
-                e?.response?.headers ??
-                e?.headers ??
-                e?.response?.header ??
-                undefined;
-
-              const headers = normalizeHeaders(headersRaw);
+              const headers = isApiError(error) ? error.headers : {};
 
               const apigwId = headers['x-amz-apigw-id'] ?? '';
               const amznReqId = headers['x-amzn-requestid'] ?? '';
@@ -237,23 +392,29 @@ export const useApi = (onError?: OnError) => {
               // Never let logging break the original error behavior
             }
           }
-
-          // Pass standardized error to AuthContextProvider
           if (onError) {
-            await onError(e);
+            await onError(error);
           }
-          throw e;
+          throw error;
+        } finally {
+          if (showLoading) {
+            setRequestCount((cnt) => cnt - 1);
+          }
         }
-      },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [prepareInit, onError]
+      };
+      return fn as ApiFn;
+    },
+    [createFetchOptions, onError]
   );
 
-  const api = {
-    apiGet: useMemo(() => apiMethod('GET'), [apiMethod]),
-    apiPost: useMemo(() => apiMethod('POST'), [apiMethod]),
-    apiDelete: useMemo(() => apiMethod('DELETE'), [apiMethod])
-  };
+  const api = useMemo(
+    () => ({
+      apiGet: apiMethod('GET'),
+      apiPost: apiMethod('POST'),
+      apiDelete: apiMethod('DELETE')
+    }),
+    [apiMethod]
+  );
 
   return {
     ...api,

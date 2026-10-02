@@ -67,7 +67,7 @@ def run_asm_sync_remote(orgs_list):
         curr_org_df = org.to_frame().T
         curr_org_uid = list(curr_org_df["organizations_uid"])
         LOGGER.info(
-            f"Running ASM Sync process on {curr_org_name}, {idx+1} of {len(orgs_df)}"
+            f"Running ASM Sync process on {curr_org_name}, {idx + 1} of {len(orgs_df)}"
         )
         # Fill the cidrs table with new data from the cyhy_db_assets
         LOGGER.info("Upserting retieved CyHy CIDR assets into the CIDRs table...")
@@ -107,7 +107,7 @@ def run_asm_sync_remote(orgs_list):
         shodan_dedupe(curr_org_df)
         LOGGER.info("Finished running Shodan dedupe")
         LOGGER.info(
-            f"Finished running ASM Sync on {curr_org_name}, {idx+1} of {len(orgs_df)}"
+            f"Finished running ASM Sync on {curr_org_name}, {idx + 1} of {len(orgs_df)}"
         )
 
     sqs_asm_end = time.time()

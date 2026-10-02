@@ -3,6 +3,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
 import type { Organization } from 'types';
 import { useAuthContext } from 'context';
+import { ApiError } from '@/hooks/useApi';
+import { jsonResponse } from '@/test-utils/jsonResponse';
 
 vi.mock('context', () => ({
   useAuthContext: vi.fn()
@@ -71,9 +73,19 @@ describe('useOrganizationsByRegion', () => {
    * error message while returning an empty organizations list.
    */
   it('sets errorMessage when API call fails', async () => {
-    const error = Object.assign(new Error('Request failed'), {
-      response: { data: { detail: 'Something went wrong' } }
-    });
+    const response = jsonResponse(
+      {
+        detail: 'Token has expired'
+      },
+      {
+        status: 401,
+        statusText: 'Unauthorized',
+        headers: {
+          'x-amzn-requestid': 'request-id'
+        }
+      }
+    );
+    const error = new ApiError(response, { detail: 'Token has expired' });
 
     const apiGet = vi.fn().mockRejectedValue(error);
     vi.mocked(useAuthContext).mockReturnValue({
@@ -87,7 +99,6 @@ describe('useOrganizationsByRegion', () => {
     });
 
     expect(result.current.organizations).toEqual([]);
-    expect(result.current.errorMessage).toContain('Request failed');
-    expect(result.current.errorMessage).toContain('Something went wrong');
+    expect(result.current.errorMessage).toBe('Token has expired');
   });
 });

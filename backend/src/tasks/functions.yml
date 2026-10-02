@@ -140,12 +140,6 @@ checkUserExpiration:
       Resource: '*'
     - Effect: Allow
       Action:
-        - cognito-idp:AdminDisableUser
-        - cognito-idp:ListUsers
-        - cognito-idp:AdminSetUserPassword
-      Resource: '*'
-    - Effect: Allow
-      Action:
         - s3:GetObject
         - s3:GetObjectAcl
         - s3:PutObject
@@ -249,7 +243,7 @@ peScanController:
         input:
           scans: ["flare_events"]
           orgs: ["all-orgs"]
-          taskCount: 2
+          taskCount: 4
     - schedule:
         name: pe-flare-leaked-credentials-semi-monthly
         description: "Semi-monthly flare leaked credentials scan"

@@ -10,7 +10,7 @@ import uuid
 
 # Third-Party Libraries
 import pandas as pd
-from pe_reports.data.config import config, staging_config
+from pe_reports.data.config import config, config_cyhy_dash_db, staging_config
 import psycopg2
 from psycopg2 import OperationalError
 from psycopg2.extras import execute_values
@@ -19,6 +19,7 @@ import requests
 LOGGER = logging.getLogger(__name__)
 
 CONN_PARAMS_DIC = config()
+CONN_PARAMS_DIC_CYHY_DASH_DB = config_cyhy_dash_db()
 API_DIC = staging_config(section="pe_api")
 pe_api_key = API_DIC.get("pe_api_key")
 pe_api_url = API_DIC.get("pe_api_url")
@@ -33,12 +34,24 @@ def show_psycopg2_exception(err):
 
 
 def connect():
-    """Connect to PostgreSQL database."""
+    """Connect to PostgreSQL PE database."""
     try:
         return psycopg2.connect(**CONN_PARAMS_DIC)
     except OperationalError as err:
         show_psycopg2_exception(err)
         return None
+
+
+def connect_cyhy_dash_db():
+    """Connect to PostgreSQL CyHy Dash database."""
+    conn = None
+    try:
+        conn = psycopg2.connect(**CONN_PARAMS_DIC_CYHY_DASH_DB)
+    except OperationalError as err:
+        LOGGER.error(err)
+        show_psycopg2_exception(err)
+        conn = None
+    return conn
 
 
 def get_orgs():
@@ -577,33 +590,6 @@ def get_current_ips_by_org(org_abbrv):
     finally:
         conn.close()
     return result
-
-
-def get_execs_by_org_uid(org_uid):
-    """Get executives for the specified organization_uid."""
-    # Build query
-    sql = """
-    SELECT *
-    FROM executives
-    WHERE organizations_uid = %s
-    """
-    # Attempt DB connection
-    conn = connect()
-    if conn is None:
-        LOGGER.error("get_execs_by_org_uid: PE database connection failed")
-        raise RuntimeError("PE database connection failed")
-    # Attempt query
-    try:
-        LOGGER.info("get_execs_by_org_uid: Querying executives for customer")
-        result = pd.read_sql(sql, conn, params=(org_uid,))
-        conn.commit()
-        return result
-    except Exception:
-        conn.rollback()
-        LOGGER.exception("get_execs_by_org_uid: Data retieval failed")
-        raise
-    finally:
-        conn.close()
 
 
 def get_cred_breach_uids(breach_name_list):

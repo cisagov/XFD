@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { SavedSearch } from 'types/saved-search';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -51,6 +52,10 @@ interface GroupedData {
   [key: string]: number;
 }
 
+type UpdatedSearchesResponse = {
+  result: SavedSearch[];
+};
+
 const FiltersApplied: React.FC = () => {
   const theme = useTheme();
   return (
@@ -90,7 +95,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       await apiDelete(ENDPOINTS.SAVED_SEARCH.replace('{saved_search_id}', id), {
         body: {}
       });
-      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
+      const updatedSearches = await apiGet<UpdatedSearchesResponse>(
+        ENDPOINTS.SAVED_SEARCHES
+      ); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
       localStorage.removeItem('savedSearch');

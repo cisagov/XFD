@@ -15,6 +15,9 @@ os.environ.setdefault("PE_DB_NAME", "pe")
 os.environ.setdefault("PE_DB_USERNAME", "pe")
 os.environ.setdefault("PE_DB_PASSWORD", "test")
 os.environ.setdefault("PE_API_KEY", "test-key")
+os.environ.setdefault("DATABASE_NAME", "test_cyhy")
+os.environ.setdefault("DATABASE_USER", "test_user")
+os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 
 # Third-Party Libraries
 from pe_source.data.config_source import get_dnsmonitor_token

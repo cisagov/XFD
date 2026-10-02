@@ -67,7 +67,10 @@ PE_SMOKE_ENV = \
 	-e PE_DB_PASSWORD=smoke \
 	-e PE_API_KEY=smoke-key \
 	-e DB_HOST=localhost \
-	-e PE_API_URL=http://127.0.0.1:8000
+	-e PE_API_URL=http://127.0.0.1:8000 \
+	-e DATABASE_NAME=smoke_cyhy \
+	-e DATABASE_USER=smoke \
+	-e DATABASE_PASSWORD=smoke
 
 pe-worker-smoke:
 	docker run --rm $(PE_SMOKE_ENV) pe-worker pe-source --help

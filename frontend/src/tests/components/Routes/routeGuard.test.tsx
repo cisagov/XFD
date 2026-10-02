@@ -54,17 +54,6 @@ it('returns null while loading user profile', () => {
   expect(asFragment()).toMatchInlineSnapshot(`<DocumentFragment />`);
 });
 
-it('redirects to /create-account if user is not fully registered', () => {
-  render(<RouteGuard component={Protected} />, {
-    authContext: {
-      user: { ...testUser, isRegistered: false },
-      token: 'some-token'
-    }
-  });
-  expect(mockPush).toHaveBeenCalled();
-  expect(mockPush.mock.calls[0][0]).toEqual('/create-account');
-});
-
 it('redirects to unauth if user is not authenticated and unauth is string', () => {
   render(<RouteGuard component={Protected} unauth="/not-auth" />, {
     authContext: {

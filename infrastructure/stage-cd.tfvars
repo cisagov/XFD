@@ -120,9 +120,10 @@ ssm_redshift_password                = "/crossfeed/staging/REDSHIFT_PASSWORD"
 create_elasticache_cluster           = true
 create_email_sender_instance         = true
 email_sender_instance_type           = "t3.small"
-create_open_cti_instance             = true
+create_open_cti_instance             = false
 open_cti_instance_type               = "m5.4xlarge"
 create_was_reporting_instance        = true
+was_reporting_reports_bucket_name    = "cisa-was-reports"
 # Confirmed against stage-cd's real, running .env on 2026-08-17.
 open_cti_host                = "localhost"
 open_cti_admin_email         = "admin@opencti.io"

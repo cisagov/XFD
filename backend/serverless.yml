@@ -28,9 +28,12 @@ custom:
       - botocore
       - docker
       - pytest
+      - Faker
       - pytest-django
       - pytest-env
       - pylint
+      - astroid
+      - mccabe
       - mypy
       - mypy-extensions
       - python-dotenv
@@ -40,6 +43,18 @@ custom:
       - pipdeptree
       - MarkupSafe
       - uvloop
+      - Pygments
+      - rich
+      - rich-toolkit
+      - typer
+      - fastapi-cli
+      - shellingham
+      - tomlkit
+      - dill
+      - platformdirs
+      - iniconfig
+      - packaging
+      - pluggy
 
   # Resource policies for GovCloud (Private) vs Non-GovCloud (Regional)
   privateResourcePolicy:

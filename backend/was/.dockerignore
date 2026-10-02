@@ -1,0 +1,14 @@
+# Deny the complete local workspace by default.  Only the inputs explicitly
+# copied by Dockerfile may enter the build context.
+**
+
+!Dockerfile
+!requirements.txt
+!setup.py
+
+!schema/
+!schema/**
+!src/
+!src/**
+!worker/
+!worker/**
