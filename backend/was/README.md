@@ -1964,6 +1964,23 @@ docker run --rm --env-file .env was-reporting was-admin \
   --confirm-url "https://REPLACE_WITH_WEB_APPLICATION_URL"
 ```
 
+For a controlled deletion test, use the validated command with an approved
+disposable web application. It requests verbose Qualys tag details twice,
+requires a stable web application ID and exact URL, requires the expected tag
+to be the application's only assigned tag, and deletes by both ID and URL:
+
+```bash
+docker run --rm --env-file .env was-reporting was-admin \
+  delete-webapp-validated \
+  --url "https://fakedomain.faketld" \
+  --expected-tag-id "13396052" \
+  --confirm-url "https://fakedomain.faketld" \
+  --confirm-tag-id "13396052"
+```
+
+This command deletes the application from the configured Qualys account. The
+database configuration does not isolate or simulate that external deletion.
+
 Use only approved nonproduction targets until the commands have completed live
 Qualys validation. Container output records whether the requested operation
 completed. On EC2, configure approved persistent log collection and retention;

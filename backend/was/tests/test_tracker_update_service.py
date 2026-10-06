@@ -12,7 +12,10 @@ import requests
 
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
-from was_reports.qualys.qualys_admin import WebAppIdentity
+from was_reports.qualys.qualys_admin import (
+    WebAppIdentity,
+    WebAppTagDetailsMissingError,
+)
 from was_reports.tracker.item_builder import (
     combined_status_and_result,
     create_tracker_items,
@@ -1331,13 +1334,15 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 return_value=DailyReportTrackerRow(tag="TAG"),
             ), patch(
                 "was_reports.tracker.update_service.delete_validated_webapp",
-                side_effect=RuntimeError("failure"),
+                side_effect=WebAppTagDetailsMissingError("safe diagnostic"),
             ) as delete, patch(
                 "was_reports.tracker.update_service.record_tracker_digest_failure"
             ) as digest_failure:
                 if enabled:
-                    with self.assertRaises(RuntimeError):
-                        update_execution(
+                    with self.assertLogs(
+                        "was_reports.tracker.update_service", level="ERROR"
+                    ) as logs:
+                        count = update_execution(
                             Mock(),
                             self.removal_item(False),
                             enabled,
@@ -1346,6 +1351,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                             conn,
                             "execution",
                         )
+                    self.assertEqual(count, 1)
                     self.assertEqual(
                         cursor.execute.call_args.args[1],
                         (
@@ -1355,6 +1361,8 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                         ),
                     )
                     digest_failure.assert_called_once_with(17, conn)
+                    self.assertIn("WebAppTagDetailsMissingError", logs.output[0])
+                    self.assertNotIn("safe diagnostic", logs.output[0])
                 else:
                     update_execution(
                         Mock(),

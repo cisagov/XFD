@@ -833,5 +833,7 @@ def update_execution(
         if failure_recorded:
             record_tracker_digest_failure(row_id, conn)
         conn.commit()
-        raise
+        if not failure_recorded:
+            raise
+        return 1
     return 1
