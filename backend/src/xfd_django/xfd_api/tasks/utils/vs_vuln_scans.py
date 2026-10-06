@@ -26,6 +26,7 @@ from django.db.models import (
 )
 from django.db.models.functions import Cast, Coalesce, Power
 from django.utils import timezone
+from xfd_api.helpers.databricks_helpers import parse_databricks_bool
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.query_databricks import fetch_from_databricks_with_params
@@ -201,7 +202,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
         "ip_id": ip_id if ip_id else None,
-        "latest": vuln.get("latest", None),
+        "latest": parse_databricks_bool(vuln.get("latest")),
         "owner": vuln.get("owner", None),
         "osvdb_id": vuln.get("osvdb", None),
         "organization_id": owner_id,
@@ -228,15 +229,17 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
         "xref": vuln.get("xref", None),
         "cwe": vuln.get("cwe", None),
         "bid": vuln.get("bid", None),
-        "exploited_by_malware": bool(vuln.get("exploited_by_malware", None)),
-        "thorough_tests": bool(vuln.get("thorough_tests", None)),
+        "exploited_by_malware": parse_databricks_bool(
+            vuln.get("exploited_by_malware", None)
+        ),
+        "thorough_tests": parse_databricks_bool(vuln.get("thorough_tests", None)),
         "cvss_score_rationale": vuln.get("cvss_score_rationale", None),
         "cvss_score_source": vuln.get("cvss_score_source", None),
         "cvss3_base_score": vuln.get("cvss3_base_score", None),
         "cvss3_vector": vuln.get("cvss3_vector", None),
         "cvss3_temporal_vector": vuln.get("cvss3_temporal_vector", None),
         "cvss3_temporal_score": vuln.get("cvss3_temporal_score", None),
-        "asset_inventory": bool(vuln.get("asset_inventory", None)),
+        "asset_inventory": parse_databricks_bool(vuln.get("asset_inventory", None)),
         "plugin_id": vuln.get("plugin_id", None),
         "plugin_modification_date": safe_fromisoformat(
             vuln.get("plugin_modification_date", None)

@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 from django.db import connections, transaction
 from django.utils import timezone
 from psycopg2.extras import execute_values
+from xfd_api.helpers.databricks_helpers import parse_databricks_bool
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import (
     safe_fromisoformat,
@@ -352,7 +353,7 @@ def process_tickets_multi_org(
             "organization_id": org_id,
             "vuln_port": raw.get("port"),
             "port_protocol": raw.get("protocol"),
-            "snapshots_bool": bool(raw.get("snapshots", None)),
+            "snapshots_bool": parse_databricks_bool(raw.get("snapshots")),
             "vuln_source": raw.get("source"),
             "vuln_source_id": raw.get("source_id"),
             "closed_timestamp": closed_ts,
