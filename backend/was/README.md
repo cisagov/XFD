@@ -2077,6 +2077,17 @@ An SES response error after the send request starts has an uncertain outcome.
 The report run remains `held`, and its unsent daily tracker row appears as
 `MANUAL`. Inspect the exact report run first:
 
+The interactive menu lists eligible held customer deliveries under **Report
+tracker > Reconcile a held customer email delivery** and lets the operator
+select one by number. The menu performs the same guarded actions below without
+requiring the operator to find or type a report-run ID.
+
+Before creating a hold, customer report delivery retries once only for an
+allow-listed AWS error code that confirms transient non-delivery, including
+throttling, request timeout, or service unavailability. Response parsing
+failures, transport uncertainty, and failures after SES acceptance are never
+retried automatically.
+
 ```bash
 make reconcile-email-delivery REPORT_RUN_ID=3703
 ```
