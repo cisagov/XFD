@@ -208,6 +208,52 @@ const sendClientTelemetry = (payload: any) => {
   }
 };
 
+const parseResponse = async (
+  response: Response,
+  parseAs?: ParseAs
+): Promise<unknown> => {
+  if (
+    parseAs === 'none' ||
+    response.status === 204 ||
+    response.status === 205
+  ) {
+    return undefined;
+  }
+
+  if (parseAs === 'text') {
+    return await response.text();
+  }
+  if (parseAs === 'blob') {
+    return await response.blob();
+  }
+  if (parseAs === 'arrayBuffer') {
+    return await response.arrayBuffer();
+  }
+  if (parseAs === 'formData') {
+    return await response.formData();
+  }
+
+  const text = await response.text();
+
+  if (!text.trim()) {
+    if (response.ok) {
+      throw new Error(
+        `Expected a JSON response body but received an empty response with status ${response.status}`
+      );
+    }
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch (error) {
+    if (response.ok) {
+      throw error;
+    }
+  }
+  return text;
+};
+
 export const useApi = (onError?: OnError) => {
   const [requestCount, setRequestCount] = useState(0);
 
@@ -331,24 +377,26 @@ export const useApi = (onError?: OnError) => {
 
           let result: unknown;
 
-          try {
-            if (parseAs === 'none' || response.status === 204) {
-              result = undefined;
-            } else if (parseAs === 'json') {
-              result = await response.json();
-            } else if (parseAs === 'text') {
-              result = await response.text();
-            } else if (parseAs === 'blob') {
-              result = await response.blob();
-            } else if (parseAs === 'arrayBuffer') {
-              result = await response.arrayBuffer();
-            } else if (parseAs === 'formData') {
-              result = await response.formData();
-            }
-          } catch (error) {
-            // Handle parsing errors if necessary
-            result = undefined;
-          }
+          // try {
+          //   if (parseAs === 'none' || response.status === 204) {
+          //     result = undefined;
+          //   } else if (parseAs === 'json') {
+          //     result = await response.json();
+          //   } else if (parseAs === 'text') {
+          //     result = await response.text();
+          //   } else if (parseAs === 'blob') {
+          //     result = await response.blob();
+          //   } else if (parseAs === 'arrayBuffer') {
+          //     result = await response.arrayBuffer();
+          //   } else if (parseAs === 'formData') {
+          //     result = await response.formData();
+          //   }
+          // } catch (error) {
+          //   // Handle parsing errors if necessary
+          //   result = undefined;
+          // }
+
+          result = await parseResponse(response, parseAs);
 
           if (!response.ok) {
             throw new ApiError(response, result);
