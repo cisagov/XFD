@@ -61,17 +61,42 @@ SSE-S3 policy. Select `aws:kms` only when `WAS_REPORTS_KMS_KEY_ID` and the
 Terraform `was_reporting_reports_kms_key_arn` identify the same exact key and
 the bucket policy accepts that key.
 
+Terraform first boot runs the dedicated
+`infrastructure/was-reporting-bootstrap.sh`. It installs only the prerequisites
+needed to clone the approved repository and run Make. It deliberately does not
+reuse the OpenCTI dependency installer and does not install Docker, AWS CLI,
+`uv`, or application dependencies. Those are installed from the reviewed WAS
+host manifest after checkout.
+
+The Terraform WAS reporting host currently targets Canonical Ubuntu 24.04 LTS
+x86-64 in `us-east-1`. AMI IDs are Region-specific; before approving a
+replacement, verify that `var.was_reporting_ami_id` resolves to an available
+Ubuntu 24.04 x86-64 image owned by Canonical (`099720109477`) and review the
+exact Terraform plan.
+
 The tracked `scripts/capture_host_packages.py` script records a private host
-software inventory. The tracked `scripts/rebuild_was_host_ubuntu22.py` script is
-tailored to the recorded September 4, 2026 host inventory and restores the
-reviewed software on Ubuntu 22.04 x86-64.
-It previews by default, requires `--apply --acknowledge-manual-items` for writes,
-and returns exit code `2` from `--verify` when software checks pass but manual
-rebuild items remain. Neither script is a complete production bootstrap. The
-rebuild script does not restore secrets, IAM, data, services, the checkout, or
-the image. Use these scripts only through an approved host-recovery change,
-retain their evidence privately, and complete this runbook's prerequisites
-separately.
+software inventory. Run a fresh inventory on the current host and move the
+result to approved off-host storage before replacement. The tracked
+`scripts/rebuild_was_host_ubuntu24.py` helper is tailored to the recorded
+September 4, 2026 host inventory and restores the reviewed software on Ubuntu
+24.04 x86-64. It previews by default, requires
+`--apply --acknowledge-manual-items` for writes, uses Docker's signed Noble
+repository, and reads the reviewed `host-software-manifest.json` source of
+truth. It installs the checksum-pinned AWS CLI v2 release and grants the
+invoking operator root-equivalent Docker group access. A successful `--verify`
+confirms the exact AWS CLI version and normal-operator Docker daemon access in
+addition to the other declared software, then returns exit code `0`; manual
+rebuild items remain a separate deployment gate. Run its tests and complete a
+disposable-host bootstrap verification before production cutover. See the
+[repeatable host rebuild cycle](host-rebuild-cycle.md) for the complete
+capture, review, rebuild, validation, and rollback sequence.
+
+The inventory is evidence, not a complete backup or production bootstrap. It
+does not restore secrets, IAM, data, custom script contents, cron or service
+definitions, the checkout, the application image, or operator configuration.
+Preserve and restore those items through approved mechanisms, retain inventory
+and validation evidence privately, and complete this runbook's prerequisites
+before decommissioning the existing host.
 
 ## First checkout
 
@@ -80,15 +105,49 @@ From the EC2 user's home directory:
 ```bash
 mkdir -p "$HOME/code"
 cd "$HOME/code"
-git clone --branch cd_WAS_update --single-branch \
+git clone --branch develop --single-branch \
   git@github.com:cisagov/XFD.git cd_WAS_update
 cd cd_WAS_update
-python3 -m venv cd_WAS_update
 cd backend/was
+make host-software-preview
+make host-software-apply APPLY=1
+```
+
+If apply added Docker group membership, end the login session and reconnect.
+Then continue from the repository root:
+
+```bash
+cd "$HOME/code/cd_WAS_update"
+cd backend/was
+make host-software-verify
+cd ../..
+"$HOME/.local/bin/uv" venv \
+  --python 3.12.14 \
+  --seed \
+  cd_WAS_update
+cd backend/was
+../../cd_WAS_update/bin/python --version
+../../cd_WAS_update/bin/python -m pip --version
 make install
+make host-shell-preview
+make host-shell-install APPLY=1
 ./scripts/create-local-env.sh
 chmod 600 .env
 ```
+
+The rebuild helper installs checksum-verified `uv`, installs its managed Python
+3.12.14, and verifies that managed interpreter before this step. The `uv venv`
+command above creates the named `cd_WAS_update` environment expected by the
+Makefile and seeds it with `pip` so `make install` can install the project
+requirements.
+
+`host-shell-install` validates the tracked
+`config/was-operator-shell.sh`, creates a private timestamped backup under
+`~/.local/state/was-host-rebuild/bashrc-backups`, and appends exactly one
+managed loader at the end of `~/.bashrc`. It refuses partial or duplicate
+managed state. Open a new login shell after installation to load the aliases,
+prompt, PATH, and named environment activation. The tracked fragment contains
+no secrets and never reads `.env`.
 
 If the host uses an approved pre-existing Python environment, pass its Python
 path to Make instead of creating the expected local environment:
@@ -531,7 +590,7 @@ uncertain state rather than updating code beneath it:
 cd "$HOME/code/cd_WAS_update"
 git branch --show-current
 git status --short
-git pull --ff-only origin cd_WAS_update
+git pull --ff-only origin develop
 cd backend/was
 make install
 make test

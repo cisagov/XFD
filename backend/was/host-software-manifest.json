@@ -1,0 +1,157 @@
+{
+  "apt_packages": [
+    "ca-certificates",
+    "cron",
+    "curl",
+    "figlet",
+    "git",
+    "gnupg",
+    "imagemagick",
+    "make",
+    "openssh-client",
+    "rsync",
+    "screen",
+    "tar",
+    "tmux",
+    "wget"
+  ],
+  "docker_packages": [
+    "containerd.io",
+    "docker-buildx-plugin",
+    "docker-ce",
+    "docker-ce-cli",
+    "docker-ce-rootless-extras",
+    "docker-compose-plugin"
+  ],
+  "inventory_only_tools": [
+    {
+      "name": "jq",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "node",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "npm",
+      "version_arguments": [
+        "--version"
+      ]
+    }
+  ],
+  "managed_tools": {
+    "aws_cli": {
+      "archive": "awscli-exe-linux-x86_64-2.37.4.zip",
+      "sha256": "0c59444563f4df735eeb5481f6165f95dae546c33761760d8be9855d5cfe2d12",
+      "url": "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.4.zip",
+      "version": "2.37.4"
+    },
+    "python": {
+      "version": "3.12.14"
+    },
+    "uv": {
+      "archive": "uv-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "2e2b37e9811e17675a9e70bed5e1a58fc8c0388be63d751d72cc735188c149ff",
+      "url": "https://releases.astral.sh/github/uv/releases/download/0.12.8/uv-x86_64-unknown-linux-gnu.tar.gz",
+      "version": "0.12.8"
+    }
+  },
+  "manual_restore_items": [
+    "Review, then back up or retire ~/bin/getcloneBranch, ~/bin/refreshDailyTracker, ~/bin/runCapacityLoadTest, and ~/bin/updateWAS; contents are absent from the inventory.",
+    "Install the tracked WAS shell fragment with make host-shell-install APPLY=1; review and restore ~/.profile separately through the approved process.",
+    "Reclone the application repository and rebuild its Docker image from source.",
+    "Recreate project virtual environments from dependency files when needed.",
+    "Restore .env and other secrets through approved secure sources, never from the inventory.",
+    "Verify IAM, S3 and SES access, database connectivity, firewall rules, mounts, and certificates.",
+    "Install and enable the reviewed cron jobs and systemd units separately.",
+    "Verify SSM Agent state from the selected AMI; the rebuild script does not replace it.",
+    "LXD 4.0.14 was present in the October 5 inventory; install it only after an explicit supported-channel decision.",
+    "Certbot 5.8.0 was present in the October 5 inventory; restore it only when an approved host-certificate workflow requires it.",
+    "Review Ubuntu base packages and any additional tool dependencies omitted from this manifest."
+  ],
+  "operating_system": {
+    "architecture": "x86_64",
+    "docker_suite": "noble",
+    "id": "ubuntu",
+    "version_id": "24.04"
+  },
+  "required_tools": [
+    {
+      "name": "aws",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "curl",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "docker",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "git",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "make",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "python3",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "rsync",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "screen",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "tar",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "tmux",
+      "version_arguments": [
+        "-V"
+      ]
+    },
+    {
+      "name": "uv",
+      "version_arguments": [
+        "--version"
+      ]
+    },
+    {
+      "name": "wget",
+      "version_arguments": [
+        "--version"
+      ]
+    }
+  ],
+  "schema_version": 1
+}

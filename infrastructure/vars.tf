@@ -906,7 +906,7 @@ variable "was_reporting_ses_role_arn" {
 variable "was_reporting_ami_id" {
   description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment."
   type        = string
-  default     = "ami-05a3e9423ae4d7a19"
+  default     = "ami-0045d7fc2ad003464"
 }
 
 variable "was_reporting_instance_type" {

@@ -8,6 +8,8 @@ test Make commands, troubleshooting, updates, and rollback guidance.
 
 - [Operator setup and command runbook](docs/operator-setup-and-commands.md):
   clone, configure, build, validate, operate, troubleshoot, update, and recover.
+- [Biweekly host rebuild cycle](docs/host-rebuild-cycle.md): capture, review,
+  rebuild, verify, cut over, and retain rollback evidence for Ubuntu 24.04.
 - [Operator menu workflows](docs/operator-menu.md): current interactive menu
   choices and their safeguards.
 - [Capacity testing](docs/capacity-testing.md): isolated database reset,
@@ -86,9 +88,16 @@ cd ~/code
 git clone --branch cd_WAS_update --single-branch \
   git@github.com:cisagov/XFD.git cd_WAS_update
 cd cd_WAS_update
-python3 -m venv cd_WAS_update
+"$HOME/.local/bin/uv" venv \
+  --python 3.12.14 \
+  --seed \
+  cd_WAS_update
 cd backend/was
+../../cd_WAS_update/bin/python --version
+../../cd_WAS_update/bin/python -m pip --version
 make install
+make host-shell-preview
+make host-shell-install APPLY=1
 ./scripts/create-local-env.sh
 ```
 

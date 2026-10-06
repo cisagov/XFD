@@ -165,6 +165,50 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.assertIn('Action   = "sts:AssumeRole"', terraform_source)
         self.assertIn("Resource = var.was_reporting_ses_role_arn", terraform_source)
 
+    def test_was_first_boot_uses_only_the_dedicated_minimal_bootstrap(self) -> None:
+        """Keep manifest installation separate from Terraform first boot."""
+        terraform_source = (
+            REPOSITORY_ROOT / "infrastructure" / "was-reporting.tf"
+        ).read_text(encoding="utf-8")
+        bootstrap_source = (
+            REPOSITORY_ROOT / "infrastructure" / "was-reporting-bootstrap.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("was-reporting-bootstrap.sh", terraform_source)
+        self.assertNotIn("open-cti/install-deps.sh", terraform_source)
+        self.assertIn("apt-get install", bootstrap_source)
+        self.assertIn("git", bootstrap_source)
+        self.assertIn("make", bootstrap_source)
+        self.assertIn("python3", bootstrap_source)
+        self.assertNotIn("awscli", bootstrap_source)
+        self.assertNotIn("docker-ce", bootstrap_source)
+
+    def test_operator_runbook_uses_develop_and_pinned_uv_environment(self) -> None:
+        """Keep checkout updates and the named Python environment reproducible."""
+        operator_runbook = (
+            REPOSITORY_ROOT
+            / "backend"
+            / "was"
+            / "docs"
+            / "operator-setup-and-commands.md"
+        ).read_text(encoding="utf-8")
+        rebuild_runbook = (
+            REPOSITORY_ROOT / "backend" / "was" / "docs" / "host-rebuild-cycle.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("git clone --branch develop --single-branch", operator_runbook)
+        self.assertIn("git pull --ff-only origin develop", operator_runbook)
+        self.assertNotIn("git pull --ff-only origin cd_WAS_update", operator_runbook)
+        for documentation in (operator_runbook, rebuild_runbook):
+            self.assertIn('"$HOME/.local/bin/uv" venv', documentation)
+            self.assertIn("--python 3.12.14", documentation)
+            self.assertIn("--seed", documentation)
+            self.assertIn(
+                "../../cd_WAS_update/bin/python -m pip --version", documentation
+            )
+            self.assertIn("make host-shell-preview", documentation)
+            self.assertIn("make host-shell-install APPLY=1", documentation)
+
     def test_was_arn_validations_reject_wildcards_without_newer_functions(self) -> None:
         """Keep IAM resources exact and Terraform 1.0.7 compatible."""
         variables_source = (REPOSITORY_ROOT / "infrastructure" / "vars.tf").read_text(
