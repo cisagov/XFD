@@ -13,6 +13,7 @@ from was_reports.tracker import service
 from was_reports.tracker.models import (
     MISSING_QUALYS_FIELD_NOTE_PREFIX,
     MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
+    QUALYS_DELETION_RETRYABLE_NOTE,
     RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX,
     TrackerItem,
     TrackerStakeholder,
@@ -364,6 +365,10 @@ class TrackerServiceTests(unittest.TestCase):
         self.assertEqual(
             len(service.pending_schedules({"run": stakeholder}, delete_apps=True)), 1
         )
+        unresolved[6] = QUALYS_DELETION_RETRYABLE_NOTE
+        self.assertEqual(
+            len(service.pending_schedules({"run": stakeholder}, delete_apps=True)), 1
+        )
 
     def test_early_exclusion_prevents_all_downstream_calls(self):
         """An entirely handled schedule set must not fetch slices or write rows."""
@@ -560,6 +565,60 @@ class TrackerServiceTests(unittest.TestCase):
                 self.assertEqual(result, scan_groups if expected_pending else {})
                 self.assertEqual(counts["pending_runs"], int(expected_pending))
                 self.assertEqual(counts["recorded_runs"], int(not expected_pending))
+        connection.set_session.assert_called_with(readonly=True)
+        connection.commit.assert_not_called()
+
+    @patch("was_reports.tracker.service.close")
+    @patch("was_reports.tracker.service.connect")
+    def test_retryable_deletion_requires_explicit_deletion_mode(
+        self, mock_connect, mock_close
+    ) -> None:
+        """Enrich retryable deletion rows only for a deletion-enabled refresh."""
+        stakeholder = TrackerStakeholder(
+            "Customer",
+            1,
+            "2026-10-01T00:00:00Z",
+            "2026-09-03T12:00:00Z",
+            2,
+            "MONTHLY",
+            "TAG",
+        )
+        scan = etree.fromstring(
+            b"<WasScan><name>Customer Run #2 Slice 1</name></WasScan>"
+        )
+        scan_groups = {"current": [scan]}
+        connection = mock_connect.return_value
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [
+            (
+                2,
+                date(2026, 9, 3),
+                "current",
+                "Customer Run #2",
+                "Finished",
+                "No Web Service",
+                None,
+                QUALYS_DELETION_RETRYABLE_NOTE,
+                False,
+            )
+        ]
+
+        self.assertEqual(
+            service.pending_scan_groups(
+                scan_groups,
+                {"current": stakeholder},
+                delete_apps=False,
+            ),
+            {},
+        )
+        self.assertEqual(
+            service.pending_scan_groups(
+                scan_groups,
+                {"current": stakeholder},
+                delete_apps=True,
+            ),
+            scan_groups,
+        )
         connection.set_session.assert_called_with(readonly=True)
         connection.commit.assert_not_called()
 
