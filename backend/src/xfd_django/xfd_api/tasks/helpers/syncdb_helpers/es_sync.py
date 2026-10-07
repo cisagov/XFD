@@ -84,19 +84,19 @@ def manage_elasticsearch_indices(dangerouslyforce):
     run_logged_step(
         "manage_elasticsearch_indices.sync_organizations_index",
         es_client.sync_organizations_index,
-        raise_on_error=False,
+        raise_on_error=True,
     )
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_domains_index",
         es_client.sync_domains_index,
-        raise_on_error=False,
+        raise_on_error=True,
     )
 
     run_logged_step(
         "manage_elasticsearch_indices.sync_cves_index",
         es_client.sync_cves_index,
-        raise_on_error=False,
+        raise_on_error=True,
     )
 
     LOGGER.info("Elasticsearch indices synchronization attempted.")
