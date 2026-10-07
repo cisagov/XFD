@@ -113,7 +113,7 @@ const baseHeaders: HeadersInit = {
 
 type ApiMethod = 'GET' | 'POST' | 'DELETE'; // Supported HTTP methods for the API requests
 type OnError = (e: Error) => Promise<void>;
-type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none'; //
+type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none'; // The expected response type for parsing the API response
 
 const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
 const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
@@ -234,13 +234,13 @@ const parseResponse = async (
     return await response.formData();
   }
 
-  // Attempt to parse the response as JSON, falling back to text if parsing fails
-  // Read the response body as text to attempt JSON parsing.
+  // Convert the json or undefined responses to text first, then attempt to parse it as JSON.
+  // Prevents need for response.clone() to read the body multiple times.
   if (parseAs === 'json' || parseAs === undefined) {
     const text = await response.text();
 
-    // If the response body is empty, return undefined
     // Removes any leading and trailing whitespace from the response text before checking if it's empty.
+    // If the response body is empty, return undefined
     if (!text.trim()) {
       return undefined;
     }
@@ -384,25 +384,6 @@ export const useApi = (onError?: OnError) => {
           );
 
           let result: unknown;
-
-          // try {
-          //   if (parseAs === 'none' || response.status === 204) {
-          //     result = undefined;
-          //   } else if (parseAs === 'json') {
-          //     result = await response.json();
-          //   } else if (parseAs === 'text') {
-          //     result = await response.text();
-          //   } else if (parseAs === 'blob') {
-          //     result = await response.blob();
-          //   } else if (parseAs === 'arrayBuffer') {
-          //     result = await response.arrayBuffer();
-          //   } else if (parseAs === 'formData') {
-          //     result = await response.formData();
-          //   }
-          // } catch (error) {
-          //   // Handle parsing errors if necessary
-          //   result = undefined;
-          // }
 
           result = await parseResponse(response, parseAs);
 
