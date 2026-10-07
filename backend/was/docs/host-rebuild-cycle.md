@@ -38,7 +38,7 @@ Before every replacement, confirm the current checkout is the approved commit
 and run:
 
 ```bash
-cd "$HOME/code/cd_WAS_update/backend/was"
+cd "$HOME/code/was_reporting/backend/was"
 make host-software-capture HOST_SOFTWARE_SINCE="YYYY-MM-DD"
 ```
 
@@ -101,7 +101,7 @@ After the replacement is reachable, clone the approved `develop` commit and
 preview the host changes:
 
 ```bash
-cd "$HOME/code/cd_WAS_update/backend/was"
+cd "$HOME/code/was_reporting/backend/was"
 make host-software-preview
 ```
 
@@ -135,16 +135,16 @@ supplementary groups.
 Restore the separately approved manual items, then run:
 
 ```bash
-cd "$HOME/code/cd_WAS_update/backend/was"
+cd "$HOME/code/was_reporting/backend/was"
 make host-software-verify
 cd ../..
 "$HOME/.local/bin/uv" venv \
   --python 3.12.14 \
   --seed \
-  cd_WAS_update
+  was_reporting
 cd backend/was
-../../cd_WAS_update/bin/python --version
-../../cd_WAS_update/bin/python -m pip --version
+../../was_reporting/bin/python --version
+../../was_reporting/bin/python -m pip --version
 make install
 make host-shell-preview
 make host-shell-install APPLY=1
@@ -157,7 +157,7 @@ make build
 Docker daemon without `sudo`, Docker Compose works, and AWS CLI matches the
 pinned manifest version. The rebuild helper installs checksum-verified `uv`
 and its managed Python 3.12.14. The `uv venv` command creates the named
-`cd_WAS_update` environment expected by the Makefile and seeds it with `pip`.
+`was_reporting` environment expected by the Makefile and seeds it with `pip`.
 The guarded shell installer backs up `~/.bashrc`, appends exactly one loader for
 the tracked non-secret `config/was-operator-shell.sh`, validates both files, and
 requires a new login shell before the configuration takes effect.
