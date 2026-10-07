@@ -1,6 +1,6 @@
-PYTHON ?= ../../was_reporting/bin/python
+PYTHON ?= ../../cd_WAS_update/bin/python
 REPO_ROOT ?= ../..
-ROOT_PYTHON ?= ./was_reporting/bin/python
+ROOT_PYTHON ?= ./cd_WAS_update/bin/python
 IMAGE ?= was-reporting
 ENV_FILE ?= .env
 OUTPUT_DIR ?= $(CURDIR)/local-output

@@ -77,23 +77,24 @@ the project's Python environment and installed requirements (`make install`).
 ### First Checkout And Build
 
 From your EC2 home directory, clone the branch under review using your approved
-GitHub SSH access. Clone the authoritative `develop` branch into `was_reporting`
-and record the approved deployment commit in the change record. Do not repeat
+GitHub SSH access. The example below is for branch validation only. A feature
+branch is not production deployment authorization. For production, use the
+approved deployment ref or commit recorded in the change record. Do not repeat
 the clone if this checkout already exists; use the update cycle below instead.
 
 ```bash
 mkdir -p ~/code
 cd ~/code
-git clone --branch develop --single-branch \
-  git@github.com:cisagov/XFD.git was_reporting
-cd was_reporting
+git clone --branch cd_WAS_update --single-branch \
+  git@github.com:cisagov/XFD.git cd_WAS_update
+cd cd_WAS_update
 "$HOME/.local/bin/uv" venv \
   --python 3.12.14 \
   --seed \
-  was_reporting
+  cd_WAS_update
 cd backend/was
-../../was_reporting/bin/python --version
-../../was_reporting/bin/python -m pip --version
+../../cd_WAS_update/bin/python --version
+../../cd_WAS_update/bin/python -m pip --version
 make install
 make host-shell-preview
 make host-shell-install APPLY=1
@@ -122,14 +123,14 @@ directly to customers.
 Finish or reconcile active report jobs before updating. Inspect the checkout
 first. Confirm that its ref and commit match the approved change record and
 resolve any local source changes before pulling. Do not discard local work or
-force-reset it. Confirm the checkout is on `develop` before using the pull
-command below and retain the approved deployment commit in the change record.
+force-reset it. The pull example below applies only while validating the branch
+under review; use the approved deployment ref for production.
 
 ```bash
-cd ~/code/was_reporting
+cd ~/code/cd_WAS_update
 git branch --show-current
 git status --short
-git pull --ff-only origin develop
+git pull --ff-only origin cd_WAS_update
 cd backend/was
 make build
 make menu
@@ -558,11 +559,11 @@ From the repository root:
 
 ```bash
 cd backend/was
-../../was_reporting/bin/python -m pip install -r requirements.txt
-../../was_reporting/bin/python -m pip install --no-deps -e .
+../../cd_WAS_update/bin/python -m pip install -r requirements.txt
+../../cd_WAS_update/bin/python -m pip install --no-deps -e .
 ```
 
-If the virtual environment path differs, replace `../../was_reporting/bin/python`
+If the virtual environment path differs, replace `../../cd_WAS_update/bin/python`
 with the Python executable for your active `uv` environment.
 
 ## Operator Usage
@@ -1245,7 +1246,7 @@ tunnel must be available when the configured host is a forwarded local port.
 Start with a small read-only preview (the dates and tag below are an example):
 
 ```bash
-PYTHONPATH=backend/was/src ./was_reporting/bin/python \
+PYTHONPATH=backend/was/src ./cd_WAS_update/bin/python \
   backend/was/scripts/backfill_tracker_timestamps.py \
   --since 2026-09-01 --until 2026-09-23 --tag RSDOR --limit 100
 ```
@@ -1750,7 +1751,7 @@ SSH tunnel, run:
 ```bash
 scp -P 7777 -i ~/.ssh/accessor_rsa \
   "/local/path/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx" \
-  ubuntu@127.0.0.1:~/code/was_reporting/backend/was/
+  ubuntu@127.0.0.1:~/code/cd_WAS_update/backend/was/
 ```
 
 The menu mounts that EC2 directory read-only at `/backend/was` inside the
@@ -2056,7 +2057,7 @@ commands. Targets beginning with an underscore are Makefile internals and are
 not supported operator entry points.
 
 The checked-in systemd cleanup unit is hardcoded for user and group `ubuntu`
-and working directory `/home/ubuntu/code/was_reporting/backend/was`. It is valid
+and working directory `/home/ubuntu/code/cd_WAS_update/backend/was`. It is valid
 only for that exact host layout. If the deployment account or path differs, do
 not install the unit verbatim. Have the system administrator review and adapt
 the unit under the approved change process, then verify its preview and applied
@@ -2299,7 +2300,7 @@ container exits successfully.
 Run focused tests from the repository root:
 
 ```bash
-PYTHONPATH=backend/was/src ./was_reporting/bin/python -m unittest \
+PYTHONPATH=backend/was/src ./cd_WAS_update/bin/python -m unittest \
   backend/was/tests/test_report_generator.py \
   backend/was/tests/test_passwords.py
 ```
@@ -2307,7 +2308,7 @@ PYTHONPATH=backend/was/src ./was_reporting/bin/python -m unittest \
 Run syntax checks:
 
 ```bash
-./was_reporting/bin/python -m py_compile \
+./cd_WAS_update/bin/python -m py_compile \
   backend/was/src/was_reports/commands/report_generator.py \
   backend/was/src/was_reports/data/stakeholders.py \
   backend/was/src/was_reports/utils/passwords.py \

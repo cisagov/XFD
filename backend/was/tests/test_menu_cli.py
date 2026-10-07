@@ -798,7 +798,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         )
         menu.output.assert_any_call(
             "Place the XLSX file in "
-            "~/code/was_reporting/backend/was on the EC2 before importing."
+            "~/code/cd_WAS_update/backend/was on the EC2 before importing."
         )
         self.assertIn(
             "scp -P 7777",

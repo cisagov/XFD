@@ -23,11 +23,11 @@ BASH_PATH = Path("/bin/bash")
 LOADER_START = "# BEGIN WAS OPERATOR SHELL CONFIG"
 LOADER_END = "# END WAS OPERATOR SHELL CONFIG"
 LOADER_SIGNATURE = (
-    'WAS_SHELL_CONFIG="$HOME/code/was_reporting/backend/was/config/'
+    'WAS_SHELL_CONFIG="$HOME/code/cd_WAS_update/backend/was/config/'
     'was-operator-shell.sh"'
 )
 LOADER_BLOCK = """# BEGIN WAS OPERATOR SHELL CONFIG
-WAS_SHELL_CONFIG="$HOME/code/was_reporting/backend/was/config/was-operator-shell.sh"
+WAS_SHELL_CONFIG="$HOME/code/cd_WAS_update/backend/was/config/was-operator-shell.sh"
 
 if [[ -r "$WAS_SHELL_CONFIG" ]]; then
     source "$WAS_SHELL_CONFIG"
