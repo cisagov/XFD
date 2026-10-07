@@ -220,7 +220,7 @@ const parseResponse = async (
   ) {
     return undefined;
   }
-  //
+  // Handle cases where the response should be parsed as plain text, blob, arrayBuffer, or formData.
   if (parseAs === 'text') {
     return await response.text();
   }
@@ -235,24 +235,28 @@ const parseResponse = async (
   }
 
   // Attempt to parse the response as JSON, falling back to text if parsing fails
-  const text = await response.text();
+  // Read the response body as text to attempt JSON parsing.
+  if (parseAs === 'json' || parseAs === undefined) {
+    const text = await response.text();
 
-  // If the response body is empty, return undefined
-  if (!text.trim()) {
-    return undefined;
-  }
-  // Try to parse the response as JSON, but if it fails and the response was OK, throw an error. Otherwise, return the raw text.
-  try {
-    return JSON.parse(text) as unknown;
-  } catch (error) {
-    if (response.ok) {
-      throw new Error(
-        `Expected valid JSON but receieved invalid JSON with status ${response.status}`,
-        { cause: error }
-      );
+    // If the response body is empty, return undefined
+    // Removes any leading and trailing whitespace from the response text before checking if it's empty.
+    if (!text.trim()) {
+      return undefined;
     }
+    // Try to parse the response as JSON, but if it fails and the response was OK, throw an error. Otherwise, return the raw text.
+    try {
+      return JSON.parse(text) as unknown;
+    } catch (error) {
+      if (response.ok) {
+        throw new Error(
+          `Expected valid JSON but receieved invalid JSON with status ${response.status}`,
+          { cause: error }
+        );
+      }
+    }
+    return text;
   }
-  return text;
 };
 
 export const useApi = (onError?: OnError) => {
@@ -359,6 +363,9 @@ export const useApi = (onError?: OnError) => {
         path: string,
         init: ApiInit | ApiInitWithResponse = {}
       ): Promise<T | ApiResult<T>> => {
+        // This destructures the custom options from the init object, providing default values if they are not specified.
+        // 'JSON' is the default parsing method for the response.
+        // Other parsing methods, 'text', 'blob', 'arrayBuffer', 'formData', and 'none'.
         const {
           showLoading = true,
           includeResponse = false,
