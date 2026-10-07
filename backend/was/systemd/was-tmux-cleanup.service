@@ -1,0 +1,27 @@
+[Unit]
+Description=Archive and reap completed WAS tmux batch sessions
+Documentation=file:///home/ubuntu/code/cd_WAS_update/backend/was/docs/operator-setup-and-commands.md
+ConditionPathIsDirectory=/home/ubuntu/code/cd_WAS_update/backend/was
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/code/cd_WAS_update/backend/was
+Environment=HOME=/home/ubuntu
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=OUTPUT_DIR=/home/ubuntu/code/cd_WAS_update/backend/was/local-output
+ExecStart=/usr/bin/make tmux-cleanup TMUX_CLEANUP_APPLY=1
+UMask=0077
+NoNewPrivileges=true
+PrivateDevices=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=read-only
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/code/cd_WAS_update/backend/was/local-output
+RestrictAddressFamilies=AF_UNIX
+RestrictSUIDSGID=true

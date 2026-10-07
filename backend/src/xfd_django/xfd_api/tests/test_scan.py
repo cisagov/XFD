@@ -68,6 +68,48 @@ def test_list_scans_by_global_admin():
     assert any(org["id"] == str(organization.id) for org in data["organizations"])
 
 
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_list_scans_excludes_retired_orgs():
+    """Scan organization pickers should not include retired organizations."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    active_org = Organization.objects.create(
+        name="Active Scan Org",
+        root_domains=["active.com"],
+        ip_blocks=[],
+        is_passive=False,
+        retired=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    Organization.objects.create(
+        name="Retired Scan Org",
+        root_domains=["retired.com"],
+        ip_blocks=[],
+        is_passive=False,
+        retired=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/scans",
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    org_ids = [org["id"] for org in response.json()["organizations"]]
+    assert str(active_org.id) in org_ids
+    assert len(org_ids) == 1
+
+
 # Test: create by globalAdmin should succeed
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_create_scan_by_global_admin():
@@ -189,9 +231,7 @@ def test_create_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: update by globalAdmin should succeed
@@ -312,9 +352,7 @@ def test_update_by_global_view_fails():
 
     LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: delete by globalAdmin should succeed
@@ -361,9 +399,7 @@ def test_delete_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: get by globalView should succeed
@@ -412,9 +448,7 @@ def test_get_by_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: scheduler invoke by globalAdmin should succeed
@@ -462,9 +496,7 @@ def test_scheduler_invoke_by_global_view_fails(mock_scheduler):
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
     mock_scheduler.assert_not_called()
 
 
@@ -522,9 +554,7 @@ def test_run_scan_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -593,10 +623,7 @@ def test_list_granular_scans_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

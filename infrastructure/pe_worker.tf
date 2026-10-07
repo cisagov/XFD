@@ -1,151 +1,3 @@
-# P&E EC2
-
-
-resource "aws_iam_role" "pe" {
-  count              = var.create_pe_instance ? 1 : 0
-  name               = "crossfeed-pe-${var.stage}"
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]
-}
-EOF
-
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-    Owner   = "Crossfeed managed resource"
-  }
-}
-
-#Instance Profile
-resource "aws_iam_instance_profile" "pe" {
-  count = var.create_pe_instance ? 1 : 0
-  name  = "crossfeed-pe-${var.stage}"
-  role  = aws_iam_role.pe[0].id
-}
-
-#Attach Policies to Instance Role
-resource "aws_iam_role_policy_attachment" "pe_ssm_core" {
-  count      = var.create_pe_instance ? 1 : 0
-  role       = aws_iam_role.pe[0].name
-  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_role_policy_attachment" "pe_ssm_service" {
-  count      = var.create_pe_instance ? 1 : 0
-  role       = aws_iam_role.pe[0].name
-  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
-}
-
-resource "aws_iam_role_policy" "pe_s3_policy" {
-  count       = var.create_pe_instance ? 1 : 0
-  name_prefix = "crossfeed-pe-s3-${var.stage}"
-  role        = aws_iam_role.pe[0].id
-  policy      = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:*"
-      ],
-      "Resource": [
-        "${aws_s3_bucket.pe_db_backups_bucket.arn}",
-        "${aws_s3_bucket.pe_db_backups_bucket.arn}/*",
-        "${aws_s3_bucket.reports_bucket.arn}",
-        "${aws_s3_bucket.reports_bucket.arn}/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "lambda:InvokeFunction"
-      ],
-      "Resource": [
-        "*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ecs:DescribeClusters",
-        "ecs:DescribeTasks",
-        "ecs:ListClusters",
-        "ecs:ListTasks",
-        "sts:AssumeRole"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_role_policy" "pe_sqs_send_message_policy" {
-  count       = var.create_pe_instance ? 1 : 0
-  name_prefix = "pe-ec2-send-sqs-message-${var.stage}"
-  role        = aws_iam_role.pe[0].id
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = [
-          "sqs:SendMessage",
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes",
-          "sqs:ListQueues",
-          "sqs:GetQueueUrl"
-        ],
-        Effect   = "Allow",
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_instance" "pe" {
-  count                       = var.create_pe_instance ? 1 : 0
-  ami                         = var.is_dmz ? data.aws_ami.ubuntu[0].id : var.ami_id
-  instance_type               = var.db_accessor_instance_class
-  associate_public_ip_address = false
-
-  depends_on = [
-    aws_iam_instance_profile.pe,
-    aws_security_group.allow_internal,
-    aws_subnet.pe
-  ]
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-    Name    = "pe_ec2"
-  }
-  root_block_device {
-    volume_size = 1000
-  }
-
-  vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
-  subnet_id              = var.is_dmz ? aws_subnet.pe[0].id : data.aws_ssm_parameter.subnet_db_1_id[0].value
-
-  iam_instance_profile = aws_iam_instance_profile.pe[0].id
-  user_data            = file("./ssm-agent-install.sh")
-  lifecycle {
-    # prevent_destroy = true
-    ignore_changes = [ami]
-  }
-}
-
 
 # P&E ECR Repository
 resource "aws_ecr_repository" "pe_worker" {
@@ -201,7 +53,35 @@ resource "aws_ecs_task_definition" "pe_worker" {
     "essential": true,
     "mountPoints": [],
     "portMappings": [],
-    "volumesFrom": [],
+%{if !var.is_dmz~}
+    "volumesFrom": [
+      {
+        "sourceContainer": "wiz-sensor",
+        "readOnly": false
+      }
+    ],
+    "dependsOn": [
+      {
+        "containerName": "wiz-sensor",
+        "condition": "COMPLETE"
+      }
+    ],
+    "linuxParameters": {
+      "capabilities": {
+        "add": [
+          "SYS_PTRACE"
+        ]
+      }
+    },
+    "entryPoint": [
+      "/opt/wiz/sensor/wiz-sensor",
+      "daemon",
+      "--"
+    ],
+    "command": [
+      "./worker/pe-worker-start.sh"
+    ],
+%{endif~}
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
@@ -214,6 +94,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
       {
         "name": "DB_DIALECT",
         "value": "postgres"
+      },
+      {
+        "name": "REPORTS_BUCKET_NAME",
+        "value": "${var.reports_bucket_name}"
       },
       {
         "name": "DB_PORT",
@@ -250,6 +134,18 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.db_username.arn}"
       },
       {
+        "name": "DNSMONITOR_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_dnsmonitor_client_id.arn}"
+      },
+      {
+        "name": "DNSMONITOR_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_dnsmonitor_client_secret.arn}"
+      },
+      {
+        "name": "FLARE_TENANT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_flare_tenant_id.arn}"
+      },
+      {
         "name": "ELASTICSEARCH_ENDPOINT",
         "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
       },
@@ -264,6 +160,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
       {
         "name": "LG_WORKSPACE_NAME",
         "valueFrom": "${data.aws_ssm_parameter.lg_workspace_name.arn}"
+      },
+      {
+        "name": "MAILER_ARN",
+        "valueFrom": "${data.aws_ssm_parameter.mailer_arn.arn}"
       },
       {
         "name": "PE_API_KEY",
@@ -282,12 +182,20 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.pe_db_password.arn}"
       },
       {
+        "name": "PE_DB_PASSWORD_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_password_key.arn}"
+      },
+      {
         "name": "PE_DB_USERNAME",
         "valueFrom": "${data.aws_ssm_parameter.pe_db_username.arn}"
       },
       {
         "name": "PE_SHODAN_API_KEYS",
         "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
+      },
+      {
+        "name": "PE_S3_BUCKET",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_pe_s3_bucket.arn}"
       },
       {
         "name": "QUALYS_PASSWORD",
@@ -302,17 +210,23 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
-        "name": "SIXGILL_CLIENT_ID",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
-      },
-      {
-        "name": "SIXGILL_CLIENT_SECRET",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
+        "name": "SHODAN_ORG_EXCEPTION",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}"
       },
       {
         "name": "WHOIS_XML_KEY",
         "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
       },
+%{if !var.is_dmz~}
+      {
+        "name": "WIZ_API_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}:WIZ_API_CLIENT_ID::"
+      },
+      {
+        "name": "WIZ_API_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}:WIZ_API_CLIENT_SECRET::"
+      },
+%{endif~}
       {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
         "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
@@ -330,7 +244,23 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
       }
     ]
+  }%{if !var.is_dmz},
+  {
+    "name": "wiz-sensor",
+    "image": "wizfedramp.azurecr.us/sensor-serverless:v1",
+    "repositoryCredentials": {
+      "credentialsParameter": "${data.aws_ssm_parameter.wiz_registry_secret_arn[0].value}"
+    },
+    "cpu": 0,
+    "portMappings": [],
+    "essential": false,
+    "environment": [],
+    "environmentFiles": [],
+    "mountPoints": [],
+    "volumesFrom": [],
+    "systemControls": []
   }
+%{endif}
 ]
 EOF
   requires_compatibilities = ["FARGATE"]
@@ -354,6 +284,116 @@ resource "aws_cloudwatch_log_group" "pe_worker" {
   name              = var.pe_worker_ecs_log_group_name
   retention_in_days = 3653
   kms_key_id        = aws_kms_key.key.arn
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+# Attach to IAM users/groups in the AWS console (run_scans.sh, watch_queues.sh).
+resource "aws_iam_policy" "pe_scan_operator" {
+  count       = var.is_dmz ? 1 : 0
+  name        = "crossfeed-${var.stage}-pe-scan-operator"
+  description = "Invoke PE scans, monitor queues/workers, and purge PE scan queues for ${var.stage}"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InvokePeScanController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peScanController"
+    },
+    {
+      "Sid": "InvokePeReportController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peReportController"
+    },
+    {
+      "Sid": "InvokePeMailerController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peMailerController"
+    },
+    {
+      "Sid": "InvokePeAsmSyncController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peAsmSyncController"
+    },
+    {
+      "Sid": "ReadPeWorkerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents"
+      ],
+      "Resource": "arn:${var.aws_partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:${var.pe_worker_ecs_log_group_name}:*"
+    },
+    {
+      "Sid": "DecryptPeWorkerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+      ],
+      "Resource": "${aws_kms_key.key.arn}"
+    },
+    {
+      "Sid": "DescribePeWorkerCluster",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeClusters"
+      ],
+      "Resource": "arn:${var.aws_partition}:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.pe_worker_ecs_cluster_name}"
+    },
+    {
+      "Sid": "MonitorPeWorkerTasks",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTasks",
+        "ecs:ListTasks"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": {
+          "ecs:cluster": "arn:${var.aws_partition}:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.pe_worker_ecs_cluster_name}"
+        }
+      }
+    },
+    {
+      "Sid": "ManagePeScanQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ListQueues",
+        "sqs:PurgeQueue"
+      ],
+      "Resource": "arn:${var.aws_partition}:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.stage == "integration" ? "pe-integration" : "pe-staging"}-*"
+    }
+  ]
+}
+EOF
+
   tags = {
     Project = var.project
     Stage   = var.stage

@@ -138,9 +138,7 @@ def test_create_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: Update organization by global admin
@@ -239,9 +237,7 @@ def test_update_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: Deleting an organization by global admin should succeed
@@ -309,9 +305,7 @@ def test_delete_org_by_org_admin_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: Deleting an organization by global view should fail
@@ -343,9 +337,7 @@ def test_delete_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: List organizations by global view should succeed
@@ -515,9 +507,7 @@ def test_get_org_by_org_admin_of_different_org_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 # Test: Get organization by org regular user should fail
@@ -555,9 +545,7 @@ def test_get_org_by_org_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 # Test: Get organization by org admin should return associated scantasks
@@ -1121,9 +1109,7 @@ def test_remove_role_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: removeRole by org admin should succeed
@@ -1221,9 +1207,7 @@ def test_remove_role_by_org_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: getTags by globalAdmin should work
@@ -1335,10 +1319,7 @@ def test_get_organizations_by_state_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1423,10 +1404,7 @@ def test_get_organizations_by_region_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1570,10 +1548,7 @@ def test_upsert_organization_unauthorized():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access. View logs for details."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1664,6 +1639,68 @@ def test_add_user_to_org_v2_success():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_add_user_to_org_v2_returns_existing_role_when_already_assigned():
+    """Adding a user who already has a role for the org is idempotent (no 500)."""
+    admin = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    organization = Organization.objects.create(
+        name="Test Organization",
+        root_domains=["test.com"],
+        ip_blocks=[],
+        is_passive=False,
+        state="CA",
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    existing_role = Role.objects.create(
+        user=user,
+        organization=organization,
+        role="member",
+        approved=True,
+        approved_by=admin,
+        created_by=admin,
+    )
+
+    payload = {
+        "user_id": str(user.id),
+        "role": "member",
+    }
+
+    response = client.post(
+        "/v2/organizations/{}/users".format(str(organization.id)),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(existing_role.id)
+    assert data["organization"]["id"] == str(organization.id)
+    assert data["user"]["id"] == str(user.id)
+    assert Role.objects.filter(user=user, organization=organization).count() == 1
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_add_user_to_org_v2_unauthorized():
     """Test that a standard user cannot add a user to an organization."""
     user = User.objects.create(
@@ -1706,10 +1743,7 @@ def test_add_user_to_org_v2_unauthorized():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2285,7 +2319,7 @@ def test_search_organizations_no_auth():
 def test_search_organizations_no_access():
     """Test that a user without the necessary permissions gets an empty result."""
     user = User.objects.create(
-        first_name="You do not have permission to perform this action.",
+        first_name="Unauthorized",
         last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
         user_type=UserType.STANDARD,
@@ -2302,9 +2336,7 @@ def test_search_organizations_no_access():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2365,10 +2397,7 @@ def test_get_all_regions_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2453,10 +2482,7 @@ def test_get_organizations_by_region_unauthorized():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2537,3 +2563,236 @@ def test_get_organizations_by_region_global_view():
     data = response.json()
 
     assert any(result["id"] == str(organization.id) for result in data)
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_list_organizations_v2_excludes_retired():
+    """Retired organizations should not appear in v2 organization search."""
+    admin = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    active_org = Organization.objects.create(
+        name="Active Org",
+        root_domains=["active.com"],
+        ip_blocks=[],
+        is_passive=False,
+        retired=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    Organization.objects.create(
+        name="Retired Org",
+        root_domains=["retired.com"],
+        ip_blocks=[],
+        is_passive=False,
+        retired=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.post(
+        "/v2/organizations/search",
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json={"page": 1, "pageSize": 15, "filters": {}},
+    )
+
+    assert response.status_code == 200
+    org_ids = [org["id"] for org in response.json()["result"]]
+    assert str(active_org.id) in org_ids
+    assert response.json()["count"] == 1
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_organizations_by_region_excludes_retired():
+    """Retired organizations should not appear in region-based organization lists."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="Admin",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    active_org = Organization.objects.create(
+        name="Active Region Org",
+        root_domains=["active.com"],
+        ip_blocks=[],
+        is_passive=False,
+        region_id="99901",
+        retired=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    Organization.objects.create(
+        name="Retired Region Org",
+        root_domains=["retired.com"],
+        ip_blocks=[],
+        is_passive=False,
+        region_id="99901",
+        retired=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/organizations/region_id/99901",
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == str(active_org.id)
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_organizations_by_state_excludes_retired():
+    """Retired organizations should not appear in state-based organization lists."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="Admin",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    active_org = Organization.objects.create(
+        name="Active State Org",
+        root_domains=["active.com"],
+        ip_blocks=[],
+        is_passive=False,
+        state="TX",
+        retired=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    Organization.objects.create(
+        name="Retired State Org",
+        root_domains=["retired.com"],
+        ip_blocks=[],
+        is_passive=False,
+        state="TX",
+        retired=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/organizations/state/TX",
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == str(active_org.id)
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_organization_retired_returns_404():
+    """Direct access to a retired organization should return 404."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    organization = Organization.objects.create(
+        name="Retired Org",
+        root_domains=["retired.com"],
+        ip_blocks=[],
+        is_passive=False,
+        retired=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/organizations/{}".format(organization.id),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Organization not found"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_list_organizations_excludes_retired():
+    """Retired organizations should not appear in the legacy organization list."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    active_org = Organization.objects.create(
+        name="Active List Org",
+        root_domains=["active.com"],
+        ip_blocks=[],
+        is_passive=False,
+        parent=None,
+        retired=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    Organization.objects.create(
+        name="Retired List Org",
+        root_domains=["retired.com"],
+        ip_blocks=[],
+        is_passive=False,
+        parent=None,
+        retired=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/organizations",
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 200
+    org_ids = [org["id"] for org in response.json()]
+    assert str(active_org.id) in org_ids
+    assert len(org_ids) == 1
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_organizations")
+def test_search_organizations_excludes_retired(mock_search):
+    """Elasticsearch organization search should filter out retired organizations."""
+    admin = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    mock_search.return_value = {"hits": {"hits": []}}
+
+    response = client.post(
+        "/search/organizations",
+        json={"search_term": "Test Org", "regions": ["region-1"]},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+    )
+
+    assert response.status_code == 200
+    mock_search.assert_called_once()
+    query_body = mock_search.call_args[0][0]
+    filters = query_body["query"]["bool"]["filter"]
+    assert {"terms": {"region_id": ["region-1"]}} in filters
+    assert {"bool": {"must_not": {"term": {"retired": True}}}} in filters

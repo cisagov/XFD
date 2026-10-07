@@ -346,7 +346,6 @@ SECURE_CSP_POLICY = {
     "default-src": ["'self'"],
     "connect-src": [
         "'self'",
-        os.getenv("COGNITO_URL"),
         os.getenv("BACKEND_DOMAIN"),
         os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",

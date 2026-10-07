@@ -1,0 +1,10 @@
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+tests/
+pe_reports_logging.log
+fixtures/
+peScanController.py
+peReportController.py
+peAsmSyncController.py
+__init__.py

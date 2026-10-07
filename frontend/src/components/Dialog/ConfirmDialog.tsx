@@ -10,6 +10,7 @@ type DialogComponentProps = {
   onClose?: (...args: any[]) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  onSave?: () => void;
   title: string;
   content: React.ReactNode;
   disabled?: boolean;
@@ -21,6 +22,7 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
   onClose,
   onConfirm,
   onCancel,
+  onSave,
   title,
   content,
   disabled = false,
@@ -34,6 +36,16 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
         <Button size="large" variant="text" onClick={onCancel}>
           Cancel
         </Button>
+        {onSave && (
+          <Button
+            size="large"
+            variant="outlined"
+            onClick={onSave}
+            disabled={disabled}
+          >
+            Save
+          </Button>
+        )}
         <Button
           size="large"
           variant="contained"

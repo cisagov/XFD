@@ -130,6 +130,8 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
+          - types-python-dateutil
+          - types-pytz
           - types-requests
           - types-retry
           - redis==5.2.0

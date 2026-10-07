@@ -22,7 +22,6 @@ import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRound
 
 // DataGrid Components
 import {
-  DataGrid,
   getGridStringOperators,
   GridColDef,
   GridColumnVisibilityModel,
@@ -43,6 +42,7 @@ import { useAuthContext } from 'context';
 import { useDomainApi } from 'hooks';
 
 // Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
@@ -539,7 +539,7 @@ export const Domains: React.FC = () => {
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Domains Table"
           >
-            <DataGrid
+            <CustomDataGrid<DomainRow>
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}

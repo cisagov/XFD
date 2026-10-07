@@ -1,0 +1,17 @@
+[Unit]
+Description=open-cti Docker Compose stack
+Requires=open-cti-render-env.service docker.service
+After=open-cti-render-env.service docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# docker-compose.yml + rabbitmq.conf are read in place from the git checkout
+# open-cti-render-env.service just refreshed (open-cti/refresh-repo.sh) -- not copied elsewhere.
+# --env-file points at the runtime-rendered secrets file, kept outside the (replaceable) checkout.
+WorkingDirectory=/opt/open-cti-repo/open-cti
+ExecStart=/usr/bin/docker compose --env-file /opt/open-cti/.env up -d
+ExecStop=/usr/bin/docker compose --env-file /opt/open-cti/.env down
+
+[Install]
+WantedBy=multi-user.target
