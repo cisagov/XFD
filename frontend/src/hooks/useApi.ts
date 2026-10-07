@@ -212,6 +212,7 @@ const parseResponse = async (
   response: Response,
   parseAs?: ParseAs
 ): Promise<unknown> => {
+  // Handle cases where no response body is expected or the response has no content (204/205)
   if (
     parseAs === 'none' ||
     response.status === 204 ||
@@ -219,7 +220,7 @@ const parseResponse = async (
   ) {
     return undefined;
   }
-
+  //
   if (parseAs === 'text') {
     return await response.text();
   }
@@ -233,22 +234,22 @@ const parseResponse = async (
     return await response.formData();
   }
 
+  // Attempt to parse the response as JSON, falling back to text if parsing fails
   const text = await response.text();
 
+  // If the response body is empty, return undefined
   if (!text.trim()) {
-    if (response.ok) {
-      throw new Error(
-        `Expected a JSON response body but received an empty response with status ${response.status}`
-      );
-    }
     return undefined;
   }
-
+  // Try to parse the response as JSON, but if it fails and the response was OK, throw an error. Otherwise, return the raw text.
   try {
     return JSON.parse(text) as unknown;
   } catch (error) {
     if (response.ok) {
-      throw error;
+      throw new Error(
+        `Expected valid JSON but receieved invalid JSON with status ${response.status}`,
+        { cause: error }
+      );
     }
   }
   return text;
