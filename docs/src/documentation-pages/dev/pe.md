@@ -1,17 +1,203 @@
-# P&E database setup instructions
+# P&E local development
 
-## Local
+## Runbook (dnstwist)
 
-To create the P&E database locally, first run Crossfeed with `npm start`. Then in another terminal run:
+### 1. Environment
+
+From the repo root, create or refresh your local `.env` from the example file:
 
 ```bash
-cd backend
-npm run pesyncdb
+cp dev.env.example .env
 ```
 
-The local database will contain the entire schema. The only table with any data is "organizations". Populated with just one record, DHS.
+If you already have a `.env`, make sure these P&E variables are present (defaults from `dev.env.example`):
 
-## Accessor
+```bash
+PE_DB_NAME=pe
+PE_DB_USERNAME=pe
+PE_DB_PASSWORD=password
+
+PE_API_KEY=local-dev-key
+PE_API_URL=http://127.0.0.1:8000
+
+PE_QUEUE_PREFIX=pe-staging
+PE_WORKER_SCAN_TYPE=dnstwist
+
+QUEUE_URL=http://elasticmq:9324
+SQS_ENDPOINT_URL=http://elasticmq:9324
+IS_LOCAL=1
+```
+
+Crossfeed postgres admin credentials (used by `pesyncdb` to create the `pe` database) come from the same file:
+
+```bash
+DB_HOST=db
+DB_USERNAME=crossfeed
+DB_PASSWORD=password
+```
+
+### 2. Start the stack
+
+```bash
+npm start
+```
+
+This starts **db**, **backend**, and **ElasticMQ**. It does **not** start `pe-worker` (compose profile `pe`).
+
+### 3. One-time PE setup
+
+Build the PE worker image (first time, or after PE Dockerfile / dependency changes):
+
+```bash
+make -C backend/pe build
+# or build all workers: cd backend && npm run build-worker
+```
+
+Scan targets start a **new container** from the existing `pe-worker` image via the Docker API (same as Crossfeed `ECSClient` local mode). Rebuild only when the Dockerfile or `requirements.txt` changes.
+
+Initialize the PE database (schema + sample orgs):
+
+```bash
+make -C backend/pe syncdb-populate
+```
+
+This runs `manage.py pesyncdb --populate`, which:
+
+- Creates the `pe` database and `pe` user (via the Crossfeed admin connection)
+- Syncs **all PE table models** from `home/models.py` (SQL views named `vw_*` / `mat_vw_*` are skipped)
+- Loads `DNSTwist` / `findomain` data sources, sample orgs **DHS** and **DHS_CISA** (`report_on=true`), and root domains `dhs.gov` / `cisa.gov`
+
+After changing models or to pick up newly added tables: `make -C backend/pe syncdb`
+
+A full production schema dump is archived for reference (not applied locally) at
+`backend/pe/schema/data_schema.sql`. Local report views live in
+`pe_reports_django_project/home/tasks/sql/local_report_views.sql`.
+
+To rebuild from scratch: `make -C backend/pe syncdb-dangerously-force` then `syncdb-populate`
+
+### 4. Run a scan
+
+`run` invokes the local **peScanController** (same interface as production Lambda / EC2 `pe_sqs.py`): queue org messages to ElasticMQ, then start detached `pe-worker` containers via the Docker API.
+
+| Parameter  | Make                              | CLI / Lambda              |
+| ---------- | --------------------------------- | ------------------------- |
+| Scan       | `SCANS=dnstwist`                  | `--scans dnstwist`        |
+| Orgs       | `ORGS=DHS` or `ORGS=DHS,DHS_CISA` | `--orgs DHS,DHS_CISA`     |
+| Workers    | `COUNT=3`                         | `--count 3` / `taskCount` |
+| Queue only | `QUEUE_ONLY=true`                 | `--queue-only`            |
+
+**Org values** — comma-separated `cyhy_db_name` values (e.g. `DHS`, not the full display name).
+
+| ORGS value     | Queue                                        | What runs                                                                                                              |
+| -------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `DHS,DHS_CISA` | 2 messages (one per org)                     | Each worker scans one org. `COUNT` = concurrent workers.                                                               |
+| `all`          | **1 message** (batch)                        | One worker runs `pe-source --orgs=all` and scans every `report_on` org **sequentially in one process**. Use `COUNT=1`. |
+| `DEMO`         | **1 message** (batch)                        | Same as `all`, but for demo orgs only.                                                                                 |
+| `all-orgs`     | **1 message per** `report_on` org (parallel) | Controller queries the PE DB and enqueues each org separately. Use `COUNT=N` for N concurrent workers.                 |
+| `demo-orgs`    | **1 message per** demo org (parallel)        | Same as `all-orgs`, but for demo orgs.                                                                                 |
+
+Use **batch** (`all` / `DEMO`) for a simple single-worker run. Use **parallel** (`all-orgs` / `demo-orgs`) when you want multiple workers draining the queue at once. Do not combine a shortcut with named orgs.
+
+For example, to run Flare Events across all reportable organizations with two
+workers, use `ORGS=all-orgs`. Using `ORGS=all` queues one batch message, so one
+worker processes the organizations sequentially while the other workers remain
+idle.
+
+```bash
+make -C backend/pe run SCANS=dnstwist ORGS=DHS,DHS_CISA COUNT=2
+make -C backend/pe run SCANS=dnstwist ORGS=all COUNT=1
+make -C backend/pe run SCANS=dnstwist ORGS=all-orgs COUNT=3
+```
+
+Sample orgs fixture (`backend/pe/fixtures/sample-orgs.json`):
+
+```bash
+make -C backend/pe scans SCANS=dnstwist COUNT=1
+```
+
+Watch worker logs: `docker logs -f pe_worker_dnstwist_<id>`
+
+Workers drain their scan queue and **exit when it is empty** (same pattern as Crossfeed `worker.py`). Rebuild after worker changes: `make -C backend/pe build`.
+
+Queue only (no worker start): `make -C backend/pe queue SCANS=dnstwist ORGS=DHS`
+
+Other targets: `make -C backend/pe help` (`logs`, `test`, etc.)
+
+### 5. Generate P&E reports (PDF → S3)
+
+Report generation uses the **`pe-reports`** CLI under `backend/pe/src/pe_reports/` (core ATC report code only: generators, metrics, `db_query`, assets). **`peReportController`** Lambda starts a Fargate task (or a local `pe-worker` container) that runs `worker/pe-report-start.sh`.
+
+| Parameter        | Make (local)             | Lambda / `run_reports.sh`                             |
+| ---------------- | ------------------------ | ----------------------------------------------------- |
+| Report date      | `REPORT_DATE=2026-07-15` | `reportDate`                                          |
+| Orgs             | `ORGS=all`               | `orgs` (`all`, `demo`, `DHS,DHS_CISA`, `all-orgs`, …) |
+| Output directory | `OUTPUT_DIR=~/reports`   | —                                                     |
+| Parallel tasks   | `COUNT=2`                | `taskCount`                                           |
+| Social media     | `SOC_MED=true`           | `socMedIncluded: true`                                |
+
+Local (same stack as scans — `start` + `build` + `syncdb-populate`; each report container starts its own PE API):
+
+```bash
+make -C backend/pe start build
+make -C backend/pe syncdb-populate   # once; creates report views + sample orgs
+make -C backend/pe run-reports REPORT_DATE=2026-07-15 ORGS=DHS OUTPUT_DIR=~/reports
+```
+
+PDFs are generated inside the container at `/tmp/pe-reports`. With `OUTPUT_DIR` set, Make waits for the job to finish and copies them to that path. Without `OUTPUT_DIR`, the container runs detached and you can copy manually:
+
+```bash
+docker cp pe_report_<id>:/tmp/pe-reports/. ./my-reports/
+```
+
+Deployed Lambda (staging-cd / integration):
+
+```bash
+REPORT_DATE=2026-07-15 ORGS=all backend/pe/tools/run_reports.sh
+```
+
+In AWS, PDFs and raw Excel backups upload to the P&E reports bucket (`REPORTS_BUCKET_NAME` — e.g. `cisa-crossfeed-staging-reports`).
+
+---
+
+## Connect with DBeaver (local)
+
+With `npm start` running, postgres is exposed on **localhost:5432**.
+
+### PE database
+
+| Field    | Value                                             |
+| -------- | ------------------------------------------------- |
+| Host     | `localhost`                                       |
+| Port     | `5432`                                            |
+| Database | `pe`                                              |
+| Username | `pe`                                              |
+| Password | `password` (or your `PE_DB_PASSWORD` from `.env`) |
+
+In DBeaver: **Database → New Database Connection → PostgreSQL**, enter the values above, **Test Connection**, then **Finish**.
+
+Run `make -C backend/pe syncdb-populate` first so the `pe` database exists.
+
+Useful tables after a populate + scan: `organizations`, `data_source`, `root_domains`, `sub_domains`, `domain_permutations`.
+
+### Crossfeed database (optional)
+
+Same host/port, different database:
+
+| Field    | Value                                          |
+| -------- | ---------------------------------------------- |
+| Database | `crossfeed`                                    |
+| Username | `crossfeed`                                    |
+| Password | `password` (or your `DB_PASSWORD` from `.env`) |
+
+### psql (alternative)
+
+```bash
+psql -h localhost -p 5432 -U pe -d pe
+```
+
+---
+
+## Remote / accessor (non-local)
 
 ### Add credentials to SSM
 
@@ -23,25 +209,13 @@ aws ssm put-parameter --name "/crossfeed/staging/PE_DB_USER" --value "pe" --type
 aws ssm put-parameter --name "/crossfeed/staging/PE_DB_PASSWORD" --value "[generated secret password]" --type "SecureString"
 ```
 
-### Sync DB
-
-Go to the accessor instance and run:
+### Sync DB (accessor)
 
 ```bash
 aws lambda invoke --function-name crossfeed-prod-pesyncdb --log-type Tail --region us-east-1 /dev/stderr --query 'LogResult' --output text | base64 -d
 ```
 
-## Accessing the database
-
-### Connect to python environment
-
-```bash
-pyenv activate pe-reports
-```
-
-### Get database credentials
-
-Retrieve the database credentials by running the following command in the terraformer instance:
+### Remote credentials
 
 ```bash
 aws ssm get-parameter --name "/crossfeed/staging/DATABASE_HOST" --with-decryption
@@ -50,27 +224,7 @@ aws ssm get-parameter --name "/crossfeed/staging/PE_DB_USER" --with-decryption
 aws ssm get-parameter --name "/crossfeed/staging/PE_DB_PASSWORD" --with-decryption
 ```
 
-You can use these credentials when connecting to the database.
-
-You may have to specify the correct AWS profile if you have multiple:
-
-```sh
-export AWS_DEFAULT_PROFILE=
-```
-
-### Connect to the database with psql
-
-```bash
-psql -d [pe database name] -U [pe database user] -h [database host] -W
-```
-
-Then enter pe database password.
-
-Follow [this guide](https://www.postgresqltutorial.com/psql-commands/) for psql command basics.
-
-## Populate the database with pg dump file
-
-Locate the latest postgres dump file and run:
+### pg_restore (accessor)
 
 ```bash
 pg_restore -U pe -d pe "[path to sql dump file]"

@@ -5,24 +5,16 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 import logging
-import os
 import re
 from typing import Optional
-from urllib.parse import urlencode
 import uuid
 
 # Third-Party Libraries
 from django.conf import settings
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
-from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import jwt
-import requests
-from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
-
-# from .helpers import user_to_dict
 from xfd_mini_dl.models import (
     ApiKey,
     Notification,
@@ -36,7 +28,6 @@ JWT_SECRET = settings.JWT_SECRET
 SECRET_KEY = settings.SECRET_KEY
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_TIMEOUT_HOURS = settings.JWT_TIMEOUT_HOURS
-OAUTH_META_SECRET = os.getenv("CSRF_SECRET", "super-secret")
 
 
 LOGGER = logging.getLogger(__name__)
@@ -45,8 +36,6 @@ LOGGER = logging.getLogger(__name__)
 LOGIN_BLOCKED_EXCLUSIONS = ["globalAdmin", "regionalAdmin"]
 
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
-serializer = URLSafeTimedSerializer(OAUTH_META_SECRET)
-IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
 def validate_json_serialization(user_object, label="user_object"):
@@ -286,196 +275,6 @@ def update_login_block_status(user: User) -> None:
     user.save()
 
 
-def sign_oauth_data(state: str, code_verifier: str) -> str:
-    """Sign oath data."""
-    return serializer.dumps(
-        {"state": state, "code_verifier": code_verifier}, salt="oauth"
-    )
-
-
-def verify_oauth_data(token: str, max_age: int = 300):
-    """Verify oauth data."""
-    try:
-        return serializer.loads(token, salt="oauth", max_age=max_age)
-    except (BadSignature, SignatureExpired):
-        return None
-
-
-# POST: /auth/okta-callback
-async def handle_okta_callback(request):
-    """POST API LOGIC."""
-    body = await request.json()
-    code = body.get("code")
-    state = body.get("state")
-    signed_token = body.get("signedToken")
-
-    if not code or not state or not signed_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing required OAuth parameters",
-        )
-
-    # Validate signed token
-    token_data = verify_oauth_data(signed_token)
-    if not token_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
-
-    if token_data["state"] != state:
-        raise HTTPException(status_code=400, detail="State mismatch")
-
-    code_verifier = token_data["code_verifier"]
-
-    jwt_data = await get_jwt_from_code(code, code_verifier)
-    if jwt_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid authorization code or failed to retrieve tokens",
-        )
-
-    decoded_token = jwt_data.get("decoded_token")
-    resp = await process_user(decoded_token)
-    token = resp.get("token")
-
-    # Prepare final response
-    response = JSONResponse(
-        content={"message": "User authenticated", "data": resp, "token": token}
-    )
-    response.set_cookie(key="token", value=token)
-
-    # Set the 'crossfeed-token' cookie
-    response.set_cookie(
-        key="crossfeed-token",
-        value=token,
-        # httponly=True,  # This makes the cookie inaccessible to JavaScript
-        # secure=True,    # Ensures the cookie is only sent over HTTPS
-        # samesite="Lax"  # Restricts when cookies are sent
-    )
-    return response
-
-
-async def process_user(decoded_token):
-    """Process a user based on decoded token information."""
-    okta_id = decoded_token["sub"]
-    email = decoded_token["email"]
-
-    user = User.objects.filter(okta_id=okta_id).first()
-
-    if not user:
-        # Look for legacy user by email with null okta_id
-        user = User.objects.filter(email=email, okta_id__isnull=True).first()
-
-        if user:
-            # Assign new okta_id to legacy user
-            user.okta_id = okta_id
-            user.first_name = user.first_name or decoded_token.get("given_name")
-            user.last_name = user.last_name or decoded_token.get("family_name")
-            user.invite_pending = False
-        else:
-            # Create new user if no match found
-            user = User(
-                email=email,
-                okta_id=okta_id,
-                first_name=decoded_token.get("given_name"),
-                last_name=decoded_token.get("family_name"),
-                user_type="standard",
-                invite_pending=True,
-                can_select_own_state=True,
-            )
-
-    # Update common fields
-    user.last_logged_in = datetime.now()
-    user.last_notified_30 = None
-    user.cognito_username = decoded_token.get("cognito:username")
-    user.cognito_use_case_description = decoded_token.get("nickname")
-    user.cognito_email_verified = decoded_token.get("email_verified")
-    user.cognito_groups = decoded_token.get("cognito:groups")
-
-    update_login_block_status(user)
-    user.save()
-
-    if user:
-        # TODO: Uncomment if we want to fully block logins during maintenance windows.
-        # Safeguard for preventing logins by returning 403 if login_blocked_by_maintenance.
-        # if user.login_blocked_by_maintenance:
-        #     raise HTTPException(
-        #         status_code=403, detail="Login is currently blocked due to maintenance."
-        #     )
-        if not JWT_SECRET:
-            LOGGER.error("JWT_SECRET is not defined in settings.")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # Generate JWT token
-        signed_token = jwt.encode(
-            {
-                "id": str(user.id),
-                "email": user.email,
-                "exp": datetime.utcnow() + timedelta(hours=int(JWT_TIMEOUT_HOURS)),
-            },
-            JWT_SECRET,
-            algorithm=JWT_ALGORITHM,
-        )
-
-        process_resp = {"token": signed_token, "user": user_to_dict(user)}
-        validate_json_serialization(process_resp["user"], label="User Dict")
-        return process_resp
-    else:
-        raise HTTPException(status_code=400, detail="User not found")
-
-
-async def get_jwt_from_code(auth_code: str, code_verifier: str):
-    """Exchange authorization code for JWT tokens and decode."""
-    try:
-        callback_url = os.getenv("VITE_COGNITO_CALLBACK_URL")
-        client_id = os.getenv("VITE_COGNITO_CLIENT_ID")
-        domain = os.getenv("VITE_COGNITO_DOMAIN")
-
-        authorize_token_url = "https://{}/oauth2/token".format(domain)
-        authorize_token_body = {
-            "grant_type": "authorization_code",
-            "client_id": client_id,
-            "code": auth_code,
-            "redirect_uri": callback_url,
-            "code_verifier": code_verifier,
-        }
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
-
-        if IS_DMZ:
-            response = requests.post(
-                authorize_token_url,
-                headers=headers,
-                data=urlencode(authorize_token_body),
-                timeout=20,  # Timeout in seconds
-            )
-        else:
-            zscaler_cert_path = ensure_zscaler_cert_downloaded()
-            response = requests.post(
-                authorize_token_url,
-                headers=headers,
-                data=urlencode(authorize_token_body),
-                timeout=20,  # Timeout in seconds
-                verify=zscaler_cert_path,
-            )
-        token_response = response.json()
-        # Convert the id_token to bytes
-        id_token = token_response["id_token"].encode("utf-8")
-        access_token = token_response.get("access_token")
-        refresh_token = token_response.get("refresh_token")
-
-        # Decode the token without verifying the signature (if needed)
-        decoded_token = jwt.decode(id_token, options={"verify_signature": False})
-        LOGGER.info("decoded token: %s", decoded_token)
-        return {
-            "refresh_token": refresh_token,
-            "id_token": id_token,
-            "access_token": access_token,
-            "decoded_token": decoded_token,
-        }
-
-    except Exception as error:
-        LOGGER.error("get_jwt_from_code post error: %s", error)
-
-
 def is_global_write_admin(current_user) -> bool:
     """Check if the user has global write admin permissions."""
     return current_user and current_user.user_type == "globalAdmin"
@@ -573,10 +372,14 @@ def get_allowed_user_update_fields(current_user, target_user):
     if current_user.id == target_user.id:
         allowed = {"first_login"}  # allow the user to dismiss their own first_login
         if (
-            current_user.can_select_own_state is True
-            and current_user.invite_pending is True
+            (
+                current_user.can_select_own_state is True
+                and current_user.invite_pending is True
+            )
+            or current_user.state is None
+            or current_user.state == ""
         ):
-            allowed |= {"can_select_own_state", "state", "region_id", "invite_pending"}
+            allowed.add("state")
         return allowed
 
     return set()

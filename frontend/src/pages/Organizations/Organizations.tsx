@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 
 // DataGrid Components
-import { DataGrid, GridFilterModel, GridSortModel } from '@mui/x-data-grid';
+import { GridFilterModel, GridSortModel } from '@mui/x-data-grid';
 
 // Types
 import { Organization } from 'types';
@@ -25,10 +25,11 @@ import { Organization } from 'types';
 import { useAuthContext } from 'context';
 
 // Components
-import { OrganizationForm } from './OrganizationForm';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { OrganizationForm } from './OrganizationForm';
 import { useOrgsColumns } from './useOrgsColumns';
 
 // Utils
@@ -185,7 +186,7 @@ export const Organizations: React.FC = () => {
       )}
 
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rowHeight={52}
           rows={organizations}
           columns={orgCols}
@@ -196,22 +197,6 @@ export const Organizations: React.FC = () => {
               disableExport: true,
               hasActiveFilters: hasActiveFilters
             } as any,
-            panel: {
-              onClose: () => {
-                // Clear any incomplete filters when the panel closes and fetch unfiltered data.
-                // Prevents mismatch between filter model and applied filters.
-                const hasIncompleteFilters = filterModel.items.some(
-                  (item) => item.value === undefined
-                );
-
-                if (hasIncompleteFilters) {
-                  setFilterModel({ items: [] });
-                  setFilters({ items: [] });
-                  setHasActiveFilters(false);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                }
-              }
-            },
             columnsManagement: {
               disableResetButton: true,
               getTogglableColumns: (columns) => {
@@ -233,35 +218,35 @@ export const Organizations: React.FC = () => {
           filterModel={filterModel}
           onFilterModelChange={(model) => {
             const cleanedModel = cleanFilterModelItems(model, filterModel);
-            setFilterModel(cleanedModel);
             const emptyModel = isFilterModelEmpty(cleanedModel);
-            if (emptyModel) {
-              setHasActiveFilters(false);
-              return;
-            }
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!emptyModel);
 
             const shouldUpdate = shouldTriggerFilterUpdate(
               cleanedModel.items,
               filterModel.items
             );
 
-            setHasActiveFilters(cleanedModel.items.length !== 0);
             if (!shouldUpdate) {
               return;
             }
 
             if (filterTimerRef.current) {
               clearTimeout(filterTimerRef.current);
+              filterTimerRef.current = null;
+            }
+
+            if (emptyModel) {
+              setFilters({ items: [] });
+              return;
             }
 
             filterTimerRef.current = window.setTimeout(() => {
               setIsLoading(true);
-
               setFilters({ items: cleanedModel.items });
-
               setPaginationModel((prev) => ({ ...prev, page: 0 }));
               filterTimerRef.current = null;
-            }, 1000);
+            }, 500);
           }}
           sortingMode="server"
           sortModel={sortModel}

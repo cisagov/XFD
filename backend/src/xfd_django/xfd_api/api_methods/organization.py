@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 
 # Third-Party Libraries
 from django.core.paginator import Paginator
+from django.db import IntegrityError
 from django.db.models import Q
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import (
@@ -27,7 +28,7 @@ from ..auth import (
     is_org_admin,
     is_regional_admin,
 )
-from ..helpers.filter_helpers import apply_organization_filters
+from ..helpers.filter_helpers import active_organizations, apply_organization_filters
 from ..helpers.regionStateMap import REGION_STATE_MAP
 from ..helpers.uuid_helpers import is_valid_uuid
 from ..schema_models import organization_schema
@@ -55,7 +56,8 @@ def list_organizations(current_user):
 
         # Fetch organizations with related userRoles and tags
         organizations = (
-            Organization.objects.prefetch_related("tags", "user_roles")
+            active_organizations()
+            .prefetch_related("tags", "user_roles")
             .filter(**org_filter)
             .order_by("name")
         )
@@ -143,6 +145,9 @@ def get_organization(organization_id, current_user):
         )
 
         if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        if organization.retired:
             raise HTTPException(status_code=404, detail="Organization not found")
 
         # Fetch scan tasks related to the organization, limited to 10 most recent
@@ -274,24 +279,28 @@ def get_by_state(state, current_user):
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch organizations based on the provided state
-    organizations = Organization.objects.filter(state=state).values(
-        "id",
-        "created_at",
-        "updated_at",
-        "acronym",
-        "name",
-        "root_domains",
-        "ip_blocks",
-        "is_passive",
-        "pending_domains",
-        "country",
-        "state",
-        "region_id",
-        "state_fips",
-        "state_name",
-        "county",
-        "county_fips",
-        "type",
+    organizations = (
+        active_organizations()
+        .filter(state=state)
+        .values(
+            "id",
+            "created_at",
+            "updated_at",
+            "acronym",
+            "name",
+            "root_domains",
+            "ip_blocks",
+            "is_passive",
+            "pending_domains",
+            "country",
+            "state",
+            "region_id",
+            "state_fips",
+            "state_name",
+            "county",
+            "county_fips",
+            "type",
+        )
     )
 
     if not organizations:
@@ -316,24 +325,28 @@ def get_by_region(region_id, current_user):
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch organizations based on the provided state
-    organizations = Organization.objects.filter(region_id=region_id).values(
-        "id",
-        "created_at",
-        "updated_at",
-        "acronym",
-        "name",
-        "root_domains",
-        "ip_blocks",
-        "is_passive",
-        "pending_domains",
-        "country",
-        "state",
-        "region_id",
-        "state_fips",
-        "state_name",
-        "county",
-        "county_fips",
-        "type",
+    organizations = (
+        active_organizations()
+        .filter(region_id=region_id)
+        .values(
+            "id",
+            "created_at",
+            "updated_at",
+            "acronym",
+            "name",
+            "root_domains",
+            "ip_blocks",
+            "is_passive",
+            "pending_domains",
+            "country",
+            "state",
+            "region_id",
+            "state_fips",
+            "state_name",
+            "county",
+            "county_fips",
+            "type",
+        )
     )
 
     if not organizations:
@@ -357,7 +370,8 @@ def get_all_regions(current_user):
 
         # Fetch distinct region_id values
         regions = (
-            Organization.objects.exclude(region_id__isnull=True)
+            active_organizations()
+            .exclude(region_id__isnull=True)
             .values("region_id")
             .distinct()
         )
@@ -381,7 +395,8 @@ def get_all_region_ids(current_user) -> list:
             raise HTTPException(status_code=403, detail="Unauthorized")
 
         regions_qs = (
-            Organization.objects.exclude(region_id__isnull=True)
+            active_organizations()
+            .exclude(region_id__isnull=True)
             .values_list("region_id", flat=True)
             .distinct()
         )
@@ -777,6 +792,41 @@ def delete_organization(org_id: str, current_user):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _build_add_user_to_org_v2_response(role: Role) -> dict:
+    """Build the response payload for add_user_to_org_v2."""
+    return {
+        "id": str(role.id),
+        "user": {
+            "id": str(role.user.id),
+            "email": role.user.email,
+            "first_name": role.user.first_name,
+            "last_name": role.user.last_name,
+        },
+        "organization": {
+            "id": str(role.organization.id),
+            "name": role.organization.name,
+        },
+        "role": role.role,
+        "approved": role.approved,
+        "approved_by": (
+            {
+                "id": str(role.approved_by.id),
+                "email": role.approved_by.email,
+            }
+            if role.approved_by
+            else None
+        ),
+        "created_by": (
+            {
+                "id": str(role.created_by.id),
+                "email": role.created_by.email,
+            }
+            if role.created_by
+            else None
+        ),
+    }
+
+
 # POST: /v2/organizations/{organization_id}/users
 def add_user_to_org_v2(organization_id: str, user_data, current_user):
     """Add a user to a particular organization."""
@@ -806,7 +856,18 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
         except User.DoesNotExist:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        # Prepare the new role data
+        existing_role = Role.objects.filter(
+            user_id=user.id, organization_id=organization.id
+        ).first()
+        if existing_role:
+            LOGGER.info(
+                "User %s already has role %s for organization %s; returning existing role.",
+                user.id,
+                existing_role.id,
+                organization.id,
+            )
+            return _build_add_user_to_org_v2_response(existing_role)
+
         new_role_data = {
             "user": user,
             "organization": organization,
@@ -816,36 +877,31 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
             "created_by": current_user,
         }
 
-        # Create the new role object
-        new_role = Role.objects.create(**new_role_data)
+        try:
+            new_role = Role.objects.create(**new_role_data)
+        except IntegrityError:
+            # Concurrent duplicate assignment; return the existing role if present.
+            existing_role = Role.objects.filter(
+                user_id=user.id, organization_id=organization.id
+            ).first()
+            if existing_role:
+                LOGGER.info(
+                    "Concurrent duplicate role assignment for user %s and organization %s; "
+                    "returning existing role %s.",
+                    user.id,
+                    organization.id,
+                    existing_role.id,
+                )
+                return _build_add_user_to_org_v2_response(existing_role)
+            raise
 
-        # Return the created role in the response
-        return {
-            "id": str(new_role.id),
-            "user": {
-                "id": str(new_role.user.id),
-                "email": new_role.user.email,
-                "first_name": new_role.user.first_name,
-                "last_name": new_role.user.last_name,
-            },
-            "organization": {
-                "id": str(new_role.organization.id),
-                "name": new_role.organization.name,
-            },
-            "role": new_role.role,
-            "approved": new_role.approved,
-            "approved_by": {
-                "id": str(new_role.approved_by.id),
-                "email": new_role.approved_by.email,
-            },
-            "created_by": {
-                "id": str(new_role.created_by.id),
-                "email": new_role.created_by.email,
-            },
-        }
+        return _build_add_user_to_org_v2_response(new_role)
 
     except HTTPException as http_exc:
         raise http_exc
+
+    except IntegrityError:
+        raise
 
     except Exception as e:
         LOGGER.error("Error occurred while adding user to organization: %s", e)
@@ -1158,6 +1214,11 @@ def search_organizations_task(search_body, current_user: User):
             query_body["query"]["bool"]["filter"].append(
                 {"terms": {"region_id": search_body.regions}}
             )
+
+        # Exclude retired organizations (documents without the field remain visible)
+        query_body["query"]["bool"]["filter"].append(
+            {"bool": {"must_not": {"term": {"retired": True}}}}
+        )
 
         # Log the query for debugging
         LOGGER.debug("Query body: %s", query_body)

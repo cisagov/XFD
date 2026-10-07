@@ -10,6 +10,10 @@ interface StaticsContextProviderProps {
   children: React.ReactNode;
 }
 
+type RegionsResponse = {
+  region_id: string;
+}[];
+
 export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
   children
 }) => {
@@ -21,7 +25,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
   const { apiGet, user } = useAuthContext();
   const fetchRegions = useCallback(async () => {
     try {
-      const results = await apiGet(ENDPOINTS.REGIONS);
+      const results = await apiGet<RegionsResponse>(ENDPOINTS.REGIONS);
       setRegions(
         results
           .map((region: { region_id: string }) => region.region_id)

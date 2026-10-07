@@ -664,7 +664,7 @@ def test_create_saved_search_with_unauthorized_filters_fails(
     )
     assert unauth_response.status_code == 403
     assert unauth_response.json() == {
-        "detail": "You do not have permission to perform this action."
+        "detail": "Cannot save filters for organizations you do not have access to."
     }
 
     # Cleanup
@@ -742,9 +742,7 @@ def test_create_saved_search_with_default_standard_user_filters_fails(
         },
     )
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Cannot save default region filter."}
 
     # Cleanup
     authorized_org.delete()
@@ -789,5 +787,5 @@ def test_create_saved_search_with_default_admin_user_filters_fails(create_global
     )
     assert response.status_code == 403
     assert response.json() == {
-        "detail": "You do not have permission to perform this action."
+        "detail": "Cannot save default region filter for admin users."
     }

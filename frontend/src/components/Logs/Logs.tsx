@@ -16,13 +16,13 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import {
-  DataGrid,
   GridColDef,
   GridFilterItem,
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 
 // Components
+import CustomDataGrid from '../DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 // Context
@@ -117,7 +117,10 @@ export const Logs: FC<LogsProps> = () => {
         endpoint === ENDPOINTS.LOGS_FILTERED_SEARCH
           ? { page: 1, page_size: PAGE_SIZE, filters: tableFilters }
           : {};
-      const results = await apiPost(endpoint, { body });
+      const results = await apiPost<{ count: number; result: LogDetails[] }>(
+        endpoint,
+        { body }
+      );
 
       if (!results || !Array.isArray(results.result)) {
         logger.error('Logs.fetchLogs: Invalid response format', {
@@ -457,7 +460,7 @@ export const Logs: FC<LogsProps> = () => {
   return (
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rows={logs.result}
           columns={logCols}
           filterMode="server"

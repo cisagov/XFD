@@ -71,11 +71,12 @@ This quickstart describes the initial setup required to run an instance of Cross
       npm start
    ```
 
-4. Generate the P&E DB Schema:
+4. Copy environment and initialize P&E (see [P&E runbook](./pe.md) for full steps):
 
    ```bash
-   cd backend
-   npm run pesyncdb
+   cp dev.env.example .env          # repo root, if you don't have .env yet
+   npm start
+   make -C backend/pe syncdb-populate
    ```
 
 5. Invoke scans by running below. You can edit the backend/src/tools/run-scanExecution.ts to run the desired scan type."

@@ -161,37 +161,32 @@ export const normalizeVulnFilters = (
   return result;
 };
 
+export const getActiveItems = (items: GridFilterItem[]) =>
+  items.filter(
+    (item) =>
+      item.value !== undefined && item.value !== null && item.value !== ''
+  );
+
 export const shouldTriggerFilterUpdate = (
   newItems: GridFilterItem[],
   previousItems: GridFilterItem[]
 ): boolean => {
-  const newComplete = newItems.filter(
-    (item) =>
-      item.value !== undefined && item.value !== null && item.value !== ''
-  );
+  const newActive = getActiveItems(newItems);
+  const prevActive = getActiveItems(previousItems);
 
-  const prevComplete = previousItems.filter(
-    (item) =>
-      item.value !== undefined && item.value !== null && item.value !== ''
-  );
-
-  // Check intermediate state
-  if (
-    prevComplete.length > 0 &&
-    newComplete.length === 0 &&
-    newItems.length > 0
-  ) {
-    return false;
-  }
-
-  // Different lengths = different filters
-  if (newComplete.length !== prevComplete.length) {
+  // If both are empty, only trigger if previous had values and new does not (i.e., a value was cleared)
+  if (prevActive.length > 0 && newActive.length === 0) {
     return true;
   }
 
-  // Compare each filter item
-  return newComplete.some((newItem, index) => {
-    const prevItem = prevComplete[index];
+  // If different lengths, trigger
+  if (newActive.length !== prevActive.length) {
+    return true;
+  }
+
+  // Compare each active filter item
+  return newActive.some((newItem, index) => {
+    const prevItem = prevActive[index];
     return (
       newItem.field !== prevItem.field ||
       newItem.operator !== prevItem.operator ||

@@ -1,0 +1,472 @@
+"""Tests for the WAS stakeholder administration CLI."""
+
+# Standard Python Libraries
+import argparse
+from contextlib import redirect_stderr
+import csv
+from io import StringIO
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import Mock, patch
+
+# Third-Party Libraries
+# First-Party Libraries
+from was_reports.commands import stakeholders_cli
+
+
+class StakeholdersCliTests(unittest.TestCase):
+    """Validate stakeholder command safety and output behavior."""
+
+    def test_date_input_accepts_yyyy_mm_dd(self) -> None:
+        """Convert exact date-only input to midnight UTC epoch seconds."""
+        self.assertEqual(
+            stakeholders_cli.stakeholder_date_value("2026-09-16"),
+            1789516800,
+        )
+
+    def test_date_input_rejects_non_padded_date(self) -> None:
+        """Require date-only input to use the approved format."""
+        with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
+            stakeholders_cli.normalize_stakeholder_update(
+                "last_scanned",
+                "2026-9-6",
+            )
+
+    def test_tag_input_rejects_whitespace(self) -> None:
+        """Reject customer tags containing spaces or other whitespace."""
+        with self.assertRaisesRegex(argparse.ArgumentTypeError, "whitespace"):
+            stakeholders_cli.stakeholder_tag_value("CUSTOMER TAG")
+
+    def test_add_rejects_overlong_named_field_before_database(self) -> None:
+        """Identify an oversized stakeholder value and its exact field."""
+        standard_error = StringIO()
+
+        with redirect_stderr(standard_error), self.assertRaises(SystemExit):
+            stakeholders_cli.main(
+                [
+                    "add",
+                    "--tag",
+                    "TAG1",
+                    "--customer-name",
+                    "x" * 513,
+                    "--ci-type",
+                    "CI_CHEMICAL",
+                    "--testing-sector",
+                    "Other",
+                    "--frequency",
+                    "Monthly",
+                    "--state",
+                    "VA",
+                    "--confirm",
+                ]
+            )
+
+        self.assertIn(
+            "customer_name must be 512 characters or fewer",
+            standard_error.getvalue(),
+        )
+
+    def test_add_rejects_overlong_schema_field_before_database(self) -> None:
+        """Apply database column limits to the other named creation fields."""
+        standard_error = StringIO()
+
+        with redirect_stderr(standard_error), self.assertRaises(SystemExit):
+            stakeholders_cli.main(
+                [
+                    "add",
+                    "--tag",
+                    "TAG1",
+                    "--customer-name",
+                    "Customer",
+                    "--ci-type",
+                    "CI_CHEMICAL",
+                    "--testing-sector",
+                    "Other",
+                    "--frequency",
+                    "x" * 65,
+                    "--state",
+                    "VA",
+                    "--confirm",
+                ]
+            )
+
+        self.assertIn(
+            "frequency must be 64 characters or fewer",
+            standard_error.getvalue(),
+        )
+
+    @patch(
+        "was_reports.commands.stakeholders_cli.get_stakeholder_record_by_tag",
+        side_effect=KeyError("not found"),
+    )
+    @patch("was_reports.commands.stakeholders_cli.create_stakeholder_in_db")
+    def test_add_rejects_unknown_parent_tag_with_specific_message(
+        self,
+        mock_create,
+        mock_get_record,
+    ) -> None:
+        """Explain a missing parent tag without relying on a database FK error."""
+        standard_error = StringIO()
+
+        with redirect_stderr(standard_error):
+            exit_code = stakeholders_cli.main(
+                [
+                    "add",
+                    "--tag",
+                    "TAG1",
+                    "--customer-name",
+                    "Customer",
+                    "--ci-type",
+                    "CI_CHEMICAL",
+                    "--testing-sector",
+                    "Other",
+                    "--frequency",
+                    "Monthly",
+                    "--state",
+                    "VA",
+                    "--parent-tag",
+                    "UNKNOWN",
+                    "--confirm",
+                ]
+            )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn(
+            "parent_tag UNKNOWN does not match an existing stakeholder tag",
+            standard_error.getvalue(),
+        )
+        mock_create.assert_not_called()
+
+    def test_required_field_cannot_be_cleared(self) -> None:
+        """Prevent update commands from nulling required stakeholder fields."""
+        arguments = Mock(set_values=[], clear_values=["testing_sector"])
+        with self.assertRaisesRegex(ValueError, "cannot be cleared"):
+            stakeholders_cli.stakeholder_updates(arguments)
+
+    def test_subtype_can_be_cleared(self) -> None:
+        """Allow the optional stakeholder subtype to be stored as null."""
+        arguments = Mock(set_values=[], clear_values=["subtype"])
+
+        self.assertEqual(
+            stakeholders_cli.stakeholder_updates(arguments),
+            {"subtype": None},
+        )
+
+    def test_state_update_requires_exact_uppercase_valid_code(self) -> None:
+        """Reject lowercase and unknown stakeholder state codes."""
+        for invalid_state in ("wy", "Wz"):
+            with self.subTest(state=invalid_state), self.assertRaisesRegex(
+                ValueError,
+                "uppercase|valid",
+            ):
+                stakeholders_cli.normalize_stakeholder_update(
+                    "state",
+                    invalid_state,
+                )
+
+        self.assertEqual(
+            stakeholders_cli.normalize_stakeholder_update("state", "WY"),
+            "WY",
+        )
+        self.assertEqual(
+            stakeholders_cli.normalize_stakeholder_update(
+                "state",
+                "INTERNATIONAL",
+            ),
+            "INTERNATIONAL",
+        )
+
+    @patch(
+        "was_reports.commands.stakeholders_cli." "update_stakeholder_contacts_for_tag"
+    )
+    def test_update_contacts_requires_confirmation(self, mock_update) -> None:
+        """Reject stakeholder mutations without explicit confirmation."""
+        exit_code = stakeholders_cli.main(
+            [
+                "update-contacts",
+                "--tag",
+                "TAG1",
+                "--was-report-poc",
+                "Analyst Name",
+            ]
+        )
+
+        self.assertEqual(exit_code, 1)
+        mock_update.assert_not_called()
+
+    @patch(
+        "was_reports.commands.stakeholders_cli." "update_stakeholder_contacts_for_tag"
+    )
+    def test_update_contacts_passes_only_supplied_fields(self, mock_update) -> None:
+        """Pass validated updates to the stakeholder data service."""
+        exit_code = stakeholders_cli.main(
+            [
+                "update-contacts",
+                "--tag",
+                "TAG1",
+                "--tech-poc-email",
+                "tech@example.gov; backup@example.gov",
+                "--clear-distro-email",
+                "--confirm",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_update.assert_called_once_with(
+            tag="TAG1",
+            updates={
+                "tech_poc_email": "tech@example.gov; backup@example.gov",
+                "distro_email": None,
+            },
+        )
+
+    @patch("was_reports.commands.stakeholders_cli.display_stakeholder_record")
+    @patch("was_reports.commands.stakeholders_cli.get_stakeholder_record_by_tag")
+    def test_show_displays_exact_stakeholder_tag(
+        self,
+        mock_get_record,
+        mock_display_record,
+    ) -> None:
+        """Retrieve and display the stakeholder matching the supplied tag."""
+        mock_get_record.return_value = {"tag": "TAG1"}
+
+        exit_code = stakeholders_cli.main(["show", "--tag", "TAG1"])
+
+        self.assertEqual(exit_code, 0)
+        mock_get_record.assert_called_once_with("TAG1")
+        mock_display_record.assert_called_once_with({"tag": "TAG1"})
+
+    def test_stakeholder_display_formats_epoch_dates_as_utc(self) -> None:
+        """Render stored epoch fields as readable UTC with the raw value."""
+        output = Mock()
+
+        stakeholders_cli.display_stakeholder_record(
+            {
+                "tag": "TAG1",
+                "last_scanned": 1789257600,
+                "comments": "Visible comment",
+            },
+            output=output,
+        )
+
+        displayed_lines = [call.args[0] for call in output.call_args_list]
+        self.assertTrue(
+            any(
+                "2026-09-13 00:00:00 UTC (epoch 1789257600)" in line
+                for line in displayed_lines
+            )
+        )
+
+    def test_stakeholder_display_marks_invalid_epoch(self) -> None:
+        """Show malformed legacy timestamps without breaking the row view."""
+        self.assertEqual(
+            stakeholders_cli.stakeholder_display_value(
+                "last_scanned",
+                "not-an-epoch",
+            ),
+            "not-an-epoch (invalid epoch timestamp)",
+        )
+
+    def test_stakeholder_display_truncates_long_table_values(self) -> None:
+        """Keep the summary table compact before optional full-field output."""
+        output = Mock()
+        full_comment = "Complete stakeholder comment " * 5
+
+        stakeholders_cli.display_stakeholder_record(
+            {"tag": "TAG1", "comments": full_comment},
+            output=output,
+        )
+
+        displayed_lines = [call.args[0] for call in output.call_args_list]
+        self.assertFalse(any(full_comment in line for line in displayed_lines))
+        self.assertTrue(any("..." in line for line in displayed_lines))
+
+    @patch("was_reports.commands.stakeholders_cli.display_stakeholder_record")
+    @patch("was_reports.commands.stakeholders_cli.get_stakeholder_record_by_tag")
+    @patch("was_reports.commands.stakeholders_cli.update_stakeholder_fields_for_tag")
+    def test_general_update_validates_and_updates_selected_fields(
+        self,
+        mock_update,
+        mock_get_record,
+        mock_display_record,
+    ) -> None:
+        """Update typed values and SQL NULL without touching other columns."""
+        mock_get_record.return_value = {"tag": "TAG1", "retired": True}
+
+        exit_code = stakeholders_cli.main(
+            [
+                "update",
+                "--tag",
+                "TAG1",
+                "--set",
+                "retired=true",
+                "--set",
+                "num_web_apps=3",
+                "--clear",
+                "comments",
+                "--confirm",
+            ]
+        )
+
+        self.assertEqual(exit_code, 0)
+        mock_update.assert_called_once_with(
+            tag="TAG1",
+            updates={"retired": True, "num_web_apps": 3, "comments": None},
+        )
+        mock_display_record.assert_called_once_with({"tag": "TAG1", "retired": True})
+
+    def test_sensitive_export_requires_separate_confirmation(self) -> None:
+        """Reject password export without its explicit confirmation flag."""
+        exit_code = stakeholders_cli.main(
+            [
+                "export-csv",
+                "--output",
+                "/tmp/stakeholders.csv",
+                "--include-report-passwords",
+            ]
+        )
+
+        self.assertEqual(exit_code, 1)
+
+    @patch("was_reports.commands.stakeholders_cli.upload_stakeholder_export")
+    @patch(
+        "was_reports.commands.stakeholders_cli." "list_stakeholders_for_export_from_db"
+    )
+    def test_export_can_upload_directly_to_s3(
+        self,
+        mock_list_stakeholders,
+        mock_upload,
+    ) -> None:
+        """Generate one temporary CSV and upload it to configured S3."""
+        mock_list_stakeholders.return_value = (["tag"], [("TAG1",)])
+        mock_upload.return_value = "s3://reports/was_reports/export.csv"
+
+        exit_code = stakeholders_cli.main(["export-csv", "--s3"])
+
+        self.assertEqual(exit_code, 0)
+        uploaded_path = mock_upload.call_args.args[0]
+        self.assertEqual(uploaded_path.name, "was-stakeholders.csv")
+
+    @patch("was_reports.commands.stakeholders_cli.send_message")
+    @patch("was_reports.commands.stakeholders_cli.create_ses_client")
+    @patch("was_reports.commands.stakeholders_cli.build_stakeholder_export_email")
+    @patch("was_reports.commands.stakeholders_cli.approved_analyst_recipients")
+    @patch(
+        "was_reports.commands.stakeholders_cli." "list_stakeholders_for_export_from_db"
+    )
+    def test_export_can_email_active_assignee(
+        self,
+        mock_list_stakeholders,
+        mock_recipients,
+        mock_build_message,
+        mock_create_ses_client,
+        mock_send_message,
+    ) -> None:
+        """Email the temporary export only after assignee validation."""
+        mock_list_stakeholders.return_value = (["tag"], [("TAG1",)])
+        mock_recipients.return_value = ["analyst@example.gov"]
+        mock_send_message.return_value = "message-id"
+
+        with patch.dict(
+            "os.environ",
+            {"WAS_EMAIL_SOURCE": "reports@example.gov"},
+            clear=False,
+        ):
+            exit_code = stakeholders_cli.main(
+                [
+                    "export-csv",
+                    "--email-assignee",
+                    "analyst@example.gov",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        mock_recipients.assert_called_once_with("analyst@example.gov")
+        mock_build_message.assert_called_once()
+        mock_send_message.assert_called_once_with(
+            mock_create_ses_client.return_value,
+            mock_build_message.return_value,
+        )
+
+    @patch(
+        "was_reports.commands.stakeholders_cli." "list_stakeholders_for_export_from_db"
+    )
+    def test_password_export_cannot_be_emailed(
+        self,
+        mock_list_stakeholders,
+    ) -> None:
+        """Keep stakeholder report passwords out of email attachments."""
+        exit_code = stakeholders_cli.main(
+            [
+                "export-csv",
+                "--email-assignee",
+                "analyst@example.gov",
+                "--include-report-passwords",
+                "--confirm-sensitive-export",
+            ]
+        )
+
+        self.assertEqual(exit_code, 1)
+        mock_list_stakeholders.assert_not_called()
+
+    def test_write_stakeholder_csv_is_private_and_spreadsheet_safe(self) -> None:
+        """Write owner-only CSV output and neutralize formula text."""
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "stakeholders.csv"
+            stakeholders_cli.write_stakeholder_csv(
+                columns=["tag", "comments", "report_password"],
+                rows=[("TAG1", "=DANGEROUS()", "+ExactPassword")],
+                output_path=output_path,
+            )
+            with output_path.open("r", encoding="utf-8", newline="") as csv_file:
+                rows = list(csv.reader(csv_file))
+            permissions = os.stat(output_path).st_mode & 0o777
+
+        self.assertEqual(rows[1][1], "'=DANGEROUS()")
+        self.assertEqual(rows[1][2], "+ExactPassword")
+        self.assertEqual(permissions, 0o600)
+
+    def test_write_stakeholder_csv_formats_epoch_dates_as_utc(self) -> None:
+        """Convert stakeholder epoch columns into readable UTC timestamps."""
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "stakeholders.csv"
+            stakeholders_cli.write_stakeholder_csv(
+                columns=[
+                    "tag",
+                    "last_scanned",
+                    "next_scheduled",
+                    "onboarding_date",
+                    "web_apps_last_updated",
+                ],
+                rows=[
+                    (
+                        "TAG1",
+                        0,
+                        1789257600,
+                        None,
+                        1786620284,
+                    )
+                ],
+                output_path=output_path,
+            )
+            with output_path.open("r", encoding="utf-8", newline="") as csv_file:
+                rows = list(csv.reader(csv_file))
+
+        self.assertEqual(rows[1][1], "1970-01-01 00:00:00 UTC")
+        self.assertEqual(rows[1][2], "2026-09-13 00:00:00 UTC")
+        self.assertEqual(rows[1][3], "")
+        self.assertEqual(rows[1][4], "2026-08-13 11:24:44 UTC")
+
+    def test_stakeholder_export_rejects_invalid_epoch_dates(self) -> None:
+        """Reject invalid stored epoch values instead of misreporting dates."""
+        with self.assertRaisesRegex(ValueError, "invalid epoch"):
+            stakeholders_cli.stakeholder_export_value(
+                "last_scanned",
+                "not-an-epoch",
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

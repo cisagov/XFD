@@ -14,7 +14,7 @@ const baseProps = {
 it('returns user columns', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: null,
+      loggedInUser: null,
       ...baseProps
     })
   );
@@ -29,7 +29,7 @@ it('returns user columns', () => {
 it('limits string columns to equals and contains filters', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: null,
+      loggedInUser: null,
       ...baseProps
     })
   );
@@ -44,7 +44,7 @@ it('limits string columns to equals and contains filters', () => {
 it('restricts Approval Date filter operators', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: null,
+      loggedInUser: null,
       ...baseProps
     })
   );
@@ -62,7 +62,7 @@ it('restricts Approval Date filter operators', () => {
 it('restricts Last Logged In filter operators', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: null,
+      loggedInUser: null,
       ...baseProps
     })
   );
@@ -80,7 +80,7 @@ it('restricts Last Logged In filter operators', () => {
 it('adds delete column for global admin users', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: { user_type: 'globalAdmin' },
+      loggedInUser: { user_type: 'globalAdmin' },
       ...baseProps
     })
   );
@@ -94,7 +94,7 @@ it('adds delete column for global admin users', () => {
 it('does not add delete column for non-admin users', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: { user_type: 'regionalAdmin' },
+      loggedInUser: { user_type: 'regionalAdmin' },
       ...baseProps
     })
   );
@@ -107,7 +107,7 @@ it('does not add delete column for non-admin users', () => {
 it('keeps action columns non-filterable', () => {
   const { result } = renderHook(() =>
     useUserColumns({
-      user: null,
+      loggedInUser: null,
       ...baseProps
     })
   );

@@ -6,12 +6,9 @@ import os
 from django.core.management.base import BaseCommand
 from django.db import connections
 from xfd_api.tasks.helpers.syncdb_helpers.adjust_columns import adjust_column_types
-from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
-    populate_sample_data,
-    populate_scan_results,
-)
-from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (
+from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (  # sync_es_cves,
     manage_elasticsearch_indices,
+    sync_es_cves,
     sync_es_organizations,
 )
 from xfd_api.tasks.helpers.syncdb_helpers.fill_static_tables import (
@@ -137,18 +134,33 @@ class Command(BaseCommand):
         # Step 4: Populate Sample Data
         if populate:
             self.stdout.write("Populating the database with sample data...")
-            populate_sample_data()
+            if os.getenv("IS_DMZ") or os.getenv("IS_LOCAL"):
+                # Third-Party Libraries
+                from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+                    populate_sample_data,
+                )
+
+                populate_sample_data()
 
             self.stdout.write("Sample data population complete.")
 
             # Step 4.1: Sync domains in ES
             sync_es_domains({})
 
-        # Step 5: Sync organizations in ES
+            # Step 4.2: Sync CVEs in ES - moved here to ensure CVEs are synced inside the populate block to avoid erroring out when no Vulnerability Materialized Views exist yet.
+            sync_es_cves()
+
+        # Step 5: Sync organizations in ES - may not be needed since sync_es_domains() already syncs organizations, but keeping it for completeness
         sync_es_organizations()
 
         # Step 6: Populate Scan Results
         if metrics:
-            self.stdout.write("Generating scan results...")
-            populate_scan_results()
-            self.stdout.write("Scan results population complete.")
+            if os.getenv("IS_DMZ") or os.getenv("IS_LOCAL"):
+                # Third-Party Libraries
+                from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+                    populate_scan_results,
+                )
+
+                self.stdout.write("Generating scan results...")
+                populate_scan_results()
+                self.stdout.write("Scan results population complete.")

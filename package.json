@@ -3,8 +3,7 @@
     "url": "https://github.com/cisagov/crossfeed/issues"
   },
   "dependencies": {
-    "date-fns-tz": "^3.2.0",
-    "fs": "^0.0.1-security"
+    "date-fns-tz": "^3.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
@@ -21,6 +20,7 @@
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^15.14.0",
     "jsonc-eslint-parser": "^2.4.0",
+    "lodash": "^4.18.1",
     "prettier": "^3.6.2",
     "ts-prune": "^0.10.3",
     "typescript": "^4.0.0",
