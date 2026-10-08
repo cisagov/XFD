@@ -25,6 +25,7 @@ from was_reports.tracker.models import (
     TrackerStakeholder,
 )
 from was_reports.tracker.update_service import (
+    DEACTIVATION_COMPLETE_NOTE,
     QualysDeletionPreflightError,
     build_tracker_row,
     combined_email_value,
@@ -1071,6 +1072,112 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertEqual(
             cursor.execute.call_args.args[1],
             ("Targets Removed", "", 17, "MANUAL QUALYS DELETION PENDING"),
+        )
+
+    def test_all_target_deletion_finalizes_deactivation_and_zero_inventory(
+        self,
+    ) -> None:
+        """Record the terminal no-target state without creating report work."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        row = DailyReportTrackerRow(
+            tag="TAG",
+            nws="1, 1, 1",
+            template="Deactivated",
+            report_scan_notes="DEACTIVATE",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=row,
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        delete.assert_called_once()
+        finalization_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "UPDATE was_daily_report_tracker SET template" in str(call.args[0])
+        )
+        self.assertEqual(
+            finalization_call.args[1],
+            (
+                "Deactivated",
+                DEACTIVATION_COMPLETE_NOTE,
+                17,
+                "MANUAL QUALYS DELETION PENDING",
+            ),
+        )
+        inventory_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "SET num_web_apps = 0" in str(call.args[0])
+        )
+        self.assertEqual(inventory_call.args[1], ("TAG",))
+        self.assertNotIn("retired", str(inventory_call.args[0]))
+        self.assertEqual(conn.commit.call_count, 2)
+
+    def test_partial_target_deletion_does_not_zero_stakeholder_inventory(
+        self,
+    ) -> None:
+        """Keep ordinary Targets Removed behavior when web applications remain."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        row = DailyReportTrackerRow(
+            tag="TAG",
+            nws="2, 1, 1",
+            template="Targets Removed",
+            report_scan_notes="",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=row,
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        finalization_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "UPDATE was_daily_report_tracker SET template" in str(call.args[0])
+        )
+        self.assertEqual(
+            finalization_call.args[1],
+            ("Targets Removed", "", 17, "MANUAL QUALYS DELETION PENDING"),
+        )
+        self.assertFalse(
+            any(
+                "SET num_web_apps = 0" in str(call.args[0])
+                for call in cursor.execute.call_args_list
+            )
         )
 
     def test_distinct_qualys_error_does_not_block_nws_deletion(self) -> None:

@@ -57,6 +57,9 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 EASTERN_TIME = ZoneInfo("America/New_York")
+DEACTIVATION_COMPLETE_NOTE = (
+    "DEACTIVATE: No web applications remain after automatic NWS deletion."
+)
 
 
 class QualysDeletionPreflightError(RuntimeError):
@@ -843,13 +846,18 @@ def update_execution(
             )
             completed_deletions += 1
         deletion_phase = "finalize"
+        final_template = row.template or "Targets Removed"
+        final_report_scan_notes = row.report_scan_notes or ""
+        deactivation_completed = final_template == "Deactivated"
+        if deactivation_completed:
+            final_report_scan_notes = DEACTIVATION_COMPLETE_NOTE
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE was_daily_report_tracker SET template = %s, report_scan_notes = %s "
                 "WHERE id = %s AND report_scan_notes = %s",
                 (
-                    "Targets Removed",
-                    "",
+                    final_template,
+                    final_report_scan_notes,
                     row_id,
                     QUALYS_DELETION_PENDING_NOTE,
                 ),
@@ -858,6 +866,20 @@ def update_execution(
                 raise RuntimeError(
                     "Tracker deletion claim changed; manual reconciliation is required."
                 )
+            if deactivation_completed:
+                cursor.execute(
+                    "UPDATE was_stakeholders "
+                    "SET num_web_apps = 0, "
+                    "web_apps_last_updated = EXTRACT(EPOCH FROM NOW())::BIGINT, "
+                    "updated_at = NOW() "
+                    "WHERE tag = %s",
+                    (item.tag,),
+                )
+                if cursor.rowcount != 1:
+                    raise RuntimeError(
+                        "Stakeholder inventory could not be finalized after deleting "
+                        "all web applications; manual reconciliation is required."
+                    )
         conn.commit()
     except Exception as error:
         retryable = completed_deletions == 0 and (
