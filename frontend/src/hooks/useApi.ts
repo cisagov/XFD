@@ -208,7 +208,7 @@ const sendClientTelemetry = (payload: any) => {
   }
 };
 
-const parseResponse = async (
+export const parseResponse = async (
   response: Response,
   parseAs?: ParseAs
 ): Promise<unknown> => {

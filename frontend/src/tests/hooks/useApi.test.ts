@@ -1,11 +1,20 @@
 import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, isApiError } from '../../hooks/useApi';
+import { ApiError, isApiError, parseResponse } from '../../hooks/useApi';
 import type { ApiResult } from '../../hooks/useApi';
 import { jsonResponse } from '../../test-utils/jsonResponse';
 
-describe('useApi', () => {
+/**
+ * Tests for the useApi hook.
+ */
+
+/**
+ * jsonResponse utility function for creating mock JSON responses in tests.
+ * Automatically sets the 'Content-Type' header to 'application/json' and serializes the body to JSON.
+ */
+
+describe('useApi hook tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -55,18 +64,37 @@ describe('useApi', () => {
     expect(headers.get('X-Test-Header')).toBe('test-value');
   });
 
+  it('does not include a body for GET requests', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse([]));
+
+    const { useApi } = await import('../../hooks/useApi');
+    const { result } = renderHook(() => useApi());
+
+    await act(async () => {
+      await result.current.apiGet<{ id: string; name: string }>('/items');
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+      RequestInfo | URL,
+      RequestInit
+    ];
+    expect(options.body).toBeUndefined();
+  });
+
   it.each([
     ['apiPost', 'POST'],
     ['apiDelete', 'DELETE']
   ] as const)('serializes JSON bodies for %s', async (apiMethod, method) => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse({ id: '1', name: 'new item' })
+    );
 
     const { useApi } = await import('../../hooks/useApi');
     const { result } = renderHook(() => useApi());
 
     await act(async () => {
       await result.current[apiMethod]<{ ok: boolean }>('/items', {
-        body: { name: 'example' }
+        body: { name: 'new item' }
       });
     });
 
@@ -78,364 +106,11 @@ describe('useApi', () => {
     ];
     expect(url).toEqual(expect.stringMatching(/\/items$/));
     expect(options.method).toBe(method);
-    expect(options.body).toBe(JSON.stringify({ name: 'example' }));
+    expect(options.body).toBe(JSON.stringify({ name: 'new item' }));
 
     const headers = new Headers(options.headers);
     expect(headers.get('Content-Type')).toBe('application/json');
     expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('returns blob data and response headers when requested', async () => {
-    const csv = new Blob(['name\nexample'], { type: 'text/csv' });
-
-    vi.mocked(global.fetch).mockResolvedValueOnce(
-      new Response(csv, {
-        headers: { 'Content-Disposition': 'attachment; filename="data.csv"' }
-      })
-    );
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    let apiResponse!: ApiResult<Blob>;
-
-    await act(async () => {
-      apiResponse = await result.current.apiGet<Blob>('/export', {
-        includeResponse: true,
-        parseAs: 'blob',
-        credentials: 'include'
-      });
-    });
-
-    expect(apiResponse.data.size).toBeGreaterThan(0);
-    expect(apiResponse.headers['content-disposition']).toBe(
-      'attachment; filename="data.csv"'
-    );
-    expect(apiResponse.rawResponse).toBeInstanceOf(Response);
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringMatching(/\/export$/),
-      expect.objectContaining({ credentials: 'include' })
-    );
-  });
-
-  it('does not include a body for GET requests', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiGet<{ ok: boolean }>('/items');
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    expect(options.body).toBeUndefined();
-  });
-
-  it('sets the correct headers for JSON requests', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiPost<{ ok: boolean }>('/items', {
-        body: { name: 'example' }
-      });
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    const headers = new Headers(options.headers);
-    expect(headers.get('Content-Type')).toBe('application/json');
-    expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('sets the correct headers for Blob requests if the blob has a type', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const body = new Blob(['test'], { type: 'text/csv' });
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiPost<{ ok: boolean }>('/items', {
-        body
-      });
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    const headers = new Headers(options.headers);
-
-    expect(headers.get('Content-Type')).toBe('text/csv');
-    expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('sets the correct headers for Blob requests if the blob has no type', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const body = new Blob(['test']);
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiPost<{ ok: boolean }>('/items', {
-        body
-      });
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    const headers = new Headers(options.headers);
-
-    expect(headers.get('Content-Type')).toBeNull();
-    expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('sets the correct headers for FormData requests', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const body = new FormData();
-    body.append('file', new Blob(['test'], { type: 'text/csv' }), 'test.csv');
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiPost<{ ok: boolean }>('/items', {
-        body
-      });
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    const headers = new Headers(options.headers);
-
-    expect(headers.get('Content-Type')).toBeNull();
-    expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('sets the correct headers for ArrayBuffer requests', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const body = new ArrayBuffer(8);
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiPost<{ ok: boolean }>('/items', {
-        body
-      });
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    const headers = new Headers(options.headers);
-
-    expect(headers.get('Content-Type')).toBe('application/octet-stream');
-    expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('sets the correct headers for URLSearchParams requests', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
-
-    const body = new URLSearchParams();
-    body.append('key', 'value');
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await act(async () => {
-      await result.current.apiPost<{ ok: boolean }>('/items', {
-        body
-      });
-    });
-
-    const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
-      RequestInfo | URL,
-      RequestInit
-    ];
-    const headers = new Headers(options.headers);
-
-    expect(headers.get('Content-Type')).toBe(
-      'application/x-www-form-urlencoded; charset=UTF-8'
-    );
-    expect(headers.get('Accept')).toBe('application/json');
-  });
-
-  it('throws an ApiError for 401 responses', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(
-      jsonResponse(
-        { detail: 'Unauthorized' },
-        {
-          status: 401,
-          statusText: 'Unauthorized',
-          headers: { 'x-amzn-requestid': 'request-id' }
-        }
-      )
-    );
-
-    const onError = vi.fn();
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi(onError));
-
-    await act(async () => {
-      await expect(result.current.apiGet('/protected')).rejects.toMatchObject({
-        isApiError: true,
-        name: 'ApiError',
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        message: 'Unauthorized',
-        headers: { 'x-amzn-requestid': 'request-id' },
-        payload: { detail: 'Unauthorized' },
-        payloadMessage: 'Unauthorized',
-        bodyUsed: true
-      });
-    });
-
-    expect(onError).toHaveBeenCalledTimes(1);
-    expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 401,
-        statusText: 'Unauthorized'
-      })
-    );
-    const errorArg = onError.mock.calls[0][0];
-    expect(errorArg).toBeInstanceOf(ApiError);
-    expect(isApiError(errorArg)).toBe(true);
-
-    if (isApiError(errorArg)) {
-      expect(errorArg.status).toBe(401);
-      expect(errorArg.statusText).toBe('Unauthorized');
-      expect(errorArg.message).toBe('Unauthorized');
-      expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
-      expect(errorArg.payload).toEqual({ detail: 'Unauthorized' });
-      expect(errorArg.payloadMessage).toBe('Unauthorized');
-    }
-  });
-
-  it('throws an ApiError for 403 responses', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(
-      jsonResponse(
-        { detail: 'Not allowed' },
-        {
-          status: 403,
-          statusText: 'Forbidden',
-          headers: { 'x-amzn-requestid': 'request-id' }
-        }
-      )
-    );
-
-    const onError = vi.fn();
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi(onError));
-
-    await act(async () => {
-      await expect(result.current.apiGet('/restricted')).rejects.toMatchObject({
-        isApiError: true,
-        name: 'ApiError',
-        ok: false,
-        status: 403,
-        statusText: 'Forbidden',
-        message: 'Not allowed',
-        headers: { 'x-amzn-requestid': 'request-id' },
-        payload: { detail: 'Not allowed' },
-        payloadMessage: 'Not allowed',
-        bodyUsed: true
-      });
-    });
-
-    expect(onError).toHaveBeenCalledTimes(1);
-    expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 403,
-        statusText: 'Forbidden'
-      })
-    );
-    const errorArg = onError.mock.calls[0][0];
-    expect(errorArg).toBeInstanceOf(ApiError);
-    expect(isApiError(errorArg)).toBe(true);
-
-    if (isApiError(errorArg)) {
-      expect(errorArg.status).toBe(403);
-      expect(errorArg.statusText).toBe('Forbidden');
-      expect(errorArg.message).toBe('Not allowed');
-      expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
-      expect(errorArg.payload).toEqual({ detail: 'Not allowed' });
-      expect(errorArg.payloadMessage).toBe('Not allowed');
-    }
-  });
-
-  it('throws an ApiError for 404 responses', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce(
-      jsonResponse(
-        { detail: 'Not found' },
-        {
-          status: 404,
-          statusText: 'Not Found',
-          headers: { 'x-amzn-requestid': 'request-id' }
-        }
-      )
-    );
-
-    const onError = vi.fn();
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi(onError));
-
-    await act(async () => {
-      await expect(result.current.apiGet('/nonexistent')).rejects.toMatchObject(
-        {
-          isApiError: true,
-          name: 'ApiError',
-          ok: false,
-          status: 404,
-          statusText: 'Not Found',
-          message: 'Not found',
-          headers: { 'x-amzn-requestid': 'request-id' },
-          payload: { detail: 'Not found' },
-          payloadMessage: 'Not found',
-          bodyUsed: true
-        }
-      );
-    });
-
-    expect(onError).toHaveBeenCalledTimes(1);
-    expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 404,
-        statusText: 'Not Found'
-      })
-    );
-    const errorArg = onError.mock.calls[0][0];
-    expect(errorArg).toBeInstanceOf(ApiError);
-    expect(isApiError(errorArg)).toBe(true);
-
-    if (isApiError(errorArg)) {
-      expect(errorArg.status).toBe(404);
-      expect(errorArg.statusText).toBe('Not Found');
-      expect(errorArg.message).toBe('Not found');
-      expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
-      expect(errorArg.payload).toEqual({ detail: 'Not found' });
-      expect(errorArg.payloadMessage).toBe('Not found');
-    }
   });
 
   it('tracks loading while a request is pending', async () => {
@@ -462,20 +137,231 @@ describe('useApi', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('does not convert network failures into ApiError', async () => {
-    vi.mocked(global.fetch).mockRejectedValueOnce(
-      new TypeError('Network failure')
-    );
+  describe('Response Parsing', () => {
+    it('returns valid JSON from a successful response', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        jsonResponse({ name: 'John Doe', id: 1 })
+      );
 
-    const onError = vi.fn().mockResolvedValue(undefined);
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi(onError));
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
 
-    await expect(result.current.apiGet('/network-failure')).rejects.toThrow(
-      'Network failure'
-    );
+      await act(async () => {
+        const response = await result.current.apiGet<{
+          name: string;
+          id: number;
+        }>('/users');
+        expect(response).toEqual({ name: 'John Doe', id: 1 });
+      });
+    });
 
-    expect(onError).toHaveBeenCalledTimes(1);
+    it('returns undefined for an empty successful JSON response', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse(undefined));
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        const response = await result.current.apiGet<undefined>('/items');
+        expect(response).toBeUndefined();
+      });
+    });
+
+    it('throws for malformed non-empty successful JSON responses', async () => {
+      // Simulate a malformed JSON response with a 200 status code
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response('{"malformed": "json"', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await expect(result.current.apiGet('/items')).rejects.toThrow();
+      });
+    });
+
+    it('returns blob data and response headers when requested', async () => {
+      const csv = new Blob(['name\nexample'], { type: 'text/csv' });
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(csv, {
+          headers: { 'Content-Disposition': 'attachment; filename="data.csv"' }
+        })
+      );
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let apiResponse!: ApiResult<Blob>;
+
+      await act(async () => {
+        apiResponse = await result.current.apiGet<Blob>('/export', {
+          includeResponse: true,
+          parseAs: 'blob',
+          credentials: 'include'
+        });
+      });
+
+      expect(apiResponse.data.size).toBeGreaterThan(0);
+      expect(apiResponse.headers['content-disposition']).toBe(
+        'attachment; filename="data.csv"'
+      );
+      expect(apiResponse.rawResponse).toBeInstanceOf(Response);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/export$/),
+        expect.objectContaining({ credentials: 'include' })
+      );
+    });
+  });
+
+  describe('Header Handling', () => {
+    it('sets the correct headers for JSON requests', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await result.current.apiPost<{ ok: boolean }>('/items', {
+          body: { name: 'example' }
+        });
+      });
+
+      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+        RequestInfo | URL,
+        RequestInit
+      ];
+      const headers = new Headers(options.headers);
+      expect(headers.get('Content-Type')).toBe('application/json');
+      expect(headers.get('Accept')).toBe('application/json');
+    });
+
+    it('sets the correct headers for Blob requests if the blob has a type', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const body = new Blob(['test'], { type: 'text/csv' });
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await result.current.apiPost<{ ok: boolean }>('/items', {
+          body
+        });
+      });
+
+      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+        RequestInfo | URL,
+        RequestInit
+      ];
+      const headers = new Headers(options.headers);
+
+      expect(headers.get('Content-Type')).toBe('text/csv');
+      expect(headers.get('Accept')).toBe('application/json');
+    });
+
+    it('sets the correct headers for Blob requests if the blob has no type', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const body = new Blob(['test']);
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await result.current.apiPost<{ ok: boolean }>('/items', {
+          body
+        });
+      });
+
+      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+        RequestInfo | URL,
+        RequestInit
+      ];
+      const headers = new Headers(options.headers);
+
+      expect(headers.get('Content-Type')).toBeNull();
+      expect(headers.get('Accept')).toBe('application/json');
+    });
+
+    it('sets the correct headers for FormData requests', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const body = new FormData();
+      body.append('file', new Blob(['test'], { type: 'text/csv' }), 'test.csv');
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await result.current.apiPost<{ ok: boolean }>('/items', {
+          body
+        });
+      });
+
+      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+        RequestInfo | URL,
+        RequestInit
+      ];
+      const headers = new Headers(options.headers);
+
+      expect(headers.get('Content-Type')).toBeNull();
+      expect(headers.get('Accept')).toBe('application/json');
+    });
+
+    it('sets the correct headers for ArrayBuffer requests', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const body = new ArrayBuffer(8);
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await result.current.apiPost<{ ok: boolean }>('/items', {
+          body
+        });
+      });
+
+      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+        RequestInfo | URL,
+        RequestInit
+      ];
+      const headers = new Headers(options.headers);
+
+      expect(headers.get('Content-Type')).toBe('application/octet-stream');
+      expect(headers.get('Accept')).toBe('application/json');
+    });
+
+    it('sets the correct headers for URLSearchParams requests', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+      const body = new URLSearchParams();
+      body.append('key', 'value');
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await act(async () => {
+        await result.current.apiPost<{ ok: boolean }>('/items', {
+          body
+        });
+      });
+
+      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [
+        RequestInfo | URL,
+        RequestInit
+      ];
+      const headers = new Headers(options.headers);
+
+      expect(headers.get('Content-Type')).toBe(
+        'application/x-www-form-urlencoded; charset=UTF-8'
+      );
+      expect(headers.get('Accept')).toBe('application/json');
+    });
   });
 
   describe('ApiError', () => {
@@ -503,6 +389,184 @@ describe('useApi', () => {
       expect(error.payload).toEqual({ detail: 'Not allowed' });
       expect(error.payloadMessage).toBe('Not allowed');
       expect(error.bodyUsed).toBe(false);
+    });
+
+    it('does not convert network failures into ApiError', async () => {
+      vi.mocked(global.fetch).mockRejectedValueOnce(
+        new TypeError('Network failure')
+      );
+
+      const onError = vi.fn().mockResolvedValue(undefined);
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi(onError));
+
+      await expect(result.current.apiGet('/network-failure')).rejects.toThrow(
+        'Network failure'
+      );
+
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws an ApiError for 401 responses', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        jsonResponse(
+          { detail: 'Unauthorized' },
+          {
+            status: 401,
+            statusText: 'Unauthorized',
+            headers: { 'x-amzn-requestid': 'request-id' }
+          }
+        )
+      );
+
+      const onError = vi.fn();
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi(onError));
+
+      await act(async () => {
+        await expect(result.current.apiGet('/protected')).rejects.toMatchObject(
+          {
+            isApiError: true,
+            name: 'ApiError',
+            ok: false,
+            status: 401,
+            statusText: 'Unauthorized',
+            message: 'Unauthorized',
+            headers: { 'x-amzn-requestid': 'request-id' },
+            payload: { detail: 'Unauthorized' },
+            payloadMessage: 'Unauthorized',
+            bodyUsed: true
+          }
+        );
+      });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 401,
+          statusText: 'Unauthorized'
+        })
+      );
+      const errorArg = onError.mock.calls[0][0];
+      expect(errorArg).toBeInstanceOf(ApiError);
+      expect(isApiError(errorArg)).toBe(true);
+
+      if (isApiError(errorArg)) {
+        expect(errorArg.status).toBe(401);
+        expect(errorArg.statusText).toBe('Unauthorized');
+        expect(errorArg.message).toBe('Unauthorized');
+        expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
+        expect(errorArg.payload).toEqual({ detail: 'Unauthorized' });
+        expect(errorArg.payloadMessage).toBe('Unauthorized');
+      }
+    });
+
+    it('throws an ApiError for 403 responses', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        jsonResponse(
+          { detail: 'Not allowed' },
+          {
+            status: 403,
+            statusText: 'Forbidden',
+            headers: { 'x-amzn-requestid': 'request-id' }
+          }
+        )
+      );
+
+      const onError = vi.fn();
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi(onError));
+
+      await act(async () => {
+        await expect(
+          result.current.apiGet('/restricted')
+        ).rejects.toMatchObject({
+          isApiError: true,
+          name: 'ApiError',
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          message: 'Not allowed',
+          headers: { 'x-amzn-requestid': 'request-id' },
+          payload: { detail: 'Not allowed' },
+          payloadMessage: 'Not allowed',
+          bodyUsed: true
+        });
+      });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 403,
+          statusText: 'Forbidden'
+        })
+      );
+      const errorArg = onError.mock.calls[0][0];
+      expect(errorArg).toBeInstanceOf(ApiError);
+      expect(isApiError(errorArg)).toBe(true);
+
+      if (isApiError(errorArg)) {
+        expect(errorArg.status).toBe(403);
+        expect(errorArg.statusText).toBe('Forbidden');
+        expect(errorArg.message).toBe('Not allowed');
+        expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
+        expect(errorArg.payload).toEqual({ detail: 'Not allowed' });
+        expect(errorArg.payloadMessage).toBe('Not allowed');
+      }
+    });
+
+    it('throws an ApiError for 404 responses', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        jsonResponse(
+          { detail: 'Not found' },
+          {
+            status: 404,
+            statusText: 'Not Found',
+            headers: { 'x-amzn-requestid': 'request-id' }
+          }
+        )
+      );
+
+      const onError = vi.fn();
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi(onError));
+
+      await act(async () => {
+        await expect(
+          result.current.apiGet('/nonexistent')
+        ).rejects.toMatchObject({
+          isApiError: true,
+          name: 'ApiError',
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          message: 'Not found',
+          headers: { 'x-amzn-requestid': 'request-id' },
+          payload: { detail: 'Not found' },
+          payloadMessage: 'Not found',
+          bodyUsed: true
+        });
+      });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 404,
+          statusText: 'Not Found'
+        })
+      );
+      const errorArg = onError.mock.calls[0][0];
+      expect(errorArg).toBeInstanceOf(ApiError);
+      expect(isApiError(errorArg)).toBe(true);
+
+      if (isApiError(errorArg)) {
+        expect(errorArg.status).toBe(404);
+        expect(errorArg.statusText).toBe('Not Found');
+        expect(errorArg.message).toBe('Not found');
+        expect(errorArg.headers['x-amzn-requestid']).toBe('request-id');
+        expect(errorArg.payload).toEqual({ detail: 'Not found' });
+        expect(errorArg.payloadMessage).toBe('Not found');
+      }
     });
 
     it('uses explicit constructor message before payload detail', () => {
