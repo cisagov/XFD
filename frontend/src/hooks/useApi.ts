@@ -385,6 +385,8 @@ export const useApi = (onError?: OnError) => {
 
           let result: unknown;
 
+          // Parse the response according to the specified parsing method
+          // Also catch any malformed JSON responses
           result = await parseResponse(response, parseAs);
 
           if (!response.ok) {
