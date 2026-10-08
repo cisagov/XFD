@@ -27,6 +27,37 @@ CAPTURE_SPEC.loader.exec_module(capture_host_packages)
 class HostSoftwareInventoryTests(unittest.TestCase):
     """Keep inventory comparison aligned with the reviewed manifest."""
 
+    def test_collected_ec2_scripts_are_tracked_for_review(self) -> None:
+        """Retain each collected operator script without treating it as installed."""
+        scripts_directory = SCRIPTS_DIRECTORY / "ec2_scripts"
+        expected_names = {
+            "getcloneBranch",
+            "refreshDailyTracker",
+            "runCapacityLoadTest",
+            "updateWAS",
+        }
+        actual_names = {
+            script_path.name
+            for script_path in scripts_directory.iterdir()
+            if script_path.is_file()
+        }
+
+        self.assertEqual(actual_names, expected_names)
+        for script_name in expected_names:
+            script_contents = (scripts_directory / script_name).read_text(
+                encoding="utf-8"
+            )
+            self.assertTrue(script_contents.startswith("#!"))
+
+        self.assertTrue(
+            any(
+                "backend/was/scripts/ec2_scripts" in manual_item
+                for manual_item in (
+                    capture_host_packages.SOFTWARE_MANIFEST.manual_restore_items
+                )
+            )
+        )
+
     def test_manifest_targets_ubuntu_2404_and_required_tools(self) -> None:
         """Load the committed Ubuntu release and required operator tools."""
         manifest = capture_host_packages.SOFTWARE_MANIFEST

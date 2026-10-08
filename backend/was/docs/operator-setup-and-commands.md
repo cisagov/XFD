@@ -131,6 +131,8 @@ cd backend/was
 make install
 make host-shell-preview
 make host-shell-install APPLY=1
+make host-operator-scripts-preview
+make host-operator-scripts-install APPLY=1
 ./scripts/create-local-env.sh
 chmod 600 .env
 ```
@@ -148,6 +150,14 @@ managed loader at the end of `~/.bashrc`. It refuses partial or duplicate
 managed state. Open a new login shell after installation to load the aliases,
 prompt, PATH, and named environment activation. The tracked fragment contains
 no secrets and never reads `.env`.
+
+`host-operator-scripts-preview` validates the exact tracked allowlist in
+`scripts/ec2_scripts` and reports whether each `~/bin` target would be
+installed, replaced, or left current. `host-operator-scripts-install` requires
+`APPLY=1`, refuses symlinked or foreign-owned targets, creates private backups
+for replacements, installs mode-`0755` scripts atomically, and verifies the
+installed contents. Tracking and installation do not approve the legacy script
+behavior; review each script before applying the installer.
 
 If the host uses an approved pre-existing Python environment, pass its Python
 path to Make instead of creating the expected local environment:

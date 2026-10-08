@@ -209,6 +209,10 @@ class ProductionBoundaryTests(unittest.TestCase):
             )
             self.assertIn("make host-shell-preview", documentation)
             self.assertIn("make host-shell-install APPLY=1", documentation)
+            self.assertIn("make host-operator-scripts-preview", documentation)
+            self.assertIn(
+                "make host-operator-scripts-install APPLY=1", documentation
+            )
 
     def test_was_arn_validations_reject_wildcards_without_newer_functions(self) -> None:
         """Keep IAM resources exact and Terraform 1.0.7 compatible."""

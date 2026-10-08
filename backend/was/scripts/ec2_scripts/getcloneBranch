@@ -1,0 +1,107 @@
+#!/bin/bash
+
+shopt -s dotglob nullglob
+
+
+RED='\033[0;31m'
+WHITE='\033[0m'
+YELLOW='\033[1;33m'
+
+count=0
+function menu {
+    clear
+    figlet -w 200 -f big -c -k Git Easy
+    echo "1) Clone branch to local:"
+#    echo "2) Delete an environment"
+#    echo "3) See all environments"
+#    echo "4) See all versions that can be installed to env."
+    arg="2) Thermo nuclear war" ;
+    if [ $count != 1 ]; then
+        for (( i=0; i < ${#arg}; i+=1 )) ; do
+    echo -n "${arg:$i:1}"
+    sleep .1
+    done
+    count=1
+    echo
+    else
+        echo "${arg}"
+    fi
+
+
+
+    echo "3) Start Over"
+    echo "4) Quit"
+    echo
+    echo -n "Please enter your selection: "
+    read selection
+
+    if [[ $selection == 1 ]]
+        then
+        createLocalBranch
+
+
+    elif [[ $selection == 2 ]]
+        then
+            say "You have chosen Thermonuclear war. Just kidding we dont have that kind of fun here"
+            echo -e "${YELLOW}HAHAHAHAHA. Now get back to the task at hand.${WHITE}"
+            echo
+            echo
+            secs=10
+            while [ $secs -gt 0 ]; do
+               echo -ne "The display will last for $secs\r "
+               sleep 1
+               : $((secs--))
+            done
+            clear
+            menu
+    elif [[ $selection == 3 ]]
+        then
+            clear
+            menu
+
+    elif [[ $selection == 4 ]]
+        then
+        exit
+    fi
+}
+
+
+
+function createLocalBranch {
+    path="/home/ubuntu/code" &&
+    echo "The working path is ${path}"
+    cd $path &&
+    echo "What is the name of the directory where you want your local repos?"
+    read absDir &&
+    mkdir $absDir &&
+
+
+    workingDir="$path/$absDir" &&
+    cd $workingDir &&
+    if [ -d  "$workingDir" ]; then
+        echo "What is the branch name that you want to clone?"&&
+        read selectBranch &&
+        echo "What is the url to repo of the branch that you want to clone?" &&
+        read repoURL &&
+        git clone -b $selectBranch $repoURL &&
+        newGitDir=$(ls -d *) &&
+
+        cd * &&
+        mv * .. &&
+        cd .. &&
+        rm -r $newGitDir &&
+        uv venv --python 3.12 "$absDir" &&
+
+        clear &&
+        menu
+    else
+        rm r $workingDir
+        echo -e "${RED}The directory that you chose already exists. Please make a new selection!${WHITE}\n" &&
+        createLocalBranch
+
+    fi
+
+
+}
+
+menu

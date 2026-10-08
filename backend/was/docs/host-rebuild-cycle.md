@@ -33,6 +33,13 @@ images. Back up and restore each approved item separately. Never source `.env`
 as shell code or place its contents in inventory output, Git, logs, or command
 arguments.
 
+The scripts collected from the existing host are tracked under
+`backend/was/scripts/ec2_scripts` for review. Tracking them does not approve or
+install them. Review each script before previewing and applying the guarded
+installer or retiring it. The installer validates the exact allowlist and Bash
+syntax, refuses unsafe targets, privately backs up replacements, atomically
+installs mode-`0755` copies to `~/bin`, and verifies their contents.
+
 ## 1. Capture the operational host
 
 Before every replacement, confirm the current checkout is the approved commit
@@ -149,6 +156,8 @@ cd backend/was
 make install
 make host-shell-preview
 make host-shell-install APPLY=1
+make host-operator-scripts-preview
+make host-operator-scripts-install APPLY=1
 make test
 make lint
 make build
@@ -162,6 +171,11 @@ and its managed Python 3.12.14. The `uv venv` command creates the named
 The guarded shell installer backs up `~/.bashrc`, appends exactly one loader for
 the tracked non-secret `config/was-operator-shell.sh`, validates both files, and
 requires a new login shell before the configuration takes effect.
+
+The operator script installer does not approve the behavior of the four legacy
+scripts merely because they are tracked. Review them before installation.
+Replaced files are backed up beneath
+`~/.local/state/was-host-rebuild/operator-script-backups`.
 
 Run another inventory on the replacement and require empty
 `missing_required_packages` and `missing_required_tools` arrays. Review every

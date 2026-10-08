@@ -61,7 +61,7 @@
     }
   },
   "manual_restore_items": [
-    "Review, then back up or retire ~/bin/getcloneBranch, ~/bin/refreshDailyTracker, ~/bin/runCapacityLoadTest, and ~/bin/updateWAS; contents are absent from the inventory.",
+    "Review the tracked scripts in backend/was/scripts/ec2_scripts, then preview with make host-operator-scripts-preview and install with make host-operator-scripts-install APPLY=1 or retire them; installation is never automatic.",
     "Install the tracked WAS shell fragment with make host-shell-install APPLY=1; review and restore ~/.profile separately through the approved process.",
     "Reclone the application repository and rebuild its Docker image from source.",
     "Recreate project virtual environments from dependency files when needed.",

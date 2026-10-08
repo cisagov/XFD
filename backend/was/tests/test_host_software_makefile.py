@@ -59,6 +59,16 @@ class HostSoftwareMakefileTests(unittest.TestCase):
         self.assertIn('test "1" = 1', install)
         self.assertIn("scripts/install_operator_shell.py --apply", install)
 
+    def test_operator_script_install_requires_explicit_acknowledgement(self) -> None:
+        """Keep operator script writes behind preview and the apply gate."""
+        preview = self.run_plan("host-operator-scripts-preview")
+        install = self.run_plan("host-operator-scripts-install", "APPLY=1")
+
+        self.assertIn("scripts/install_operator_scripts.py", preview)
+        self.assertNotIn("--apply", preview)
+        self.assertIn('test "1" = 1', install)
+        self.assertIn("scripts/install_operator_scripts.py --apply", install)
+
 
 if __name__ == "__main__":
     unittest.main()

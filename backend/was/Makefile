@@ -55,7 +55,7 @@ HOST_SOFTWARE_INVENTORY_DIR ?= $(OUTPUT_DIR)/host-inventory-$(shell date -u +%Y%
 HOST_SOFTWARE_SINCE ?=
 HOST_SOFTWARE_BASELINE ?=
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
 
 export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
 export CAPACITY_ACTION CAPACITY_CONTINUE_RUN_ID CAPACITY_EXPECTED_CANDIDATES
@@ -120,6 +120,13 @@ host-shell-preview:
 host-shell-install:
 	@test "$(APPLY)" = 1 || (echo 'Operator shell installation requires APPLY=1.' >&2; exit 2)
 	python3 scripts/install_operator_shell.py --apply
+
+host-operator-scripts-preview:
+	python3 scripts/install_operator_scripts.py
+
+host-operator-scripts-install:
+	@test "$(APPLY)" = 1 || (echo 'Operator script installation requires APPLY=1.' >&2; exit 2)
+	python3 scripts/install_operator_scripts.py --apply
 
 admin-help:
 	docker run --rm $(IMAGE) was-admin --help

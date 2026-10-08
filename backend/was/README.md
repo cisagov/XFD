@@ -98,6 +98,8 @@ cd backend/was
 make install
 make host-shell-preview
 make host-shell-install APPLY=1
+make host-operator-scripts-preview
+make host-operator-scripts-install APPLY=1
 ./scripts/create-local-env.sh
 ```
 
