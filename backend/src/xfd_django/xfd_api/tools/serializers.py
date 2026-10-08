@@ -18,7 +18,6 @@ def serialize_user(user: User) -> dict:
     """Serialize a User instance to a dictionary with camelCase keys."""
     return {
         "id": str(user.id),
-        "cognito_id": user.cognito_id,
         "okta_id": user.okta_id,
         "login_gov_id": user.login_gov_id,
         "created_at": format_datetime(user.created_at),

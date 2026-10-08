@@ -543,9 +543,6 @@ class User(models.Model):
     """The User model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    cognitoId = models.CharField(
-        max_length=255, db_column="cognitoId", unique=True, blank=True, null=True
-    )
     oktaId = models.CharField(
         max_length=255, db_column="okta_id", null=True, blank=True, unique=True
     )

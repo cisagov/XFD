@@ -64,8 +64,6 @@ def import_test_users_from_json(json_path: str):
                 "region_id": entry.get("region_id"),
                 "state": entry.get("state"),
                 "okta_id": entry.get("okta_id"),
-                "cognito_id": entry.get("cognito_id"),
-                "cognito_username": entry.get("cognito_username"),
                 "login_gov_id": entry.get("login_gov_id"),
                 "user_type": normalize_user_type(entry.get("user_type")),
             }

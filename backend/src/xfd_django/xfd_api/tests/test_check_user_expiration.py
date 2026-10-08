@@ -274,7 +274,6 @@ def test_check_user_expiration_creates_audit_log_on_success(monkeypatch):
     assert payload["user"]["full_name"] == "Audit Success"
     assert payload["user"]["last_logged_in"] == expired_user.last_logged_in.isoformat()
     assert payload["user"]["user_type"] == UserType.STANDARD
-    assert "cognito_id" not in payload["user"]
     assert "organization" not in payload
 
 

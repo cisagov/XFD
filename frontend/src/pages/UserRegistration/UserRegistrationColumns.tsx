@@ -104,7 +104,7 @@ export const getPendingUserColumns = ({
       }
     },
     {
-      field: 'cognito_use_case_description',
+      field: 'use_case_description',
       headerName: 'Use Case',
       minWidth: 150,
       flex: 1,
@@ -113,9 +113,9 @@ export const getPendingUserColumns = ({
         return (
           <Box
             component="span"
-            aria-label={`Use Case for ${cellValues.row.full_name}: ${cellValues.row.cognito_use_case_description}`}
+            aria-label={`Use Case for ${cellValues.row.full_name}: ${cellValues.row.use_case_description}`}
           >
-            {cellValues.row.cognito_use_case_description}
+            {cellValues.row.use_case_description}
           </Box>
         );
       }
