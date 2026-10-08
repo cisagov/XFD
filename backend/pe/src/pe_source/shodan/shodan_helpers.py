@@ -7,7 +7,9 @@ import os
 import time
 
 # Third-Party Libraries
+from netaddr import IPAddress, IPSet
 import pandas as pd
+from pe_reports.data.db_query import query_cidrs_by_org
 from pe_source.data.db_query_source import (
     get_data_source_uid,
     get_ips,
@@ -40,6 +42,11 @@ def run_shodan_thread(api, org_chunk, thread_name):
             LOGGER.error("{} {} - {}".format(thread_name, e, org_name))
             failed.append("{} fetching IPs".format(org_name))
             continue
+        # Only run on IPs from customer attested CIDRs
+        cidrs_df = query_cidrs_by_org(org_uid)
+        org_cidrs = cidrs_df["network"].tolist() if cidrs_df is not None else []
+        cidr_ip_set = IPSet(org_cidrs)
+        ips = [ip for ip in ips if IPAddress(ip) in cidr_ip_set]
         # If no IPs, skip this org
         if len(ips) == 0:
             LOGGER.warning("{} No IPs for {}.".format(thread_name, org_name))
@@ -47,7 +54,7 @@ def run_shodan_thread(api, org_chunk, thread_name):
             continue
         # Otherwise run shodan search on the IPs
         failed = search_shodan(
-            thread_name, ips, api, start, end, org_uid, org_name, failed
+            thread_name, ips, api, start, end, org_uid, org_name, failed, cidr_ip_set
         )
     # Log all warning for this thread
     if len(warnings) > 0:
@@ -85,7 +92,9 @@ def search_circl(cve):
     return re
 
 
-def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
+def search_shodan(
+    thread_name, ips, api, start, end, org_uid, org_name, failed, cidr_ip_set
+):
     """Search IPs in the Shodan API."""
     # Initialize lists to store Shodan results
     data = []
@@ -299,7 +308,15 @@ def search_shodan(thread_name, ips, api, start, end, org_uid, org_name, failed):
             inplace=True,
         )
         all_vulns = all_vuln_df.to_dict("records")
-
+    # Only insert results with IPs from attested CIDRs
+    data_df = pd.DataFrame(data)
+    data_mask = [IPAddress(ip) in cidr_ip_set for ip in data_df["ip"]]
+    data_df = data_df[data_mask].reset_index(drop=True)
+    data = data_df.to_dict("records")
+    all_vuln_df = pd.DataFrame(all_vulns)
+    all_vuln_mask = [IPAddress(ip) in cidr_ip_set for ip in all_vuln_df["ip"]]
+    all_vuln_df = all_vuln_df[all_vuln_mask].reset_index(drop=True)
+    all_vulns = all_vuln_df.to_dict("records")
     # Break shodan asset/vuln data into chunks of 500
     chunk_size = 500
     asset_chunk_list = [
