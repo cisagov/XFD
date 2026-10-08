@@ -179,6 +179,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.assertIn("apt-get install", bootstrap_source)
         self.assertIn("git", bootstrap_source)
         self.assertIn("make", bootstrap_source)
+        self.assertIn("openssh-client", bootstrap_source)
         self.assertIn("python3", bootstrap_source)
         self.assertNotIn("awscli", bootstrap_source)
         self.assertNotIn("docker-ce", bootstrap_source)

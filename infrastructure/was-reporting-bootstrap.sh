@@ -21,6 +21,7 @@ apt-get install --yes --no-install-recommends \
   ca-certificates \
   git \
   make \
+  openssh-client \
   python3 \
   sudo
 

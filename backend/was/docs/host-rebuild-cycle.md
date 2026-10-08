@@ -21,10 +21,11 @@ be rebuilt from the approved repository commit.
 
 Terraform first boot is intentionally the first of two stages. The dedicated
 `infrastructure/was-reporting-bootstrap.sh` installs only `git`, `make`,
-`python3`, `sudo`, and the certificate bundle required to retrieve and run the
-approved repository. It does not install Docker, AWS CLI, `uv`, managed Python,
-or application dependencies. The manifest-driven Make workflow below is the
-second stage and remains the reviewed source of truth for that software.
+`openssh-client`, `python3`, `sudo`, and the certificate bundle required to
+retrieve and run the approved repository. It does not install Docker, AWS CLI,
+`uv`, managed Python, or application dependencies. The manifest-driven Make
+workflow below is the second stage and remains the reviewed source of truth for
+that software.
 
 This workflow does not copy secrets, application data, custom script contents,
 cron jobs, systemd units, certificates, mounts, shell profiles, logs, or Docker
