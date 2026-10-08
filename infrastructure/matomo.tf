@@ -379,7 +379,8 @@ resource "aws_ecs_service" "matomo" {
   launch_type     = "FARGATE"
   cluster         = aws_ecs_cluster.matomo.id
   task_definition = aws_ecs_task_definition.matomo.arn
-  desired_count   = 1
+  # Temporarily setting desired_count to 0. The service will be scaled up after the Matomo work is continued
+  desired_count = 0
   network_configuration {
     subnets         = [aws_subnet.matomo_1[0].id]
     security_groups = [aws_security_group.allow_internal[0].id]
