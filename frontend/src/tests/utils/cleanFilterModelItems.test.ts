@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { cleanFilterModelItems } from '@/utils/vulnerabilitiesTableUtils';
+import { cleanFilterModelItems } from '@/utils/tableUtils';
 
 describe('cleanFilterModelItems', () => {
-  it('clears value when field changes', () => {
+  it('clears value when field changes and sets it to undefined', () => {
     const newModel = {
       items: [{ id: 1, field: 'name', operator: 'equals', value: 'test' }]
     };

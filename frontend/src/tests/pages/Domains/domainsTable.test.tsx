@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, screen, testUser } from 'test-utils';
+import { render, screen, testUser, waitFor } from 'test-utils';
 import { makeDomainResponse } from '@/test-utils/domains';
 import type { AuthUser } from '../../../context/';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { Domains } from '../../../pages/Domains/Domains';
+import userEvent from '@testing-library/user-event';
 
 const namePool = [
   'example.com',
@@ -302,6 +303,42 @@ describe('Domains component', () => {
       // Should display the IP address for the single domain
       const ipAddress = await screen.findByText(/^192\.0\.2\.1$/i);
       expect(ipAddress).toBeInTheDocument();
+    });
+  });
+
+  describe('zIndex adjustment to accommodate appBar', () => {
+    it('should have correct zIndex for the filter panel', async () => {
+      apiPostMock.mockResolvedValueOnce(sampleResponse);
+
+      const user = userEvent.setup();
+
+      render(<Domains />, {
+        initialHistory: ['/domains'],
+        authContext: {
+          apiPost: apiPostMock,
+          currentOrganization: null,
+          user: testUser as unknown as AuthUser
+        }
+      });
+
+      const grid = await screen.findByRole('grid');
+      expect(grid).toBeInTheDocument();
+
+      const filterButton = await screen.findByRole('button', {
+        name: /filter/i
+      });
+      await user.click(filterButton);
+
+      const panel = await waitFor(() => {
+        const element = document.querySelector(
+          '.MuiDataGrid-panel'
+        ) as HTMLElement | null;
+
+        expect(element).not.toBeNull();
+        return element as HTMLElement;
+      });
+
+      expect(getComputedStyle(panel).zIndex).toBe('1099');
     });
   });
 

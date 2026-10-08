@@ -24,7 +24,6 @@ import OpenInNew from '@mui/icons-material/OpenInNew';
 
 // DataGrid Components
 import {
-  DataGrid,
   getGridSingleSelectOperators,
   getGridStringOperators,
   GridColDef,
@@ -52,6 +51,7 @@ import { useAuthContext } from 'context';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import CustomPagination from 'components/DataGrid/CustomPagination';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 
 // Utils
@@ -60,11 +60,12 @@ import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/stringUtils';
 import {
   cleanFilterModelItems,
-  formatSeverity,
-  normalizeFilters,
   extractInitialFilters,
+  formatSeverity,
+  isFilterModelEmpty,
+  normalizeVulnFilters,
   shouldTriggerFilterUpdate
-} from 'utils/vulnerabilitiesTableUtils';
+} from '@/utils/tableUtils';
 
 // Constants
 import { ROUTES } from '@/constants/routes';
@@ -139,7 +140,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       showAll = false
     }: SearchParams): Promise<ApiResponse | undefined> => {
       try {
-        const tableFilters = normalizeFilters(
+        const tableFilters = normalizeVulnFilters(
           filters,
           currentOrganization
             ? ({
@@ -708,7 +709,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Vulnerabilities Table"
           >
-            <DataGrid<VulnerabilityRow>
+            <CustomDataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
@@ -721,7 +722,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterModel={filterModel}
               onFilterModelChange={(model) => {
                 const cleanedModel = cleanFilterModelItems(model, filterModel);
+                const emptyModel = isFilterModelEmpty(cleanedModel);
                 setFilterModel(cleanedModel);
+                setHasActiveFilters(!emptyModel);
 
                 const shouldUpdate = shouldTriggerFilterUpdate(
                   cleanedModel.items,
@@ -734,15 +737,20 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
+                  filterTimerRef.current = null;
+                }
+
+                if (emptyModel) {
+                  setFilters([]);
+                  return;
                 }
 
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(cleanedModel.items);
-                  setHasActiveFilters(cleanedModel.items.length > 0);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
-                }, 1000);
+                }, 500);
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -776,23 +784,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {
                   placement: 'bottom-start'
-                },
-                panel: {
-                  onClose: () => {
-                    // Clear any incomplete filters when the panel closes and fetch unfiltered data.
-                    // Prevents mismatch between filter model and applied filters.
-
-                    const hasIncompleteFilters = filterModel.items.some(
-                      (item) => item.value === undefined
-                    );
-
-                    if (hasIncompleteFilters) {
-                      setFilterModel({ items: [] });
-                      setFilters([]);
-                      setHasActiveFilters(false);
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    }
-                  }
                 },
                 columnsManagement: {
                   disableResetButton: true,

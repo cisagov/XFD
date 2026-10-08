@@ -18,6 +18,7 @@ import { OrganizationShallow } from './RegionAndOrganizationFilters';
 import { Organization } from 'types';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { useFilterDrawerContext } from 'context';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = false;
@@ -58,7 +59,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
     undefined
   );
-
+  const { setSelectedRegionId, setSelectedOrgName } = useFilterDrawerContext();
   const userLevel = useUserLevel().userLevel;
 
   const shallowCurrentOrg = (currentOrganization: Organization | null) => {
@@ -320,6 +321,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
     user?.region_id,
     wasAllRegionsSelected
   ]);
+
+  useEffect(() => {
+    if (!selectedOrg) return;
+
+    setSelectedOrgName(selectedOrg.name);
+    setSelectedRegionId(selectedOrg.region_id || null);
+  }, [selectedOrg, setSelectedOrgName, setSelectedRegionId]);
 
   const handleTextChange = (v: string) => {
     setSearchTerm(v);

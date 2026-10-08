@@ -7,7 +7,10 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Components
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 
 // Context & Hooks
 import { useAuthContext } from 'context';
@@ -25,6 +28,11 @@ interface Queue {
   messages_delayed: number;
 }
 
+type QueueSearchResponse = {
+  result: Queue[];
+  count: number;
+};
+
 const QueueMonitorView: React.FC = () => {
   const { apiPost } = useAuthContext();
   const [queues, setQueues] = useState<Queue[]>([]);
@@ -32,7 +40,10 @@ const QueueMonitorView: React.FC = () => {
 
   const fetchQueues = useCallback(async () => {
     try {
-      const { result } = await apiPost(ENDPOINTS.QUEUES_SEARCH, { body: {} });
+      const { result } = await apiPost<QueueSearchResponse>(
+        ENDPOINTS.QUEUES_SEARCH,
+        { body: {} }
+      );
 
       // Ensure each queue has a unique 'id' (using its name)
       const queuesWithId = result.map((queue: Queue) => ({
@@ -119,7 +130,7 @@ const QueueMonitorView: React.FC = () => {
         </Button>
       </Stack>
       <Paper elevation={2}>
-        <DataGrid
+        <CustomDataGrid
           rows={queues}
           columns={queueColumns}
           pageSizeOptions={[10, 25, 100]}

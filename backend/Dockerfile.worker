@@ -20,6 +20,9 @@ COPY external/pshtt external/pshtt
 
 RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/worker/requirements.txt
+# mitmproxy 12 requires cryptography<44.1; the main backend requirements may install newer.
+# Re-pin after the full tree resolves so the runtime matches mitmproxy and worker/requirements.txt.
+RUN pip install --no-cache-dir "cryptography==44.0.1"
 
 # Copy worker scripts and Django project
 COPY worker worker

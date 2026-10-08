@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 
 // DataGrid Components
-import { DataGrid, GridFilterModel, GridSortModel } from '@mui/x-data-grid';
+import { GridFilterModel, GridSortModel } from '@mui/x-data-grid';
 
 // Types
 import { Organization } from 'types';
@@ -25,14 +25,21 @@ import { Organization } from 'types';
 import { useAuthContext } from 'context';
 
 // Components
-import { OrganizationForm } from './OrganizationForm';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { OrganizationForm } from './OrganizationForm';
 import { useOrgsColumns } from './useOrgsColumns';
 
 // Utils
 import { logger } from '@/utils/logger';
+import {
+  cleanFilterModelItems,
+  shouldTriggerFilterUpdate,
+  buildOrgFilters,
+  isFilterModelEmpty
+} from '@/utils/tableUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -59,29 +66,23 @@ export const Organizations: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
-  const [debouncedFilterModel, setDebouncedFilterModel] =
-    useState<GridFilterModel>(filterModel);
+
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const reqIdRef = useRef(0);
 
-  useEffect(() => {
-    const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
-    return () => clearTimeout(h);
-  }, [filterModel]);
+  const filterTimerRef = useRef<number | null>(null);
 
-  const buildFilters = useCallback((model: GridFilterModel) => {
-    const filters: Record<string, any> = {};
-    model.items.forEach((i) => {
-      if (!i.value) return;
-      if (i.field === 'name') {
-        const v = String(i.value).trim();
-        if (v.length >= 2) filters.name = v; // gate short inputs
+  const [filters, setFilters] = useState<GridFilterModel>({ items: [] });
+
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
       }
-      if (i.field === 'state') filters.state = String(i.value).trim();
-      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
-      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
-    });
-    return filters;
+    };
   }, []);
 
   const requestBody = useMemo(() => {
@@ -91,9 +92,9 @@ export const Organizations: React.FC = () => {
       pageSize: paginationModel.pageSize,
       sort: firstSort?.field || undefined,
       order: firstSort?.sort || undefined,
-      filters: buildFilters(debouncedFilterModel)
+      filters: buildOrgFilters(filters)
     };
-  }, [paginationModel, debouncedFilterModel, sortModel, buildFilters]);
+  }, [paginationModel, filters, sortModel]);
 
   const fetchOrganizations = useCallback(async () => {
     const myId = ++reqIdRef.current;
@@ -185,14 +186,17 @@ export const Organizations: React.FC = () => {
       )}
 
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-        <DataGrid
+        <CustomDataGrid
           rowHeight={52}
           rows={organizations}
           columns={orgCols}
           slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
-            toolbar: { disableExport: true } as any,
+            toolbar: {
+              disableExport: true,
+              hasActiveFilters: hasActiveFilters
+            } as any,
             columnsManagement: {
               disableResetButton: true,
               getTogglableColumns: (columns) => {
@@ -212,9 +216,37 @@ export const Organizations: React.FC = () => {
           onPaginationModelChange={setPaginationModel}
           filterMode="server"
           filterModel={filterModel}
-          onFilterModelChange={(m) => {
-            setFilterModel(m);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            const emptyModel = isFilterModelEmpty(cleanedModel);
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!emptyModel);
+
+            const shouldUpdate = shouldTriggerFilterUpdate(
+              cleanedModel.items,
+              filterModel.items
+            );
+
+            if (!shouldUpdate) {
+              return;
+            }
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+              filterTimerRef.current = null;
+            }
+
+            if (emptyModel) {
+              setFilters({ items: [] });
+              return;
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setIsLoading(true);
+              setFilters({ items: cleanedModel.items });
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              filterTimerRef.current = null;
+            }, 500);
           }}
           sortingMode="server"
           sortModel={sortModel}

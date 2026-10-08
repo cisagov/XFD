@@ -45,7 +45,7 @@ resource "aws_db_instance" "db" {
   iops                        = 16000
   storage_throughput          = 1000
   engine                      = "postgres"
-  engine_version              = "17.6"
+  engine_version              = "17.9"
   allow_major_version_upgrade = true
   skip_final_snapshot         = true
   availability_zone = (
@@ -71,7 +71,15 @@ resource "aws_db_instance" "db" {
   db_subnet_group_name = aws_db_subnet_group.default.name
   parameter_group_name = aws_db_parameter_group.default.name
 
-  vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
+  # open_cti_db_access (open_cti.tf) is layered on ALONGSIDE allow_internal_lz here, not instead of
+  # it -- allow_internal_lz already permits the whole LZ VPC CIDR on every port; open_cti_db_access
+  # scopes down to exactly "OpenCTI's EC2, port var.db_port" as an explicit, reviewable grant.
+  # compact() drops the null when create_open_cti_instance is false or is_dmz is true (stage-cd has
+  # no such SG at all).
+  vpc_security_group_ids = compact([
+    var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id,
+    (var.create_open_cti_instance && !var.is_dmz) ? aws_security_group.open_cti_db_access[0].id : null,
+  ])
 
   tags = {
     Project        = "Crossfeed"
@@ -91,7 +99,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 
   filter {
@@ -259,6 +267,47 @@ resource "aws_instance" "db_accessor" {
     # prevent_destroy = true
     ignore_changes = [ami]
   }
+}
+
+# AZ is taken from the subnet (backend on is_dmz, else the SSM-sourced db subnet) rather than from
+# aws_instance.db_accessor, so that replacing the instance -- e.g. terraform apply -replace to move
+# it onto a newer AMI -- does NOT surface the volume's availability_zone as "known after apply" and
+# trigger a replacement of the volume (which would destroy the data this volume exists to protect).
+# prevent_destroy is a hard stop against the same outcome; ignore_changes keeps a subnet AZ change
+# from proposing a volume replace on a routine apply.
+data "aws_subnet" "db_accessor" {
+  count = var.create_db_accessor_instance ? 1 : 0
+  id    = var.is_dmz ? aws_subnet.backend[0].id : data.aws_ssm_parameter.subnet_db_1_id[0].value
+}
+
+resource "aws_ebs_volume" "db_accessor_data" {
+  count             = var.create_db_accessor_instance ? 1 : 0
+  availability_zone = data.aws_subnet.db_accessor[0].availability_zone
+  size              = var.db_accessor_ebs_volume_size
+  type              = "gp3"
+  encrypted         = true
+  kms_key_id        = aws_kms_key.key.arn
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [availability_zone]
+  }
+
+  tags = {
+    Project           = var.project
+    Stage             = var.stage
+    Name              = "db_accessor-data"
+    Owner             = "Crossfeed managed resource"
+    FismaID           = "PRE-08561-GSS-08561"
+    OperationalStatus = "Stage"
+  }
+}
+
+resource "aws_volume_attachment" "db_accessor_data" {
+  count       = var.create_db_accessor_instance ? 1 : 0
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.db_accessor_data[0].id
+  instance_id = aws_instance.db_accessor[0].id
 }
 
 resource "aws_ssm_parameter" "lambda_sg_id" {

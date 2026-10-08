@@ -20,9 +20,17 @@ services:
 
   frontend:
     container_name: frontend
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        USER_ID: ${UID:-1000}
+        GROUP_ID: ${GID:-1000}
+
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      - /app/node_modules
     ports:
       - "80:3000"
     environment:
@@ -179,6 +187,35 @@ services:
     image: softwaremill/elasticmq-native
     ports:
       - "9324:9324"
+    networks:
+      - backend
+
+  pe-worker:
+    container_name: pe-worker
+    profiles: ["pe"]
+    image: pe-worker
+    build:
+      context: ./backend/pe
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      IS_LOCAL: "true"
+      SQS_ENDPOINT_URL: http://elasticmq:9324
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: elasticmq
+      DB_HOST: ${PE_DB_HOST:-db}
+      PE_API_URL: http://127.0.0.1:8000
+      PE_API_KEY: ${PE_API_KEY:-local-dev-key}
+      PE_DB_NAME: ${PE_DB_NAME:-pe}
+      PE_DB_USERNAME: ${PE_DB_USERNAME:-pe}
+      PE_DB_PASSWORD: ${PE_DB_PASSWORD:-password}
+      SERVICE_TYPE: ${PE_WORKER_SCAN_TYPE:-dnstwist}
+    command: ["./worker/pe-worker-local.sh"]
+    depends_on:
+      - elasticmq
+      - db
     networks:
       - backend
 

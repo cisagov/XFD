@@ -21,6 +21,7 @@ django.setup()
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.scan import SCAN_SCHEMA
 from xfd_api.tasks.helpers.log_scan_result import log_scan_result
+from xfd_api.tasks.shodan import FatalScanError
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
@@ -77,9 +78,26 @@ def main():
     is_dmz = os.getenv("IS_DMZ")
     if str(is_dmz).lower() not in {"true", "1"}:
         zscaler_cert = ensure_zscaler_cert_downloaded()
+
+        combined_bundle_path = "/tmp/combined-ca-bundle.pem"  # nosec B108
+        try:
+            # Third-Party Libraries
+            import certifi
+
+            with open(combined_bundle_path, "w", encoding="utf-8") as out:
+                with open(certifi.where(), encoding="utf-8") as f:
+                    out.write(f.read())
+                with open(zscaler_cert, encoding="utf-8") as f:
+                    out.write(f.read())
+        except Exception:
+            LOGGER.exception(
+                "Failed to build combined CA bundle; falling back to zscaler_cert alone."
+            )
+            combined_bundle_path = zscaler_cert
+
         os.environ["AWS_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
-        os.environ["REQUESTS_CA_BUNDLE"] = zscaler_cert
-        os.environ["SSL_CERT_FILE"] = zscaler_cert
+        os.environ["REQUESTS_CA_BUNDLE"] = combined_bundle_path
+        os.environ["SSL_CERT_FILE"] = combined_bundle_path
         LOGGER.info("Set Zscaler cert environment variables for outbound TLS.")
     else:
         # If not set, ensure these are not set so traffic is direct
@@ -221,7 +239,7 @@ def main():
             except Exception as e:
                 LOGGER.exception("Error running vulnScanningSync batch: %s", e)
 
-            # Optional: short cool down between batches to reduce Redshift contention
+            # Optional: short cool down between batches to reduce Databricks contention
             time.sleep(2)
 
         LOGGER.info("Completed vulnScanningSync worker loop.")
@@ -273,6 +291,13 @@ def main():
                 delete_message(full_queue_path_name, receipt_handle)
             else:
                 LOGGER.warning("No ReceiptHandle found; cannot delete message.")
+
+        except FatalScanError as e:
+            # Fatal Scan error such as invalid API key. Stop Fargate instead of continuing
+            LOGGER.critical("Fatal scan error: %s", e)
+            LOGGER.critical("Stopping worker; leaving messages in queue")
+            sys.exit(1)
+
         except Exception as e:
             LOGGER.error("Error processing %s: %s", org, e)
         time.sleep(1)

@@ -14,9 +14,6 @@ client = TestClient(app)
 
 # Allow list: public endpoints for specific HTTP methods
 PUBLIC_ENDPOINTS = {
-    ("POST", "/auth/okta-callback"),
-    ("POST", "/auth/callback"),
-    ("POST", "/auth/get-oauth-meta"),
     ("GET", "/notifications"),
     ("GET", "/healthcheck"),
     ("GET", "/plugins/Morpheus/images/logo.svg"),
@@ -71,15 +68,13 @@ EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("DELETE", "/pe/{path:path}"),
     ("OPTIONS", "/pe/{path:path}"),
     ("DELETE", "/api-keys/{api_key_id}"),
-    ("POST", "/auth/callback"),
-    ("POST", "/auth/okta-callback"),
-    ("POST", "/auth/get-oauth-meta"),
     ("POST", "/domain/export"),
     ("POST", "/vulnerabilities/export"),
     ("DELETE", "/notifications/{notification_id}"),
     ("POST", "/v2/organizations/{organization_id}/users"),
     ("POST", "/search/organizations"),
     ("POST", "/search/domains"),
+    ("POST", "/search/cves"),
     ("DELETE", "/saved-searches/{saved_search_id}"),
     ("POST", "/scheduler/invoke"),
     ("POST", "/scan-tasks/{scan_task_id}/kill"),
@@ -136,7 +131,6 @@ EXCLUDED_ENDPOINTS_TESTS = {
     ("POST", "/pe/{path:path}"),  # Tested
     ("DELETE", "/pe/{path:path}"),  # Tested
     ("OPTIONS", "/pe/{path:path}"),  # Tested
-    ("POST", "/auth/callback"),  # Not used
     ("POST", "/domain/export"),  # TODO
     ("POST", "/vulnerabilities/export"),  # TODO
     ("POST", "/services"),  # Tested by /stats

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { SavedSearch } from 'types/saved-search';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -25,6 +26,7 @@ import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { DomainAndIPFilter } from './DomainAndIPFilter';
+import { CVEFilter } from './CVEFilter';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -49,6 +51,10 @@ interface SeverityData {
 interface GroupedData {
   [key: string]: number;
 }
+
+type UpdatedSearchesResponse = {
+  result: SavedSearch[];
+};
 
 const FiltersApplied: React.FC = () => {
   const theme = useTheme();
@@ -89,7 +95,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       await apiDelete(ENDPOINTS.SAVED_SEARCH.replace('{saved_search_id}', id), {
         body: {}
       });
-      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
+      const updatedSearches = await apiGet<UpdatedSearchesResponse>(
+        ENDPOINTS.SAVED_SEARCHES
+      ); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
       localStorage.removeItem('savedSearch');
@@ -248,6 +256,36 @@ export const DrawerInterior: React.FC<Props> = (props) => {
 
   return (
     <Box sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}>
+      {sortedSeverityFacets.length > 0 && (
+        <Accordion
+          square
+          elevation={0}
+          expanded={expanded === 'panel8'}
+          onChange={handleExpanded ? handleExpanded('panel8') : undefined}
+          sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
+        >
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">Severity</Typography>
+              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <FacetFilter
+              options={sortedSeverityFacets}
+              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
+              onSelect={(value) =>
+                addFilter('vulnerabilities.severity', value, 'any')
+              }
+              onDeselect={(value) =>
+                removeFilter('vulnerabilities.severity', value, 'any')
+              }
+            />
+          </AccordionDetails>
+        </Accordion>
+      )}
       <Accordion
         square
         elevation={0}
@@ -393,45 +431,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
-            <FacetFilter
-              options={cveFacet}
-              selected={filtersByColumn['vulnerabilities.cve'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.cve', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.cve', value, 'any')
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {sortedSeverityFacets.length > 0 && (
-        <Accordion
-          square
-          elevation={0}
-          expanded={expanded === 'panel8'}
-          onChange={handleExpanded ? handleExpanded('panel8') : undefined}
-          sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
-        >
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="largeBody">Severity</Typography>
-              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
-                <FiltersApplied />
-              )}
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails>
-            <FacetFilter
-              options={sortedSeverityFacets}
-              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.severity', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.severity', value, 'any')
-              }
+            <CVEFilter
+              addFilter={addFilter}
+              removeFilter={removeFilter}
+              filters={filters}
             />
           </AccordionDetails>
         </Accordion>

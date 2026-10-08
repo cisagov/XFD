@@ -14,10 +14,34 @@ export const FilterDrawerContextProvider: React.FC<
     false
   );
 
+  const [selectedRegionId, setSelectedRegionId] = React.useState<string | null>(
+    null
+  );
+  const [selectedOrgName, setSelectedOrgName] = React.useState<string | null>(
+    null
+  );
+
+  const value = React.useMemo(
+    () => ({
+      isFilterDrawerOpen,
+      setIsFilterDrawerOpen,
+      selectedRegionId,
+      setSelectedRegionId,
+      selectedOrgName,
+      setSelectedOrgName
+    }),
+    [
+      isFilterDrawerOpen,
+      setIsFilterDrawerOpen,
+      selectedRegionId,
+      setSelectedRegionId,
+      selectedOrgName,
+      setSelectedOrgName
+    ]
+  );
+
   return (
-    <FilterDrawerContext.Provider
-      value={{ isFilterDrawerOpen, setIsFilterDrawerOpen }}
-    >
+    <FilterDrawerContext.Provider value={value}>
       {children}
     </FilterDrawerContext.Provider>
   );

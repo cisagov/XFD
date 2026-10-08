@@ -1,6 +1,7 @@
 """CheckUserExpiration."""
 # Standard Python Libraries
 from datetime import timedelta
+import json
 import logging
 import os
 
@@ -17,10 +18,71 @@ django.setup()
 
 # Third-Party Libraries
 from xfd_api.helpers.email import send_email
-from xfd_mini_dl.models import User
+from xfd_mini_dl.models import Log, User
 
 # Configure logging
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("xfd_api.tasks.checkUserExpiration")
+
+
+def _build_user_log_context(user: User) -> tuple[dict, dict | None]:
+    """Capture minimal user and organization fields for audit log before deletion."""
+    user_payload = {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name or f"{user.first_name} {user.last_name}".strip(),
+        "user_type": user.user_type,
+        "state": user.state,
+        "last_logged_in": user.last_logged_in.isoformat()
+        if user.last_logged_in
+        else None,
+    }
+
+    organization_payload = None
+    role = user.roles.select_related("organization").first()
+    if role and role.organization:
+        organization_payload = {"name": role.organization.name}
+
+    return user_payload, organization_payload
+
+
+def log_removal(
+    user_payload: dict,
+    result: str,
+    organization: dict | None = None,
+    error: Exception | None = None,
+):
+    """Write an audit entry to Log for user removals due to inactivity.
+
+    following the same structure used by the `log_action` decorator.
+    :param user_payload: minimal user dict for the User Log UI
+    :param result: "success" or "fail"
+    :param organization: optional dict with organization name
+    :param error: optional exception to include in payload
+    """
+    timestamp = now().isoformat()
+
+    payload = {
+        "timestamp": timestamp,
+        "job": "check_user_expiration",
+        "action_reason": "45 days of inactivity",
+        "user": user_payload,
+    }
+
+    if organization is not None:
+        payload["organization"] = organization
+
+    if error is not None:
+        payload["error"] = str(error)
+    try:
+        Log.objects.create(
+            payload=json.dumps(payload),
+            created_at=timestamp,  # parity with decorator which supplies ISO string
+            result=result,  # "success" | "fail"
+            event_type="REMOVED BY INACTIVITY",
+        )
+    except Exception as log_error:
+        # Log failure to write an audit entry; do not raise
+        LOGGER.warning("Logging error (REMOVED BY INACTIVITY): %s", log_error)
 
 
 def check_user_expiration():
@@ -62,7 +124,7 @@ def check_user_expiration():
     users_to_remove = User.objects.filter(
         Q(last_logged_in__lt=cutoff_45_days)
         | Q(last_logged_in__isnull=True, created_at__lt=cutoff_45_days)
-    )
+    ).prefetch_related("roles__organization")
 
     for user in users_to_remove:
         subject = "Account Removal Notice"
@@ -85,13 +147,27 @@ def check_user_expiration():
 
         # Remove the user from the database
         try:
+            user_payload, organization_payload = _build_user_log_context(user)
+            user_email = user.email
             user.delete()
             LOGGER.info(
                 "Removed user %s from the database due to 45 days of inactivity.",
-                user.email,
+                user_email,
+            )
+            log_removal(
+                user_payload,
+                organization=organization_payload,
+                result="success",
             )
         except Exception as e:
             LOGGER.error("Error removing user %s: %s", user.email, e)
+            user_payload, organization_payload = _build_user_log_context(user)
+            log_removal(
+                user_payload,
+                organization=organization_payload,
+                result="fail",
+                error=e,
+            )
 
 
 def run_test_expiration_flow(email: str):

@@ -37,7 +37,12 @@ from .api_methods import notification as notification_methods
 from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_bulk_check_ips
 from .api_methods.cpe import get_cpes_by_id
-from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
+from .api_methods.cve import (
+    get_all_cves,
+    get_cves_by_id,
+    get_cves_by_name,
+    search_cves_task,
+)
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.dns_twist_sync import dns_twist_sync_post
 from .api_methods.domain import (
@@ -104,14 +109,8 @@ from .api_methods.was_sync import (
     paginate_queryset,
 )
 from .api_methods.xpanse_sync import xpanse_sync_post
-from .auth import (
-    get_current_active_user,
-    get_current_active_user_unsafe,
-    handle_okta_callback,
-    sign_oauth_data,
-)
+from .auth import get_current_active_user, get_current_active_user_unsafe
 from .auth_saml import router as saml_router
-from .login_gov import callback
 from .schema_models import organization_schema as OrganizationSchema
 from .schema_models import scan as scanSchema
 from .schema_models import scan_tasks as scanTaskSchema
@@ -123,7 +122,7 @@ from .schema_models.blocklist import (
 )
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
-from .schema_models.cve import GetAllCvesResponse
+from .schema_models.cve import CveSearchBody, GetAllCvesResponse
 from .schema_models.dmz_sync import (
     AsmSyncRequest,
     AsmSyncResponse,
@@ -163,6 +162,7 @@ from .schema_models.saved_search import SavedSearch as SavedSearchSchema
 from .schema_models.search import DomainSearchBody, SearchResponse
 from .schema_models.sync import SyncBody, SyncResponse, XpanseSyncResponse
 from .schema_models.user import (
+    ApproveRegistrationRequest,
     NewUser,
     NewUserResponseModel,
     RegisterUserResponse,
@@ -300,42 +300,6 @@ async def get_api_key(
 
 
 # ========================================
-#   Auth Endpoints
-# ========================================
-
-
-# Okta Callback
-@api_router.post("/auth/okta-callback", tags=["Auth"])
-async def okta_callback(request: Request):
-    """Handle Okta Callback."""
-    return await handle_okta_callback(request)
-
-
-# V1 Callback
-@api_router.post("/auth/callback", tags=["Auth"])
-async def callback_route(request: Request):
-    """Handle V1 Callback."""
-    body = await request.json()
-    try:
-        user_info = callback(body)
-        return user_info
-    except Exception as error:
-        raise HTTPException(status_code=400, detail=str(error))
-
-
-# Return signed OAuth metadata
-@api_router.post("/auth/get-oauth-meta", tags=["Auth"])
-async def get_oauth_meta(payload: dict):
-    """Return signed OAuth metadata."""
-    state = payload.get("state")
-    code_verifier = payload.get("code_verifier")
-    if not state or not code_verifier:
-        raise HTTPException(status_code=400, detail="Missing parameters")
-    signed_token = sign_oauth_data(state, code_verifier)
-    return {"signedToken": signed_token}
-
-
-# ========================================
 #   CPE Endpoints
 # ========================================
 
@@ -433,6 +397,19 @@ async def get_call_all_cves(
         content=response_obj,
         headers={"X-Salted-Checksum": checksum},
     )
+
+
+@api_router.post(
+    "/search/cves",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["CVEs"],
+)
+async def search_cves(
+    search_body: CveSearchBody,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Search CVEs in Elasticsearch."""
+    return search_cves_task(search_body, current_user)
 
 
 # ========================================
@@ -1650,10 +1627,12 @@ async def call_get_users_v2(
 async def update_user_v2_view(
     user_id: str,
     user_data: UpdateUserV2,
+    request: Request,
     current_user: User = Depends(get_current_active_user_unsafe),
 ):
     """Update a particular user."""
-    return update_user_v2(user_id, user_data, current_user)
+    origin_path = request.headers.get("X-Origin-Path")
+    return update_user_v2(user_id, user_data, current_user, origin_path)
 
 
 @api_router.post(
@@ -1674,10 +1653,12 @@ async def update_user_v2_view(
     },
 )
 async def register_approve(
-    user_id: str, current_user: User = Depends(get_current_active_user)
+    user_id: str,
+    approval_data: ApproveRegistrationRequest,
+    current_user: User = Depends(get_current_active_user),
 ):
     """Approve a registered user."""
-    return user.approve_user_registration(user_id, current_user)
+    return user.approve_user_registration(user_id, approval_data, current_user)
 
 
 @api_router.post(

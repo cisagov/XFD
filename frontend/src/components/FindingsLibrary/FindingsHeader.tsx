@@ -25,7 +25,7 @@ export const FindingsHeader: React.FC = () => {
 
   return (
     <Box width="100%" sx={mobileMargin}>
-      <Box sx={{ my: '40px' }}>
+      <Box sx={{ mt: 4 }}>
         <InfoLabel
           label="Findings Library"
           typographyVariant="h1"
