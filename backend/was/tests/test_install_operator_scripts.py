@@ -29,9 +29,7 @@ class InstallOperatorScriptsTests(unittest.TestCase):
         source_directory.mkdir()
         for script_name in install_operator_scripts.SCRIPT_NAMES:
             (source_directory / script_name).write_text(
-                "#!/usr/bin/env bash\nprintf '%s\\n' '{} test'\n".format(
-                    script_name
-                ),
+                "#!/usr/bin/env bash\nprintf '%s\\n' '{} test'\n".format(script_name),
                 encoding="utf-8",
             )
         return source_directory

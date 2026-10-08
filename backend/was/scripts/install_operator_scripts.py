@@ -68,9 +68,7 @@ def validated_sources(source_directory: Path) -> List[Path]:
         source_path = source_directory / script_name
         if source_path.is_symlink() or not source_path.is_file():
             raise RuntimeError(
-                "Tracked operator script {} must be a regular file.".format(
-                    script_name
-                )
+                "Tracked operator script {} must be a regular file.".format(script_name)
             )
         validate_bash(source_path)
         sources.append(source_path)
@@ -216,9 +214,7 @@ def install_scripts(
     try:
         for source_path, target_path, action in plan:
             if action != "current":
-                staged_paths[target_path] = stage_script(
-                    source_path, target_directory
-                )
+                staged_paths[target_path] = stage_script(source_path, target_directory)
         replacement_targets = [
             target_path
             for unused_source, target_path, action in plan

@@ -198,9 +198,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("git clone --branch develop --single-branch", operator_runbook)
-        self.assertIn(
-            "git@github.com:cisagov/XFD.git was_report", operator_runbook
-        )
+        self.assertIn("git@github.com:cisagov/XFD.git was_report", operator_runbook)
         self.assertIn("git pull --ff-only origin develop", operator_runbook)
         self.assertNotIn("git pull --ff-only origin cd_WAS_update", operator_runbook)
         for documentation in (operator_runbook, rebuild_runbook):
@@ -209,15 +207,11 @@ class ProductionBoundaryTests(unittest.TestCase):
             self.assertIn('"$HOME/.local/bin/uv" venv', documentation)
             self.assertIn("--python 3.12.14", documentation)
             self.assertIn("--seed", documentation)
-            self.assertIn(
-                "../../was_report/bin/python -m pip --version", documentation
-            )
+            self.assertIn("../../was_report/bin/python -m pip --version", documentation)
             self.assertIn("make host-shell-preview", documentation)
             self.assertIn("make host-shell-install APPLY=1", documentation)
             self.assertIn("make host-operator-scripts-preview", documentation)
-            self.assertIn(
-                "make host-operator-scripts-install APPLY=1", documentation
-            )
+            self.assertIn("make host-operator-scripts-install APPLY=1", documentation)
 
     def test_was_arn_validations_reject_wildcards_without_newer_functions(self) -> None:
         """Keep IAM resources exact and Terraform 1.0.7 compatible."""

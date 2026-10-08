@@ -33,7 +33,7 @@ function menu {
     echo "4) Quit"
     echo
     echo -n "Please enter your selection: "
-    read selection
+    read -r selection
 
     if [[ $selection == 1 ]]
         then
@@ -70,32 +70,26 @@ function menu {
 function createLocalBranch {
     path="/home/ubuntu/code" &&
     echo "The working path is ${path}"
-    cd $path &&
+    cd "$path" &&
     echo "What is the name of the directory where you want your local repos?"
-    read absDir &&
-    mkdir $absDir &&
+    read -r absDir &&
+    mkdir -- "$absDir" &&
 
 
     workingDir="$path/$absDir" &&
-    cd $workingDir &&
+    cd "$workingDir" &&
     if [ -d  "$workingDir" ]; then
         echo "What is the branch name that you want to clone?"&&
-        read selectBranch &&
+        read -r selectBranch &&
         echo "What is the url to repo of the branch that you want to clone?" &&
-        read repoURL &&
-        git clone -b $selectBranch $repoURL &&
-        newGitDir=$(ls -d *) &&
-
-        cd * &&
-        mv * .. &&
-        cd .. &&
-        rm -r $newGitDir &&
+        read -r repoURL &&
+        git clone -b "$selectBranch" "$repoURL" . &&
         uv venv --python 3.12 "$absDir" &&
 
         clear &&
         menu
     else
-        rm r $workingDir
+        rmdir -- "$workingDir"
         echo -e "${RED}The directory that you chose already exists. Please make a new selection!${WHITE}\n" &&
         createLocalBranch
 
