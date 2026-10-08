@@ -118,7 +118,7 @@ class InstallOperatorShellTests(unittest.TestCase):
         )
         contents = fragment_path.read_text(encoding="utf-8")
 
-        self.assertIn("cd_WAS_update/cd_WAS_update", contents)
+        self.assertIn("was_report/was_report", contents)
         self.assertIn('source "$WAS_VIRTUAL_ENV/bin/activate"', contents)
         self.assertNotIn(".env", contents)
 

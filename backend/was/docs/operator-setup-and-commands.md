@@ -106,8 +106,8 @@ From the EC2 user's home directory:
 mkdir -p "$HOME/code"
 cd "$HOME/code"
 git clone --branch develop --single-branch \
-  git@github.com:cisagov/XFD.git cd_WAS_update
-cd cd_WAS_update
+  git@github.com:cisagov/XFD.git was_report
+cd was_report
 cd backend/was
 make host-software-preview
 make host-software-apply APPLY=1
@@ -117,17 +117,17 @@ If apply added Docker group membership, end the login session and reconnect.
 Then continue from the repository root:
 
 ```bash
-cd "$HOME/code/cd_WAS_update"
+cd "$HOME/code/was_report"
 cd backend/was
 make host-software-verify
 cd ../..
 "$HOME/.local/bin/uv" venv \
   --python 3.12.14 \
   --seed \
-  cd_WAS_update
+  was_report
 cd backend/was
-../../cd_WAS_update/bin/python --version
-../../cd_WAS_update/bin/python -m pip --version
+../../was_report/bin/python --version
+../../was_report/bin/python -m pip --version
 make install
 make host-shell-preview
 make host-shell-install APPLY=1
@@ -139,7 +139,7 @@ chmod 600 .env
 
 The rebuild helper installs checksum-verified `uv`, installs its managed Python
 3.12.14, and verifies that managed interpreter before this step. The `uv venv`
-command above creates the named `cd_WAS_update` environment expected by the
+command above creates the named `was_report` environment expected by the
 Makefile and seeds it with `pip` so `make install` can install the project
 requirements.
 
@@ -416,14 +416,14 @@ failed sessions. After deploying the same reviewed revision to the EC2 host,
 install and verify it with:
 
 The checked-in unit is intentionally bound to user `ubuntu` and the exact
-checkout `/home/ubuntu/code/cd_WAS_update/backend/was`. The commands below are
+checkout `/home/ubuntu/code/was_report/backend/was`. The commands below are
 valid only for that layout. If the approved host uses a different user, checkout,
 Python environment, tmux socket owner, or output directory, do not install the
 unit unchanged. Have the service definition reviewed with every absolute path,
 `User`, `Group`, and `ReadWritePaths` value updated for that host first.
 
 ```bash
-cd "$HOME/code/cd_WAS_update/backend/was"
+cd "$HOME/code/was_report/backend/was"
 sudo install -m 0644 systemd/was-tmux-cleanup.service \
   /etc/systemd/system/was-tmux-cleanup.service
 sudo install -m 0644 systemd/was-tmux-cleanup.timer \
@@ -597,7 +597,7 @@ customer-delivery reconciliation first, and preserve and escalate any other
 uncertain state rather than updating code beneath it:
 
 ```bash
-cd "$HOME/code/cd_WAS_update"
+cd "$HOME/code/was_report"
 git branch --show-current
 git status --short
 git pull --ff-only origin develop

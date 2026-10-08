@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$HOME/code/cd_WAS_update"
+cd "$HOME/code/was_report"
 
 if [[ "$(git branch --show-current)" != "cd_WAS_update" ]]; then
     echo "Error: Switch to cd_WAS_update before updating."

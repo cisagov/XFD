@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$HOME/code/cd_WAS_update/backend/was"
+cd "$HOME/code/was_report/backend/was"
 
 make capacity-start \
   APPLY=1 \

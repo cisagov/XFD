@@ -41,12 +41,12 @@ alias python='python3'
 
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
-alias cdwas='cd "$HOME/code/cd_WAS_update/backend/was"'
+alias cdwas='cd "$HOME/code/was_report/backend/was"'
 alias menu='cdwas && make menu'
 
 export WAS_S3_URI='s3://cisa-was-reports'
 
-WAS_VIRTUAL_ENV="$HOME/code/cd_WAS_update/cd_WAS_update"
+WAS_VIRTUAL_ENV="$HOME/code/was_report/was_report"
 
 if [[ -r "$WAS_VIRTUAL_ENV/bin/activate" ]]; then
   # shellcheck source=/dev/null

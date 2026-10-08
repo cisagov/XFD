@@ -198,14 +198,19 @@ class ProductionBoundaryTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("git clone --branch develop --single-branch", operator_runbook)
+        self.assertIn(
+            "git@github.com:cisagov/XFD.git was_report", operator_runbook
+        )
         self.assertIn("git pull --ff-only origin develop", operator_runbook)
         self.assertNotIn("git pull --ff-only origin cd_WAS_update", operator_runbook)
         for documentation in (operator_runbook, rebuild_runbook):
+            self.assertIn("$HOME/code/was_report", documentation)
+            self.assertNotIn("$HOME/code/cd_WAS_update", documentation)
             self.assertIn('"$HOME/.local/bin/uv" venv', documentation)
             self.assertIn("--python 3.12.14", documentation)
             self.assertIn("--seed", documentation)
             self.assertIn(
-                "../../cd_WAS_update/bin/python -m pip --version", documentation
+                "../../was_report/bin/python -m pip --version", documentation
             )
             self.assertIn("make host-shell-preview", documentation)
             self.assertIn("make host-shell-install APPLY=1", documentation)
