@@ -400,13 +400,25 @@ export const useApi = (onError?: OnError) => {
 
           let result: unknown;
 
+          // Non-OK responses are run through parseErrorResponse so their JSON can be used for ApiError construction.
+          // This ensures that even if the server returns a non-OK response, we can still extract meaningful error information from the response body.
+          // If parsing the error response fails, a generic error message is used instead.
+
           if (!response.ok) {
-            const errorPayload = await parseErrorResponse(response);
+            let errorPayload: unknown;
+            try {
+              errorPayload = await parseErrorResponse(response);
+            } catch {
+              errorPayload = {
+                detail:
+                  'The request failed, but the server error message could not be read.'
+              };
+            }
             throw new ApiError(response, errorPayload);
           }
 
           // Parse the response according to the specified parsing method
-          // Also catch any malformed JSON responses
+          // Also catch any successful malformed JSON responses
           result = await parseResponse(response, parseAs);
 
           if (includeResponse) {

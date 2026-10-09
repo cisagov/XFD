@@ -788,5 +788,35 @@ describe('useApi hook tests', () => {
         message: 'The uploaded file exceeds the 10mb limit'
       });
     });
+
+    it('returns error fallback message when the error body cannot be read', async () => {
+      const response = new Response('Invalid JSON', {
+        status: 500,
+        statusText: 'Internal Server Error'
+      });
+
+      vi.spyOn(response, 'text').mockRejectedValue(
+        new TypeError('Failed to read response body')
+      );
+      vi.mocked(global.fetch).mockResolvedValue(response);
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await expect(
+        result.current.apiGet('/some-endpoint', { parseAs: 'json' })
+      ).rejects.toMatchObject({
+        isApiError: true,
+        status: 500,
+        payload: {
+          detail:
+            'The request failed, but the server error message could not be read.'
+        },
+        payloadMessage:
+          'The request failed, but the server error message could not be read.',
+        message:
+          'The request failed, but the server error message could not be read.'
+      });
+    });
   });
 });
