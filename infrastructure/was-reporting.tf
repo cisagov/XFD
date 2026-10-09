@@ -164,9 +164,9 @@ resource "aws_instance" "was_reporting" {
     Owner   = "Crossfeed managed resource"
   }
 
-   lifecycle {
-     ignore_changes  = [ami]
-     prevent_destroy = true
+  lifecycle {
+    ignore_changes  = [ami]
+    prevent_destroy = true
   }
 
   depends_on = [
