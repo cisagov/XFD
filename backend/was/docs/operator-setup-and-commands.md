@@ -492,6 +492,12 @@ supports only two applied outcomes for `delivery_purpose=customer`:
   operator explicitly selects stored customer recipients and supplies the
   stronger customer-send confirmation.
 
+The interactive menu provides the same guarded customer workflow under **Report
+tracker > Reconcile a held customer email delivery**. It lists eligible held
+deliveries and uses numbered selection, so the operator does not need to obtain
+or enter a report-run ID. The host Make target remains available for scripted
+or runbook-directed recovery.
+
 The ordinary batch and direct customer mailer cannot claim uncertain held
 deliveries. Each confirmed non-delivery creates a one-time retry authorization
 bound to the selected recipient scope. The atomic claim consumes it and

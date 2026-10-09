@@ -454,6 +454,10 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn("PARTITION BY tracker.tag", conn.cursor_instance.query)
         self.assertIn("WHERE tracker.candidate_rank = 1", conn.cursor_instance.query)
         self.assertIn(
+            "COALESCE(tracker.template, '') <> 'Deactivated'",
+            conn.cursor_instance.query,
+        )
+        self.assertIn(
             "tracker.scan_start_date DESC NULLS LAST",
             conn.cursor_instance.query,
         )

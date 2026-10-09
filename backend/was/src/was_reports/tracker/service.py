@@ -14,6 +14,8 @@ from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.item_builder import create_tracker_items
 from was_reports.tracker.models import (
     MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
+    QUALYS_DELETION_REQUIRED_NOTE,
+    QUALYS_DELETION_RETRYABLE_NOTE,
     RESOLVED_QUALYS_SCHEDULE_NOTE_PREFIX,
     QualysScan,
     TrackerItem,
@@ -107,7 +109,10 @@ def pending_schedules(
             start_day,
             normalize_schedule_name((name or "").split(" Slice", 1)[0]),
         )
-        if delete_apps and (notes or "").strip() == "QUALYS DELETION REQUIRED":
+        if delete_apps and (notes or "").strip() in {
+            QUALYS_DELETION_REQUIRED_NOTE,
+            QUALYS_DELETION_RETRYABLE_NOTE,
+        }:
             deletion_required.add(identity)
         if sent or emailed:
             delivered.add(identity)
@@ -276,7 +281,10 @@ def pending_scan_groups(
                 and result
                 and result.upper() not in {"PROCESSING", "RUNNING"}
             )
-            deletion_pending = delete_apps and notes == "QUALYS DELETION REQUIRED"
+            deletion_pending = delete_apps and notes in {
+                QUALYS_DELETION_REQUIRED_NOTE,
+                QUALYS_DELETION_RETRYABLE_NOTE,
+            }
             recoverable_manual = is_recoverable_qualys_manual(notes)
             if (
                 sent

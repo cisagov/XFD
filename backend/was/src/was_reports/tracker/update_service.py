@@ -38,6 +38,10 @@ from was_reports.qualys.report_data import count_webapps
 from was_reports.tracker.assignments import round_robin_assignee
 from was_reports.tracker.models import (
     MISSING_QUALYS_SCHEDULE_NOTE_PREFIX,
+    QUALYS_DELETION_FAILED_NOTE,
+    QUALYS_DELETION_PENDING_NOTE,
+    QUALYS_DELETION_REQUIRED_NOTE,
+    QUALYS_DELETION_RETRYABLE_NOTE,
     TrackerItem,
     is_missing_qualys_schedule_manual,
     is_recoverable_qualys_manual,
@@ -53,6 +57,13 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 EASTERN_TIME = ZoneInfo("America/New_York")
+DEACTIVATION_COMPLETE_NOTE = (
+    "DEACTIVATE: No web applications remain after automatic NWS deletion."
+)
+
+
+class QualysDeletionPreflightError(RuntimeError):
+    """Identify a deletion failure proven to precede the Qualys delete request."""
 
 
 def resolve_stakeholder_details(
@@ -432,9 +443,9 @@ def validate_deletion_claim(
         current = cursor.fetchone()
     expected = (
         item.tag,
-        "Finished",
+        item.status,
         item.result,
-        "MANUAL QUALYS DELETION PENDING",
+        QUALYS_DELETION_PENDING_NOTE,
         execution_key,
         item.tag_id,
         item.removed_nws,
@@ -464,7 +475,7 @@ def validate_latest_deletion_execution(
         )
     schedules = search_schedules(
         client,
-        launched_at - timedelta(seconds=1),
+        launched_at - timedelta(days=1),
         set(),
         stakeholder_tag=item.tag,
     )
@@ -574,6 +585,31 @@ def deletion_safety_lock_tags(tag: str) -> tuple[str, ...]:
     return tuple(sorted(lock_tags))
 
 
+def deletion_status_allows_automatic_removal(
+    item: TrackerItem,
+    applications: list[str],
+) -> bool:
+    """Allow deletion when scan errors belong only to different web applications.
+
+    A consolidated tracker item can have an Error status because one scan slice
+    returned a Qualys error while a separate slice independently met the
+    repeated inaccessible-target rule.  The error slice must remain visible in
+    the tracker, but it must not block deletion of the separately identified
+    target.  Never delete a URL that is itself listed as a Qualys error target.
+    """
+    if item.status == "Finished":
+        return True
+    if item.status != "Error" or item.result not in {
+        "Scan Internal Error",
+        "Scan Results Invalid",
+    }:
+        return False
+    error_applications = {
+        application for application in item.qualys_errors.split("<br>") if application
+    }
+    return bool(error_applications) and error_applications.isdisjoint(applications)
+
+
 def delete_validated_webapp(
     client: QualysClient,
     conn: connection,
@@ -583,16 +619,20 @@ def delete_validated_webapp(
     webapp_url: str,
 ) -> None:
     """Revalidate identity, tags, claim, and latest execution before deletion."""
-    first_identity = find_webapp_identity(client, webapp_url)
-    current_identity = find_webapp_identity(client, webapp_url)
-    if current_identity != first_identity:
-        raise RuntimeError(
-            "Qualys web application identity changed; manual reconciliation is required."
-        )
-    validate_webapp_tags(conn, current_identity, item.tag_id)
-    validate_latest_deletion_execution(client, item, execution_key)
-    validate_deletion_claim(conn, row_id, item, execution_key)
-    validate_current_deletion_safety(conn, item)
+    try:
+        first_identity = find_webapp_identity(client, webapp_url)
+        current_identity = find_webapp_identity(client, webapp_url)
+        if current_identity != first_identity:
+            raise RuntimeError(
+                "Qualys web application identity changed; "
+                "manual reconciliation is required."
+            )
+        validate_webapp_tags(conn, current_identity, item.tag_id)
+        validate_latest_deletion_execution(client, item, execution_key)
+        validate_deletion_claim(conn, row_id, item, execution_key)
+        validate_current_deletion_safety(conn, item)
+    except Exception as error:
+        raise QualysDeletionPreflightError(str(error)) from error
     delete_webapp(
         client,
         webapp_url,
@@ -644,9 +684,10 @@ def update_execution(
                 and stored_execution_key == review_key
                 and is_missing_qualys_schedule_manual(notes)
             )
-            claim_required_deletion = (
-                delete_apps and notes == "QUALYS DELETION REQUIRED"
-            )
+            claim_required_deletion = delete_apps and notes in {
+                QUALYS_DELETION_REQUIRED_NOTE,
+                QUALYS_DELETION_RETRYABLE_NOTE,
+            }
             if "DELETION" in (notes or "").upper() and not claim_required_deletion:
                 return 0
             if (
@@ -688,12 +729,16 @@ def update_execution(
     applications = list(
         dict.fromkeys(app for app in item.removed_nws.split("<br>") if app)
     )
+    deletion_status_permitted = deletion_status_allows_automatic_removal(
+        item,
+        applications,
+    )
     permitted = bool(
         (not existing or claim_required_deletion)
         and applications
         and not item.fceb
         and delete_apps
-        and item.status == "Finished"
+        and deletion_status_permitted
         and not item.manual
         and row.report_scan_notes in {None, "", "DEACTIVATE"}
     )
@@ -703,13 +748,13 @@ def update_execution(
         row = replace(
             row,
             template="Action Required",
-            report_scan_notes="QUALYS DELETION REQUIRED",
+            report_scan_notes=QUALYS_DELETION_REQUIRED_NOTE,
         )
     preliminary = (
         replace(
             row,
             template=None,
-            report_scan_notes="MANUAL QUALYS DELETION PENDING",
+            report_scan_notes=QUALYS_DELETION_PENDING_NOTE,
         )
         if permitted
         else row
@@ -781,12 +826,15 @@ def update_execution(
     conn.commit()
     if not permitted:
         return 1
+    completed_deletions = 0
+    deletion_phase = "lock"
     try:
         # The preliminary commit makes the deletion claim durable but releases
         # transaction locks. Reacquire the same tag lock and hold it through
         # revalidation, external deletion, and finalization.
         for safety_tag in deletion_safety_lock_tags(item.tag):
             lock_tracker_tag(conn, safety_tag)
+        deletion_phase = "delete"
         for webapp_url in applications:
             delete_validated_webapp(
                 client,
@@ -796,42 +844,86 @@ def update_execution(
                 execution_key,
                 webapp_url,
             )
+            completed_deletions += 1
+        deletion_phase = "finalize"
+        final_template = row.template or "Targets Removed"
+        final_report_scan_notes = row.report_scan_notes or ""
+        deactivation_completed = final_template == "Deactivated"
+        if deactivation_completed:
+            final_report_scan_notes = DEACTIVATION_COMPLETE_NOTE
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE was_daily_report_tracker SET template = %s, report_scan_notes = %s "
                 "WHERE id = %s AND report_scan_notes = %s",
                 (
-                    "Targets Removed",
-                    "",
+                    final_template,
+                    final_report_scan_notes,
                     row_id,
-                    "MANUAL QUALYS DELETION PENDING",
+                    QUALYS_DELETION_PENDING_NOTE,
                 ),
             )
             if cursor.rowcount != 1:
                 raise RuntimeError(
                     "Tracker deletion claim changed; manual reconciliation is required."
                 )
+            if deactivation_completed:
+                cursor.execute(
+                    "UPDATE was_stakeholders "
+                    "SET num_web_apps = 0, "
+                    "web_apps_last_updated = EXTRACT(EPOCH FROM NOW())::BIGINT, "
+                    "updated_at = NOW() "
+                    "WHERE tag = %s",
+                    (item.tag,),
+                )
+                if cursor.rowcount != 1:
+                    raise RuntimeError(
+                        "Stakeholder inventory could not be finalized after deleting "
+                        "all web applications; manual reconciliation is required."
+                    )
         conn.commit()
     except Exception as error:
-        LOGGER.error(
-            "Unable to complete tracker deletion for %s: %s",
-            item.tag,
-            exception_details(error),
+        retryable = completed_deletions == 0 and (
+            deletion_phase == "lock" or isinstance(error, QualysDeletionPreflightError)
         )
+        failure_note = (
+            QUALYS_DELETION_RETRYABLE_NOTE if retryable else QUALYS_DELETION_FAILED_NOTE
+        )
+        logged_error = (
+            error.__cause__
+            if isinstance(error, QualysDeletionPreflightError)
+            and error.__cause__ is not None
+            else error
+        )
+        if retryable:
+            LOGGER.error(
+                "Qualys deletion preflight failed for %s before any delete request; "
+                "a later deletion-enabled refresh may retry it: %s",
+                item.tag,
+                exception_details(logged_error),
+            )
+        else:
+            LOGGER.error(
+                "Unable to complete tracker deletion for %s after deletion may have "
+                "started; manual reconciliation is required: %s",
+                item.tag,
+                exception_details(logged_error),
+            )
         conn.rollback()
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE was_daily_report_tracker SET template = NULL, report_scan_notes = %s "
                 "WHERE id = %s AND report_scan_notes = %s",
                 (
-                    "MANUAL QUALYS DELETION FAILED",
+                    failure_note,
                     row_id,
-                    "MANUAL QUALYS DELETION PENDING",
+                    QUALYS_DELETION_PENDING_NOTE,
                 ),
             )
             failure_recorded = cursor.rowcount == 1
         if failure_recorded:
             record_tracker_digest_failure(row_id, conn)
         conn.commit()
-        raise
+        if not failure_recorded:
+            raise
+        return 1
     return 1

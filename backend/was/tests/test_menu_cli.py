@@ -7,7 +7,9 @@ from unittest.mock import Mock, patch
 
 # Third-Party Libraries
 # First-Party Libraries
+from was_reports.commands import menu_cli
 from was_reports.commands.menu_cli import WasOperatorMenu
+from was_reports.data.report_runs import HeldEmailReconciliationPreview
 from was_reports.utils.operation_cancellation import (
     raise_if_operation_cancelled,
     request_operation_cancellation,
@@ -696,6 +698,114 @@ class WasOperatorMenuTests(unittest.TestCase):
 
         mock_tracker_main.assert_called_once_with(
             ["show", "--days-back", "7", "--limit", "200"]
+        )
+
+    @patch(
+        "was_reports.commands.menu_cli.reconcile_email_delivery.main",
+        return_value=0,
+    )
+    @patch(
+        "was_reports.commands.menu_cli."
+        "list_held_report_email_reconciliations_from_db"
+    )
+    def test_held_email_menu_selects_and_retries_without_entering_run_id(
+        self,
+        list_held_deliveries,
+        reconcile_delivery,
+    ) -> None:
+        """Select a held run by menu number and reuse guarded customer retry."""
+        list_held_deliveries.return_value = [
+            HeldEmailReconciliationPreview(
+                report_run_id=3484,
+                stakeholder_tag="LIMMOBPA",
+                report_status="completed",
+                email_status="held",
+                delivery_purpose="customer",
+                emailed_at=None,
+                email_claimed_at=None,
+                source_tracker_id=348817,
+                tracker_report_sent_date=None,
+                eligible=True,
+                ineligible_reason=None,
+            )
+        ]
+        menu = self.build_menu(
+            [
+                "",
+                "LIMMOBPA",
+                "1",
+                "2",
+                "WAS-1234 confirms non-delivery",
+                menu_cli.CUSTOMER_EMAIL_RETRY_MENU_CONFIRMATION,
+                "",
+            ]
+        )
+
+        menu.reconcile_held_customer_email()
+
+        list_held_deliveries.assert_called_once_with(
+            days_back=7,
+            stakeholder_tag="LIMMOBPA",
+        )
+        reconcile_delivery.assert_called_once_with(
+            [
+                "retry-confirmed-undelivered",
+                "--report-run-id",
+                "3484",
+                "--evidence-reference",
+                "WAS-1234 confirms non-delivery",
+                "--use-stored-customer-recipients",
+                "--apply",
+                "--confirm",
+                "NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS",
+            ]
+        )
+        menu.output.assert_any_call("1) Tag=LIMMOBPA | Run ID=3484 | Tracker ID=348817")
+
+    @patch(
+        "was_reports.commands.menu_cli.reconcile_email_delivery.main",
+        return_value=0,
+    )
+    @patch(
+        "was_reports.commands.menu_cli."
+        "list_held_report_email_reconciliations_from_db"
+    )
+    def test_held_email_menu_can_confirm_delivery_without_resending(
+        self,
+        list_held_deliveries,
+        reconcile_delivery,
+    ) -> None:
+        """Record confirmed delivery through the menu without a send action."""
+        list_held_deliveries.return_value = [
+            HeldEmailReconciliationPreview(
+                report_run_id=3703,
+                stakeholder_tag="NEWGI",
+                report_status="completed",
+                email_status="held",
+                delivery_purpose="customer",
+                emailed_at=None,
+                email_claimed_at=None,
+                source_tracker_id=260866,
+                tracker_report_sent_date=None,
+                eligible=True,
+                ineligible_reason=None,
+            )
+        ]
+        menu = self.build_menu(["", "NEWGI", "1", "1", "SES event reference", "y", ""])
+
+        menu.reconcile_held_customer_email()
+
+        reconcile_delivery.assert_called_once_with(
+            [
+                "confirm-delivered",
+                "--report-run-id",
+                "3703",
+                "--evidence-reference",
+                "SES event reference",
+                "--apply",
+                "--confirm",
+                "DELIVERY_CONFIRMED",
+            ]
         )
 
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
