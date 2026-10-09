@@ -309,14 +309,8 @@ def search_shodan(
         )
         all_vulns = all_vuln_df.to_dict("records")
     # Only insert results with IPs from attested CIDRs
-    data_df = pd.DataFrame(data)
-    data_mask = [IPAddress(ip) in cidr_ip_set for ip in data_df["ip"]]
-    data_df = data_df[data_mask].reset_index(drop=True)
-    data = data_df.to_dict("records")
-    all_vuln_df = pd.DataFrame(all_vulns)
-    all_vuln_mask = [IPAddress(ip) in cidr_ip_set for ip in all_vuln_df["ip"]]
-    all_vuln_df = all_vuln_df[all_vuln_mask].reset_index(drop=True)
-    all_vulns = all_vuln_df.to_dict("records")
+    data = [row for row in data if IPAddress(row["ip"]) in cidr_ip_set]
+    all_vulns = [row for row in all_vulns if IPAddress(row["ip"]) in cidr_ip_set]
     # Break shodan asset/vuln data into chunks of 500
     chunk_size = 500
     asset_chunk_list = [
