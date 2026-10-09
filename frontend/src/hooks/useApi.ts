@@ -113,7 +113,7 @@ const baseHeaders: HeadersInit = {
 
 type ApiMethod = 'GET' | 'POST' | 'DELETE'; // Supported HTTP methods for the API requests
 type OnError = (e: Error) => Promise<void>;
-type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none'; //
+type ParseAs = 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'none'; // The expected response type for parsing the API response
 
 const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
 const apiBaseUrl = String(import.meta.env.VITE_API_URL || '').replace(
@@ -205,6 +205,72 @@ const sendClientTelemetry = (payload: any) => {
     }).catch(() => undefined);
   } catch {
     // Never let telemetry break the original error behavior
+  }
+};
+
+export const parseResponse = async (
+  response: Response,
+  parseAs?: ParseAs
+): Promise<unknown> => {
+  // Handle cases where no response body is expected or the response has no content (204/205)
+  if (
+    parseAs === 'none' ||
+    response.status === 204 ||
+    response.status === 205
+  ) {
+    return undefined;
+  }
+  // Handle cases where the response should be parsed as plain text, blob, arrayBuffer, or formData.
+  if (parseAs === 'text') {
+    return await response.text();
+  }
+  if (parseAs === 'blob') {
+    return await response.blob();
+  }
+  if (parseAs === 'arrayBuffer') {
+    return await response.arrayBuffer();
+  }
+  if (parseAs === 'formData') {
+    return await response.formData();
+  }
+
+  // Convert the json or undefined responses to text first, then attempt to parse it as JSON.
+  // Prevents need for response.clone() to read the body multiple times.
+  if (parseAs === 'json' || parseAs === undefined) {
+    const text = await response.text();
+
+    // Removes any leading and trailing whitespace from the response text before checking if it's empty.
+    // If the response body is empty, return undefined
+    if (!text.trim()) {
+      return undefined;
+    }
+    // Try to parse the response as JSON, but if it fails and the response was OK, throw an error. Otherwise, return the raw text.
+    try {
+      return JSON.parse(text) as unknown;
+    } catch (error) {
+      if (response.ok) {
+        throw new Error(
+          `Expected valid JSON but received invalid JSON with status ${response.status}`,
+          { cause: error }
+        );
+      }
+    }
+    return text;
+  }
+};
+
+export const parseErrorResponse = async (
+  response: Response
+): Promise<unknown> => {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
   }
 };
 
@@ -312,6 +378,9 @@ export const useApi = (onError?: OnError) => {
         path: string,
         init: ApiInit | ApiInitWithResponse = {}
       ): Promise<T | ApiResult<T>> => {
+        // This destructures the custom options from the init object, providing default values if they are not specified.
+        // 'JSON' is the default parsing method for the response.
+        // Other parsing methods, 'text', 'blob', 'arrayBuffer', 'formData', and 'none'.
         const {
           showLoading = true,
           includeResponse = false,
@@ -331,28 +400,26 @@ export const useApi = (onError?: OnError) => {
 
           let result: unknown;
 
-          try {
-            if (parseAs === 'none' || response.status === 204) {
-              result = undefined;
-            } else if (parseAs === 'json') {
-              result = await response.json();
-            } else if (parseAs === 'text') {
-              result = await response.text();
-            } else if (parseAs === 'blob') {
-              result = await response.blob();
-            } else if (parseAs === 'arrayBuffer') {
-              result = await response.arrayBuffer();
-            } else if (parseAs === 'formData') {
-              result = await response.formData();
-            }
-          } catch (error) {
-            // Handle parsing errors if necessary
-            result = undefined;
-          }
+          // Non-OK responses are run through parseErrorResponse so their JSON can be used for ApiError construction.
+          // This ensures that even if the server returns a non-OK response, we can still extract meaningful error information from the response body.
+          // If parsing the error response fails, a generic error message is used instead.
 
           if (!response.ok) {
-            throw new ApiError(response, result);
+            let errorPayload: unknown;
+            try {
+              errorPayload = await parseErrorResponse(response);
+            } catch {
+              errorPayload = {
+                detail:
+                  'The request failed, but the server error message could not be read.'
+              };
+            }
+            throw new ApiError(response, errorPayload);
           }
+
+          // Parse the response according to the specified parsing method
+          // Also catch any successful malformed JSON responses
+          result = await parseResponse(response, parseAs);
 
           if (includeResponse) {
             return {
