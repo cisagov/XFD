@@ -163,14 +163,10 @@ resource "aws_instance" "was_reporting" {
     Name    = "was_reporting"
     Owner   = "Crossfeed managed resource"
   }
-  #TODO: after the new environment is created, another PR will need to be issued to reenable the prevent_destroy
-  # lifecycle {
-  #   ignore_changes  = [ami]
-  #   prevent_destroy = true
-  # }
-  #TODO: the following lifecycle { }can be removed after the new version is in place.
+
   lifecycle {
-    prevent_destroy = false
+    ignore_changes  = [ami]
+    prevent_destroy = true
   }
 
   depends_on = [
