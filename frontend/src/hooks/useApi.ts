@@ -259,6 +259,21 @@ export const parseResponse = async (
   }
 };
 
+export const parseErrorResponse = async (
+  response: Response
+): Promise<unknown> => {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+};
+
 export const useApi = (onError?: OnError) => {
   const [requestCount, setRequestCount] = useState(0);
 
@@ -385,13 +400,14 @@ export const useApi = (onError?: OnError) => {
 
           let result: unknown;
 
+          if (!response.ok) {
+            const errorPayload = await parseErrorResponse(response);
+            throw new ApiError(response, errorPayload);
+          }
+
           // Parse the response according to the specified parsing method
           // Also catch any malformed JSON responses
           result = await parseResponse(response, parseAs);
-
-          if (!response.ok) {
-            throw new ApiError(response, result);
-          }
 
           if (includeResponse) {
             return {
