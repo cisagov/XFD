@@ -1148,9 +1148,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         with patch(
             "was_reports.tracker.update_service.build_tracker_row",
             return_value=row,
-        ), patch(
-            "was_reports.tracker.update_service.delete_validated_webapp"
-        ):
+        ), patch("was_reports.tracker.update_service.delete_validated_webapp"):
             self.assertEqual(
                 update_execution(
                     Mock(),
