@@ -735,5 +735,58 @@ describe('useApi hook tests', () => {
       expect(isApiError(null)).toBe(false);
       expect(isApiError(undefined)).toBe(false);
     });
+
+    it(' throws ApiError with a JSON payload for a non-OK blob request', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        jsonResponse(
+          { detail: 'Session expired' },
+          {
+            status: 401,
+            statusText: 'Unauthorized',
+            headers: { 'x-amzn-requestid': 'some-request-id' }
+          }
+        )
+      );
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await expect(
+        result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
+      ).rejects.toMatchObject({
+        isApiError: true,
+        status: 401,
+        payload: { detail: 'Session expired' },
+        payloadMessage: 'Session expired',
+        message: 'Session expired'
+      });
+    });
+
+    it('throws ApiError with a JSON payload for a non-OK FormData request', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        jsonResponse(
+          {
+            detail: 'The uploaded file exceeds the 10mb limit'
+          },
+          { status: 400, statusText: 'Bad Request' }
+        )
+      );
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await expect(
+        result.current.apiPost('/documents/upload', {
+          body: new FormData(),
+          parseAs: 'formData'
+        })
+      ).rejects.toMatchObject({
+        isApiError: true,
+        status: 400,
+        payload: { detail: 'The uploaded file exceeds the 10mb limit' },
+        payloadMessage: 'The uploaded file exceeds the 10mb limit',
+        message: 'The uploaded file exceeds the 10mb limit'
+      });
+    });
   });
 });
