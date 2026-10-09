@@ -146,8 +146,10 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
+      let response: unknown;
+
       await act(async () => {
-        const response = await result.current.apiGet<{
+        response = await result.current.apiGet<{
           name: string;
           id: number;
         }>('/users');
@@ -155,15 +157,64 @@ describe('useApi hook tests', () => {
       });
     });
 
-    it('returns undefined for an empty successful JSON response', async () => {
+    it('returns undefined for a 200 response with all whitespace body', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response('   ', { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response: unknown;
+
+      await act(async () => {
+        response = await result.current.apiGet<undefined>('/items');
+      });
+      expect(response).toBeUndefined();
+    });
+
+    it('returns undefined for when a 200 response with an empty body', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse(undefined));
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
+      let response: unknown;
+
       await act(async () => {
-        const response = await result.current.apiGet<undefined>('/items');
-        expect(response).toBeUndefined();
+        response = await result.current.apiGet<undefined>('/items');
       });
+      expect(response).toBeUndefined();
+    });
+
+    it('returns undefined for a 204 No Content response', async () => {
+      // Simulate a 204 No Content response with no body
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(null, { status: 204 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response: unknown;
+
+      await act(async () => {
+        response = await result.current.apiGet<undefined>('/items');
+      });
+      expect(response).toBeUndefined();
+    });
+
+    it('returns undefined for a 205 Reset Content response', async () => {
+      // Simulate a 205 Reset Content response with no body
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(null, { status: 205 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response: unknown;
+
+      await act(async () => {
+        response = await result.current.apiGet<undefined>('/items');
+      });
+      expect(response).toBeUndefined();
     });
 
     it('throws for malformed non-empty successful JSON responses', async () => {
@@ -182,6 +233,23 @@ describe('useApi hook tests', () => {
       await act(async () => {
         await expect(result.current.apiGet('/items')).rejects.toThrow();
       });
+    });
+
+    it('returns undefined for a 200 response with parseAs "none" set', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response('{"key": "value"}', { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response: unknown;
+
+      await act(async () => {
+        response = await result.current.apiGet<undefined>('/items', {
+          parseAs: 'none'
+        });
+      });
+      expect(response).toBeUndefined();
     });
 
     it('returns blob data and response headers when requested', async () => {
