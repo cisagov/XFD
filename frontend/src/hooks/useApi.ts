@@ -250,7 +250,7 @@ export const parseResponse = async (
     } catch (error) {
       if (response.ok) {
         throw new Error(
-          `Expected valid JSON but receieved invalid JSON with status ${response.status}`,
+          `Expected valid JSON but received invalid JSON with status ${response.status}`,
           { cause: error }
         );
       }
