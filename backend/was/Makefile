@@ -1,6 +1,6 @@
-PYTHON ?= ../../cd_WAS_update/bin/python
+PYTHON ?= ../../was_report/bin/python
 REPO_ROOT ?= ../..
-ROOT_PYTHON ?= ./cd_WAS_update/bin/python
+ROOT_PYTHON ?= ./was_report/bin/python
 IMAGE ?= was-reporting
 ENV_FILE ?= .env
 OUTPUT_DIR ?= $(CURDIR)/local-output
@@ -51,8 +51,11 @@ IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
 INPUT_XLSX ?=
 STAKEHOLDER_IMPORT_OUTPUT ?= $(OUTPUT_DIR)/WAS_Stakeholders_import_ready.csv
+HOST_SOFTWARE_INVENTORY_DIR ?= $(OUTPUT_DIR)/host-inventory-$(shell date -u +%Y%m%dT%H%M%SZ)
+HOST_SOFTWARE_SINCE ?=
+HOST_SOFTWARE_BASELINE ?=
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
 
 export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
 export CAPACITY_ACTION CAPACITY_CONTINUE_RUN_ID CAPACITY_EXPECTED_CANDIDATES
@@ -96,6 +99,34 @@ xml-help:
 inventory:
 	mkdir -p $(OUTPUT_DIR)
 	docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output $(IMAGE) was-inventory
+
+host-software-capture:
+	mkdir -p "$(OUTPUT_DIR)"
+	python3 scripts/capture_host_packages.py --output "$(HOST_SOFTWARE_INVENTORY_DIR)" $(if $(strip $(HOST_SOFTWARE_SINCE)),--since "$(HOST_SOFTWARE_SINCE)") $(if $(strip $(HOST_SOFTWARE_BASELINE)),--baseline "$(HOST_SOFTWARE_BASELINE)")
+
+host-software-preview:
+	python3 scripts/rebuild_was_host_ubuntu24.py
+
+host-software-apply:
+	@test "$(APPLY)" = 1 || (echo 'Host software installation requires APPLY=1.' >&2; exit 2)
+	python3 scripts/rebuild_was_host_ubuntu24.py --apply --acknowledge-manual-items
+
+host-software-verify:
+	python3 scripts/rebuild_was_host_ubuntu24.py --verify
+
+host-shell-preview:
+	python3 scripts/install_operator_shell.py
+
+host-shell-install:
+	@test "$(APPLY)" = 1 || (echo 'Operator shell installation requires APPLY=1.' >&2; exit 2)
+	python3 scripts/install_operator_shell.py --apply
+
+host-operator-scripts-preview:
+	python3 scripts/install_operator_scripts.py
+
+host-operator-scripts-install:
+	@test "$(APPLY)" = 1 || (echo 'Operator script installation requires APPLY=1.' >&2; exit 2)
+	python3 scripts/install_operator_scripts.py --apply
 
 admin-help:
 	docker run --rm $(IMAGE) was-admin --help
