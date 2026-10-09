@@ -137,7 +137,7 @@ describe('useApi hook tests', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  describe('Response Parsing', () => {
+  describe('Response Parsing Hook Level Tests', () => {
     it('returns valid JSON from a successful response', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce(
         jsonResponse({ name: 'John Doe', id: 1 })
@@ -286,7 +286,7 @@ describe('useApi hook tests', () => {
     });
   });
 
-  describe('Response Error Parsing', () => {
+  describe('Error Response Parsing Hook Level Tests', () => {
     it('throws ApiError with a JSON payload for a non-OK blob request', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
         jsonResponse(
