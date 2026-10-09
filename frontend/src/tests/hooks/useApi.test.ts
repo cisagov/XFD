@@ -286,6 +286,91 @@ describe('useApi hook tests', () => {
     });
   });
 
+  describe('Response Error Parsing', () => {
+    it('throws ApiError with a JSON payload for a non-OK blob request', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        jsonResponse(
+          { detail: 'Session expired' },
+          {
+            status: 401,
+            statusText: 'Unauthorized',
+            headers: { 'x-amzn-requestid': 'some-request-id' }
+          }
+        )
+      );
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await expect(
+        result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
+      ).rejects.toMatchObject({
+        isApiError: true,
+        status: 401,
+        payload: { detail: 'Session expired' },
+        payloadMessage: 'Session expired',
+        message: 'Session expired'
+      });
+    });
+
+    it('throws ApiError with a JSON payload for a non-OK FormData request', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        jsonResponse(
+          {
+            detail: 'The uploaded file exceeds the 10mb limit'
+          },
+          { status: 400, statusText: 'Bad Request' }
+        )
+      );
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await expect(
+        result.current.apiPost('/documents/upload', {
+          body: new FormData(),
+          parseAs: 'formData'
+        })
+      ).rejects.toMatchObject({
+        isApiError: true,
+        status: 400,
+        payload: { detail: 'The uploaded file exceeds the 10mb limit' },
+        payloadMessage: 'The uploaded file exceeds the 10mb limit',
+        message: 'The uploaded file exceeds the 10mb limit'
+      });
+    });
+
+    it('returns error fallback message when the error body cannot be read', async () => {
+      const response = new Response('Invalid JSON', {
+        status: 500,
+        statusText: 'Internal Server Error'
+      });
+
+      vi.spyOn(response, 'text').mockRejectedValue(
+        new TypeError('Failed to read response body')
+      );
+      vi.mocked(global.fetch).mockResolvedValue(response);
+
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      await expect(
+        result.current.apiGet('/some-endpoint', { parseAs: 'json' })
+      ).rejects.toMatchObject({
+        isApiError: true,
+        status: 500,
+        payload: {
+          detail:
+            'The request failed, but the server error message could not be read.'
+        },
+        payloadMessage:
+          'The request failed, but the server error message could not be read.',
+        message:
+          'The request failed, but the server error message could not be read.'
+      });
+    });
+  });
+
   describe('Header Handling', () => {
     it('sets the correct headers for JSON requests', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce(jsonResponse({ ok: true }));
@@ -734,89 +819,6 @@ describe('useApi hook tests', () => {
       expect(isApiError(new Error('plain error'))).toBe(false);
       expect(isApiError(null)).toBe(false);
       expect(isApiError(undefined)).toBe(false);
-    });
-
-    it(' throws ApiError with a JSON payload for a non-OK blob request', async () => {
-      vi.mocked(global.fetch).mockResolvedValue(
-        jsonResponse(
-          { detail: 'Session expired' },
-          {
-            status: 401,
-            statusText: 'Unauthorized',
-            headers: { 'x-amzn-requestid': 'some-request-id' }
-          }
-        )
-      );
-
-      const { useApi } = await import('../../hooks/useApi');
-      const { result } = renderHook(() => useApi());
-
-      await expect(
-        result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 401,
-        payload: { detail: 'Session expired' },
-        payloadMessage: 'Session expired',
-        message: 'Session expired'
-      });
-    });
-
-    it('throws ApiError with a JSON payload for a non-OK FormData request', async () => {
-      vi.mocked(global.fetch).mockResolvedValue(
-        jsonResponse(
-          {
-            detail: 'The uploaded file exceeds the 10mb limit'
-          },
-          { status: 400, statusText: 'Bad Request' }
-        )
-      );
-
-      const { useApi } = await import('../../hooks/useApi');
-      const { result } = renderHook(() => useApi());
-
-      await expect(
-        result.current.apiPost('/documents/upload', {
-          body: new FormData(),
-          parseAs: 'formData'
-        })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 400,
-        payload: { detail: 'The uploaded file exceeds the 10mb limit' },
-        payloadMessage: 'The uploaded file exceeds the 10mb limit',
-        message: 'The uploaded file exceeds the 10mb limit'
-      });
-    });
-
-    it('returns error fallback message when the error body cannot be read', async () => {
-      const response = new Response('Invalid JSON', {
-        status: 500,
-        statusText: 'Internal Server Error'
-      });
-
-      vi.spyOn(response, 'text').mockRejectedValue(
-        new TypeError('Failed to read response body')
-      );
-      vi.mocked(global.fetch).mockResolvedValue(response);
-
-      const { useApi } = await import('../../hooks/useApi');
-      const { result } = renderHook(() => useApi());
-
-      await expect(
-        result.current.apiGet('/some-endpoint', { parseAs: 'json' })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 500,
-        payload: {
-          detail:
-            'The request failed, but the server error message could not be read.'
-        },
-        payloadMessage:
-          'The request failed, but the server error message could not be read.',
-        message:
-          'The request failed, but the server error message could not be read.'
-      });
     });
   });
 });
