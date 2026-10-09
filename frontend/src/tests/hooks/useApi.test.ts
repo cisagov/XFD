@@ -168,6 +168,7 @@ describe('useApi hook tests', () => {
 
     it('throws for malformed non-empty successful JSON responses', async () => {
       // Simulate a malformed JSON response with a 200 status code
+      // jsonResponse would not work here because it automatically stringifies the body, which would not produce a malformed JSON.
       vi.mocked(global.fetch).mockResolvedValueOnce(
         new Response('{"malformed": "json"', {
           status: 200,
