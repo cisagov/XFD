@@ -1,6 +1,7 @@
 demoji
 # P&E report generation (pe-reports CLI in Fargate / local pe-worker).
 matplotlib
+netaddr
 numpy
 openpyxl
 PyMuPDF

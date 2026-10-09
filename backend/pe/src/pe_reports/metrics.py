@@ -7,6 +7,7 @@ import os
 import time
 
 # Third-Party Libraries
+from netaddr import IPAddress, IPSet
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
@@ -15,6 +16,7 @@ from .data.config import PE_API_REQUEST_TIMEOUT
 from .data.db_query import (
     connect,
     get_orgs,
+    query_cidrs_by_org,
     query_darkweb,
     query_darkweb_asset_alerts,
     query_darkweb_cves,
@@ -259,25 +261,43 @@ class Malware_Vulns:
         self.start_date = start_date
         self.end_date = end_date
         self.org_uid = org_uid
+        # Retrieve list of organization's CIDRs
+        cidrs_df = query_cidrs_by_org(org_uid)
+        self.org_cidrs = cidrs_df["network"].tolist() if cidrs_df is not None else []
+        cidr_ip_set = IPSet(self.org_cidrs)
+        attested_ips_only = True  # filter control
+        # Assemble shodan suspected vulns
         insecure_df = query_shodan(
             org_uid,
             start_date,
             end_date,
             "vw_shodanvulns_suspected",
         )
-        self.insecure_df = insecure_df if insecure_df is not None else pd.DataFrame()
-
+        insecure_df = (
+            insecure_df if insecure_df is not None else pd.DataFrame(columns=["ip"])
+        )
+        # Assemble shodan verified vulns
         vulns_df = query_shodan(
             org_uid, start_date, end_date, "vw_shodanvulns_verified"
         )
-        if vulns_df is None:
-            vulns_df = pd.DataFrame()
+        vulns_df = vulns_df if vulns_df is not None else pd.DataFrame(columns=["ip"])
         if not vulns_df.empty and "port" in vulns_df.columns:
             vulns_df["port"] = vulns_df["port"].astype(str)
-        self.vulns_df = vulns_df
-
+        # Assemble shodan assets
         assets_df = query_shodan(org_uid, start_date, end_date, "shodan_assets")
-        self.assets_df = assets_df if assets_df is not None else pd.DataFrame()
+        assets_df = assets_df if assets_df is not None else pd.DataFrame(columns=["ip"])
+        # Filter shodan results to only attested CIDR IPs
+        if attested_ips_only:
+            insecure_mask = [IPAddress(ip) in cidr_ip_set for ip in insecure_df["ip"]]
+            self.insecure_df = insecure_df[insecure_mask].reset_index(drop=True)
+            vulns_mask = [IPAddress(ip) in cidr_ip_set for ip in vulns_df["ip"]]
+            self.vulns_df = vulns_df[vulns_mask].reset_index(drop=True)
+            assets_mask = [IPAddress(ip) in cidr_ip_set for ip in assets_df["ip"]]
+            self.assets_df = assets_df[assets_mask].reset_index(drop=True)
+        else:
+            self.insecure_df = insecure_df
+            self.vulns_df = vulns_df
+            self.assets_df = assets_df
 
     @staticmethod
     def isolate_risky_assets(df):
