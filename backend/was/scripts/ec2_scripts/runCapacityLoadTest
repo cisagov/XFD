@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$HOME/code/was_report/backend/was"
+
+make capacity-start \
+  APPLY=1 \
+  BATCH_WORKERS=30 \
+  CAPACITY_WORKLOAD_LABEL="30-container-capacity-test" \
+  TEST_RECIPIENTS="zachary.cogswell@associates.cisa.dhs.gov"

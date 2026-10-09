@@ -123,18 +123,18 @@ data "aws_subnet" "was_reporting" {
 }
 
 locals {
-  # Match the P&E package bootstrap without installing, configuring, or
-  # starting the OpenCTI application stack on the WAS reporting host.
+  # Install only enough software to retrieve and run the reviewed WAS host
+  # manifest. The operator applies the full manifest from the approved commit.
   was_reporting_user_data = local.create_was_reporting_instance ? join("\n", [
     "#!/bin/bash",
     "set -euo pipefail",
     "",
     "install -d -m 0755 /opt/was-reporting",
-    "cat > /opt/was-reporting/install-deps.sh <<'INSTALL_DEPS_EOF'",
-    file("${path.module}/../open-cti/install-deps.sh"),
-    "INSTALL_DEPS_EOF",
-    "chmod 755 /opt/was-reporting/install-deps.sh",
-    "/opt/was-reporting/install-deps.sh",
+    "cat > /opt/was-reporting/bootstrap.sh <<'WAS_BOOTSTRAP_EOF'",
+    file("${path.module}/was-reporting-bootstrap.sh"),
+    "WAS_BOOTSTRAP_EOF",
+    "chmod 755 /opt/was-reporting/bootstrap.sh",
+    "/opt/was-reporting/bootstrap.sh",
   ]) : null
 }
 
