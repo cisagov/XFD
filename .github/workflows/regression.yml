@@ -88,13 +88,13 @@ jobs:
 
 
       - name: Upload Playwright HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-html-report-staging
           path: playwright/playwright-report/html/
 
       - name: Upload Playwright results JSON
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-results-json
           path: playwright/playwright-report/results.json
@@ -143,13 +143,13 @@ jobs:
         continue-on-error: true
 
       - name: Upload Pytest HTML Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pytest-html-report
           path: integration/test-reports/report.html
 
       - name: Upload Pytest JSON Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pytest-json-report
           path: integration/test-reports/report.json
@@ -217,13 +217,13 @@ jobs:
 
 
       - name: Upload Playwright HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-html-report-integration
           path: playwright/playwright-report/html/
 
       - name: Upload Playwright results JSON
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-results-json
           path: playwright/playwright-report/results.json
@@ -271,13 +271,13 @@ jobs:
         continue-on-error: true
 
       - name: Upload Pytest HTML Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pytest-html-report
           path: integration/test-reports/report.html
 
       - name: Upload Pytest JSON Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pytest-json-report
           path: integration/test-reports/report.json
