@@ -1315,3 +1315,21 @@ variable "ssm_pe_s3_bucket" {
   type        = string
   default     = "/crossfeed/staging/PE_S3_BUCKET"
 }
+
+variable "ssm_wiz_backend_env" {
+  description = "ssm_wiz_backend_env"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_BACKEND_ENV"
+}
+
+variable "ssm_wiz_api_client_secret" {
+  description = "ssm_wiz_api_client_secret"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_API_CLIENT_SECRET"
+}
+
+variable "ssm_wiz_api_client_id" {
+  description = "ssm_wiz_api_client_id"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_API_CLIENT_ID"
+}

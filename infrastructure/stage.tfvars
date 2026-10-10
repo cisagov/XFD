@@ -151,3 +151,6 @@ playwright_worker_repository_name            = "crossfeed-playwright-staging-wor
 zscaler_cert_bucket_name                     = "cisa-crossfeed-staging-zscaler"
 backend_api_log_group_name                   = "cyhy-staging-backend-api"
 backend_api_requests_log_group_name          = "cyhy-staging-backend-api-requests"
+ssm_wiz_backend_env                          = "/crossfeed/staging/WIZ_BACKEND_ENV"
+ssm_wiz_api_client_secret                    = "/crossfeed/staging/WIZ_API_CLIENT_SECRET"
+ssm_wiz_api_client_id                        = "/crossfeed/staging/WIZ_API_CLIENT_ID"

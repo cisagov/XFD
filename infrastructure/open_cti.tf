@@ -83,7 +83,13 @@ resource "aws_iam_role_policy" "open_cti_ssm_read_secrets" {
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
       ],
-      Resource = "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${var.open_cti_ssm_path_prefix}*"
+      Resource = [
+        "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${var.open_cti_ssm_path_prefix}*",
+        # install-deps.sh reads these to install the Wiz sensor.
+        "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${var.ssm_wiz_backend_env}",
+        "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${var.ssm_wiz_api_client_id}",
+        "arn:${var.aws_partition}:ssm:${var.aws_region}:*:parameter${var.ssm_wiz_api_client_secret}",
+      ]
     }]
   })
 }
@@ -256,16 +262,19 @@ locals {
     "set -euo pipefail",
     "",
     templatefile("${path.module}/open_cti_user_data_env.sh.tpl", {
-      ssm_path_prefix     = var.open_cti_ssm_path_prefix
-      repo_url            = var.open_cti_repo_url
-      repo_branch         = var.open_cti_repo_branch
-      opencti_host        = var.open_cti_host
-      opencti_admin_email = var.open_cti_admin_email
-      smtp_hostname       = var.open_cti_smtp_hostname
-      censys_org_id       = var.open_cti_censys_org_id
-      qualys_api_username = var.open_cti_qualys_api_username
-      xtm_one_host        = var.open_cti_xtm_one_host
-      xtm_one_admin_email = var.open_cti_xtm_one_admin_email
+      ssm_path_prefix                 = var.open_cti_ssm_path_prefix
+      repo_url                        = var.open_cti_repo_url
+      repo_branch                     = var.open_cti_repo_branch
+      opencti_host                    = var.open_cti_host
+      opencti_admin_email             = var.open_cti_admin_email
+      smtp_hostname                   = var.open_cti_smtp_hostname
+      censys_org_id                   = var.open_cti_censys_org_id
+      qualys_api_username             = var.open_cti_qualys_api_username
+      xtm_one_host                    = var.open_cti_xtm_one_host
+      xtm_one_admin_email             = var.open_cti_xtm_one_admin_email
+      wiz_backend_env_ssm_param       = var.ssm_wiz_backend_env
+      wiz_api_client_id_ssm_param     = var.ssm_wiz_api_client_id
+      wiz_api_client_secret_ssm_param = var.ssm_wiz_api_client_secret
     }),
     "",
     "cat > /opt/open-cti/install-deps.sh <<'INSTALL_DEPS_EOF'",
@@ -298,8 +307,8 @@ resource "aws_ebs_volume" "open_cti_data" {
   kms_key_id        = aws_kms_key.key.arn
 
   lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [availability_zone]
+    # prevent_destroy = true
+    ignore_changes = [availability_zone]
   }
 
   tags = {
