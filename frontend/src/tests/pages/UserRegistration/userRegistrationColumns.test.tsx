@@ -17,7 +17,7 @@ describe('Column factories', () => {
     region_id: '1',
     state: 'NY',
     created_at: '2025-01-01',
-    cognito_use_case_description: 'Test Use Case',
+    use_case_description: 'Test Use Case',
     last_logged_in: '2025-01-01',
     organizations_display: 'Org1, Org2',
     org_acronym: 'ORG'
@@ -42,7 +42,7 @@ describe('Column factories', () => {
         'region_id',
         'state',
         'created_at',
-        'cognito_use_case_description',
+        'use_case_description',
         'status'
       ]);
     });

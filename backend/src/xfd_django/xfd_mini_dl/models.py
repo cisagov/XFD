@@ -1414,39 +1414,17 @@ class User(AutoLengthCheckModel):
         default=uuid.uuid4,
         help_text="Unique identifier for a user object.",
     )
-    cognito_id = models.CharField(
-        db_column="cognito_id",
-        unique=True,
+    use_case_description = models.TextField(
+        db_column="use_case_description",
         blank=True,
         null=True,
-        max_length=255,
-        help_text="Identifier for the user in the cognito system. This is necessary to log into the cyhy dashboard application.",
+        help_text="Use case description for specified user.",
     )
-    cognito_username = models.CharField(
-        max_length=255,
-        db_column="cognito_username",
-        blank=True,
-        null=True,
-        help_text="Username returned from Cognito decoded token.",
-    )
-    cognito_use_case_description = models.TextField(
-        db_column="cognito_use_case_description",
-        blank=True,
-        null=True,
-        help_text="Use case description for specified user from Cognito.",
-    )
-    cognito_email_verified = models.BooleanField(
-        db_column="cognito_email_verified",
-        default=False,
-        blank=True,
-        null=True,
-        help_text="Email verified boolean returned from cognito token.",
-    )
-    cognito_groups = models.JSONField(
-        db_column="cognitoGroups",
+    okta_groups = models.JSONField(
+        db_column="oktaGroups",
         null=True,
         blank=True,
-        help_text="Cognito groups the user is a part of.",
+        help_text="Okta groups the user is a part of.",
     )
     login_gov_id = models.CharField(
         db_column="login_gov_id",

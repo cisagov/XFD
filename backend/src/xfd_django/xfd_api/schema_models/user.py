@@ -27,7 +27,6 @@ class User(BaseModel):
     """User schema."""
 
     id: UUID
-    cognito_id: Optional[str]
     login_gov_id: Optional[str]
     created_at: datetime
     updated_at: datetime
@@ -39,7 +38,7 @@ class User(BaseModel):
     first_login: Optional[bool] = None
     can_select_own_state: Optional[bool] = False
     login_blocked_by_maintenance: bool
-    cognito_use_case_description: Optional[str] = None
+    use_case_description: Optional[str] = None
     date_approved: Optional[datetime] = None
     approved_by: Optional[Dict[str, str]] = None
     date_accepted_terms: Optional[datetime]
@@ -56,7 +55,6 @@ class User(BaseModel):
 class UserResponse(BaseModel):
     """User response schema."""
 
-    cognito_id: Optional[str]
     login_gov_id: Optional[str]
     first_name: str
     last_name: str
@@ -212,7 +210,7 @@ class UserResponseV2(BaseModel):
     invite_pending: Optional[bool] = None
     accepted_terms_version: Optional[str] = None
     date_accepted_terms: Optional[datetime] = None
-    cognito_use_case_description: Optional[str] = None
+    use_case_description: Optional[str] = None
     date_approved: Optional[datetime] = None
     approved_by: Optional[Dict[str, str]] = None
     last_logged_in: Optional[datetime] = None
