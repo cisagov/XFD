@@ -190,6 +190,15 @@ def parse_iso8601(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def parse_databricks_bool(value) -> bool:
+    """Coerce a Databricks JSON_ARRAY boolean ("true"/"false" string, or a real bool/None) into an actual bool."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() == "true"
+
+
 def newdata_set(cve_object, field_name: str, value):
     """Set a field on the cve_object if the value is not None."""
     if value is not None:
