@@ -307,8 +307,8 @@ resource "aws_ebs_volume" "open_cti_data" {
   kms_key_id        = aws_kms_key.key.arn
 
   lifecycle {
-    # prevent_destroy = true
-    ignore_changes = [availability_zone]
+    prevent_destroy = true
+    ignore_changes  = [availability_zone]
   }
 
   tags = {
