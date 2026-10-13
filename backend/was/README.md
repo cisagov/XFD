@@ -8,6 +8,8 @@ test Make commands, troubleshooting, updates, and rollback guidance.
 
 - [Operator setup and command runbook](docs/operator-setup-and-commands.md):
   clone, configure, build, validate, operate, troubleshoot, update, and recover.
+- [Biweekly host rebuild cycle](docs/host-rebuild-cycle.md): capture, review,
+  rebuild, verify, cut over, and retain rollback evidence for Ubuntu 24.04.
 - [Operator menu workflows](docs/operator-menu.md): current interactive menu
   choices and their safeguards.
 - [Capacity testing](docs/capacity-testing.md): isolated database reset,
@@ -84,11 +86,20 @@ the clone if this checkout already exists; use the update cycle below instead.
 mkdir -p ~/code
 cd ~/code
 git clone --branch cd_WAS_update --single-branch \
-  git@github.com:cisagov/XFD.git cd_WAS_update
-cd cd_WAS_update
-python3 -m venv cd_WAS_update
+  git@github.com:cisagov/XFD.git was_report
+cd was_report
+"$HOME/.local/bin/uv" venv \
+  --python 3.12.14 \
+  --seed \
+  was_report
 cd backend/was
+../../was_report/bin/python --version
+../../was_report/bin/python -m pip --version
 make install
+make host-shell-preview
+make host-shell-install APPLY=1
+make host-operator-scripts-preview
+make host-operator-scripts-install APPLY=1
 ./scripts/create-local-env.sh
 ```
 
@@ -118,7 +129,7 @@ force-reset it. The pull example below applies only while validating the branch
 under review; use the approved deployment ref for production.
 
 ```bash
-cd ~/code/cd_WAS_update
+cd ~/code/was_report
 git branch --show-current
 git status --short
 git pull --ff-only origin cd_WAS_update
@@ -550,11 +561,11 @@ From the repository root:
 
 ```bash
 cd backend/was
-../../cd_WAS_update/bin/python -m pip install -r requirements.txt
-../../cd_WAS_update/bin/python -m pip install --no-deps -e .
+../../was_report/bin/python -m pip install -r requirements.txt
+../../was_report/bin/python -m pip install --no-deps -e .
 ```
 
-If the virtual environment path differs, replace `../../cd_WAS_update/bin/python`
+If the virtual environment path differs, replace `../../was_report/bin/python`
 with the Python executable for your active `uv` environment.
 
 ## Operator Usage
@@ -1237,7 +1248,7 @@ tunnel must be available when the configured host is a forwarded local port.
 Start with a small read-only preview (the dates and tag below are an example):
 
 ```bash
-PYTHONPATH=backend/was/src ./cd_WAS_update/bin/python \
+PYTHONPATH=backend/was/src ./was_report/bin/python \
   backend/was/scripts/backfill_tracker_timestamps.py \
   --since 2026-09-01 --until 2026-09-23 --tag RSDOR --limit 100
 ```
@@ -1742,7 +1753,7 @@ SSH tunnel, run:
 ```bash
 scp -P 7777 -i ~/.ssh/accessor_rsa \
   "/local/path/WAS_TRACKER_DailyReports_UpdatedDaily.xlsx" \
-  ubuntu@127.0.0.1:~/code/cd_WAS_update/backend/was/
+  ubuntu@127.0.0.1:~/code/was_report/backend/was/
 ```
 
 The menu mounts that EC2 directory read-only at `/backend/was` inside the
@@ -2048,7 +2059,7 @@ commands. Targets beginning with an underscore are Makefile internals and are
 not supported operator entry points.
 
 The checked-in systemd cleanup unit is hardcoded for user and group `ubuntu`
-and working directory `/home/ubuntu/code/cd_WAS_update/backend/was`. It is valid
+and working directory `/home/ubuntu/code/was_report/backend/was`. It is valid
 only for that exact host layout. If the deployment account or path differs, do
 not install the unit verbatim. Have the system administrator review and adapt
 the unit under the approved change process, then verify its preview and applied
@@ -2291,7 +2302,7 @@ container exits successfully.
 Run focused tests from the repository root:
 
 ```bash
-PYTHONPATH=backend/was/src ./cd_WAS_update/bin/python -m unittest \
+PYTHONPATH=backend/was/src ./was_report/bin/python -m unittest \
   backend/was/tests/test_report_generator.py \
   backend/was/tests/test_passwords.py
 ```
@@ -2299,7 +2310,7 @@ PYTHONPATH=backend/was/src ./cd_WAS_update/bin/python -m unittest \
 Run syntax checks:
 
 ```bash
-./cd_WAS_update/bin/python -m py_compile \
+./was_report/bin/python -m py_compile \
   backend/was/src/was_reports/commands/report_generator.py \
   backend/was/src/was_reports/data/stakeholders.py \
   backend/was/src/was_reports/utils/passwords.py \
