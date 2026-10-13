@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$HOME/code/was_report"
+
+if [[ "$(git branch --show-current)" != "cd_WAS_update" ]]; then
+    echo "Error: Switch to cd_WAS_update before updating."
+    exit 1
+fi
+
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    echo "Error: Commit or stash tracked changes before updating."
+    exit 1
+fi
+
+git pull --ff-only origin cd_WAS_update
+make -C backend/was build
+
+echo "WAS updated and rebuilt successfully."

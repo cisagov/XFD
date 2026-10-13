@@ -11,6 +11,7 @@ from uuid import uuid4
 from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
+from xfd_api.helpers.databricks_helpers import parse_databricks_bool
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.tasks.utils.query_databricks import fetch_from_databricks
 from xfd_api.utils.scan_utils.alerting import IngestionError
@@ -192,7 +193,7 @@ def process_sector(request, sector_child_dict):
         sector_data = {
             "name": request["agency"]["name"],
             "acronym": request["_id"],
-            "retired": bool(request["retired"]),
+            "retired": parse_databricks_bool(request.get("retired")),
         }
         try:
             sector_obj, created = Sector.objects.update_or_create(
@@ -270,7 +271,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
     org_data = {
         "name": agency.get("name"),
         "acronym": request.get("_id"),
-        "retired": bool(request.get("retired", False)),
+        "retired": parse_databricks_bool(request.get("retired")),
         "type": agency.get("type"),
         "state": location.get("state"),
         "state_name": state_name,
@@ -280,7 +281,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         "country": location.get("country"),
         "country_name": location.get("country_name"),
         "region_id": REGION_STATE_MAP.get(state_name),
-        "stakeholder": bool(request.get("stakeholder", False)),
+        "stakeholder": parse_databricks_bool(request.get("stakeholder")),
         "enrolled_in_vs_timestamp": request.get("enrolled") or timezone.now(),
         "period_start_vs_timestamp": request.get("period_start"),
         "report_types": json.dumps(request.get("report_types", [])),
