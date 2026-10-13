@@ -351,7 +351,7 @@ describe('useApi hook tests', () => {
         statusText: 'Internal Server Error'
       });
 
-      vi.spyOn(response, 'text').mockRejectedValue(
+      vi.spyOn(response, 'text').mockRejectedValueOnce(
         new TypeError('Failed to read response body')
       );
       vi.mocked(global.fetch).mockResolvedValueOnce(response);

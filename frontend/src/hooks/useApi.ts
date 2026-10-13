@@ -208,6 +208,15 @@ const sendClientTelemetry = (payload: any) => {
   }
 };
 
+/**
+ * Parses the response from the API based on the specified parseAs option.
+ * @param response The fetch Response object to parse.
+ * @param parseAs The desired format to parse the response as ('json', 'text', 'blob', 'arrayBuffer', 'formData', or 'none').
+ * @returns The parsed response data, or undefined if no content is expected.
+ * @throws Error if the response is expected to be JSON but contains invalid JSON and the response was OK.
+ * useApi processes non-OK responses with parseErrorResponse.
+ */
+
 export const parseResponse = async (
   response: Response,
   parseAs?: ParseAs
@@ -258,6 +267,12 @@ export const parseResponse = async (
     return text;
   }
 };
+
+/**
+ * Parses the error response from the API.
+ * @param response The fetch Response object containing the error.
+ * @returns The parsed error data, or the raw text if parsing fails, or undefined if the body is empty.
+ */
 
 export const parseErrorResponse = async (
   response: Response
