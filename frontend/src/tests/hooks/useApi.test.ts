@@ -1,7 +1,12 @@
 import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, isApiError, parseResponse } from '../../hooks/useApi';
+import {
+  ApiError,
+  isApiError,
+  parseResponse,
+  parseErrorResponse
+} from '../../hooks/useApi';
 import type { ApiResult } from '../../hooks/useApi';
 import { jsonResponse } from '../../test-utils/jsonResponse';
 
@@ -518,7 +523,7 @@ describe('useApi hook tests', () => {
     });
   });
 
-  describe('ApiError', () => {
+  describe('ApiError Direct Tests', () => {
     it('extends Error and exposes fetch response fields', () => {
       const response = jsonResponse(
         { detail: 'Not allowed' },
@@ -819,6 +824,118 @@ describe('useApi hook tests', () => {
       expect(isApiError(new Error('plain error'))).toBe(false);
       expect(isApiError(null)).toBe(false);
       expect(isApiError(undefined)).toBe(false);
+    });
+  });
+
+  describe('parseResponse Direct Tests', () => {
+    it('parses valid JSON', async () => {
+      const response = jsonResponse(
+        { id: 1, name: 'Test Name' },
+        { status: 200, statusText: 'OK' }
+      );
+
+      await expect(parseResponse(response)).resolves.toEqual({
+        id: 1,
+        name: 'Test Name'
+      });
+    });
+
+    it('returns undefined for empty JSON', async () => {
+      const response = new Response(null, { status: 200, statusText: 'OK' });
+      await expect(parseResponse(response)).resolves.toBeUndefined();
+    });
+
+    it('returns undefined for whitespace-only JSON', async () => {
+      const response = new Response('   ', { status: 200, statusText: 'OK' });
+      await expect(parseResponse(response)).resolves.toBeUndefined();
+    });
+
+    it('throws an error for malformed JSON', async () => {
+      const response = new Response('{"invalidJson":}', {
+        status: 200,
+        statusText: 'OK'
+      });
+      await expect(parseResponse(response)).rejects.toThrow(
+        'Expected valid JSON but received invalid JSON with status 200'
+      );
+    });
+
+    it('returns text when parseAs is text', async () => {
+      const response = new Response('Some plain text', {
+        status: 200,
+        statusText: 'OK'
+      });
+      await expect(parseResponse(response, 'text')).resolves.toBe(
+        'Some plain text'
+      );
+    });
+
+    it('returns undefined for parseAs "none" without consuming the body', async () => {
+      const response = new Response('Some content', {
+        status: 200,
+        statusText: 'OK'
+      });
+      const text = vi.spyOn(response, 'text');
+      await expect(parseResponse(response, 'none')).resolves.toBeUndefined();
+      expect(text).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined for status 204 No Content', async () => {
+      const response = new Response(null, {
+        status: 204,
+        statusText: 'No Content'
+      });
+      const text = vi.spyOn(response, 'text');
+      await expect(parseResponse(response)).resolves.toBeUndefined();
+      expect(text).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined for status 205 Reset Content', async () => {
+      const response = new Response(null, {
+        status: 205,
+        statusText: 'Reset Content'
+      });
+      const text = vi.spyOn(response, 'text');
+      await expect(parseResponse(response)).resolves.toBeUndefined();
+      expect(text).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parseErrorResponse Direct Tests', () => {
+    it('parses a FastAPI HTTPException JSON body', async () => {
+      const response = jsonResponse(
+        { detail: 'The uploaded file exceeeds the 10 MB limit.' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      await expect(parseErrorResponse(response)).resolves.toEqual({
+        detail: 'The uploaded file exceeeds the 10 MB limit.'
+      });
+    });
+
+    it('returns undefined for empty error body', async () => {
+      const response = new Response(null, {
+        status: 500,
+        statusText: 'Internal Server Error'
+      });
+      await expect(parseErrorResponse(response)).resolves.toBeUndefined();
+    });
+
+    it('returns undefined for whitespace-only error body', async () => {
+      const response = new Response('   ', {
+        status: 502,
+        statusText: 'Bad Gateway'
+      });
+      await expect(parseErrorResponse(response)).resolves.toBeUndefined();
+    });
+
+    it('returns raw text for non-JSON error body', async () => {
+      const response = new Response('Some error occurred', {
+        status: 503,
+        statusText: 'Service Unavailable'
+      });
+      await expect(parseErrorResponse(response)).resolves.toBe(
+        'Some error occurred'
+      );
     });
   });
 });

@@ -262,11 +262,13 @@ export const parseResponse = async (
 export const parseErrorResponse = async (
   response: Response
 ): Promise<unknown> => {
+  // Read the response body as text and attempt to parse it as JSON.
   const text = await response.text();
-
+  // If the body is empty or whitespace-only, return undefined.
   if (!text.trim()) {
     return undefined;
   }
+  // If parsing fails, return the raw text.
   try {
     return JSON.parse(text) as unknown;
   } catch {
