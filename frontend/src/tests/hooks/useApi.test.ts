@@ -899,6 +899,50 @@ describe('useApi hook tests', () => {
       await expect(parseResponse(response)).resolves.toBeUndefined();
       expect(text).not.toHaveBeenCalled();
     });
+
+    it('returns Blob when parseAs is blob', async () => {
+      const blob = new Blob(['Some content'], { type: 'text/plain' });
+      // Response is mocked due to issues with the native Response.blob() implementation in the test environment.
+      const response = {
+        blob: vi.fn().mockResolvedValue(blob)
+      };
+
+      const blobResult = await parseResponse(
+        response as unknown as Response,
+        'blob'
+      );
+      expect(blobResult).toBeInstanceOf(Blob);
+      expect(response.blob).toHaveBeenCalledOnce();
+    });
+
+    it('returns FormData when parseAs is formData', async () => {
+      const formData = new FormData();
+
+      formData.append('key', 'value');
+      // Response is mocked due to issues with the native Response.formData() implementation in the test environment.
+      const response = {
+        formData: vi.fn().mockResolvedValue(formData)
+      };
+
+      const formDataResult = await parseResponse(
+        response as unknown as Response,
+        'formData'
+      );
+      expect(formDataResult).toBeInstanceOf(FormData);
+      expect(response.formData).toHaveBeenCalledOnce();
+    });
+
+    it('returns an ArrayBuffer when parseAs is arrayBuffer', async () => {
+      const exampleArrayBuffer = new TextEncoder().encode(
+        'Some content'
+      ).buffer;
+      const response = new Response(exampleArrayBuffer, {
+        status: 200,
+        statusText: 'OK'
+      });
+      const arrayBufferResult = await parseResponse(response, 'arrayBuffer');
+      expect(arrayBufferResult).toBeInstanceOf(ArrayBuffer);
+    });
   });
 
   describe('parseErrorResponse Direct Tests', () => {
