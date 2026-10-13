@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$HOME/code/was_report/backend/was"
+PYTHONPATH=src ../../was_report/bin/python \
+  -m was_reports.commands.update_tracker_cli --lookback-days 3

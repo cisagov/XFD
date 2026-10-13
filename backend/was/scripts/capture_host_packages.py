@@ -11,6 +11,7 @@ import argparse
 import csv
 from datetime import datetime, timezone
 import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,7 +19,18 @@ import pwd
 import shutil
 import subprocess  # nosec B404
 import sys
-from typing import Dict, List, Optional, TextIO, cast
+from typing import Dict, List, Optional, TextIO, Tuple, cast
+
+# Third-Party Libraries
+# Local scripts
+from host_software_manifest import (
+    DEFAULT_MANIFEST_PATH,
+    HostSoftwareManifest,
+    ToolSpec,
+    load_manifest,
+)
+
+SOFTWARE_MANIFEST = load_manifest()
 
 
 def run_command(
@@ -34,6 +46,31 @@ def run_command(
         env=environment,
     )
     return result.stdout
+
+
+def run_version_command(arguments: List[str], environment: Dict[str, str]) -> str:
+    """Capture a tool version whether it is written to stdout or stderr."""
+    result = subprocess.run(  # nosec B603
+        arguments,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=environment,
+    )
+    return (result.stdout or result.stderr).strip()
+
+
+def file_sha256(path: Path) -> str:
+    """Return a streaming SHA-256 digest without copying executable contents."""
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while True:
+            block = source.read(1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def write_output(message: str) -> None:
@@ -142,10 +179,13 @@ def package_owner(path: Path) -> str:
     return "; ".join(owners)
 
 
-def capture_tools(output: Path, warnings: List[str]) -> List[Dict[str, str]]:
+def capture_tools(
+    output: Path, warnings: List[str], tools: Tuple[ToolSpec, ...]
+) -> List[Dict[str, str]]:
     """Record versions, resolved paths, and ownership for each detected tool."""
     rows = []
-    for name in ("uv", "npm", "node", "docker", "python3", "git", "curl", "jq", "aws"):
+    for tool in tools:
+        name = tool.name
         seen = set()
         for directory in tool_directories(Path.home()):
             path = directory / name
@@ -161,10 +201,18 @@ def capture_tools(output: Path, warnings: List[str]) -> List[Dict[str, str]]:
                 environment["PATH"] = (
                     str(directory) + os.pathsep + os.environ.get("PATH", "")
                 )
-                version = run_command([executable, "--version"], environment).strip()
+                version = run_version_command(
+                    [executable] + list(tool.version_arguments), environment
+                )
                 owner = package_owner(path.absolute()) or package_owner(resolved)
+                executable_sha256 = file_sha256(resolved)
             except (subprocess.SubprocessError, OSError, RuntimeError) as error:
-                version, owner, resolved = "unavailable", "", path
+                version, owner, resolved, executable_sha256 = (
+                    "unavailable",
+                    "",
+                    path,
+                    "",
+                )
                 warnings.append(
                     "Incomplete tool evidence for {} ({}).".format(
                         path, type(error).__name__
@@ -176,6 +224,7 @@ def capture_tools(output: Path, warnings: List[str]) -> List[Dict[str, str]]:
                     executable=executable,
                     resolved_path=str(resolved),
                     version=version,
+                    executable_sha256=executable_sha256,
                     dpkg_owner=owner,
                     installation_source="dpkg-owned; original installer unknown"
                     if owner
@@ -189,6 +238,7 @@ def capture_tools(output: Path, warnings: List[str]) -> List[Dict[str, str]]:
             "executable",
             "resolved_path",
             "version",
+            "executable_sha256",
             "dpkg_owner",
             "installation_source",
         ],
@@ -373,6 +423,30 @@ def baseline_additions(
     ]
 
 
+def compare_to_manifest(
+    packages: List[Dict[str, str]],
+    manual_packages: List[str],
+    tools: List[Dict[str, str]],
+    manifest: HostSoftwareManifest,
+) -> Dict[str, object]:
+    """Compare captured host software with the reviewed desired manifest."""
+    installed_names = {package["package"] for package in packages}
+    required_packages = set(manifest.apt_packages + manifest.docker_packages)
+    detected_tools = {
+        tool["tool"] for tool in tools if tool["version"] != "unavailable"
+    }
+    required_tool_names = {tool.name for tool in manifest.required_tools}
+    return {
+        "missing_required_packages": sorted(required_packages - installed_names),
+        "missing_required_tools": sorted(required_tool_names - detected_tools),
+        "manual_packages_not_in_manifest": sorted(
+            set(manual_packages) - required_packages
+        ),
+        "required_package_count": len(required_packages),
+        "required_tool_count": len(required_tool_names),
+    }
+
+
 def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> None:
     """Write package evidence and limitations without accessing application secrets."""
     for executable in ("dpkg-query", "apt-mark"):
@@ -381,7 +455,11 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
     os.umask(0o077)
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
     warnings: List[str] = []
-    tools = capture_tools(output, warnings)
+    tools = capture_tools(
+        output,
+        warnings,
+        SOFTWARE_MANIFEST.required_tools + SOFTWARE_MANIFEST.inventory_only_tools,
+    )
     capture_managed_tools(output, tools, warnings)
     capture_backup_manifest(output, warnings)
     package_fields = ["package", "version", "architecture"]
@@ -402,6 +480,21 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
     (output / "apt-held-packages.txt").write_text(
         run_command(["apt-mark", "showhold"]), encoding="utf-8"
     )
+    manifest_comparison = compare_to_manifest(
+        packages, manual, tools, SOFTWARE_MANIFEST
+    )
+    (output / "software-manifest-comparison.json").write_text(
+        json.dumps(manifest_comparison, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    missing_packages = cast(List[str], manifest_comparison["missing_required_packages"])
+    missing_tools = cast(List[str], manifest_comparison["missing_required_tools"])
+    for package in missing_packages:
+        warnings.append("Required manifest package is missing: {}.".format(package))
+    for missing_tool_name in missing_tools:
+        warnings.append(
+            "Required manifest tool is missing: {}.".format(missing_tool_name)
+        )
     events = read_history(Path("/var/log"), since, warnings)
     event_fields = [
         "timestamp",
@@ -435,7 +528,7 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
                 "Snap inventory unavailable ({}).".format(type(error).__name__)
             )
     report = {
-        "inventory_version": 2,
+        "inventory_version": 3,
         "operator": pwd.getpwuid(os.getuid()).pw_name,
         "operator_home": str(Path.home()),
         "captured_utc": datetime.now(timezone.utc).isoformat(),
@@ -447,6 +540,11 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
         "detected_uv_paths": [
             tool["executable"] for tool in tools if tool["tool"] == "uv"
         ],
+        "software_manifest_path": str(DEFAULT_MANIFEST_PATH),
+        "software_manifest_sha256": hashlib.sha256(
+            DEFAULT_MANIFEST_PATH.read_bytes()
+        ).hexdigest(),
+        "software_manifest_comparison": manifest_comparison,
         "warnings": warnings,
         "limitations": [
             "Rotated or deleted logs can omit installations. Dates use the host log timezone.",
@@ -467,12 +565,12 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
     )
     write_output("Inventory saved to {}".format(output.resolve()))
     write_output("uv evidence is in host-tools.csv and summary.json.")
-    for tool in tools:
-        if tool["tool"] == "uv":
+    for captured_tool in tools:
+        if captured_tool["tool"] == "uv":
             write_output(
                 "Detected uv: {} ({})".format(
-                    tool["executable"],
-                    tool["version"],
+                    captured_tool["executable"],
+                    captured_tool["version"],
                 )
             )
     for warning in warnings:
@@ -482,7 +580,7 @@ def capture(output: Path, since: Optional[str], baseline: Optional[Path]) -> Non
 def main() -> int:
     """Accept an optional launch-date filter and original AMI inventory."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="WAS host inventory 2")
+    parser.add_argument("--version", action="version", version="WAS host inventory 3")
     parser.add_argument(
         "--output",
         type=Path,
