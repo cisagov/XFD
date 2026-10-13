@@ -293,7 +293,7 @@ describe('useApi hook tests', () => {
 
   describe('Error Response Parsing Hook Level Tests', () => {
     it('throws ApiError with a JSON payload for a non-OK blob request', async () => {
-      vi.mocked(global.fetch).mockResolvedValue(
+      vi.mocked(global.fetch).mockResolvedValueOnce(
         jsonResponse(
           { detail: 'Session expired' },
           {
@@ -319,7 +319,7 @@ describe('useApi hook tests', () => {
     });
 
     it('throws ApiError with a JSON payload for a non-OK FormData request', async () => {
-      vi.mocked(global.fetch).mockResolvedValue(
+      vi.mocked(global.fetch).mockResolvedValueOnce(
         jsonResponse(
           {
             detail: 'The uploaded file exceeds the 10mb limit'
@@ -354,7 +354,7 @@ describe('useApi hook tests', () => {
       vi.spyOn(response, 'text').mockRejectedValue(
         new TypeError('Failed to read response body')
       );
-      vi.mocked(global.fetch).mockResolvedValue(response);
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
 
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
@@ -523,33 +523,7 @@ describe('useApi hook tests', () => {
     });
   });
 
-  describe('ApiError Direct Tests', () => {
-    it('extends Error and exposes fetch response fields', () => {
-      const response = jsonResponse(
-        { detail: 'Not allowed' },
-        {
-          status: 403,
-          statusText: 'Forbidden',
-          headers: {
-            'x-amzn-requestid': 'request-id'
-          }
-        }
-      );
-      const error = new ApiError(response, { detail: 'Not allowed' });
-
-      expect(error).toBeInstanceOf(Error);
-      expect(error.isApiError).toBe(true);
-      expect(error.name).toBe('ApiError');
-      expect(error.ok).toBe(false);
-      expect(error.status).toBe(403);
-      expect(error.statusText).toBe('Forbidden');
-      expect(error.message).toBe('Not allowed');
-      expect(error.headers['x-amzn-requestid']).toBe('request-id');
-      expect(error.payload).toEqual({ detail: 'Not allowed' });
-      expect(error.payloadMessage).toBe('Not allowed');
-      expect(error.bodyUsed).toBe(false);
-    });
-
+  describe('ApiError Hook Level Tests', () => {
     it('does not convert network failures into ApiError', async () => {
       vi.mocked(global.fetch).mockRejectedValueOnce(
         new TypeError('Network failure')
@@ -726,6 +700,34 @@ describe('useApi hook tests', () => {
         expect(errorArg.payload).toEqual({ detail: 'Not found' });
         expect(errorArg.payloadMessage).toBe('Not found');
       }
+    });
+  });
+
+  describe('ApiError Direct Tests', () => {
+    it('extends Error and exposes fetch response fields', () => {
+      const response = jsonResponse(
+        { detail: 'Not allowed' },
+        {
+          status: 403,
+          statusText: 'Forbidden',
+          headers: {
+            'x-amzn-requestid': 'request-id'
+          }
+        }
+      );
+      const error = new ApiError(response, { detail: 'Not allowed' });
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.isApiError).toBe(true);
+      expect(error.name).toBe('ApiError');
+      expect(error.ok).toBe(false);
+      expect(error.status).toBe(403);
+      expect(error.statusText).toBe('Forbidden');
+      expect(error.message).toBe('Not allowed');
+      expect(error.headers['x-amzn-requestid']).toBe('request-id');
+      expect(error.payload).toEqual({ detail: 'Not allowed' });
+      expect(error.payloadMessage).toBe('Not allowed');
+      expect(error.bodyUsed).toBe(false);
     });
 
     it('uses explicit constructor message before payload detail', () => {
@@ -904,7 +906,7 @@ describe('useApi hook tests', () => {
       const blob = new Blob(['Some content'], { type: 'text/plain' });
       // Response is mocked due to issues with the native Response.blob() implementation in the test environment.
       const response = {
-        blob: vi.fn().mockResolvedValue(blob)
+        blob: vi.fn().mockResolvedValueOnce(blob)
       };
 
       const blobResult = await parseResponse(
@@ -912,6 +914,7 @@ describe('useApi hook tests', () => {
         'blob'
       );
       expect(blobResult).toBeInstanceOf(Blob);
+      expect(blobResult).toBe(blob);
       expect(response.blob).toHaveBeenCalledOnce();
     });
 
@@ -921,7 +924,7 @@ describe('useApi hook tests', () => {
       formData.append('key', 'value');
       // Response is mocked due to issues with the native Response.formData() implementation in the test environment.
       const response = {
-        formData: vi.fn().mockResolvedValue(formData)
+        formData: vi.fn().mockResolvedValueOnce(formData)
       };
 
       const formDataResult = await parseResponse(
@@ -929,6 +932,7 @@ describe('useApi hook tests', () => {
         'formData'
       );
       expect(formDataResult).toBeInstanceOf(FormData);
+      expect(formDataResult).toBe(formData);
       expect(response.formData).toHaveBeenCalledOnce();
     });
 
@@ -942,17 +946,20 @@ describe('useApi hook tests', () => {
       });
       const arrayBufferResult = await parseResponse(response, 'arrayBuffer');
       expect(arrayBufferResult).toBeInstanceOf(ArrayBuffer);
+      expect(new Uint8Array(arrayBufferResult as ArrayBuffer)).toEqual(
+        new Uint8Array(exampleArrayBuffer as ArrayBuffer)
+      );
     });
   });
 
   describe('parseErrorResponse Direct Tests', () => {
     it('parses a FastAPI HTTPException JSON body', async () => {
       const response = jsonResponse(
-        { detail: 'The uploaded file exceeeds the 10 MB limit.' },
+        { detail: 'The uploaded file exceeds the 10 MB limit.' },
         { status: 400, statusText: 'Bad Request' }
       );
       await expect(parseErrorResponse(response)).resolves.toEqual({
-        detail: 'The uploaded file exceeeds the 10 MB limit.'
+        detail: 'The uploaded file exceeds the 10 MB limit.'
       });
     });
 
