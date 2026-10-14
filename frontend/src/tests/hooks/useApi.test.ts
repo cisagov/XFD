@@ -158,8 +158,9 @@ describe('useApi hook tests', () => {
           name: string;
           id: number;
         }>('/users');
-        expect(response).toEqual({ name: 'John Doe', id: 1 });
       });
+
+      expect(response).toEqual({ name: 'John Doe', id: 1 });
     });
 
     it('returns undefined for a 200 response with all whitespace body', async () => {
@@ -240,10 +241,11 @@ describe('useApi hook tests', () => {
       });
     });
 
-    it('returns undefined for a 200 response with parseAs "none" set', async () => {
-      vi.mocked(global.fetch).mockResolvedValueOnce(
-        new Response('{"key": "value"}', { status: 200 })
-      );
+    it('returns undefined and does not attempt to parse the body for a 200 response when parseAs is "none"', async () => {
+      const noneResponse = new Response('{"dontParse": "me"}', { status: 200 });
+      const text = vi.spyOn(noneResponse, 'text');
+      vi.mocked(global.fetch).mockResolvedValueOnce(noneResponse);
+
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
@@ -255,6 +257,7 @@ describe('useApi hook tests', () => {
         });
       });
       expect(response).toBeUndefined();
+      expect(text).not.toHaveBeenCalled();
     });
 
     it('returns blob data and response headers when requested', async () => {
@@ -347,9 +350,7 @@ describe('useApi hook tests', () => {
           parseAs: 'formData'
         });
       });
-      expect(parsedResponse).not.toBeNull();
       expect(parsedResponse).toBe(expectedFormData);
-      expect(parsedResponse).toBeInstanceOf(FormData);
       expect(parsedResponse.get('key')).toBe('value');
       expect(response.formData).toHaveBeenCalledOnce();
     });
@@ -379,7 +380,6 @@ describe('useApi hook tests', () => {
         });
       });
       expect(parsedResponse).toBe(expectedBlob);
-      expect(parsedResponse).toBeInstanceOf(Blob);
       expect(response.blob).toHaveBeenCalledOnce();
     });
 
@@ -406,7 +406,6 @@ describe('useApi hook tests', () => {
         });
       });
       expect(parsedResponse).toBe(expectedArrayBuffer);
-      expect(parsedResponse).toBeInstanceOf(ArrayBuffer);
       expect(response.arrayBuffer).toHaveBeenCalledOnce();
     });
   });
@@ -427,14 +426,16 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      await expect(
-        result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 401,
-        payload: { detail: 'Session expired' },
-        payloadMessage: 'Session expired',
-        message: 'Session expired'
+      await act(async () => {
+        await expect(
+          result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
+        ).rejects.toMatchObject({
+          isApiError: true,
+          status: 401,
+          payload: { detail: 'Session expired' },
+          payloadMessage: 'Session expired',
+          message: 'Session expired'
+        });
       });
     });
 
@@ -442,7 +443,7 @@ describe('useApi hook tests', () => {
       vi.mocked(global.fetch).mockResolvedValueOnce(
         jsonResponse(
           {
-            detail: 'The uploaded file exceeds the 10mb limit'
+            detail: 'The uploaded file exceeds the 10 MB limit'
           },
           { status: 400, statusText: 'Bad Request' }
         )
@@ -451,17 +452,19 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      await expect(
-        result.current.apiPost('/documents/upload', {
-          body: new FormData(),
-          parseAs: 'formData'
-        })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 400,
-        payload: { detail: 'The uploaded file exceeds the 10mb limit' },
-        payloadMessage: 'The uploaded file exceeds the 10mb limit',
-        message: 'The uploaded file exceeds the 10mb limit'
+      await act(async () => {
+        await expect(
+          result.current.apiPost('/documents/upload', {
+            body: new FormData(),
+            parseAs: 'formData'
+          })
+        ).rejects.toMatchObject({
+          isApiError: true,
+          status: 400,
+          payload: { detail: 'The uploaded file exceeds the 10 MB limit' },
+          payloadMessage: 'The uploaded file exceeds the 10 MB limit',
+          message: 'The uploaded file exceeds the 10 MB limit'
+        });
       });
     });
 
@@ -479,19 +482,21 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      await expect(
-        result.current.apiGet('/some-endpoint', { parseAs: 'json' })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 500,
-        payload: {
-          detail:
+      await act(async () => {
+        await expect(
+          result.current.apiGet('/some-endpoint', { parseAs: 'json' })
+        ).rejects.toMatchObject({
+          isApiError: true,
+          status: 500,
+          payload: {
+            detail:
+              'The request failed, but the server error message could not be read.'
+          },
+          payloadMessage:
+            'The request failed, but the server error message could not be read.',
+          message:
             'The request failed, but the server error message could not be read.'
-        },
-        payloadMessage:
-          'The request failed, but the server error message could not be read.',
-        message:
-          'The request failed, but the server error message could not be read.'
+        });
       });
     });
   });
@@ -653,9 +658,11 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi(onError));
 
-      await expect(result.current.apiGet('/network-failure')).rejects.toThrow(
-        'Network failure'
-      );
+      await act(async () => {
+        await expect(result.current.apiGet('/network-failure')).rejects.toThrow(
+          'Network failure'
+        );
+      });
 
       expect(onError).toHaveBeenCalledTimes(1);
     });
