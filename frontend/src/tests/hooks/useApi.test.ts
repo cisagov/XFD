@@ -347,8 +347,11 @@ describe('useApi hook tests', () => {
           parseAs: 'formData'
         });
       });
+      expect(parsedResponse).not.toBeNull();
+      expect(parsedResponse).toBe(expectedFormData);
       expect(parsedResponse).toBeInstanceOf(FormData);
-      expect(parsedResponse?.get('key')).toBe('value');
+      expect(parsedResponse.get('key')).toBe('value');
+      expect(response.formData).toHaveBeenCalledOnce();
     });
 
     it('returns Blob data when parseAs is set to "blob"', async () => {
@@ -375,8 +378,9 @@ describe('useApi hook tests', () => {
           parseAs: 'blob'
         });
       });
+      expect(parsedResponse).toBe(expectedBlob);
       expect(parsedResponse).toBeInstanceOf(Blob);
-      expect(response.blob).toHaveBeenCalledTimes(1);
+      expect(response.blob).toHaveBeenCalledOnce();
     });
   });
 
