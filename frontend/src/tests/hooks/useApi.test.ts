@@ -289,6 +289,57 @@ describe('useApi hook tests', () => {
         expect.objectContaining({ credentials: 'include' })
       );
     });
+
+    it('returns text data when parseAs is set to "text"', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response('example text', { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response!: string;
+
+      await act(async () => {
+        response = await result.current.apiGet<string>('/items', {
+          parseAs: 'text'
+        });
+      });
+      expect(response).toBe('example text');
+    });
+
+    it('returns JSON data when parseAs is set to "json"', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(JSON.stringify({ key: 'value' }), { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response!: { key: string };
+
+      await act(async () => {
+        response = await result.current.apiGet<{ key: string }>('/items', {
+          parseAs: 'json'
+        });
+      });
+      expect(response).toEqual({ key: 'value' });
+    });
+
+    it('returns FormData when parseAs is set to "formData"', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(new FormData(), { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response!: FormData;
+
+      await act(async () => {
+        response = await result.current.apiGet<FormData>('/items', {
+          parseAs: 'formData'
+        });
+      });
+      expect(response).toBeInstanceOf(FormData);
+    });
   });
 
   describe('Error Response Parsing Hook Level Tests', () => {
