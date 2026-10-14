@@ -382,6 +382,33 @@ describe('useApi hook tests', () => {
       expect(parsedResponse).toBeInstanceOf(Blob);
       expect(response.blob).toHaveBeenCalledOnce();
     });
+
+    it('returns ArrayBuffer data when parseAs is set to "arrayBuffer"', async () => {
+      const expectedArrayBuffer = new ArrayBuffer(8);
+
+      const response = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        arrayBuffer: vi.fn().mockResolvedValueOnce(expectedArrayBuffer)
+      } as unknown as Response;
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let parsedResponse!: ArrayBuffer;
+
+      await act(async () => {
+        parsedResponse = await result.current.apiGet<ArrayBuffer>('/items', {
+          parseAs: 'arrayBuffer'
+        });
+      });
+      expect(parsedResponse).toBe(expectedArrayBuffer);
+      expect(parsedResponse).toBeInstanceOf(ArrayBuffer);
+      expect(response.arrayBuffer).toHaveBeenCalledOnce();
+    });
   });
 
   describe('Error Response Parsing Hook Level Tests', () => {
