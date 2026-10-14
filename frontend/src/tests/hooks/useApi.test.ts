@@ -325,20 +325,58 @@ describe('useApi hook tests', () => {
     });
 
     it('returns FormData when parseAs is set to "formData"', async () => {
-      vi.mocked(global.fetch).mockResolvedValueOnce(
-        new Response(new FormData(), { status: 200 })
-      );
+      const expectedFormData = new FormData();
+      expectedFormData.append('key', 'value');
+
+      const response = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        formData: vi.fn().mockResolvedValueOnce(expectedFormData)
+      } as unknown as Response;
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      let response!: FormData;
+      let parsedResponse!: FormData;
 
       await act(async () => {
-        response = await result.current.apiGet<FormData>('/items', {
+        parsedResponse = await result.current.apiGet<FormData>('/items', {
           parseAs: 'formData'
         });
       });
-      expect(response).toBeInstanceOf(FormData);
+      expect(parsedResponse).toBeInstanceOf(FormData);
+      expect(parsedResponse?.get('key')).toBe('value');
+    });
+
+    it('returns Blob data when parseAs is set to "blob"', async () => {
+      const expectedBlob = new Blob(['example blob content'], {
+        type: 'text/plain'
+      });
+
+      const response = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        blob: vi.fn().mockResolvedValueOnce(expectedBlob)
+      } as unknown as Response;
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let parsedResponse!: Blob;
+
+      await act(async () => {
+        parsedResponse = await result.current.apiGet<Blob>('/items', {
+          parseAs: 'blob'
+        });
+      });
+      expect(parsedResponse).toBeInstanceOf(Blob);
+      expect(response.blob).toHaveBeenCalledTimes(1);
     });
   });
 
