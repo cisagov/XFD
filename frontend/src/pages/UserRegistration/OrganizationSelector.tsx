@@ -251,7 +251,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
               printOptions: { disableToolbarButton: true }
             },
             basePopper: {
-              placement: 'bottom-start'
+              disablePortal: true
             }
           }}
           sx={{
