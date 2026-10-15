@@ -277,19 +277,26 @@ class Malware_Vulns:
             end_date,
             "vw_shodanvulns_suspected",
         )
-        insecure_df = (
-            insecure_df if insecure_df is not None else pd.DataFrame(columns=["ip"])
-        )
+        if insecure_df is None or "ip" not in insecure_df.columns:
+            raise RuntimeError(
+                f"Failed to retrieve suspected vulnerabilities for org {org_uid} (Malware_Vulns)"
+            )
         # Assemble shodan verified vulns
         vulns_df = query_shodan(
             org_uid, start_date, end_date, "vw_shodanvulns_verified"
         )
-        vulns_df = vulns_df if vulns_df is not None else pd.DataFrame(columns=["ip"])
+        if vulns_df is None or "ip" not in vulns_df.columns:
+            raise RuntimeError(
+                f"Failed to retrieve verified vulnerabilities for org {org_uid} (Malware_Vulns)"
+            )
         if not vulns_df.empty and "port" in vulns_df.columns:
             vulns_df["port"] = vulns_df["port"].astype(str)
         # Assemble shodan assets
         assets_df = query_shodan(org_uid, start_date, end_date, "shodan_assets")
-        assets_df = assets_df if assets_df is not None else pd.DataFrame(columns=["ip"])
+        if assets_df is None or "ip" not in assets_df.columns:
+            raise RuntimeError(
+                f"Failed to retrieve shodan assets for org {org_uid} (Malware_Vulns)"
+            )
         # Filter shodan results to only attested CIDR IPs
         if attested_ips_only:
             insecure_mask = pd.Series(
