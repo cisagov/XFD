@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from was_reports.qualys.qualys_admin import (
     delete_webapp,
     find_webapp_id,
+    find_webapp_identity,
     mark_false_positive,
     reactivate_webapp,
     update_webapp_tag,
@@ -51,12 +52,31 @@ def validate_finding_id(value: str) -> str:
     return normalized_value
 
 
+def validate_tag_id(value: str) -> str:
+    """Validate a positive ASCII numeric Qualys tag ID."""
+    normalized_value = value.strip()
+    if (
+        not normalized_value.isascii()
+        or not normalized_value.isdecimal()
+        or int(normalized_value) < 1
+    ):
+        raise argparse.ArgumentTypeError("Tag ID must be a positive numeric value.")
+    return normalized_value
+
+
 def require_confirmation(args: argparse.Namespace) -> None:
     """Reject a mutation unless the operator explicitly confirms it."""
-    if args.command == "delete-webapp":
+    if args.command in {"delete-webapp", "delete-webapp-validated"}:
         if args.confirm_url != args.url:
             raise ValueError(
                 "Deletion confirmation must exactly match the web application URL."
+            )
+        if (
+            args.command == "delete-webapp-validated"
+            and args.confirm_tag_id != args.expected_tag_id
+        ):
+            raise ValueError(
+                "Deletion confirmation must exactly match the expected tag ID."
             )
         return
     if not args.confirm:
@@ -86,6 +106,28 @@ def execute_command(client: QualysClient, args: argparse.Namespace) -> str:
     if args.command == "delete-webapp":
         delete_webapp(client, args.url)
         return "Qualys web application deletion completed."
+
+    if args.command == "delete-webapp-validated":
+        first_identity = find_webapp_identity(client, args.url)
+        current_identity = find_webapp_identity(client, args.url)
+        if current_identity != first_identity:
+            raise RuntimeError(
+                "Qualys web application identity changed between validation reads."
+            )
+        if args.expected_tag_id not in current_identity.tag_ids:
+            raise RuntimeError(
+                "Qualys web application does not have the expected test tag."
+            )
+        if set(current_identity.tag_ids) != {args.expected_tag_id}:
+            raise RuntimeError(
+                "Qualys web application has additional tags; deletion was blocked."
+            )
+        delete_webapp(
+            client,
+            args.url,
+            webapp_id=current_identity.webapp_id,
+        )
+        return "Validated Qualys web application deletion completed."
 
     raise ValueError("Unsupported administration command.")
 
@@ -151,6 +193,31 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         required=True,
         type=validate_webapp_url,
         help="Repeat the exact URL to confirm permanent deletion.",
+    )
+
+    validated_delete_parser = subparsers.add_parser("delete-webapp-validated")
+    validated_delete_parser.add_argument(
+        "--url",
+        required=True,
+        type=validate_webapp_url,
+    )
+    validated_delete_parser.add_argument(
+        "--expected-tag-id",
+        required=True,
+        type=validate_tag_id,
+        help="Require this to be the web application's only assigned Qualys tag ID.",
+    )
+    validated_delete_parser.add_argument(
+        "--confirm-url",
+        required=True,
+        type=validate_webapp_url,
+        help="Repeat the exact URL to confirm permanent deletion.",
+    )
+    validated_delete_parser.add_argument(
+        "--confirm-tag-id",
+        required=True,
+        type=validate_tag_id,
+        help="Repeat the expected tag ID to confirm permanent deletion.",
     )
 
     return parser.parse_args(argv)

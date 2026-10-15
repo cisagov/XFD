@@ -9,11 +9,13 @@ import hashlib
 import logging
 from pathlib import Path
 import sys
-from time import monotonic
-from typing import List, Optional
+from time import monotonic, sleep
+from typing import Callable, List, Optional
 from uuid import uuid4
 
 # Third-Party Libraries
+from botocore.exceptions import ClientError
+
 # First-Party Libraries
 from was_mailer.message import (
     approved_analyst_recipients,
@@ -45,6 +47,7 @@ from was_reports.utils.logging_config import (
     exception_details,
     logging_context,
 )
+from was_reports.utils.operation_cancellation import cancellable_sleep
 from was_reports.utils.operation_lease import (
     check_operation_ownership,
     operation_heartbeat,
@@ -52,6 +55,17 @@ from was_reports.utils.operation_lease import (
 
 LOGGER = logging.getLogger(__name__)
 ALL_DAYS_BACK = "all"
+SES_CONFIRMED_NONDELIVERY_RETRY_CODES = frozenset(
+    {
+        "RequestTimeout",
+        "RequestTimeoutException",
+        "ServiceUnavailable",
+        "ServiceUnavailableException",
+        "Throttling",
+        "ThrottlingException",
+    }
+)
+SES_CONFIRMED_NONDELIVERY_RETRY_DELAY_SECONDS = 10.0
 
 
 def parse_days_back(value: str) -> int | str:
@@ -72,10 +86,60 @@ def require_environment_variable(name: str) -> str:
     return require_env(name)
 
 
-def send_message(ses_client, message) -> str:
-    """Send a raw email message through SES and return its message id."""
-    response = ses_client.send_raw_email(RawMessage={"Data": message.as_bytes()})
-    return response["MessageId"]
+def ses_error_code(error: Exception) -> str | None:
+    """Return the non-sensitive AWS error code from an SES client failure."""
+    if not isinstance(error, ClientError):
+        return None
+    error_details = error.response.get("Error", {})
+    error_code = error_details.get("Code")
+    if isinstance(error_code, str) and error_code:
+        return error_code
+    return None
+
+
+def ses_confirmed_nondelivery_retry_code(error: Exception) -> str | None:
+    """Return an allow-listed SES code that confirms transient non-delivery."""
+    error_code = ses_error_code(error)
+    if error_code in SES_CONFIRMED_NONDELIVERY_RETRY_CODES:
+        return error_code
+    return None
+
+
+def send_message(
+    ses_client,
+    message,
+    *,
+    retry_confirmed_nondelivery: bool = False,
+    sleep_function: Callable[[float], None] = sleep,
+) -> str:
+    """Send through SES with an optional single retry for safe rejections."""
+    attempt_limit = 2 if retry_confirmed_nondelivery else 1
+    for attempt_number in range(1, attempt_limit + 1):
+        try:
+            response = ses_client.send_raw_email(
+                RawMessage={"Data": message.as_bytes()}
+            )
+            return response["MessageId"]
+        except ClientError as error:
+            error_code = ses_confirmed_nondelivery_retry_code(error)
+            if error_code is None or attempt_number == attempt_limit:
+                raise
+            LOGGER.warning(
+                "SES rejected the email with retry-safe code %s; retrying once "
+                "after %.1f seconds.",
+                error_code,
+                SES_CONFIRMED_NONDELIVERY_RETRY_DELAY_SECONDS,
+                extra={
+                    "event": "ses_confirmed_nondelivery_retry",
+                    "error_code": error_code,
+                    "attempt": attempt_number,
+                },
+            )
+            cancellable_sleep(
+                SES_CONFIRMED_NONDELIVERY_RETRY_DELAY_SECONDS,
+                sleep_function=sleep_function,
+            )
+    raise RuntimeError("SES retry loop exited unexpectedly.")
 
 
 def reconciliation_recipient_scope(override_recipients: Optional[str]) -> str:
@@ -225,7 +289,13 @@ def send_report_run_email(
                 client = create_ses_client()
             check_operation_ownership()
             delivery_attempted = True
-            message_id = send_message(client, message)
+            message_id = send_message(
+                client,
+                message,
+                retry_confirmed_nondelivery=(
+                    report_run_email.delivery_purpose == "customer"
+                ),
+            )
         mark_report_run_emailed_by_id(
             report_run_id,
             message_id,
@@ -255,16 +325,31 @@ def send_report_run_email(
                 )
         if delivery_attempted:
             error_category = type(error).__name__
-            LOGGER.error(
-                "SES delivery outcome is uncertain for WAS report run id %s "
-                "after exception category %s; manual reconciliation is required.",
-                report_run_id,
-                error_category,
-                extra={
-                    "event": "ses_delivery_uncertain",
-                    "error_category": error_category,
-                },
-            )
+            error_code = ses_error_code(error)
+            log_context = {
+                "event": "ses_delivery_uncertain",
+                "error_category": error_category,
+            }
+            if error_code is None:
+                LOGGER.error(
+                    "SES delivery outcome is uncertain for WAS report run id %s "
+                    "after exception category %s; manual reconciliation is "
+                    "required.",
+                    report_run_id,
+                    error_category,
+                    extra=log_context,
+                )
+            else:
+                log_context["error_code"] = error_code
+                LOGGER.error(
+                    "SES delivery outcome is uncertain for WAS report run id %s "
+                    "after exception category %s and AWS error code %s; manual "
+                    "reconciliation is required.",
+                    report_run_id,
+                    error_category,
+                    error_code,
+                    extra=log_context,
+                )
         else:
             LOGGER.error(
                 "WAS report email delivery failed for report run id %s: %s",

@@ -1379,6 +1379,48 @@ class ReportRunTests(unittest.TestCase):
         self.assertEqual(conn.cursor_instance.parameters, (14, "TAG1", 25))
         self.assertIn("email_error", conn.cursor_instance.query)
 
+    def test_list_held_reconciliations_returns_selectable_customer_runs(self) -> None:
+        """List only held customer deliveries that remain safe to reconcile."""
+        conn = FakeConnection(
+            row=[
+                (
+                    3484,
+                    "LIMMOBPA",
+                    report_runs.COMPLETED,
+                    report_runs.EMAIL_HELD,
+                    "customer",
+                    None,
+                    None,
+                    348817,
+                    None,
+                )
+            ]
+        )
+
+        previews = report_runs.list_held_report_email_reconciliations(
+            conn=conn,
+            days_back=14,
+            stakeholder_tag=" LIMMOBPA ",
+            limit=25,
+        )
+
+        self.assertEqual(previews[0].report_run_id, 3484)
+        self.assertEqual(previews[0].source_tracker_id, 348817)
+        self.assertTrue(previews[0].eligible)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                14,
+                report_runs.COMPLETED,
+                report_runs.EMAIL_HELD,
+                "LIMMOBPA",
+                25,
+            ),
+        )
+        self.assertIn("runs.delivery_purpose = 'customer'", conn.cursor_instance.query)
+        self.assertIn("runs.email_message_id IS NULL", conn.cursor_instance.query)
+        self.assertIn("tracker.report_sent_date IS NULL", conn.cursor_instance.query)
+
 
 if __name__ == "__main__":
     unittest.main()
