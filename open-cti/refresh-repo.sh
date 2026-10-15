@@ -15,11 +15,17 @@ source "$OPEN_CTI_DIR/env.deploy"
 : "${OPEN_CTI_REPO_URL:?OPEN_CTI_REPO_URL must be set in $OPEN_CTI_DIR/env.deploy}"
 : "${OPEN_CTI_REPO_BRANCH:?OPEN_CTI_REPO_BRANCH must be set in $OPEN_CTI_DIR/env.deploy}"
 
+# Sparse checkout: only open-cti/ is materialized under $REPO_DIR (paths unchanged, e.g.
+# $REPO_DIR/open-cti/bootstrap.sh); the rest of the monorepo is never written to disk.
+# --filter=blob:none also skips downloading blobs outside the sparse set.
 if [[ -d "$REPO_DIR/.git" ]]; then
+  # Idempotent -- also shrinks a pre-existing full checkout on its next boot.
+  git -C "$REPO_DIR" sparse-checkout set open-cti
   git -C "$REPO_DIR" fetch --depth 1 origin "$OPEN_CTI_REPO_BRANCH"
   git -C "$REPO_DIR" reset --hard "origin/$OPEN_CTI_REPO_BRANCH"
 else
-  git clone --depth 1 --branch "$OPEN_CTI_REPO_BRANCH" "$OPEN_CTI_REPO_URL" "$REPO_DIR"
+  git clone --depth 1 --filter=blob:none --sparse --branch "$OPEN_CTI_REPO_BRANCH" "$OPEN_CTI_REPO_URL" "$REPO_DIR"
+  git -C "$REPO_DIR" sparse-checkout set open-cti
 fi
 
 install -m 644 "$REPO_DIR/open-cti/systemd/open-cti-render-env.service" /etc/systemd/system/
