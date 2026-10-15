@@ -7,6 +7,7 @@ import os
 import time
 
 # Third-Party Libraries
+from netaddr import IPAddress, IPSet
 import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
@@ -15,6 +16,7 @@ from .data.config import PE_API_REQUEST_TIMEOUT
 from .data.db_query import (
     connect,
     get_orgs,
+    query_cidrs_by_org,
     query_darkweb,
     query_darkweb_asset_alerts,
     query_darkweb_cves,
@@ -259,25 +261,66 @@ class Malware_Vulns:
         self.start_date = start_date
         self.end_date = end_date
         self.org_uid = org_uid
+        # Retrieve list of organization's CIDRs
+        cidrs_df = query_cidrs_by_org(org_uid)
+        if cidrs_df is None:
+            raise RuntimeError(
+                f"Failed to retrieve CIDRs for organization {org_uid} (Malware_Vulns)"
+            )
+        self.org_cidrs = cidrs_df["network"].tolist() if cidrs_df is not None else []
+        cidr_ip_set = IPSet(self.org_cidrs)
+        attested_ips_only = True  # filter control
+        # Assemble shodan suspected vulns
         insecure_df = query_shodan(
             org_uid,
             start_date,
             end_date,
             "vw_shodanvulns_suspected",
         )
-        self.insecure_df = insecure_df if insecure_df is not None else pd.DataFrame()
-
+        if insecure_df is None or "ip" not in insecure_df.columns:
+            raise RuntimeError(
+                f"Failed to retrieve suspected vulnerabilities for org {org_uid} (Malware_Vulns)"
+            )
+        # Assemble shodan verified vulns
         vulns_df = query_shodan(
             org_uid, start_date, end_date, "vw_shodanvulns_verified"
         )
-        if vulns_df is None:
-            vulns_df = pd.DataFrame()
+        if vulns_df is None or "ip" not in vulns_df.columns:
+            raise RuntimeError(
+                f"Failed to retrieve verified vulnerabilities for org {org_uid} (Malware_Vulns)"
+            )
         if not vulns_df.empty and "port" in vulns_df.columns:
             vulns_df["port"] = vulns_df["port"].astype(str)
-        self.vulns_df = vulns_df
-
+        # Assemble shodan assets
         assets_df = query_shodan(org_uid, start_date, end_date, "shodan_assets")
-        self.assets_df = assets_df if assets_df is not None else pd.DataFrame()
+        if assets_df is None or "ip" not in assets_df.columns:
+            raise RuntimeError(
+                f"Failed to retrieve shodan assets for org {org_uid} (Malware_Vulns)"
+            )
+        # Filter shodan results to only attested CIDR IPs
+        if attested_ips_only:
+            insecure_mask = pd.Series(
+                [IPAddress(ip) in cidr_ip_set for ip in insecure_df["ip"]],
+                index=insecure_df.index,
+                dtype=bool,
+            )
+            self.insecure_df = insecure_df.loc[insecure_mask].reset_index(drop=True)
+            vulns_mask = pd.Series(
+                [IPAddress(ip) in cidr_ip_set for ip in vulns_df["ip"]],
+                index=vulns_df.index,
+                dtype=bool,
+            )
+            self.vulns_df = vulns_df.loc[vulns_mask].reset_index(drop=True)
+            assets_mask = pd.Series(
+                [IPAddress(ip) in cidr_ip_set for ip in assets_df["ip"]],
+                index=assets_df.index,
+                dtype=bool,
+            )
+            self.assets_df = assets_df.loc[assets_mask].reset_index(drop=True)
+        else:
+            self.insecure_df = insecure_df
+            self.vulns_df = vulns_df
+            self.assets_df = assets_df
 
     @staticmethod
     def isolate_risky_assets(df):
