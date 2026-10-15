@@ -93,10 +93,8 @@ class FakeUser:
         self.user_type = kwargs.get("user_type", "standard")
         self.invite_pending = kwargs.get("invite_pending", True)
         self.can_select_own_state = kwargs.get("can_select_own_state", True)
-        self.cognito_username = kwargs.get("cognito_username")
-        self.cognito_use_case_description = kwargs.get("cognito_use_case_description")
-        self.cognito_email_verified = kwargs.get("cognito_email_verified", False)
-        self.cognito_groups = kwargs.get("cognito_groups", [])
+        self.use_case_description = kwargs.get("use_case_description")
+        self.okta_groups = kwargs.get("okta_groups", [])
         self.last_logged_in = kwargs.get("last_logged_in")
         self.login_blocked_by_maintenance = kwargs.get(
             "login_blocked_by_maintenance", False
