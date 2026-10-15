@@ -158,8 +158,9 @@ describe('useApi hook tests', () => {
           name: string;
           id: number;
         }>('/users');
-        expect(response).toEqual({ name: 'John Doe', id: 1 });
       });
+
+      expect(response).toEqual({ name: 'John Doe', id: 1 });
     });
 
     it('returns undefined for a 200 response with all whitespace body', async () => {
@@ -240,10 +241,11 @@ describe('useApi hook tests', () => {
       });
     });
 
-    it('returns undefined for a 200 response with parseAs "none" set', async () => {
-      vi.mocked(global.fetch).mockResolvedValueOnce(
-        new Response('{"key": "value"}', { status: 200 })
-      );
+    it('returns undefined and does not attempt to parse the body for a 200 response when parseAs is "none"', async () => {
+      const noneResponse = new Response('{"dontParse": "me"}', { status: 200 });
+      const text = vi.spyOn(noneResponse, 'text');
+      vi.mocked(global.fetch).mockResolvedValueOnce(noneResponse);
+
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
@@ -255,6 +257,7 @@ describe('useApi hook tests', () => {
         });
       });
       expect(response).toBeUndefined();
+      expect(text).not.toHaveBeenCalled();
     });
 
     it('returns blob data and response headers when requested', async () => {
@@ -289,6 +292,122 @@ describe('useApi hook tests', () => {
         expect.objectContaining({ credentials: 'include' })
       );
     });
+
+    it('returns text data when parseAs is set to "text"', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response('example text', { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response!: string;
+
+      await act(async () => {
+        response = await result.current.apiGet<string>('/items', {
+          parseAs: 'text'
+        });
+      });
+      expect(response).toBe('example text');
+    });
+
+    it('returns JSON data when parseAs is set to "json"', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(JSON.stringify({ key: 'value' }), { status: 200 })
+      );
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let response!: { key: string };
+
+      await act(async () => {
+        response = await result.current.apiGet<{ key: string }>('/items', {
+          parseAs: 'json'
+        });
+      });
+      expect(response).toEqual({ key: 'value' });
+    });
+
+    it('returns FormData when parseAs is set to "formData"', async () => {
+      const expectedFormData = new FormData();
+      expectedFormData.append('key', 'value');
+
+      const response = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        formData: vi.fn().mockResolvedValueOnce(expectedFormData)
+      } as unknown as Response;
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let parsedResponse!: FormData;
+
+      await act(async () => {
+        parsedResponse = await result.current.apiGet<FormData>('/items', {
+          parseAs: 'formData'
+        });
+      });
+      expect(parsedResponse).toBe(expectedFormData);
+      expect(parsedResponse.get('key')).toBe('value');
+      expect(response.formData).toHaveBeenCalledOnce();
+    });
+
+    it('returns Blob data when parseAs is set to "blob"', async () => {
+      const expectedBlob = new Blob(['example blob content'], {
+        type: 'text/plain'
+      });
+
+      const response = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        blob: vi.fn().mockResolvedValueOnce(expectedBlob)
+      } as unknown as Response;
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let parsedResponse!: Blob;
+
+      await act(async () => {
+        parsedResponse = await result.current.apiGet<Blob>('/items', {
+          parseAs: 'blob'
+        });
+      });
+      expect(parsedResponse).toBe(expectedBlob);
+      expect(response.blob).toHaveBeenCalledOnce();
+    });
+
+    it('returns ArrayBuffer data when parseAs is set to "arrayBuffer"', async () => {
+      const expectedArrayBuffer = new ArrayBuffer(8);
+
+      const response = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers(),
+        arrayBuffer: vi.fn().mockResolvedValueOnce(expectedArrayBuffer)
+      } as unknown as Response;
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(response);
+      const { useApi } = await import('../../hooks/useApi');
+      const { result } = renderHook(() => useApi());
+
+      let parsedResponse!: ArrayBuffer;
+
+      await act(async () => {
+        parsedResponse = await result.current.apiGet<ArrayBuffer>('/items', {
+          parseAs: 'arrayBuffer'
+        });
+      });
+      expect(parsedResponse).toBe(expectedArrayBuffer);
+      expect(response.arrayBuffer).toHaveBeenCalledOnce();
+    });
   });
 
   describe('Error Response Parsing Hook Level Tests', () => {
@@ -307,14 +426,16 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      await expect(
-        result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 401,
-        payload: { detail: 'Session expired' },
-        payloadMessage: 'Session expired',
-        message: 'Session expired'
+      await act(async () => {
+        await expect(
+          result.current.apiGet('/some-blob-endpoint', { parseAs: 'blob' })
+        ).rejects.toMatchObject({
+          isApiError: true,
+          status: 401,
+          payload: { detail: 'Session expired' },
+          payloadMessage: 'Session expired',
+          message: 'Session expired'
+        });
       });
     });
 
@@ -322,7 +443,7 @@ describe('useApi hook tests', () => {
       vi.mocked(global.fetch).mockResolvedValueOnce(
         jsonResponse(
           {
-            detail: 'The uploaded file exceeds the 10mb limit'
+            detail: 'The uploaded file exceeds the 10 MB limit'
           },
           { status: 400, statusText: 'Bad Request' }
         )
@@ -331,17 +452,19 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      await expect(
-        result.current.apiPost('/documents/upload', {
-          body: new FormData(),
-          parseAs: 'formData'
-        })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 400,
-        payload: { detail: 'The uploaded file exceeds the 10mb limit' },
-        payloadMessage: 'The uploaded file exceeds the 10mb limit',
-        message: 'The uploaded file exceeds the 10mb limit'
+      await act(async () => {
+        await expect(
+          result.current.apiPost('/documents/upload', {
+            body: new FormData(),
+            parseAs: 'formData'
+          })
+        ).rejects.toMatchObject({
+          isApiError: true,
+          status: 400,
+          payload: { detail: 'The uploaded file exceeds the 10 MB limit' },
+          payloadMessage: 'The uploaded file exceeds the 10 MB limit',
+          message: 'The uploaded file exceeds the 10 MB limit'
+        });
       });
     });
 
@@ -359,19 +482,21 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi());
 
-      await expect(
-        result.current.apiGet('/some-endpoint', { parseAs: 'json' })
-      ).rejects.toMatchObject({
-        isApiError: true,
-        status: 500,
-        payload: {
-          detail:
+      await act(async () => {
+        await expect(
+          result.current.apiGet('/some-endpoint', { parseAs: 'json' })
+        ).rejects.toMatchObject({
+          isApiError: true,
+          status: 500,
+          payload: {
+            detail:
+              'The request failed, but the server error message could not be read.'
+          },
+          payloadMessage:
+            'The request failed, but the server error message could not be read.',
+          message:
             'The request failed, but the server error message could not be read.'
-        },
-        payloadMessage:
-          'The request failed, but the server error message could not be read.',
-        message:
-          'The request failed, but the server error message could not be read.'
+        });
       });
     });
   });
@@ -533,9 +658,11 @@ describe('useApi hook tests', () => {
       const { useApi } = await import('../../hooks/useApi');
       const { result } = renderHook(() => useApi(onError));
 
-      await expect(result.current.apiGet('/network-failure')).rejects.toThrow(
-        'Network failure'
-      );
+      await act(async () => {
+        await expect(result.current.apiGet('/network-failure')).rejects.toThrow(
+          'Network failure'
+        );
+      });
 
       expect(onError).toHaveBeenCalledTimes(1);
     });
