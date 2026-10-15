@@ -125,7 +125,6 @@ def accept_terms(version_data, current_user):
 
         return {
             "id": str(current_user.id),
-            "cognito_id": current_user.cognito_id,
             "okta_id": current_user.okta_id,
             "login_gov_id": current_user.login_gov_id,
             "created_at": (
@@ -402,7 +401,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
         return [
             {
                 "id": str(user.id),
-                "cognito_use_case_description": user.cognito_use_case_description,
+                "use_case_description": user.use_case_description,
                 "created_at": user.created_at.isoformat(),
                 "updated_at": user.updated_at.isoformat(),
                 "first_name": user.first_name,
