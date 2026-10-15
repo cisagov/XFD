@@ -904,9 +904,9 @@ variable "was_reporting_ses_role_arn" {
 }
 
 variable "was_reporting_ami_id" {
-  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment. Initially matches the OpenCTI DMZ AMI but can evolve independently."
+  description = "AMI ID for the WAS reporting EC2 instance in the DMZ environment."
   type        = string
-  default     = "ami-0fb0b230890ccd1e6"
+  default     = "ami-0045d7fc2ad003464"
 }
 
 variable "was_reporting_instance_type" {
@@ -1314,4 +1314,22 @@ variable "ssm_pe_s3_bucket" {
   description = "ssm_pe_s3_bucket"
   type        = string
   default     = "/crossfeed/staging/PE_S3_BUCKET"
+}
+
+variable "ssm_wiz_backend_env" {
+  description = "ssm_wiz_backend_env"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_BACKEND_ENV"
+}
+
+variable "ssm_wiz_api_client_secret" {
+  description = "ssm_wiz_api_client_secret"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_API_CLIENT_SECRET"
+}
+
+variable "ssm_wiz_api_client_id" {
+  description = "ssm_wiz_api_client_id"
+  type        = string
+  default     = "/crossfeed/staging/WIZ_API_CLIENT_ID"
 }
