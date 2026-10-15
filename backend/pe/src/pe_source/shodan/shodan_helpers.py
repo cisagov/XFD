@@ -44,6 +44,14 @@ def run_shodan_thread(api, org_chunk, thread_name):
             continue
         # Only run on IPs from customer attested CIDRs
         cidrs_df = query_cidrs_by_org(org_uid)
+        if cidrs_df is None:
+            LOGGER.error(
+                "%s Failed fetching CIDRs for %s, skipping organization.",
+                thread_name,
+                org_name,
+            )
+            failed.append("{} failed fetching CIDRs".format(org_name))
+            continue
         org_cidrs = cidrs_df["network"].tolist() if cidrs_df is not None else []
         cidr_ip_set = IPSet(org_cidrs)
         ips = [ip for ip in ips if IPAddress(ip) in cidr_ip_set]

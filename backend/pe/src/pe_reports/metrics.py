@@ -263,6 +263,10 @@ class Malware_Vulns:
         self.org_uid = org_uid
         # Retrieve list of organization's CIDRs
         cidrs_df = query_cidrs_by_org(org_uid)
+        if cidrs_df is None:
+            raise RuntimeError(
+                f"Failed to retrieve CIDRs for organization {org_uid} (Malware_Vulns)"
+            )
         self.org_cidrs = cidrs_df["network"].tolist() if cidrs_df is not None else []
         cidr_ip_set = IPSet(self.org_cidrs)
         attested_ips_only = True  # filter control
@@ -288,12 +292,24 @@ class Malware_Vulns:
         assets_df = assets_df if assets_df is not None else pd.DataFrame(columns=["ip"])
         # Filter shodan results to only attested CIDR IPs
         if attested_ips_only:
-            insecure_mask = [IPAddress(ip) in cidr_ip_set for ip in insecure_df["ip"]]
-            self.insecure_df = insecure_df[insecure_mask].reset_index(drop=True)
-            vulns_mask = [IPAddress(ip) in cidr_ip_set for ip in vulns_df["ip"]]
-            self.vulns_df = vulns_df[vulns_mask].reset_index(drop=True)
-            assets_mask = [IPAddress(ip) in cidr_ip_set for ip in assets_df["ip"]]
-            self.assets_df = assets_df[assets_mask].reset_index(drop=True)
+            insecure_mask = pd.Series(
+                [IPAddress(ip) in cidr_ip_set for ip in insecure_df["ip"]],
+                index=insecure_df.index,
+                dtype=bool,
+            )
+            self.insecure_df = insecure_df.loc[insecure_mask].reset_index(drop=True)
+            vulns_mask = pd.Series(
+                [IPAddress(ip) in cidr_ip_set for ip in vulns_df["ip"]],
+                index=vulns_df.index,
+                dtype=bool,
+            )
+            self.vulns_df = vulns_df.loc[vulns_mask].reset_index(drop=True)
+            assets_mask = pd.Series(
+                [IPAddress(ip) in cidr_ip_set for ip in assets_df["ip"]],
+                index=assets_df.index,
+                dtype=bool,
+            )
+            self.assets_df = assets_df.loc[assets_mask].reset_index(drop=True)
         else:
             self.insecure_df = insecure_df
             self.vulns_df = vulns_df

@@ -357,10 +357,14 @@ def query_cidrs_by_org(org_uid):
     data = json.dumps({"org_uid": org_uid})
     try:
         # Call endpoint
-        result = requests.post(
+        response = requests.post(
             endpoint_url, headers=headers, data=data, timeout=PE_API_REQUEST_TIMEOUT
-        ).json()
+        )
+        response.raise_for_status()
+        result = response.json()
         # Process data and return
+        if not isinstance(result, list):
+            raise ValueError("cidrs_by_org API response was not a list")
         result_df = _dataframe_from_api_json(result)
         if result_df.empty:
             return _empty_dataframe(["network"])
@@ -374,17 +378,17 @@ def query_cidrs_by_org(org_uid):
         result_df["first_seen"] = pd.to_datetime(result_df["first_seen"]).dt.date
         result_df["last_seen"] = pd.to_datetime(result_df["last_seen"]).dt.date
         return result_df
-    except requests.exceptions.HTTPError as errh:
-        LOGGER.error(errh)
-    except requests.exceptions.ConnectionError as errc:
-        LOGGER.error(errc)
-    except requests.exceptions.Timeout as errt:
-        LOGGER.error(errt)
-    except requests.exceptions.RequestException as err:
-        LOGGER.error(err)
-    except json.decoder.JSONDecodeError as err:
-        LOGGER.error(err)
-    return _empty_dataframe(["network"])
+    except (
+        requests.exceptions.RequestException,
+        json.decoder.JSONDecodeError,
+        ValueError,
+    ) as err:
+        LOGGER.error(
+            "Failed to retrieve CIDRs for organization %s: %s",
+            org_uid,
+            err,
+        )
+        return None
 
 
 # --- Issue 619 ---
