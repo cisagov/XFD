@@ -110,6 +110,10 @@ def add_attachment(
 
     # CIDRs
     cidr_df = query_cidrs_by_org(org_uid)
+    if cidr_df is None:
+        raise RuntimeError(
+            f"Failed to retrieve CIDRs for organization {org_uid} (add_attachment)"
+        )
     cidr_df = cidr_df[["network"]]
     cidr_df.to_excel(asmWriter, sheet_name="CIDRs", index=False)
     cidr_dict = cidr_df["network"].to_list()

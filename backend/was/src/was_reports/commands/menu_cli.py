@@ -17,11 +17,16 @@ from pyfiglet import Figlet
 from was_reports.commands import (
     batch_runner,
     on_demand_cli,
+    reconcile_email_delivery,
     report_generator,
     stakeholders_cli,
     standalone_cli,
     tracker_cli,
     update_tracker_cli,
+)
+from was_reports.data.report_runs import (
+    HeldEmailReconciliationPreview,
+    list_held_report_email_reconciliations_from_db,
 )
 from was_reports.utils.logging_config import configure_logging
 from was_reports.utils.operation_cancellation import (
@@ -39,6 +44,7 @@ LOGGER = logging.getLogger(__name__)
 InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
 SecretInputFunction = Callable[[str], str]
+CUSTOMER_EMAIL_RETRY_MENU_CONFIRMATION = "RETRY CUSTOMER EMAIL"
 
 
 class OperationCancellationMonitor:
@@ -745,6 +751,10 @@ class WasOperatorMenu:
             ("View all tracker entries for a customer tag", self.view_customer_tracker),
             ("Correct a tracker row", self.update_tracker_row),
             ("Refresh the report tracker from API", self.refresh_tracker),
+            (
+                "Reconcile a held customer email delivery",
+                self.reconcile_held_customer_email,
+            ),
         ]
         while True:
             self.print_menu(
@@ -849,6 +859,138 @@ class WasOperatorMenu:
         if stakeholder_tag:
             arguments.extend(["--tag", stakeholder_tag])
         self.execute("report errors", lambda: tracker_cli.main(arguments))
+        self.pause()
+
+    def reconcile_held_customer_email(self) -> None:
+        """Select and reconcile one eligible held customer email delivery."""
+        days_back = self.prompt_nonnegative_integer(
+            "Days back [7]: ",
+            default=7,
+        )
+        stakeholder_tag = self.prompt_optional("Stakeholder tag [all]: ")
+        held_deliveries: list[HeldEmailReconciliationPreview] = []
+
+        def load_held_deliveries() -> int:
+            """Load and display eligible held deliveries without recipient data."""
+            held_deliveries.extend(
+                list_held_report_email_reconciliations_from_db(
+                    days_back=days_back,
+                    stakeholder_tag=stakeholder_tag or None,
+                )
+            )
+            if not held_deliveries:
+                self.output("No eligible held customer email deliveries were found.")
+                return 0
+            self.output("Eligible held customer email deliveries:")
+            for selection_number, delivery in enumerate(held_deliveries, start=1):
+                self.output(
+                    "{}) Tag={} | Run ID={} | Tracker ID={}".format(
+                        selection_number,
+                        delivery.stakeholder_tag,
+                        delivery.report_run_id,
+                        delivery.source_tracker_id,
+                    )
+                )
+            return 0
+
+        if self.execute(
+            "held customer email lookup",
+            load_held_deliveries,
+            show_success=False,
+        ):
+            self.pause()
+            return
+        if not held_deliveries:
+            self.pause()
+            return
+
+        while True:
+            raw_selection = self.input("Select a held delivery [0 = cancel]: ").strip()
+            if raw_selection == "0":
+                self.output("Held email reconciliation cancelled.")
+                self.pause()
+                return
+            try:
+                selection_number = int(raw_selection)
+            except ValueError:
+                self.output("Enter one of the displayed selection numbers, or 0.")
+                continue
+            if 1 <= selection_number <= len(held_deliveries):
+                selected_delivery = held_deliveries[selection_number - 1]
+                break
+            self.output("Enter one of the displayed selection numbers, or 0.")
+
+        self.output(
+            "Selected Tag={} | Run ID={} | Tracker ID={}.".format(
+                selected_delivery.stakeholder_tag,
+                selected_delivery.report_run_id,
+                selected_delivery.source_tracker_id,
+            )
+        )
+        self.output("1) Confirm the original email was delivered")
+        self.output("2) Retry confirmed non-delivery to stored customer recipients")
+        self.output("0) Cancel")
+        reconciliation_action = self.input(
+            "Select reconciliation action [0 = cancel]: "
+        ).strip()
+        if reconciliation_action == "0":
+            self.output("Held email reconciliation cancelled.")
+            self.pause()
+            return
+        if reconciliation_action not in {"1", "2"}:
+            self.output("Invalid reconciliation action. No state was changed.")
+            self.pause()
+            return
+
+        evidence_reference = self.prompt_required(
+            "Non-sensitive SES, mailbox, or ticket evidence reference: "
+        )
+        report_run_id = str(selected_delivery.report_run_id)
+        if reconciliation_action == "1":
+            if not self.confirm(
+                "Record confirmed delivery without sending another email?"
+            ):
+                self.output("Held email reconciliation cancelled.")
+                self.pause()
+                return
+            arguments = [
+                "confirm-delivered",
+                "--report-run-id",
+                report_run_id,
+                "--evidence-reference",
+                evidence_reference,
+                "--apply",
+                "--confirm",
+                reconcile_email_delivery.DELIVERY_CONFIRMED,
+            ]
+        else:
+            self.output(
+                "WARNING: This sends the existing report to its stored customer "
+                "recipients."
+            )
+            confirmation = self.input(
+                "Type {} to continue: ".format(CUSTOMER_EMAIL_RETRY_MENU_CONFIRMATION)
+            ).strip()
+            if confirmation != CUSTOMER_EMAIL_RETRY_MENU_CONFIRMATION:
+                self.output("Customer email retry cancelled. No state was changed.")
+                self.pause()
+                return
+            arguments = [
+                "retry-confirmed-undelivered",
+                "--report-run-id",
+                report_run_id,
+                "--evidence-reference",
+                evidence_reference,
+                "--use-stored-customer-recipients",
+                "--apply",
+                "--confirm",
+                reconcile_email_delivery.NONDELIVERY_CONFIRMED_RETRY_CUSTOMERS,
+            ]
+
+        self.execute(
+            "held customer email reconciliation",
+            lambda: reconcile_email_delivery.main(arguments),
+        )
         self.pause()
 
     def record_manual_sent_date(self) -> None:

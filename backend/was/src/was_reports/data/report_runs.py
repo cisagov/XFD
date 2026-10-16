@@ -1898,6 +1898,96 @@ def inspect_held_report_email_reconciliation(
     )
 
 
+def list_held_report_email_reconciliations(
+    conn: connection,
+    days_back: int = 7,
+    stakeholder_tag: str | None = None,
+    limit: int = 100,
+) -> list[HeldEmailReconciliationPreview]:
+    """Return eligible held customer deliveries for operator selection."""
+    if days_back < 0:
+        raise ValueError("Days back must be zero or greater.")
+    if limit < 1:
+        raise ValueError("Limit must be greater than zero.")
+    normalized_tag = None
+    if stakeholder_tag is not None:
+        normalized_tag = stakeholder_tag.strip()
+        if not normalized_tag:
+            raise ValueError("Stakeholder tag must not be empty.")
+
+    query = """
+        SELECT
+            runs.id,
+            runs.stakeholder_tag,
+            runs.status,
+            runs.email_status,
+            runs.delivery_purpose,
+            runs.emailed_at,
+            runs.email_claimed_at,
+            runs.source_tracker_id,
+            tracker.report_sent_date
+        FROM was_report_runs AS runs
+        JOIN was_daily_report_tracker AS tracker
+          ON tracker.id = runs.source_tracker_id
+        WHERE runs.created_at >= NOW() - (%s * INTERVAL '1 day')
+          AND runs.status = %s
+          AND runs.delivery_purpose = 'customer'
+          AND runs.email_status = %s
+          AND runs.emailed_at IS NULL
+          AND runs.email_message_id IS NULL
+          AND runs.email_claimed_at IS NULL
+          AND tracker.report_sent_date IS NULL
+    """
+    parameters: list[object] = [days_back, COMPLETED, EMAIL_HELD]
+    if normalized_tag is not None:
+        query += " AND runs.stakeholder_tag = %s"
+        parameters.append(normalized_tag)
+    query += " ORDER BY runs.created_at DESC, runs.id DESC LIMIT %s"
+    parameters.append(limit)
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, tuple(parameters))
+        rows = cursor.fetchall()
+
+    return [
+        HeldEmailReconciliationPreview(
+            report_run_id=row[0],
+            stakeholder_tag=row[1],
+            report_status=row[2],
+            email_status=row[3],
+            delivery_purpose=row[4],
+            emailed_at=row[5],
+            email_claimed_at=row[6],
+            source_tracker_id=row[7],
+            tracker_report_sent_date=row[8],
+            eligible=True,
+            ineligible_reason=None,
+        )
+        for row in rows
+    ]
+
+
+def list_held_report_email_reconciliations_from_db(
+    days_back: int = 7,
+    stakeholder_tag: str | None = None,
+    limit: int = 100,
+) -> list[HeldEmailReconciliationPreview]:
+    """Return eligible held deliveries using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_held_report_email_reconciliations(
+            conn=conn,
+            days_back=days_back,
+            stakeholder_tag=stakeholder_tag,
+            limit=limit,
+        )
+    finally:
+        close(conn)
+
+
 def confirm_held_report_email_delivered(
     report_run_id: int,
     reconciliation_reference: str,

@@ -15,6 +15,8 @@ os.environ.setdefault("DATABASE_USER", "test_user")
 os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 
 # Third-Party Libraries
+from netaddr import IPAddress, IPSet
+import pandas as pd
 from pe_source.shodan import shodan_helpers
 import shodan
 
@@ -87,37 +89,64 @@ class ShodanThreadTests(unittest.TestCase):
     """Verify run_shodan_thread control flow."""
 
     @patch("pe_source.shodan.shodan_helpers.search_shodan")
+    @patch("pe_source.shodan.shodan_helpers.query_cidrs_by_org")
     @patch("pe_source.shodan.shodan_helpers.get_ips")
     @patch("pe_source.shodan.shodan_helpers.get_dates")
     def test_run_shodan_thread_calls_search_per_org_with_ips(
-        self, mock_get_dates, mock_get_ips, mock_search_shodan
+        self,
+        mock_get_dates,
+        mock_get_ips,
+        mock_query_cidrs,
+        mock_search_shodan,
     ):
-        """Each org with IPs should call search_shodan once."""
+        """Each org with attested IPs should call search_shodan once."""
         start = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
         end = datetime.datetime(2026, 2, 1, tzinfo=datetime.timezone.utc)
+
         mock_get_dates.return_value = (start, end)
-        mock_get_ips.side_effect = [["1.1.1.1"], ["2.2.2.2"]]
-        mock_search_shodan.side_effect = [[], ["org_b chunk 1 failed"]]
+        mock_get_ips.side_effect = [
+            ["1.1.1.1"],
+            ["2.2.2.2"],
+        ]
+        mock_query_cidrs.side_effect = [
+            pd.DataFrame({"network": ["1.1.1.0/24"]}),
+            pd.DataFrame({"network": ["2.2.2.0/24"]}),
+        ]
+        mock_search_shodan.side_effect = [
+            [],
+            ["org_b chunk 1 failed"],
+        ]
 
         orgs = [
             {"cyhy_db_name": "org_a", "organizations_uid": "uid-a"},
             {"cyhy_db_name": "org_b", "organizations_uid": "uid-b"},
         ]
-        api = object()
 
-        shodan_helpers.run_shodan_thread(api, orgs, "Thread 1:")
+        shodan_helpers.run_shodan_thread(object(), orgs, "Thread 1:")
 
         self.assertEqual(mock_search_shodan.call_count, 2)
+
         first_call_args = mock_search_shodan.call_args_list[0].args
         second_call_args = mock_search_shodan.call_args_list[1].args
+
         self.assertEqual(first_call_args[0], "Thread 1:")
+        self.assertEqual(first_call_args[1], ["1.1.1.1"])
+        self.assertIn(IPAddress("1.1.1.1"), first_call_args[8])
+
+        self.assertEqual(second_call_args[1], ["2.2.2.2"])
         self.assertEqual(second_call_args[6], "org_b")
+        self.assertIn(IPAddress("2.2.2.2"), second_call_args[8])
 
     @patch("pe_source.shodan.shodan_helpers.search_shodan")
+    @patch("pe_source.shodan.shodan_helpers.query_cidrs_by_org")
     @patch("pe_source.shodan.shodan_helpers.get_ips")
     @patch("pe_source.shodan.shodan_helpers.get_dates")
     def test_run_shodan_thread_skips_org_when_no_ips(
-        self, mock_get_dates, mock_get_ips, mock_search_shodan
+        self,
+        mock_get_dates,
+        mock_get_ips,
+        mock_query_cidrs,
+        mock_search_shodan,
     ):
         """No-IP orgs should be skipped without calling search_shodan."""
         mock_get_dates.return_value = (
@@ -125,6 +154,7 @@ class ShodanThreadTests(unittest.TestCase):
             datetime.datetime(2026, 2, 1, tzinfo=datetime.timezone.utc),
         )
         mock_get_ips.return_value = []
+        mock_query_cidrs.return_value = pd.DataFrame({"network": []})
 
         shodan_helpers.run_shodan_thread(
             object(),
@@ -135,12 +165,17 @@ class ShodanThreadTests(unittest.TestCase):
         mock_search_shodan.assert_not_called()
 
     @patch("pe_source.shodan.shodan_helpers.search_shodan")
+    @patch("pe_source.shodan.shodan_helpers.query_cidrs_by_org")
     @patch("pe_source.shodan.shodan_helpers.get_ips")
     @patch("pe_source.shodan.shodan_helpers.get_dates")
     def test_run_shodan_thread_continues_after_get_ips_exception(
-        self, mock_get_dates, mock_get_ips, mock_search_shodan
+        self,
+        mock_get_dates,
+        mock_get_ips,
+        mock_query_cidrs,
+        mock_search_shodan,
     ):
-        """A get_ips error for one org should not prevent processing later orgs."""
+        """A get_ips error for one org should not prevent later orgs."""
         mock_get_dates.return_value = (
             datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
             datetime.datetime(2026, 2, 1, tzinfo=datetime.timezone.utc),
@@ -152,6 +187,7 @@ class ShodanThreadTests(unittest.TestCase):
             return ["2.2.2.2"]
 
         mock_get_ips.side_effect = ips_side_effect
+        mock_query_cidrs.return_value = pd.DataFrame({"network": ["2.2.2.0/24"]})
         mock_search_shodan.return_value = []
 
         shodan_helpers.run_shodan_thread(
@@ -164,7 +200,47 @@ class ShodanThreadTests(unittest.TestCase):
         )
 
         mock_search_shodan.assert_called_once()
+        self.assertEqual(mock_search_shodan.call_args.args[1], ["2.2.2.2"])
         self.assertEqual(mock_search_shodan.call_args.args[6], "org_b")
+        self.assertIn(
+            IPAddress("2.2.2.2"),
+            mock_search_shodan.call_args.args[8],
+        )
+
+    @patch("pe_source.shodan.shodan_helpers.search_shodan")
+    @patch("pe_source.shodan.shodan_helpers.query_cidrs_by_org")
+    @patch("pe_source.shodan.shodan_helpers.get_ips")
+    @patch("pe_source.shodan.shodan_helpers.get_dates")
+    def test_run_shodan_thread_filters_non_attested_ips(
+        self,
+        mock_get_dates,
+        mock_get_ips,
+        mock_query_cidrs,
+        mock_search_shodan,
+    ):
+        """Any IPs outside the organization's CIDRs should be filtered out."""
+        mock_get_dates.return_value = (
+            datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2026, 2, 1, tzinfo=datetime.timezone.utc),
+        )
+        mock_get_ips.return_value = [
+            "1.1.1.1",
+            "2.2.2.2",
+        ]
+        mock_query_cidrs.return_value = pd.DataFrame({"network": ["1.1.1.0/24"]})
+        mock_search_shodan.return_value = []
+
+        shodan_helpers.run_shodan_thread(
+            object(),
+            [{"cyhy_db_name": "org_a", "organizations_uid": "uid-a"}],
+            "Thread 1:",
+        )
+
+        mock_search_shodan.assert_called_once()
+        self.assertEqual(
+            mock_search_shodan.call_args.args[1],
+            ["1.1.1.1"],
+        )
 
 
 class ShodanVerificationTests(unittest.TestCase):
@@ -312,6 +388,7 @@ class SearchShodanTests(unittest.TestCase):
             "tags": ["gov"],
             "data": [],
         }
+        self.cidr_ip_set = IPSet(["198.51.100.0/24"])
 
     @patch("pe_source.shodan.shodan_helpers.insert_shodan_vulns")
     @patch("pe_source.shodan.shodan_helpers.insert_shodan_assets")
@@ -361,6 +438,7 @@ class SearchShodanTests(unittest.TestCase):
             "org-uid",
             "org_name",
             [],
+            self.cidr_ip_set,
         )
 
         self.assertEqual(failed, [])
@@ -400,6 +478,7 @@ class SearchShodanTests(unittest.TestCase):
             "org-uid",
             "org_name",
             [],
+            self.cidr_ip_set,
         )
 
         self.assertEqual(failed, [])
@@ -433,6 +512,7 @@ class SearchShodanTests(unittest.TestCase):
             "org-uid",
             "org_name",
             [],
+            self.cidr_ip_set,
         )
 
         self.assertIn("org_name chunk 1 failed 5 times and skipped", failed)
@@ -504,6 +584,7 @@ class SearchShodanTests(unittest.TestCase):
             "7d2dbd06-f247-11ec-bb6e-02c6a3fe975b",
             org_name,
             [],
+            self.cidr_ip_set,
         )
 
         mock_insert_assets.assert_called_once()
