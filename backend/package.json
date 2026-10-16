@@ -3,7 +3,7 @@
   "description": "",
   "devDependencies": {
     "fast-xml-parser": "^5.5.8",
-    "osls": "^3.63.2",
+    "osls": "^4.4.0",
     "serverless-better-credentials": "^2.0.1",
     "serverless-domain-manager": "^10.0.0",
     "serverless-dotenv-plugin": "^6.0.0",
