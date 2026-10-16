@@ -11,7 +11,7 @@
     "serverless-plugin-ifelse": "^1.0.7",
     "serverless-prune-versions": "^1.0.4",
     "serverless-python-requirements": "^6.1.1",
-    "simple-git": "^3.36.0"
+    "simple-git": "^4.0.2"
   },
   "license": "ISC",
   "name": "crossfeed-backend",
