@@ -24,6 +24,7 @@ from xfd_mini_dl.models import (
     Ip,
     IpsSubs,
     Organization,
+    Role,
     Service,
     ShodanAssets,
     ShodanVulns,
@@ -120,6 +121,24 @@ def domain(sample_domain_ip_vuln, refresh_vuln_views):
 
 
 @pytest.fixture
+def foreign_domain(foreign_organization, refresh_vuln_views):
+    """Create a domain belonging to an organization the user cannot access."""
+    data_source = DataSource.objects.create(
+        name="Foreign Test Source",
+        description="Used for cross-organization access tests",
+        last_run=datetime.now().date(),
+    )
+    SubDomains.objects.create(
+        sub_domain="foreign.crossfeed.local",
+        reverse_name="local.crossfeed.foreign",
+        organization=foreign_organization,
+        data_source=data_source,
+    )
+    refresh_vuln_views()
+    return Domain.objects.get(name="foreign.crossfeed.local")
+
+
+@pytest.fixture
 def user():
     """Create user fixture."""
     user = User.objects.create(
@@ -145,6 +164,19 @@ def organization():
     )
     transaction.commit()
     assert organization.name == search_fields["organization_name"]
+    yield organization
+
+
+@pytest.fixture
+def foreign_organization():
+    """Create a second organization for access-control tests."""
+    organization = Organization.objects.create(
+        name="Foreign Test Organization",
+        root_domains=["foreign.crossfeed.local"],
+        ip_blocks=[],
+        is_passive=False,
+    )
+    transaction.commit()
     yield organization
 
 
@@ -185,6 +217,94 @@ def test_get_domain_by_id(user, domain, refresh_vuln_views):
     assert data is not None, "Response is empty"
     assert data["id"] == str(domain.id)
     assert data["ip"] == domain.ip
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_can_get_domain_from_member_organization(user, domain):
+    """Standard users can retrieve domains from their organization memberships."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=domain.organization, role="user")
+
+    response = client.get(
+        "/domain/{}".format(domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(domain.id)
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_cannot_get_domain_from_other_organization(
+    user, domain, foreign_domain
+):
+    """Standard users cannot retrieve domains outside their memberships."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=domain.organization, role="user")
+
+    response = client.get(
+        "/domain/{}".format(foreign_domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Domain not found."}
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_user_without_memberships_cannot_get_domain(user, domain):
+    """Users without organization memberships cannot retrieve domains."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+
+    response = client.get(
+        "/domain/{}".format(domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_regional_admin_is_limited_to_their_region(user, domain):
+    """Regional administrators can only retrieve domains in their region."""
+    domain.organization.region_id = "7"
+    domain.organization.save(update_fields=["region_id"])
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = "7"
+    user.save(update_fields=["user_type", "region_id"])
+
+    response = client.get(
+        "/domain/{}".format(domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 200
+
+    domain.organization.region_id = "8"
+    domain.organization.save(update_fields=["region_id"])
+
+    response = client.get(
+        "/domain/{}".format(domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_global_view_user_can_get_any_domain(user, foreign_domain):
+    """Global view users can retrieve domains from any organization."""
+    user.user_type = UserType.GLOBAL_VIEW
+    user.save(update_fields=["user_type"])
+
+    response = client.get(
+        "/domain/{}".format(foreign_domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(foreign_domain.id)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
