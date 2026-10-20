@@ -12,8 +12,8 @@
     ]
   },
   "dependencies": {
-    "@elastic/react-search-ui": "^1.23.0",
-    "@elastic/react-search-ui-views": "1.23.0",
+    "@elastic/react-search-ui": "^1.24.0",
+    "@elastic/react-search-ui-views": "1.24.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.1.0",
@@ -26,7 +26,7 @@
     "@mui/x-charts": "^8.9.2",
     "@mui/x-data-grid": "^8.9.2",
     "@testing-library/user-event": "^14.6.1",
-    "@trussworks/react-uswds": "^5.1.1",
+    "@trussworks/react-uswds": "^13.0.0",
     "axios": "^1.18.0",
     "classnames": "^2.3.2",
     "cors": "^2.8.5",
@@ -35,29 +35,29 @@
     "dompurify": "^3.4.9",
     "express-rate-limit": "^8.3.2",
     "file-saver": "^2.0.5",
+    "focus-trap-react": "^11.0.4",
     "papaparse": "^5.3.2",
     "pkce-challenge": "^5.0.0",
     "query-string": "^9.5.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-icons": "^4.6.0",
     "react-router-dom": "^5.3.4",
     "react-select": "^5.5.9",
-    "react-table": "^7.8.0",
     "serverless-http": "^3.2.0",
     "universal-cookie": "^7.2.2",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^14.3.1",
+    "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.1",
     "@types/cors": "^2.8.17",
     "@types/dompurify": "^3.0.2",
     "@types/file-saver": "^2.0.5",
     "@types/papaparse": "^5.3.5",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/react-lazylog": "^4.5.1",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-table": "^7.7.12",
@@ -98,7 +98,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=20.19.4"
+    "node": ">=26.12.0"
   },
   "eslintConfig": {
     "extends": [

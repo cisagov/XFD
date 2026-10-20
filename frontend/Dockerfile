@@ -1,4 +1,4 @@
-FROM node:20.19.4-alpine
+FROM node:26-alpine
 
 # Define arguments that we will pass from docker-compose
 # We set default values (1000) just in case the args aren't passed.

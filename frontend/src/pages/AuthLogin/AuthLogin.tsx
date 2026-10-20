@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
-import { Button } from '@trussworks/react-uswds';
+import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
@@ -38,8 +38,8 @@ const LoginButton = () => {
   return (
     <Button
       onClick={redirectToAuth}
-      type="button"
-      size="big"
+      variant="contained"
+      size="large"
       style={{ width: 'fit-content' }}
     >
       Sign in with LOGIN.GOV
