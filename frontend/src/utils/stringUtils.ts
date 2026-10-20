@@ -1,3 +1,5 @@
+import { STATE_ABBREVIATED_OPTIONS, STATE_OPTIONS } from '@constants/constants';
+
 export function capitalize(str: string | null): string | null {
   if (!str) return str;
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -13,6 +15,18 @@ export const formatDisplayValue = (value: any): any => {
 export const matchPath = (paths: string[], path: string) => {
   if (paths.includes(path)) return true;
   return false;
+};
+
+export const getStateAbbreviation = (
+  state_name: string | null
+): string | undefined => {
+  if (state_name) {
+    const index = STATE_OPTIONS.indexOf(state_name);
+    if (index !== -1) {
+      return STATE_ABBREVIATED_OPTIONS[index];
+    }
+  }
+  return '';
 };
 
 export function truncateString(inputString: string) {

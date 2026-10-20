@@ -16,7 +16,7 @@ import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { logger } from '@/utils/logger';
 
-import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
+import { useOrganizationsByState } from '@/hooks/useOrganizationsByState';
 import { useUpdateUser } from '@/hooks/useUpdateUser';
 import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
 import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
@@ -149,10 +149,10 @@ export const UserForm: React.FC<UserFormProps> = ({
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
   const {
-    organizations: organizationsInRegion,
+    organizations: organizationsInState,
     isLoading,
     errorMessage: getOrgsErrorMessage
-  } = useOrganizationsByRegion(values.region_id);
+  } = useOrganizationsByState(values.state);
 
   useEffect(() => {
     setApiErrorStates((previousState: ApiErrorStates) => ({
@@ -166,7 +166,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   const { removeUserFromOrganization } = useRemoveUserFromOrganization();
 
   const getOrgNameById = (id: string) => {
-    const organization = organizationsInRegion.find(
+    const organization = organizationsInState.find(
       (org: Organization) => org.id === id
     );
     return organization ? organization.name : null;
@@ -349,7 +349,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
   };
 
-  const sortedOrgs = organizationsInRegion
+  const sortedOrgs = organizationsInState
     .slice()
     .sort((a: Organization, b: Organization) => a.name.localeCompare(b.name));
 
@@ -501,7 +501,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             </Alert>
           ) : values.state === '' ? (
             <Alert severity="info">Select a state to make a selection.</Alert>
-          ) : organizationsInRegion.length === 0 ? (
+          ) : organizationsInState.length === 0 ? (
             <Alert severity="info">
               No organizations found. Add orgs to Region {values.region_id} to
               make a selection.
