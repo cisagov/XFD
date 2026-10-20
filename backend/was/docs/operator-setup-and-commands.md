@@ -310,6 +310,70 @@ held customer delivery only through the guarded command after external
 verification. Preserve and escalate other uncertain Qualys, S3, analyst,
 standalone, or active database state before any replacement work.
 
+### Recover a reboot-interrupted production batch
+
+Use this exceptional workflow only when a host interruption left generation
+runs active after the coordinator and all workers stopped. Do not delete the
+Qualys reports or edit `was_report_runs` manually. Preserve the original batch
+directory because its immutable `workload.json` defines the only tracker rows
+the recovery command may inspect.
+
+First verify the host process state with the status, console, and `docker ps`
+commands above. Then run the preview against the exact interrupted batch:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b"
+```
+
+The preview takes the production coordinator advisory lock, verifies the live
+database identity, requires all active operations to be stale generation rows
+inside that saved workload, and queries each stored Qualys report ID without
+changing database, Qualys, S3, tracker, or email state. Any active or uncertain
+email delivery, recent generation heartbeat, unmatched active row, uncertain
+Qualys creation, or non-404 Qualys error stops the entire recovery.
+
+Review every previewed run and Qualys status before applying. If no report is
+reported missing, apply with all of the following explicit acknowledgements:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b" \
+  APPLY=1 \
+  RECOVERY_CONFIRM=RECOVER_INTERRUPTED_BATCH \
+  RECOVERY_SEND_EMAIL=1 \
+  RECOVERY_SEND_FINAL_SUMMARY=1
+```
+
+The applied command atomically gives each unchanged run a new generation
+token, resumes polling or downloading its stored Qualys IDs, uploads the
+recovered PDF, sends the customer email, and records the attempt under the old
+batch. It runs one report at a time while retaining the coordinator lock. It
+will not finalize the batch while any `running` or `sending` operation remains.
+When all operations are reconciled, it marks the interrupted batch `failed`
+and sends that batch's final summary once. A new production batch may start
+only after a fresh preview shows no active or uncertain operations.
+
+A Qualys HTTP 404 is the only response treated as proof that a stored report no
+longer exists. Replacement then requires the exact affected report-run IDs and
+a separate confirmation. For example, after reviewing a preview that reports
+only runs `5093` and `5094` missing:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b" \
+  MISSING_REPORT_RUN_IDS="5093,5094" \
+  APPLY=1 \
+  RECOVERY_CONFIRM=RECOVER_INTERRUPTED_BATCH \
+  REPLACEMENT_CONFIRM=REPLACE_MISSING_QUALYS_REPORTS \
+  RECOVERY_SEND_EMAIL=1 \
+  RECOVERY_SEND_FINAL_SUMMARY=1
+```
+
+Never list a run merely because its report is slow, failed, or returned a
+transient Qualys error. The command refuses replacement for an ID that Qualys
+still finds and refuses any missing ID not explicitly listed.
+
 The coordinator refreshes the tracker once, records a workload snapshot, sends
 the tracker summary, launches separate worker containers, performs the final
 delivery pass, and sends the final analyst summary. Customer delivery uses the

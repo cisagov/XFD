@@ -2040,6 +2040,7 @@ targets.
 | `make manual-report TAG="CUSTOMER_TAG"` | Processes one eligible manual tracker row without refreshing the tracker, then uploads, emails, and updates state. |
 | `make on-demand-report TAG="CUSTOMER_TAG"` | Creates a new analyst-purpose report and uploads it to S3. `SEND_EMAIL=1` additionally requires approved `TEST_RECIPIENTS`. |
 | `make recover-manual-reports MANUAL_TRACKER_IDS="123" RECOVERY_CAUSE="password-validation"` | Preview only by default. Only the documented password-validation and Qualys read-timeout recovery causes are supported. Apply requires the documented confirmation variables. |
+| `make recover-interrupted-batch BATCH_ID="<batch-uuid>"` | Preview stale production generation runs from the selected batch's saved workload and query their stored Qualys IDs. Applied recovery requires the documented delivery, summary, and per-run missing-report confirmations. |
 | `make reconcile-email-delivery REPORT_RUN_ID=3703` | Inspects one held run by default. State-changing actions require the documented evidence, confirmation, and apply variables. |
 | `make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a replay selection by default. Applied execution requires a stable `REPLAY_ID` and explicit source IDs. |
 | `make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123,456" TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a non-destructive Targets Removed replay by default. It never deletes Qualys applications. |

@@ -120,6 +120,24 @@ class QualysReportPollingState:
     xml_report_id: str | None = None
 
 
+@dataclass(frozen=True)
+class InterruptedReportRun:
+    """Persisted customer report state eligible for guarded reboot recovery."""
+
+    id: int
+    stakeholder_tag: str
+    source_tracker_id: int
+    email_status: str
+    updated_at: datetime
+    detail_report_id: str | None
+    detail_report_status: str | None
+    xml_report_id: str | None
+    xml_report_status: str | None
+    tag_id: int | None
+    organization_name: str | None
+    template: str | None
+
+
 QUALYS_REPORT_COLUMNS = {
     "detail": (
         "qualys_detail_report_id",
@@ -567,6 +585,179 @@ def recover_stale_report_operations_in_db() -> tuple[int, int]:
         return recover_stale_report_operations(conn)
     finally:
         close(conn)
+
+
+def list_interrupted_report_runs(
+    batch_id: str,
+    tracker_ids: list[int],
+    stale_before: datetime,
+    conn: connection,
+) -> list[InterruptedReportRun]:
+    """Return only stale active customer runs from one unfinished workload.
+
+    The caller must retain the production coordinator advisory lock while using
+    this result.  Any active operation outside the saved workload, any recent
+    heartbeat, or any email claim blocks the entire recovery preview.
+    """
+    if not batch_id or not tracker_ids:
+        raise ValueError("Batch ID and saved tracker IDs are required.")
+    if stale_before.utcoffset() is None:
+        raise ValueError("The stale-operation boundary must include a timezone.")
+    unique_tracker_ids = sorted(set(tracker_ids))
+    if len(unique_tracker_ids) != len(tracker_ids) or unique_tracker_ids[0] < 1:
+        raise ValueError("Saved tracker IDs must be unique positive integers.")
+
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT run_mode, started_at, finished_at, outcome, "
+            "final_summary_status "
+            "FROM was_batch_runs WHERE batch_id=%s",
+            (batch_id,),
+        )
+        batch = cursor.fetchone()
+        if batch is None:
+            raise LookupError("Interrupted batch {} was not found.".format(batch_id))
+        if batch[0] != "production":
+            raise ValueError("Interrupted recovery supports production batches only.")
+        if batch[2] is not None or batch[3] is not None:
+            raise ValueError("The selected batch is already finalized.")
+        if batch[4] != "pending":
+            raise ValueError("The selected batch final summary is already claimed.")
+
+        cursor.execute(
+            """
+            SELECT source_tracker_id, status, email_status
+            FROM was_report_runs
+            WHERE status = 'running' OR email_status = 'sending'
+            """
+        )
+        active_rows = cursor.fetchall()
+        if any(row[2] == "sending" for row in active_rows):
+            raise ValueError(
+                "An email delivery is active or uncertain and must be reconciled first."
+            )
+        if any(row[1] != "running" or row[2] != "pending" for row in active_rows):
+            raise ValueError("Unsupported active report state blocks batch recovery.")
+        active_tracker_ids = {row[0] for row in active_rows}
+        if None in active_tracker_ids or not active_tracker_ids.issubset(
+            set(unique_tracker_ids)
+        ):
+            raise ValueError(
+                "Active report operations exist outside the saved workload."
+            )
+
+        cursor.execute(
+            """
+            SELECT
+                runs.id,
+                runs.stakeholder_tag,
+                runs.source_tracker_id,
+                runs.email_status,
+                runs.updated_at,
+                runs.qualys_detail_report_id,
+                runs.qualys_detail_report_status,
+                runs.qualys_xml_report_id,
+                runs.qualys_xml_report_status,
+                COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
+                stakeholders.customer_name,
+                tracker.template
+            FROM was_report_runs AS runs
+            JOIN was_daily_report_tracker AS tracker
+              ON tracker.id = runs.source_tracker_id
+            JOIN was_stakeholders AS stakeholders
+              ON stakeholders.tag = runs.stakeholder_tag
+            WHERE runs.source_tracker_id = ANY(%s)
+              AND runs.started_at >= %s
+              AND runs.status = 'running'
+              AND runs.email_status = 'pending'
+              AND runs.delivery_purpose = 'customer'
+              AND runs.emailed_at IS NULL
+            ORDER BY runs.id
+            """,
+            (unique_tracker_ids, batch[1]),
+        )
+        rows = cursor.fetchall()
+
+    if not rows:
+        raise ValueError("No interrupted report runs matched the saved workload.")
+    selected_tracker_ids = {row[2] for row in rows}
+    if selected_tracker_ids != active_tracker_ids or len(rows) != len(active_rows):
+        raise ValueError(
+            "One or more active report operations could not be matched safely."
+        )
+    if any(row[4] >= stale_before for row in rows):
+        raise ValueError(
+            "One or more report runs still have a recent generation heartbeat."
+        )
+    return [
+        InterruptedReportRun(
+            id=int(row[0]),
+            stakeholder_tag=str(row[1]),
+            source_tracker_id=int(row[2]),
+            email_status=str(row[3]),
+            updated_at=row[4],
+            detail_report_id=row[5],
+            detail_report_status=row[6],
+            xml_report_id=row[7],
+            xml_report_status=row[8],
+            tag_id=row[9],
+            organization_name=row[10],
+            template=row[11],
+        )
+        for row in rows
+    ]
+
+
+def claim_interrupted_report_run(
+    interrupted_run: InterruptedReportRun,
+    conn: connection,
+) -> ReportRun | None:
+    """Atomically replace one stale generation lease without losing report IDs."""
+    generation_token = str(uuid4())
+    try:
+        lock_tracker_tag(conn, interrupted_run.stakeholder_tag)
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_report_runs
+                SET generation_token = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                  AND stakeholder_tag = %s
+                  AND source_tracker_id = %s
+                  AND status = 'running'
+                  AND email_status = 'pending'
+                  AND delivery_purpose = 'customer'
+                  AND emailed_at IS NULL
+                  AND updated_at = %s
+                  AND qualys_detail_report_id IS NOT DISTINCT FROM %s
+                  AND qualys_xml_report_id IS NOT DISTINCT FROM %s
+                RETURNING id, stakeholder_tag, status
+                """,
+                (
+                    generation_token,
+                    interrupted_run.id,
+                    interrupted_run.stakeholder_tag,
+                    interrupted_run.source_tracker_id,
+                    interrupted_run.updated_at,
+                    interrupted_run.detail_report_id,
+                    interrupted_run.xml_report_id,
+                ),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            conn.rollback()
+            return None
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return ReportRun(
+        id=int(row[0]),
+        stakeholder_tag=str(row[1]),
+        status=str(row[2]),
+        generation_token=generation_token,
+    )
 
 
 def touch_report_run(

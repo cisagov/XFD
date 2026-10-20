@@ -70,6 +70,100 @@ class FakeConnection:
 class ReportRunTests(unittest.TestCase):
     """Validate report run persistence helpers."""
 
+    def test_interrupted_recovery_rejects_sending_email(self) -> None:
+        """Do not reclaim generation while any email claim is uncertain."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (
+            "production",
+            datetime(2026, 10, 19, tzinfo=timezone.utc),
+            None,
+            None,
+            "pending",
+        )
+        cursor.fetchall.return_value = [(101, "completed", "sending")]
+
+        with self.assertRaisesRegex(ValueError, "email delivery"):
+            report_runs.list_interrupted_report_runs(
+                "batch-id",
+                [101],
+                datetime(2026, 10, 20, tzinfo=timezone.utc),
+                connection,
+            )
+
+    def test_interrupted_recovery_requires_exact_active_scope(self) -> None:
+        """Require every active row to join back to the immutable workload."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (
+            "production",
+            datetime(2026, 10, 19, tzinfo=timezone.utc),
+            None,
+            None,
+            "pending",
+        )
+        cursor.fetchall.side_effect = [
+            [(101, "running", "pending"), (102, "running", "pending")],
+            [
+                (
+                    5093,
+                    "TAG",
+                    101,
+                    "pending",
+                    datetime(2026, 10, 19, tzinfo=timezone.utc),
+                    "qualys-detail",
+                    "RUNNING",
+                    None,
+                    None,
+                    42,
+                    "Customer",
+                    "template",
+                )
+            ],
+        ]
+
+        with self.assertRaisesRegex(ValueError, "matched safely"):
+            report_runs.list_interrupted_report_runs(
+                "batch-id",
+                [101, 102],
+                datetime(2026, 10, 20, tzinfo=timezone.utc),
+                connection,
+            )
+
+    @patch("was_reports.data.report_runs.lock_tracker_tag")
+    def test_interrupted_claim_uses_compare_and_swap(self, lock_tracker_tag) -> None:
+        """Replace the lease only while the previewed row remains unchanged."""
+        interrupted_run = report_runs.InterruptedReportRun(
+            id=5093,
+            stakeholder_tag="TAG",
+            source_tracker_id=101,
+            email_status="pending",
+            updated_at=datetime(2026, 10, 19, tzinfo=timezone.utc),
+            detail_report_id="qualys-detail",
+            detail_report_status="RUNNING",
+            xml_report_id=None,
+            xml_report_status=None,
+            tag_id=42,
+            organization_name="Customer",
+            template="template",
+        )
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (5093, "TAG", "running")
+
+        claimed_run = report_runs.claim_interrupted_report_run(
+            interrupted_run, connection
+        )
+
+        self.assertEqual(claimed_run.id, 5093)
+        self.assertIsNotNone(claimed_run.generation_token)
+        lock_tracker_tag.assert_called_once_with(connection, "TAG")
+        connection.commit.assert_called_once_with()
+        update_query = str(cursor.execute.call_args.args[0])
+        self.assertIn("updated_at = %s", update_query)
+        self.assertIn("IS NOT DISTINCT FROM", update_query)
+        self.assertEqual(cursor.execute.call_args.args[1][1], 5093)
+
     @patch("was_reports.utils.database.close")
     @patch("was_reports.utils.database.connect")
     @patch("was_reports.data.report_runs.create_report_run")

@@ -31,6 +31,10 @@ RECONCILIATION_ACTION ?= inspect
 RECONCILIATION_REFERENCE ?=
 RECONCILIATION_CONFIRM ?=
 USE_STORED_CUSTOMER_RECIPIENTS ?= 0
+MISSING_REPORT_RUN_IDS ?=
+REPLACEMENT_CONFIRM ?=
+RECOVERY_SEND_EMAIL ?= 0
+RECOVERY_SEND_FINAL_SUMMARY ?= 0
 LOG_BATCH_ID ?=
 LOG_TAG ?=
 LOG_LIMIT ?= 200
@@ -55,7 +59,7 @@ HOST_SOFTWARE_INVENTORY_DIR ?= $(OUTPUT_DIR)/host-inventory-$(shell date -u +%Y%
 HOST_SOFTWARE_SINCE ?=
 HOST_SOFTWARE_BASELINE ?=
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
+.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports recover-interrupted-batch reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
 
 export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
 export CAPACITY_ACTION CAPACITY_CONTINUE_RUN_ID CAPACITY_EXPECTED_CANDIDATES
@@ -338,6 +342,28 @@ recover-manual-reports:
 	esac; \
 	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" -v "$(OUTPUT_DIR):/output" \
 	  --entrypoint python $(IMAGE) -m was_reports.commands.recover_manual_reports "$$@"
+
+recover-interrupted-batch:
+	@test -n "$(BATCH_ID)" || (echo 'BATCH_ID is required.' >&2; exit 2)
+	@set -- --batch-id "$(BATCH_ID)" --output-root /output; \
+	if [ -n "$(MISSING_REPORT_RUN_IDS)" ]; then \
+	  set -- "$$@" --replace-missing-report-runs "$(MISSING_REPORT_RUN_IDS)"; \
+	fi; \
+	case "$(APPLY)" in \
+	  0) ;; \
+	  1) test "$(RECOVERY_CONFIRM)" = 'RECOVER_INTERRUPTED_BATCH' || { echo 'APPLY=1 requires RECOVERY_CONFIRM=RECOVER_INTERRUPTED_BATCH.' >&2; exit 2; }; \
+	     test "$(RECOVERY_SEND_EMAIL)" = '1' || { echo 'APPLY=1 requires RECOVERY_SEND_EMAIL=1.' >&2; exit 2; }; \
+	     test "$(RECOVERY_SEND_FINAL_SUMMARY)" = '1' || { echo 'APPLY=1 requires RECOVERY_SEND_FINAL_SUMMARY=1.' >&2; exit 2; }; \
+	     set -- "$$@" --apply --confirm RECOVER_INTERRUPTED_BATCH --send-email --send-final-summary; \
+	     if [ -n "$(MISSING_REPORT_RUN_IDS)" ]; then \
+	       test "$(REPLACEMENT_CONFIRM)" = 'REPLACE_MISSING_QUALYS_REPORTS' || { echo 'Missing-report replacement requires REPLACEMENT_CONFIRM=REPLACE_MISSING_QUALYS_REPORTS.' >&2; exit 2; }; \
+	       set -- "$$@" --replacement-confirm REPLACE_MISSING_QUALYS_REPORTS; \
+	     fi ;; \
+	  *) echo 'APPLY must be 0 or 1.' >&2; exit 2 ;; \
+	esac; \
+	docker run --rm $(DOCKER_HOST_USER) --env-file "$(ENV_FILE)" \
+	  -v "$(OUTPUT_DIR):/output" --entrypoint python $(IMAGE) \
+	  -m was_reports.commands.recover_interrupted_batch "$$@"
 
 reconcile-email-delivery:
 	@test -n "$${REPORT_RUN_ID}" || (echo 'REPORT_RUN_ID is required.' >&2; exit 2)
