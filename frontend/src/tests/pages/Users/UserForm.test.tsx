@@ -7,7 +7,7 @@ import UserForm from '@/pages/Users/UserForm';
 
 // ---- mock handles ----
 const mockUseAuthContext = vi.fn();
-const mockUseOrganizationsByRegion = vi.fn();
+const mockUseOrganizationsByState = vi.fn();
 const mockUpdateUser = vi.fn();
 const mockAddUserToOrganization = vi.fn();
 const mockRemoveUserFromOrganization = vi.fn();
@@ -21,9 +21,9 @@ vi.mock('context', async () => {
   };
 });
 
-vi.mock('@/hooks/useOrganizationsByRegion', () => ({
-  useOrganizationsByRegion: (...args: unknown[]) =>
-    mockUseOrganizationsByRegion(...args)
+vi.mock('@/hooks/useOrganizationsByState', () => ({
+  useOrganizationsByState: (...args: unknown[]) =>
+    mockUseOrganizationsByState(...args)
 }));
 
 vi.mock('@/hooks/useUpdateUser', () => ({
@@ -159,7 +159,7 @@ describe('UserForm', () => {
       }
     } as any);
 
-    mockUseOrganizationsByRegion.mockReturnValue({
+    mockUseOrganizationsByState.mockReturnValue({
       organizations: [
         makeOrganization({
           id: 'org-1',
@@ -288,7 +288,7 @@ describe('UserForm', () => {
       originalRoleId: 'role-1'
     };
 
-    mockUseOrganizationsByRegion.mockReturnValue({
+    mockUseOrganizationsByState.mockReturnValue({
       organizations: [
         makeOrganization({
           id: 'org-1',
@@ -466,7 +466,7 @@ describe('UserForm', () => {
   it('updates getOrgsError via setApiErrorStates when org fetch fails', async () => {
     const errorMessage = 'Failed to fetch orgs. Bad request';
 
-    mockUseOrganizationsByRegion.mockReturnValue({
+    mockUseOrganizationsByState.mockReturnValue({
       organizations: [],
       isLoading: false,
       errorMessage,
