@@ -470,9 +470,11 @@ async def call_export_domains(
     response_model=GetDomainResponse,
     tags=["Domains"],
 )
-async def call_get_domain_by_id(domain_id: str):
+async def call_get_domain_by_id(
+    domain_id: str, current_user: User = Depends(get_current_active_user)
+):
     """Get domain by id."""
-    return get_domain_by_id(domain_id)
+    return get_domain_by_id(domain_id, current_user)
 
 
 # ========================================
