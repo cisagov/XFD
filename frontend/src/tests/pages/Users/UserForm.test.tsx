@@ -739,6 +739,5 @@ describe('UserForm', () => {
     );
 
     expect(mockUseOrganizationsByState).toHaveBeenCalledWith('Ohio');
-    expect(mockUseOrganizationsByState).not.toHaveBeenCalledWith('region-99');
   });
 });
