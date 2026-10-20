@@ -503,8 +503,8 @@ export const UserForm: React.FC<UserFormProps> = ({
             <Alert severity="info">Select a state to make a selection.</Alert>
           ) : organizationsInState.length === 0 ? (
             <Alert severity="info">
-              No organizations found. Add orgs to Region {values.region_id} to
-              make a selection.
+              No organizations found for {values.state}. Add an organization in
+              this state to make a selection.
             </Alert>
           ) : (
             <Autocomplete

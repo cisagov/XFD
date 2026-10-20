@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthContext } from 'context';
 import type { Organization } from 'types';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -20,44 +20,53 @@ export const useOrganizationsByState = (
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const fetchOrganizations = useCallback(async (): Promise<void> => {
-    const stateAbbreviation = getStateAbbreviation(state);
-    if (!stateAbbreviation) {
-      setOrganizations([]);
-      setErrorMessage('');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const rows = await apiGet<Organization[]>(
-        ENDPOINTS.ORGANIZATIONS_STATE.replace('{state}', stateAbbreviation)
-      );
-      setOrganizations(rows);
-      setErrorMessage('');
-    } catch (error: any) {
-      setOrganizations([]);
-      setErrorMessage(error.message);
-      logger.error('UseOrganizationsByState failed', { error, state });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiGet, state]);
-
   useEffect(() => {
-    let isActive = true;
+    let cancelled = false;
 
-    const run = async () => {
-      if (!isActive) return;
-      await fetchOrganizations();
+    const fetchOrganizations = async () => {
+      const stateAbbreviation = getStateAbbreviation(state);
+      if (!stateAbbreviation) {
+        if (!cancelled) {
+          setOrganizations([]);
+          setErrorMessage('');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const rows = await apiGet<Organization[]>(
+          ENDPOINTS.ORGANIZATIONS_STATE.replace('{state}', stateAbbreviation)
+        );
+
+        if (!cancelled) {
+          setOrganizations(rows);
+          setErrorMessage('');
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setOrganizations([]);
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Unable to fetch organizations.'
+          );
+          logger.error('UseOrganizationsByState failed', { error, state });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    run();
+    void fetchOrganizations();
 
     return () => {
-      isActive = false;
+      cancelled = true;
     };
-  }, [fetchOrganizations]);
+  }, [apiGet, state]);
 
   return { organizations, isLoading, errorMessage };
 };

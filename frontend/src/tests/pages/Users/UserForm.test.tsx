@@ -711,4 +711,34 @@ describe('UserForm', () => {
     const stateCombobox = screen.getByRole('combobox', { name: /state/i });
     expect(stateCombobox).toBeDisabled();
   });
+
+  it('loads organization options using the selected state', () => {
+    mockUseOrganizationsByState.mockReturnValue({
+      organizations: [],
+      isLoading: false,
+      errorMessage: ''
+    });
+
+    render(
+      <UserForm
+        values={{
+          ...baseValues,
+          state: 'Ohio',
+          region_id: 'region-1'
+        }}
+        users={baseUsers}
+        setUsers={mockSetUsers}
+        setValues={mockSetValues}
+        editUserDialogOpen={true}
+        setEditUserDialogOpen={mockSetEditUserDialogOpen}
+        apiErrorStates={baseApiErrorStates}
+        setApiErrorStates={mockSetApiErrorStates}
+        setInfoDialogOpen={mockSetInfoDialogOpen}
+        setInfoDialogContent={mockSetInfoDialogContent}
+      />
+    );
+
+    expect(mockUseOrganizationsByState).toHaveBeenCalledWith('Ohio');
+    expect(mockUseOrganizationsByState).not.toHaveBeenCalledWith('region-99');
+  });
 });
