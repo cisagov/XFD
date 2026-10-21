@@ -25,7 +25,8 @@ from was_reports.data.daily_report_tracker import (
 from was_reports.data.special_cases import normalize_special_case_value
 from was_reports.data.stakeholders import (
     StakeholderDetails,
-    get_stakeholder_details,
+    get_governing_stakeholder_details,
+    stakeholder_tag_candidates,
     update_scan_metadata_for_tag,
 )
 from was_reports.qualys.qualys_admin import (
@@ -71,10 +72,7 @@ def resolve_stakeholder_details(
     conn: connection,
 ) -> StakeholderDetails | None:
     """Return stakeholder details for an exact or child tag."""
-    stakeholder = get_stakeholder_details(tag, conn)
-    if stakeholder is None and "_" in tag:
-        stakeholder = get_stakeholder_details(tag.split("_", 1)[0], conn)
-    return stakeholder
+    return get_governing_stakeholder_details(tag, conn)
 
 
 def combined_email_value(
@@ -136,6 +134,7 @@ def update_stakeholder_scan_metadata(
     next_scan: str | None,
     app_count: int,
     tag_id: int | None = None,
+    preserve_qualys_tag_id: bool = False,
 ) -> None:
     """Update stakeholder scan metadata while preserving tracker completion."""
     if last_scan is None:
@@ -162,6 +161,7 @@ def update_stakeholder_scan_metadata(
             num_web_apps=app_count,
             web_apps_last_updated=int(time.time()),
             qualys_tag_id=tag_id,
+            preserve_qualys_tag_id=preserve_qualys_tag_id,
         )
     except Exception as error:
         LOGGER.error(
@@ -226,11 +226,18 @@ def build_tracker_row(
     assignee = upsert_assignee(name=assignee_name, conn=conn)
     if item.launched_date is not None:
         update_stakeholder_scan_metadata(
-            tag=item.tag,
+            tag=stakeholder.tag if stakeholder is not None else item.tag,
             last_scan=item.launched_date,
             next_scan=item.next_scan_date,
             app_count=num_apps,
-            tag_id=item.tag_id,
+            tag_id=(
+                item.tag_id
+                if stakeholder is not None and stakeholder.tag == item.tag
+                else None
+            ),
+            preserve_qualys_tag_id=(
+                stakeholder is not None and stakeholder.tag != item.tag
+            ),
         )
 
     return DailyReportTrackerRow(
@@ -538,18 +545,45 @@ def validate_current_deletion_safety(
 ) -> None:
     """Lock and require the current stakeholder and exemption state to be safe."""
     normalized_tag = normalize_special_case_value(item.tag)
-    candidate_tags = [normalized_tag]
-    if "_" in normalized_tag:
-        candidate_tags.append(normalized_tag.split("_", 1)[0])
-
     with conn.cursor() as cursor:
         cursor.execute(
-            "SELECT tag, manual_report, fceb, retired "
-            "FROM was_stakeholders "
-            "WHERE tag = ANY(%s) "
-            "ORDER BY CASE WHEN tag = %s THEN 0 ELSE 1 END "
-            "LIMIT 1 FOR UPDATE",
-            (candidate_tags, normalized_tag),
+            """
+            SELECT stakeholders.tag,
+                   (
+                       stakeholders.manual_report IS TRUE
+                       OR exact_stakeholder.manual_report IS TRUE
+                   ),
+                   (
+                       stakeholders.fceb IS TRUE
+                       OR exact_stakeholder.fceb IS TRUE
+                   ),
+                   (
+                       stakeholders.retired IS TRUE
+                       OR exact_stakeholder.retired IS TRUE
+                   )
+            FROM (VALUES (%s::text)) AS target(tag)
+            LEFT JOIN was_stakeholders AS exact_stakeholder
+              ON exact_stakeholder.tag = target.tag
+            LEFT JOIN was_stakeholders AS configured_parent
+              ON configured_parent.tag = exact_stakeholder.parent_tag
+            JOIN LATERAL (
+                SELECT candidate.*
+                FROM was_stakeholders AS candidate
+                WHERE candidate.tag = COALESCE(
+                        configured_parent.tag,
+                        exact_stakeholder.tag
+                      )
+                   OR (exact_stakeholder.tag IS NULL AND (
+                        CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(target.tag)
+                    AND LEFT(target.tag, CHAR_LENGTH(candidate.tag) + 1)
+                        = candidate.tag || '_'
+                   ))
+                ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                LIMIT 1
+                FOR UPDATE
+            ) AS stakeholders ON TRUE
+            """,
+            (normalized_tag,),
         )
         stakeholder = cursor.fetchone()
         if stakeholder is None:
@@ -579,10 +613,7 @@ def validate_current_deletion_safety(
 def deletion_safety_lock_tags(tag: str) -> tuple[str, ...]:
     """Return exact and governing parent tags in deterministic lock order."""
     normalized_tag = normalize_special_case_value(tag)
-    lock_tags = {normalized_tag}
-    if "_" in normalized_tag:
-        lock_tags.add(normalized_tag.split("_", 1)[0])
-    return tuple(sorted(lock_tags))
+    return tuple(sorted(stakeholder_tag_candidates(normalized_tag)))
 
 
 def deletion_status_allows_automatic_removal(
@@ -851,6 +882,15 @@ def update_execution(
         deactivation_completed = final_template == "Deactivated"
         if deactivation_completed:
             final_report_scan_notes = DEACTIVATION_COMPLETE_NOTE
+            inventory_stakeholder = resolve_stakeholder_details(item.tag, conn)
+            if inventory_stakeholder is None:
+                raise RuntimeError(
+                    "Stakeholder inventory owner could not be resolved after "
+                    "deleting all web applications; manual reconciliation is required."
+                )
+            inventory_stakeholder_tag = inventory_stakeholder.tag
+        else:
+            inventory_stakeholder_tag = None
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE was_daily_report_tracker SET template = %s, report_scan_notes = %s "
@@ -867,13 +907,18 @@ def update_execution(
                     "Tracker deletion claim changed; manual reconciliation is required."
                 )
             if deactivation_completed:
+                if inventory_stakeholder_tag is None:
+                    raise RuntimeError(
+                        "Stakeholder inventory owner is unavailable during "
+                        "deletion finalization."
+                    )
                 cursor.execute(
                     "UPDATE was_stakeholders "
                     "SET num_web_apps = 0, "
                     "web_apps_last_updated = EXTRACT(EPOCH FROM NOW())::BIGINT, "
                     "updated_at = NOW() "
                     "WHERE tag = %s",
-                    (item.tag,),
+                    (inventory_stakeholder_tag,),
                 )
                 if cursor.rowcount != 1:
                     raise RuntimeError(

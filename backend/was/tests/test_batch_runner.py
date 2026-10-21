@@ -689,15 +689,16 @@ class BatchRunnerTests(unittest.TestCase):
         mock_list_candidates.return_value = [
             TrackerReportCandidate(
                 id=9,
-                tag="TAG1",
+                tag="PARENT_CHILD",
                 data_pull_date=date(2026, 9, 1),
                 schedule_id=123,
                 assignee_id=3,
+                governing_stakeholder_tag="PARENT",
             )
         ]
         mock_create_run.return_value = ReportRun(
             id=42,
-            stakeholder_tag="TAG1",
+            stakeholder_tag="PARENT",
             status="running",
             generation_token="token",
         )
@@ -708,7 +709,7 @@ class BatchRunnerTests(unittest.TestCase):
         summary = batch_runner.run_recent_scan_reports(
             resource_root="/WAS_REPORT_RESOURCES",
             python_executable="/usr/local/bin/python",
-            stakeholder_tag="TAG1",
+            stakeholder_tag="PARENT_CHILD",
             send_email=True,
             source_email="reports@example.gov",
             days_back=30,
@@ -722,11 +723,11 @@ class BatchRunnerTests(unittest.TestCase):
             source_email="reports@example.gov",
             override_recipients=None,
             dry_run=False,
-            stakeholder_tag="TAG1",
+            stakeholder_tag="PARENT_CHILD",
             days_back=30,
         )
         mock_list_candidates.assert_called_once_with(
-            stakeholder_tag="TAG1",
+            stakeholder_tag="PARENT_CHILD",
             limit=None,
             include_manual=False,
             worker_count=None,
@@ -734,10 +735,19 @@ class BatchRunnerTests(unittest.TestCase):
             days_back=30,
         )
         mock_create_run.assert_called_once_with(
-            stakeholder_tag="TAG1",
+            stakeholder_tag="PARENT",
             source_tracker_id=9,
             enforce_automated_eligibility=True,
             days_back=30,
+            report_target_tag="PARENT_CHILD",
+        )
+        self.assertEqual(
+            mock_generate_report.call_args.kwargs["stakeholder_tag"],
+            "PARENT_CHILD",
+        )
+        self.assertEqual(
+            mock_generate_report.call_args.kwargs["password_stakeholder_tag"],
+            "PARENT",
         )
         mock_complete_run.assert_called_once_with(
             42,
@@ -877,12 +887,13 @@ class BatchRunnerTests(unittest.TestCase):
                 data_pull_date=date(2026, 9, 1),
                 schedule_id=123,
                 assignee_id=3,
+                governing_stakeholder_tag="CURRENT_PARENT",
             )
         ]
         mock_create_run.return_value = None
         mock_retry_run.return_value = ReportRun(
             id=42,
-            stakeholder_tag="TAG1",
+            stakeholder_tag="PERSISTED_PARENT",
             status="running",
             generation_token="token",
         )
@@ -910,12 +921,20 @@ class BatchRunnerTests(unittest.TestCase):
             worker_index=None,
             days_back=30,
         )
-        mock_retry_run.assert_called_once_with(9)
+        mock_retry_run.assert_called_once_with(
+            9,
+            governing_stakeholder_tag="CURRENT_PARENT",
+        )
         mock_create_run.assert_called_once_with(
-            stakeholder_tag="TAG1",
+            stakeholder_tag="CURRENT_PARENT",
             source_tracker_id=9,
             enforce_automated_eligibility=False,
             days_back=30,
+            report_target_tag="TAG1",
+        )
+        self.assertEqual(
+            mock_generate_report.call_args.kwargs["password_stakeholder_tag"],
+            "PERSISTED_PARENT",
         )
         mock_send_ready.assert_not_called()
         mock_complete_run.assert_called_once_with(

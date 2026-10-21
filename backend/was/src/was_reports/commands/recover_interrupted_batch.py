@@ -15,10 +15,12 @@ from uuid import UUID
 
 # Third-Party Libraries
 from requests.exceptions import HTTPError
-from was_mailer.email_reports import send_report_run_email
+from was_mailer.email_reports import approved_recipient_scope, send_report_run_email
+from was_mailer.message import approved_analyst_recipients
 
 # First-Party Libraries
 from was_reports.commands.batch_runner import (
+    NO_REPORT_TEMPLATES,
     generate_report_output,
     record_generation_failure,
     summarize_report_failure,
@@ -54,6 +56,15 @@ class QualysInspection:
     detail_status: str | None
     xml_status: str | None
     missing_labels: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RecoveryWorkload:
+    """Validated tracker and recipient scope saved by the coordinator."""
+
+    tracker_ids: tuple[int, ...]
+    delivery_mode: str | None
+    recipient_scope: str | None
 
 
 def positive_integer(value: str) -> int:
@@ -104,11 +115,12 @@ def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--replacement-confirm")
     parser.add_argument("--send-email", action="store_true")
     parser.add_argument("--send-final-summary", action="store_true")
+    parser.add_argument("--test-recipients")
     return parser.parse_args(arguments)
 
 
-def load_workload(output_root: Path, batch_id: str) -> list[int]:
-    """Load and validate the immutable tracker scope saved by the coordinator."""
+def load_workload(output_root: Path, batch_id: str) -> RecoveryWorkload:
+    """Load and validate the immutable tracker and recipient scopes."""
     workload_path = (
         output_root.expanduser().resolve() / "batches" / batch_id / "workload.json"
     )
@@ -129,7 +141,65 @@ def load_workload(output_root: Path, batch_id: str) -> list[int]:
         raise ValueError("The workload snapshot contains an invalid tracker ID.")
     if len(tracker_ids) != len(set(tracker_ids)):
         raise ValueError("The workload snapshot contains duplicate tracker IDs.")
-    return tracker_ids
+    delivery_mode = workload.get("delivery_mode")
+    recipient_scope = workload.get("recipient_scope")
+    if delivery_mode is None and recipient_scope is None:
+        return RecoveryWorkload(tuple(tracker_ids), None, None)
+    if delivery_mode not in {"customer", "test"} or not isinstance(
+        recipient_scope, str
+    ):
+        raise ValueError("The workload snapshot has invalid delivery metadata.")
+    if delivery_mode == "customer" and recipient_scope != "stored-customer":
+        raise ValueError("The customer workload recipient scope is invalid.")
+    if delivery_mode == "test":
+        scope_prefix = "test-sha256:"
+        scope_digest = recipient_scope.removeprefix(scope_prefix)
+        if (
+            not recipient_scope.startswith(scope_prefix)
+            or len(scope_digest) != 64
+            or any(character not in "0123456789abcdef" for character in scope_digest)
+        ):
+            raise ValueError("The test workload recipient scope is invalid.")
+    return RecoveryWorkload(tuple(tracker_ids), delivery_mode, recipient_scope)
+
+
+def recovery_recipients(
+    workload: RecoveryWorkload,
+    raw_recipients: str | None,
+    *,
+    applying: bool,
+) -> str | None:
+    """Verify recovery recipients against the immutable workload scope."""
+    if workload.delivery_mode is None:
+        if applying:
+            raise ValueError(
+                "Applied recovery is blocked because this legacy workload has no "
+                "recorded delivery mode or recipient scope."
+            )
+        if raw_recipients is not None:
+            raise ValueError(
+                "Test recipients cannot be verified for a legacy workload snapshot."
+            )
+        return None
+    if workload.delivery_mode == "customer":
+        if raw_recipients is not None:
+            raise ValueError(
+                "A customer workload cannot be recovered with test recipients."
+            )
+        return None
+    if raw_recipients is None:
+        if applying:
+            raise ValueError(
+                "Applied test-batch recovery requires the original approved "
+                "--test-recipients."
+            )
+        return None
+    normalized_recipients = ",".join(approved_analyst_recipients(raw_recipients))
+    if approved_recipient_scope(normalized_recipients) != workload.recipient_scope:
+        raise ValueError(
+            "The supplied test recipients do not match the interrupted workload."
+        )
+    return normalized_recipients
 
 
 def acquire_coordinator_lock():
@@ -262,7 +332,9 @@ def display_preview(inspections: list[QualysInspection]) -> None:
             "detail_status={detail_status}; xml_id={xml_id}; xml_status={xml_status}; "
             "missing={missing}.".format(
                 run_id=interrupted_run.id,
-                tag=interrupted_run.stakeholder_tag,
+                tag=(
+                    interrupted_run.report_target_tag or interrupted_run.stakeholder_tag
+                ),
                 tracker=interrupted_run.source_tracker_id,
                 detail_id=interrupted_run.detail_report_id or "none",
                 detail_status=inspection.detail_status or "not started",
@@ -279,9 +351,13 @@ def recover_run(
     arguments: argparse.Namespace,
     source_email: str,
     batch_id: str,
+    override_recipients: str | None,
 ) -> bool:
     """Reclaim, generate, deliver, and record one interrupted customer report."""
     interrupted_run = inspection.report_run
+    report_target_tag = (
+        interrupted_run.report_target_tag or interrupted_run.stakeholder_tag
+    )
     report_run = claim_interrupted_report_run(interrupted_run, coordinator_connection)
     if report_run is None or report_run.generation_token is None:
         print(
@@ -313,40 +389,52 @@ def recover_run(
     sent = False
     error_name = None
     delivery_started = None
+    artifact_type = "pdf"
     try:
-        with operation_heartbeat(
-            heartbeat=partial(
-                touch_report_run_by_id,
+        if interrupted_run.template in NO_REPORT_TEMPLATES:
+            artifact_type = "notification"
+            completion_attempted = True
+            complete_report_run_by_id(
                 report_run.id,
+                artifact_type=artifact_type,
                 generation_token=report_run.generation_token,
-            ),
-            operation_name="report run {} recovery".format(report_run.id),
-        ):
-            output_reference = generate_report_output(
-                report_run_id=report_run.id,
-                stakeholder_tag=report_run.stakeholder_tag,
-                resource_root=arguments.resource_root,
-                python_executable=sys.executable,
-                create_missing_password=True,
-                output_directory=str(arguments.output_root),
-                storage_mode=S3_STORAGE,
-                staging_directory=str(arguments.output_root / ".recovery-staging"),
-                generation_token=report_run.generation_token,
-                tag_id=interrupted_run.tag_id,
-                organization_name=interrupted_run.organization_name,
             )
-        completion_attempted = True
-        complete_report_run_by_id(
-            report_run.id,
-            output_path=output_reference,
-            artifact_type="pdf",
-            generation_token=report_run.generation_token,
-        )
+        else:
+            with operation_heartbeat(
+                heartbeat=partial(
+                    touch_report_run_by_id,
+                    report_run.id,
+                    generation_token=report_run.generation_token,
+                ),
+                operation_name="report run {} recovery".format(report_run.id),
+            ):
+                output_reference = generate_report_output(
+                    report_run_id=report_run.id,
+                    stakeholder_tag=report_target_tag,
+                    resource_root=arguments.resource_root,
+                    python_executable=sys.executable,
+                    create_missing_password=True,
+                    output_directory=str(arguments.output_root),
+                    storage_mode=S3_STORAGE,
+                    staging_directory=str(arguments.output_root / ".recovery-staging"),
+                    generation_token=report_run.generation_token,
+                    tag_id=interrupted_run.tag_id,
+                    organization_name=interrupted_run.organization_name,
+                    password_stakeholder_tag=report_run.stakeholder_tag,
+                )
+            completion_attempted = True
+            complete_report_run_by_id(
+                report_run.id,
+                output_path=output_reference,
+                artifact_type=artifact_type,
+                generation_token=report_run.generation_token,
+            )
         generated = True
         delivery_started = monotonic()
         message_id = send_report_run_email(
             report_run_id=report_run.id,
             source_email=source_email,
+            override_recipients=override_recipients,
             delivery_purpose="customer",
         )
         sent = bool(message_id)
@@ -375,7 +463,7 @@ def recover_run(
         delivery_duration_seconds=(
             monotonic() - delivery_started if delivery_started is not None else None
         ),
-        artifact_type="pdf",
+        artifact_type=artifact_type,
     )
     return generated and sent
 
@@ -395,7 +483,15 @@ def main(raw_arguments: Sequence[str] | None = None) -> int:
     configure_logging()
     arguments = parse_args(raw_arguments)
     batch_id = str(arguments.batch_id)
-    tracker_ids = load_workload(arguments.output_root, batch_id)
+    workload = load_workload(arguments.output_root, batch_id)
+    override_recipients = recovery_recipients(
+        workload,
+        arguments.test_recipients,
+        applying=arguments.apply,
+    )
+    print(
+        "Recovery delivery mode: {}.".format(workload.delivery_mode or "legacy-unknown")
+    )
     coordinator_connection = acquire_coordinator_lock()
     try:
         stale_before = datetime.now(timezone.utc) - timedelta(
@@ -403,7 +499,7 @@ def main(raw_arguments: Sequence[str] | None = None) -> int:
         )
         interrupted_runs = list_interrupted_report_runs(
             batch_id,
-            tracker_ids,
+            list(workload.tracker_ids),
             stale_before,
             coordinator_connection,
         )
@@ -427,6 +523,7 @@ def main(raw_arguments: Sequence[str] | None = None) -> int:
                     arguments,
                     source_email,
                     batch_id,
+                    override_recipients,
                 )
             )
         remaining_active = active_operation_count(coordinator_connection)
@@ -443,6 +540,7 @@ def main(raw_arguments: Sequence[str] | None = None) -> int:
         analyst_summaries.send_batch_summary(
             batch_id,
             source_email=source_email,
+            override_recipients=override_recipients,
             days_back=7,
         )
         print(

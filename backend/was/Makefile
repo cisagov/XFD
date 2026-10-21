@@ -50,6 +50,8 @@ TMUX_STOP_WAIT_SECONDS ?= 60
 TMUX_CLEANUP_APPLY ?= 0
 TMUX_CLEANUP_ACKNOWLEDGE_FAILURES ?= 0
 TMUX_CLEANUP_RETENTION_HOURS ?= 24
+ORPHAN_CLEANUP_APPLY ?= 0
+ORPHAN_CLEANUP_MINIMUM_AGE_HOURS ?= 12
 WAS_TMUX_LAUNCH ?= 0
 IMPORT_DIR ?= $(PWD)
 INPUT_CSV ?=
@@ -69,6 +71,7 @@ export REPORT_RUN_ID USE_STORED_CUSTOMER_RECIPIENTS
 export TEST_RECIPIENTS TMUX_LINES TMUX_SESSION TMUX_STOP_WAIT_SECONDS
 export TMUX_CLEANUP_ACKNOWLEDGE_FAILURES TMUX_CLEANUP_APPLY
 export TMUX_CLEANUP_RETENTION_HOURS
+export ORPHAN_CLEANUP_APPLY ORPHAN_CLEANUP_MINIMUM_AGE_HOURS
 export TRACKER_LOOKBACK_DAYS
 export WAS_TMUX_LAUNCH
 
@@ -229,9 +232,10 @@ recent-scan-batch-preflight:
 recent-scan-batch-preflight-local:
 	PYTHONPATH=src $(PYTHON) -m was_reports.commands.batch_preflight --days-back "$(BATCH_DAYS_BACK)" $(if $(strip $(TAG)),--tag "$(TAG)")
 
-.PHONY: _recent-scan-batch-foreground recent-scan-batch-status recent-scan-batch-attach recent-scan-batch-console recent-scan-batch-stop recent-scan-batch-cleanup tmux-cleanup
+.PHONY: _recent-scan-batch-foreground recent-scan-batch-status recent-scan-batch-attach recent-scan-batch-console recent-scan-batch-stop recent-scan-batch-cleanup orphan-worker-cleanup tmux-cleanup
 
 recent-scan-batch:
+	@$(MAKE) orphan-worker-cleanup ORPHAN_CLEANUP_APPLY=1
 	@PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch start \
 	  --workflow production --working-directory "$(CURDIR)"
 
@@ -272,6 +276,12 @@ recent-scan-batch-cleanup:
 	  }; set -- "$$@" --acknowledge-failures --session "$(TMUX_SESSION)" ;; \
 	  *) echo 'TMUX_CLEANUP_ACKNOWLEDGE_FAILURES must be 0 or 1.' >&2; exit 2 ;; esac; \
 	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.tmux_batch "$$@"
+
+orphan-worker-cleanup:
+	@set -- --minimum-age-hours "$(ORPHAN_CLEANUP_MINIMUM_AGE_HOURS)"; \
+	case "$(ORPHAN_CLEANUP_APPLY)" in 0) ;; 1) set -- "$$@" --apply ;; \
+	  *) echo 'ORPHAN_CLEANUP_APPLY must be 0 or 1.' >&2; exit 2 ;; esac; \
+	PYTHONPATH=src "$(PYTHON)" -m was_reports.commands.orphan_worker_cleanup "$$@"
 
 tmux-cleanup:
 	@production_status=0; capacity_status=0; \
@@ -346,6 +356,9 @@ recover-manual-reports:
 recover-interrupted-batch:
 	@test -n "$(BATCH_ID)" || (echo 'BATCH_ID is required.' >&2; exit 2)
 	@set -- --batch-id "$(BATCH_ID)" --output-root /output; \
+	if [ -n "$(TEST_RECIPIENTS)" ]; then \
+	  set -- "$$@" --test-recipients "$(TEST_RECIPIENTS)"; \
+	fi; \
 	if [ -n "$(MISSING_REPORT_RUN_IDS)" ]; then \
 	  set -- "$$@" --replace-missing-report-runs "$(MISSING_REPORT_RUN_IDS)"; \
 	fi; \

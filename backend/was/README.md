@@ -1038,6 +1038,15 @@ manual configuration, missing stakeholder or inventory data, consolidation
 failures, and exhausted report-generation failures remain `MANUAL` for the
 assigned analyst.
 
+Dependent child tags retain their own Qualys target, tracker identity, report
+filename, and customer-facing tag. When a child has no standalone stakeholder
+row, the batch uses the longest enrolled underscore-delimited parent tag. An
+explicit `parent_tag` takes precedence when the child has a stakeholder row.
+The governing parent supplies the report password, POC and delivery addresses,
+customer name, and reporting policy. A missing child Qualys tag ID never falls
+back to the parent's tag ID. Generation or delivery failures remain attached to
+the child tracker row and are available to the guarded manual workflow.
+
 Qualys schedules without an actual launch timestamp are skipped. If an ad hoc
 schedule has no next launch date and its primary schedule also has no next
 launch date, that schedule is logged with its ID, name, and tag and skipped so
@@ -1386,11 +1395,13 @@ make manual-report TAG="CUSTOMER_TAG"
 ```
 
 This command does not refresh Qualys tracker schedules. It processes the oldest
-eligible manual tracker row for the exact tag, retries a previous failed
+eligible manual tracker row for the exact target tag, retries a previous failed
 generation claim when present, uploads the encrypted PDF to S3, sends it through
-SES, and sets `report_sent_date` only after SES accepts the message. Previously
-failed email delivery is retried without regenerating an already completed PDF.
-The tag requirement prevents an accidental manual run across all stakeholders.
+SES, and sets `report_sent_date` only after SES accepts the message. Dependent
+children use the governing parent's password and contacts while retaining the
+child report target. Previously failed email delivery is retried without
+regenerating an already completed PDF. The tag requirement prevents an
+accidental manual run across all stakeholders.
 
 Run the WAS mailer for all completed report runs that have not been emailed:
 
@@ -2040,7 +2051,7 @@ targets.
 | `make manual-report TAG="CUSTOMER_TAG"` | Processes one eligible manual tracker row without refreshing the tracker, then uploads, emails, and updates state. |
 | `make on-demand-report TAG="CUSTOMER_TAG"` | Creates a new analyst-purpose report and uploads it to S3. `SEND_EMAIL=1` additionally requires approved `TEST_RECIPIENTS`. |
 | `make recover-manual-reports MANUAL_TRACKER_IDS="123" RECOVERY_CAUSE="password-validation"` | Preview only by default. Only the documented password-validation and Qualys read-timeout recovery causes are supported. Apply requires the documented confirmation variables. |
-| `make recover-interrupted-batch BATCH_ID="<batch-uuid>"` | Preview stale production generation runs from the selected batch's saved workload and query their stored Qualys IDs. Applied recovery requires the documented delivery, summary, and per-run missing-report confirmations. |
+| `make recover-interrupted-batch BATCH_ID="<batch-uuid>"` | Preview stale production generation runs from the selected batch's saved workload and query their stored Qualys IDs. Applied recovery requires the documented delivery, summary, and per-run missing-report confirmations. Recovery of an assignee-test batch also requires its original `TEST_RECIPIENTS`; the saved hash must match before any report or summary is sent. Legacy snapshots without recipient-scope metadata are preview-only. |
 | `make reconcile-email-delivery REPORT_RUN_ID=3703` | Inspects one held run by default. State-changing actions require the documented evidence, confirmation, and apply variables. |
 | `make test-report-replay DAYS_BACK=7 TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a replay selection by default. Applied execution requires a stable `REPLAY_ID` and explicit source IDs. |
 | `make test-targets-removed TARGETS_REMOVED_TRACKER_IDS="123,456" TEST_RECIPIENTS="approved.analyst@example.gov"` | Previews a non-destructive Targets Removed replay by default. It never deletes Qualys applications. |
@@ -2049,7 +2060,7 @@ targets.
 
 | Target | Required input and effect |
 | --- | --- |
-| `make recent-scan-batch` | Starts the detached host production coordinator with `30` workers and a seven-date report window by default. It refreshes the production tracker, enables guarded Qualys deletion, generates and uploads reports, sends customer email and both summaries, and writes tracker and run state. |
+| `make recent-scan-batch` | Applies guarded orphan-worker cleanup before creating the detached production coordinator. Cleanup failure blocks startup. The batch then uses `30` workers and a seven-date report window by default, refreshes the tracker, enables guarded Qualys deletion, generates and uploads reports, sends customer email and both summaries, and writes tracker and run state. |
 | `make recent-scan-batch BATCH_WORKERS=30 BATCH_DAYS_BACK=7` | Same production workflow with explicit validated worker and report windows. Production also accepts the intentionally unbounded `BATCH_DAYS_BACK=all`. |
 | `make recent-scan-batch-assignee-test TEST_RECIPIENTS="approved.analyst@example.gov"` | Uses the production database and live Qualys/S3/SES paths, sends only to email-enabled assignees, updates successful tracker rows as sent, and disables Qualys web-application deletion. |
 | `make recent-scan-batch-test TEST_RECIPIENTS="approved.analyst@example.gov"` | Runs a one-candidate, single-container dry-run-email test. It still refreshes the production tracker, calls Qualys, can create a missing password, generates and uploads a report, and writes report-run state. It does not send SES email and does not prove the detached production coordinator. |
@@ -2069,19 +2080,27 @@ targets.
 | `make capacity-database-reset` | Previews an isolated capacity-database reset. `APPLY=1` performs the destructive reset. |
 | `make capacity-status`, `make capacity-console`, `make capacity-attach`, `make capacity-stop` | Status, retained console, interactive attach, and guarded stop for the capacity session. |
 | `make capacity-cleanup` | Previews eligible completed capacity sessions. `TMUX_CLEANUP_APPLY=1` performs cleanup; failed sessions require explicit acknowledgement and exact session selection. |
-| `make tmux-cleanup` | Previews both production and capacity cleanup. `TMUX_CLEANUP_APPLY=1` applies both cleanup workflows. |
+| `make orphan-worker-cleanup` | Previews running `was.capacity.owner` containers older than 12 hours whose exact coordinator is absent. `ORPHAN_CLEANUP_APPLY=1` repeats the checks, then stops and removes only the confirmed container IDs. The supported recent-scan batch applies this cleanup before starting. |
+| `make tmux-cleanup` | Previews both production and capacity tmux cleanup. `TMUX_CLEANUP_APPLY=1` applies both tmux cleanup workflows. |
 
 `capacity-test` is the shared implementation target behind `capacity-start` and
 `capacity-continue`; operators should use the named start and continuation
 commands. Targets beginning with an underscore are Makefile internals and are
 not supported operator entry points.
 
-The checked-in systemd cleanup unit is hardcoded for user and group `ubuntu`
+The checked-in systemd cleanup unit remains limited to retained tmux sessions.
+Orphan-worker cleanup runs before each supported recent-scan batch and is also
+available manually. Discovery is restricted to the `was.capacity.owner` label;
+eligibility also requires valid WAS identity, at least 12 hours of runtime, and
+a missing or dead exact coordinator. It never uses Docker system-wide prune or
+directly signals `containerd-shim`.
+
+The tmux cleanup unit is hardcoded for user and group `ubuntu`
 and working directory `/home/ubuntu/code/was_report/backend/was`. It is valid
 only for that exact host layout. If the deployment account or path differs, do
 not install the unit verbatim. Have the system administrator review and adapt
 the unit under the approved change process, then verify its preview and applied
-cleanup behavior with the operator setup runbook.
+tmux cleanup behavior with the operator setup runbook.
 
 ## Reconcile Held Email Delivery
 

@@ -550,7 +550,16 @@ def _tracker_rows(candidate_ids=None, batch_id=None, days_back=7):
     query = (
         "SELECT {}, stakeholders.manual_report, {} "  # nosec B608
         "FROM was_daily_report_tracker tracker "
-        "LEFT JOIN was_stakeholders stakeholders ON stakeholders.tag=tracker.tag "
+        "LEFT JOIN was_stakeholders exact_stakeholder "
+        "ON exact_stakeholder.tag=tracker.tag "
+        "LEFT JOIN was_stakeholders configured_parent "
+        "ON configured_parent.tag=exact_stakeholder.parent_tag "
+        "LEFT JOIN LATERAL (SELECT candidate.* FROM was_stakeholders candidate "
+        "WHERE candidate.tag=COALESCE(configured_parent.tag, exact_stakeholder.tag) "
+        "OR (exact_stakeholder.tag IS NULL "
+        "AND CHAR_LENGTH(candidate.tag)<CHAR_LENGTH(tracker.tag) "
+        "AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag)+1)=candidate.tag || '_') "
+        "ORDER BY CHAR_LENGTH(candidate.tag) DESC LIMIT 1) stakeholders ON TRUE "
         "LEFT JOIN was_assignees assignees ON assignees.id=tracker.assignee_id "
         "WHERE {} ORDER BY LOWER(COALESCE(assignees.name, tracker.assignee, "
         "'Unassigned')), tracker.id"

@@ -21,7 +21,7 @@ class TestReplayCommandTests(unittest.TestCase):
             10, "TEST", "resend", 20, "/output/a.pdf", 30, "Test", None
         )
         self.manual = ReplayCandidate(
-            11, "TEST2", "manual", 21, None, 31, "Test2", None
+            11, "TEST2", "manual", 21, None, 31, "Test2", None, "PARENT"
         )
         self.targets_removed = ReplayCandidate(
             12, "TEST3", "targets_removed", None, None, 32, "Test3", None
@@ -178,7 +178,7 @@ class TestReplayCommandTests(unittest.TestCase):
     ):
         """Manual retries keep original run and password unchanged."""
         reserve.return_value = (
-            ReportRun(99, "TEST2", "running", generation_token="token"),
+            ReportRun(99, "PARENT", "running", generation_token="token"),
             True,
         )
         self.assertTrue(
@@ -187,6 +187,10 @@ class TestReplayCommandTests(unittest.TestCase):
             )
         )
         self.assertEqual(generate.call_args.kwargs["report_run_id"], 99)
+        self.assertEqual(
+            generate.call_args.kwargs["password_stakeholder_tag"], "PARENT"
+        )
+        self.assertEqual(generate.call_args.kwargs["stakeholder_tag"], "TEST2")
         self.assertFalse(generate.call_args.kwargs["create_missing_password"])
         self.assertFalse(generate.call_args.kwargs["allow_tag_lookup"])
         self.assertEqual(complete.call_args.args, (99,))
@@ -262,6 +266,7 @@ class TestReplayCommandTests(unittest.TestCase):
         )
 
         self.assertEqual(generate.call_args.kwargs["report_run_id"], 99)
+        self.assertEqual(generate.call_args.kwargs["password_stakeholder_tag"], "TEST3")
         self.assertFalse(generate.call_args.kwargs["create_missing_password"])
         self.assertFalse(generate.call_args.kwargs["allow_tag_lookup"])
         self.assertEqual(send.call_args.kwargs["delivery_purpose"], "analyst")

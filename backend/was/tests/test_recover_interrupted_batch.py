@@ -3,7 +3,9 @@
 # Standard Python Libraries
 from argparse import Namespace
 from contextlib import ExitStack
+from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,6 +19,12 @@ from requests.exceptions import HTTPError
 # First-Party Libraries
 from was_reports.commands import recover_interrupted_batch as recovery
 from was_reports.data.report_runs import InterruptedReportRun, ReportRun
+
+
+def test_recipient_scope(address: str) -> str:
+    """Return the stored recipient fingerprint for one test address."""
+    digest = hashlib.sha256(address.lower().encode("utf-8")).hexdigest()
+    return "test-sha256:{}".format(digest)
 
 
 def interrupted_report_run() -> InterruptedReportRun:
@@ -39,7 +47,7 @@ def interrupted_report_run() -> InterruptedReportRun:
 
 def recovery_arguments(**overrides) -> Namespace:
     """Build command arguments for a focused recovery unit test."""
-    values = {
+    values: dict[str, object] = {
         "apply": False,
         "confirm": None,
         "replacement_confirm": None,
@@ -53,12 +61,25 @@ def recovery_arguments(**overrides) -> Namespace:
     return Namespace(**values)
 
 
-def write_workload(output_root: Path, batch_id: str) -> None:
+def write_workload(
+    output_root: Path,
+    batch_id: str,
+    *,
+    delivery_mode: str = "customer",
+    recipient_scope: str = "stored-customer",
+) -> None:
     """Write one immutable coordinator workload for command tests."""
     workload_directory = output_root / "batches" / batch_id
     workload_directory.mkdir(parents=True)
     (workload_directory / "workload.json").write_text(
-        json.dumps({"run_id": batch_id, "candidate_ids": [101]}),
+        json.dumps(
+            {
+                "run_id": batch_id,
+                "candidate_ids": [101],
+                "delivery_mode": delivery_mode,
+                "recipient_scope": recipient_scope,
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -79,6 +100,60 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "does not match"):
                 recovery.load_workload(output_root, "expected")
+
+    def test_legacy_workload_is_preview_only(self) -> None:
+        """Never guess customer recipients for an older workload snapshot."""
+        workload = recovery.RecoveryWorkload((101,), None, None)
+
+        self.assertIsNone(recovery.recovery_recipients(workload, None, applying=False))
+        with self.assertRaisesRegex(ValueError, "legacy workload"):
+            recovery.recovery_recipients(workload, None, applying=True)
+
+    @patch.object(
+        recovery,
+        "approved_analyst_recipients",
+        return_value=["analyst@example.gov"],
+    )
+    def test_test_workload_requires_matching_approved_recipients(
+        self, approved_recipients
+    ) -> None:
+        """Bind applied test recovery to the original recipient scope."""
+        matching_scope = test_recipient_scope("analyst@example.gov")
+        workload = recovery.RecoveryWorkload((101,), "test", matching_scope)
+
+        with self.assertRaisesRegex(ValueError, "requires the original"):
+            recovery.recovery_recipients(workload, None, applying=True)
+        self.assertEqual(
+            recovery.recovery_recipients(
+                workload,
+                "analyst@example.gov",
+                applying=True,
+            ),
+            "analyst@example.gov",
+        )
+        mismatched = recovery.RecoveryWorkload(
+            (101,),
+            "test",
+            test_recipient_scope("other@example.gov"),
+        )
+        with self.assertRaisesRegex(ValueError, "do not match"):
+            recovery.recovery_recipients(
+                mismatched,
+                "analyst@example.gov",
+                applying=True,
+            )
+        self.assertEqual(approved_recipients.call_count, 2)
+
+    def test_customer_workload_rejects_recipient_override(self) -> None:
+        """Keep a customer batch on its recorded customer delivery path."""
+        workload = recovery.RecoveryWorkload((101,), "customer", "stored-customer")
+
+        with self.assertRaisesRegex(ValueError, "customer workload"):
+            recovery.recovery_recipients(
+                workload,
+                "analyst@example.gov",
+                applying=True,
+            )
 
     def test_only_qualys_404_is_definitively_missing(self) -> None:
         """Require an explicit Qualys not-found response before replacement."""
@@ -209,6 +284,7 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
             recovery_arguments(),
             "source@example.gov",
             "batch-id",
+            "analyst@example.gov",
         )
 
         self.assertTrue(recovered)
@@ -225,12 +301,76 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
             generation_token="new-generation-token",
             tag_id=42,
             organization_name="Customer",
+            password_stakeholder_tag="TAG",
         )
         complete_report_run.assert_called_once()
-        send_report_email.assert_called_once()
+        send_report_email.assert_called_once_with(
+            report_run_id=5093,
+            source_email="source@example.gov",
+            override_recipients="analyst@example.gov",
+            delivery_purpose="customer",
+        )
         record_generation_failure.assert_not_called()
         record_report_attempt.assert_called_once()
         touch_report_run.assert_called()
+
+    @patch.object(recovery.analyst_summaries, "record_report_attempt")
+    @patch.object(recovery, "record_generation_failure")
+    @patch.object(recovery, "send_report_run_email", return_value="message-id")
+    @patch.object(recovery, "complete_report_run_by_id")
+    @patch.object(recovery, "generate_report_output")
+    @patch.object(recovery, "claim_interrupted_report_run")
+    def test_all_nws_recovery_remains_notification_only(
+        self,
+        claim_interrupted_report_run,
+        generate_report_output,
+        complete_report_run,
+        send_report_email,
+        record_generation_failure,
+        record_report_attempt,
+    ) -> None:
+        """Recover an all-NWS child without creating an unnecessary PDF."""
+        claim_interrupted_report_run.return_value = ReportRun(
+            id=5093,
+            stakeholder_tag="PARENT",
+            status="running",
+            generation_token="new-generation-token",
+        )
+        interrupted_run = replace(
+            interrupted_report_run(),
+            stakeholder_tag="PARENT",
+            report_target_tag="PARENT_CHILD",
+            template="All NWS",
+        )
+        inspection = recovery.QualysInspection(
+            report_run=interrupted_run,
+            detail_status=None,
+            xml_status=None,
+            missing_labels=(),
+        )
+
+        recovered = recovery.recover_run(
+            inspection,
+            MagicMock(),
+            recovery_arguments(),
+            "source@example.gov",
+            "batch-id",
+            "analyst@example.gov",
+        )
+
+        self.assertTrue(recovered)
+        generate_report_output.assert_not_called()
+        complete_report_run.assert_called_once_with(
+            5093,
+            artifact_type="notification",
+            generation_token="new-generation-token",
+        )
+        send_report_email.assert_called_once()
+        record_generation_failure.assert_not_called()
+        self.assertEqual(
+            record_report_attempt.call_args.kwargs["artifact_type"],
+            "notification",
+        )
 
     @patch.object(recovery, "touch_report_run_by_id", return_value=True)
     @patch.object(recovery.analyst_summaries, "record_report_attempt")
@@ -271,6 +411,7 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
             recovery_arguments(),
             "source@example.gov",
             "batch-id",
+            None,
         )
 
         self.assertFalse(recovered)
@@ -278,6 +419,100 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
         record_generation_failure.assert_not_called()
         record_report_attempt.assert_called_once()
         touch_report_run.assert_called()
+
+    def test_main_applied_test_recovery_preserves_recipient_override(self) -> None:
+        """Send recovered reports and the final summary only to test recipients."""
+        batch_id = "0d039ae2-f152-481f-9f15-e89943cfc63b"
+        test_recipients = "analyst@example.gov"
+        recipient_scope = test_recipient_scope(test_recipients)
+        inspection = recovery.QualysInspection(
+            report_run=interrupted_report_run(),
+            detail_status="FINISHED",
+            xml_status=None,
+            missing_labels=(),
+        )
+        connection = MagicMock()
+        with TemporaryDirectory() as temporary_directory:
+            output_root = Path(temporary_directory)
+            write_workload(
+                output_root,
+                batch_id,
+                delivery_mode="test",
+                recipient_scope=recipient_scope,
+            )
+            with ExitStack() as context_stack:
+                context_stack.enter_context(patch.object(recovery, "configure_logging"))
+                context_stack.enter_context(
+                    patch.object(
+                        recovery,
+                        "approved_analyst_recipients",
+                        return_value=[test_recipients],
+                    )
+                )
+                context_stack.enter_context(
+                    patch.object(
+                        recovery,
+                        "acquire_coordinator_lock",
+                        return_value=connection,
+                    )
+                )
+                context_stack.enter_context(
+                    patch.object(
+                        recovery,
+                        "list_interrupted_report_runs",
+                        return_value=[interrupted_report_run()],
+                    )
+                )
+                context_stack.enter_context(
+                    patch.object(
+                        recovery,
+                        "inspect_qualys_reports",
+                        return_value=[inspection],
+                    )
+                )
+                context_stack.enter_context(patch.object(recovery, "display_preview"))
+                recover_run = context_stack.enter_context(
+                    patch.object(recovery, "recover_run", return_value=True)
+                )
+                context_stack.enter_context(
+                    patch.object(recovery, "active_operation_count", return_value=0)
+                )
+                context_stack.enter_context(
+                    patch.object(
+                        recovery, "require_env", return_value="source@example.gov"
+                    )
+                )
+                context_stack.enter_context(
+                    patch.object(recovery.analyst_summaries, "finish_batch")
+                )
+                send_summary = context_stack.enter_context(
+                    patch.object(recovery.analyst_summaries, "send_batch_summary")
+                )
+
+                result = recovery.main(
+                    [
+                        "--batch-id",
+                        batch_id,
+                        "--output-root",
+                        str(output_root),
+                        "--test-recipients",
+                        test_recipients,
+                        "--apply",
+                        "--confirm",
+                        recovery.RECOVERY_CONFIRMATION,
+                        "--send-email",
+                        "--send-final-summary",
+                    ]
+                )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(recover_run.call_args.args[-1], test_recipients)
+        send_summary.assert_called_once_with(
+            batch_id,
+            source_email="source@example.gov",
+            override_recipients=test_recipients,
+            days_back=7,
+        )
 
 
 if __name__ == "__main__":

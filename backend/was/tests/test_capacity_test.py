@@ -221,6 +221,25 @@ class CapacityTestTests(unittest.TestCase):
                 self.assertEqual(result["expected"], 2)
                 self.assertIn("inherited_generated", result)
 
+    def test_workload_snapshot_records_immutable_delivery_scope(self):
+        """Distinguish customer runs from hashed test-recipient runs."""
+        test_result, test_status = self.execute_mock_trial(sent=1)
+        customer_result, customer_status = self.execute_mock_trial(
+            sent=1,
+            run_mode="production",
+        )
+
+        self.assertEqual((test_status, customer_status), (0, 0))
+        self.assertEqual(test_result["_workload"]["delivery_mode"], "test")
+        self.assertEqual(
+            test_result["_workload"]["recipient_scope"],
+            capacity_test.approved_recipient_scope("analyst@example.gov"),
+        )
+        self.assertEqual(customer_result["_workload"]["delivery_mode"], "customer")
+        self.assertEqual(
+            customer_result["_workload"]["recipient_scope"], "stored-customer"
+        )
+
     def test_production_preserves_storage_configuration(self):
         """Shared setup must not redirect production storage into the capacity prefix."""
         arguments = self.arguments()
@@ -819,6 +838,9 @@ class CapacityTestTests(unittest.TestCase):
                     arguments.output_root.resolve(),
                 )
             result = json.loads((Path(directory) / "result.json").read_text())
+            workload_path = Path(directory) / "workload.json"
+            if workload_path.exists():
+                result["_workload"] = json.loads(workload_path.read_text())
             return result, status
 
 
