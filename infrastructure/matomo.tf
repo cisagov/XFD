@@ -370,7 +370,7 @@ resource "aws_service_discovery_service" "matomo" {
 }
 
 resource "aws_ecs_service" "matomo" {
-  count = var.is_dmz ? 1 : 0
+  count = 0
   depends_on = [
     aws_efs_mount_target.matomo,
     aws_efs_access_point.matomo_html
@@ -379,7 +379,7 @@ resource "aws_ecs_service" "matomo" {
   launch_type     = "FARGATE"
   cluster         = aws_ecs_cluster.matomo.id
   task_definition = aws_ecs_task_definition.matomo.arn
-  desired_count   = 1
+  desired_count   = 0
   network_configuration {
     subnets         = [aws_subnet.matomo_1[0].id]
     security_groups = [aws_security_group.allow_internal[0].id]
