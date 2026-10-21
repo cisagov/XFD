@@ -11,12 +11,6 @@ import {
 } from 'context';
 import { NavigationProvider } from 'context/NavigationContextProvider';
 
-// global.ResizeObserver = vi.fn().mockImplementation(() => ({
-//   observe: vi.fn(),
-//   unobserve: vi.fn(),
-//   disconnect: vi.fn()
-// }));
-
 class ResizeObserver {
   observe = vi.fn();
   unobserve = vi.fn();
