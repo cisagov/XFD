@@ -740,4 +740,58 @@ describe('UserForm', () => {
 
     expect(mockUseOrganizationsByState).toHaveBeenCalledWith('Ohio');
   });
+
+  it('prevents submission when the selected organization is not in the selected state', async () => {
+    const user = userEvent.setup();
+
+    const mismatchedValues = {
+      ...baseValues,
+      state: 'Ohio',
+      region_id: 'region-1',
+      org_id: 'ca-org-1',
+      org_name: 'California Organization',
+      originalOrgId: 'ca-org-1',
+      originalRoleId: 'role-1'
+    };
+
+    mockUseOrganizationsByState.mockReturnValue({
+      organizations: [
+        makeOrganization({
+          id: 'oh-org-1',
+          name: 'Ohio Organization',
+          acronym: 'OH'
+        })
+      ],
+      isLoading: false,
+      errorMessage: ''
+    });
+
+    render(
+      <UserForm
+        users={baseUsers}
+        setUsers={mockSetUsers}
+        values={mismatchedValues}
+        setValues={mockSetValues}
+        editUserDialogOpen={true}
+        setEditUserDialogOpen={mockSetEditUserDialogOpen}
+        apiErrorStates={baseApiErrorStates}
+        setApiErrorStates={mockSetApiErrorStates}
+        setInfoDialogOpen={mockSetInfoDialogOpen}
+        setInfoDialogContent={mockSetInfoDialogContent}
+      />
+    );
+
+    expect(screen.getByTestId('user-form-dialog')).toHaveAttribute(
+      'data-disabled',
+      'true'
+    );
+
+    // The mocked dialog button still invokes onConfirm even when the dialog is
+    // disabled. This verifies the submit handler independently blocks the request.
+    await user.click(screen.getByTestId('user-form-confirm'));
+
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockAddUserToOrganization).not.toHaveBeenCalled();
+    expect(mockRemoveUserFromOrganization).not.toHaveBeenCalled();
+  });
 });

@@ -218,7 +218,11 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const handleEditUserSubmit = async () => {
-    if (!validateForm(values) || values.org_id === '') {
+    if (
+      !validateForm(values) ||
+      values.org_id === '' ||
+      !selectedOrganizationIsInState
+    ) {
       return;
     }
 
@@ -359,6 +363,10 @@ export const UserForm: React.FC<UserFormProps> = ({
   const editedUserOrganization =
     editedUser?.roles[0]?.organization?.name || null;
   const userRoleChanged = editedUser?.user_type !== values.user_type;
+
+  const selectedOrganizationIsInState = organizationsInState.some(
+    (organization: Organization) => organization.id === values.org_id
+  );
 
   const formContents = (
     <DialogContent>
@@ -663,6 +671,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       disabled={
         (isEqual(initialValuesRef.current, values) && !initialOrgIdChange) ||
         values.org_id === '' ||
+        !selectedOrganizationIsInState ||
         (isNewGlobalAdmin &&
           confirmGlobalAdminChange !== 'Global Administrator') ||
         (isNewRegionalOrGlobalView && !isRoleElevationConfirmed)
