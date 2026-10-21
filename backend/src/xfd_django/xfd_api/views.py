@@ -466,7 +466,6 @@ async def call_export_domains(
 
 @api_router.get(
     "/domain/{domain_id}",
-    dependencies=[Depends(get_current_active_user)],
     response_model=GetDomainResponse,
     tags=["Domains"],
 )

@@ -10,6 +10,7 @@ from django.db import transaction
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
+from xfd_api.api_methods.domain import apply_domain_access_filter
 from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
     create_domain_materialized_view,
     create_domain_search_mat_view,
@@ -37,7 +38,7 @@ client = TestClient(app)
 
 LOGGER = logging.getLogger(__name__)
 
-bad_id = "960b7db7-f3af-411d-a247-33371"
+nonexistent_domain_id = "00000000-0000-0000-0000-000000000000"
 search_fields = {
     "port": "80",
     "reverse_name": "local.crossfeed.quizzical-wing",
@@ -293,6 +294,21 @@ def test_regional_admin_is_limited_to_their_region(user, domain):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_regional_admin_without_region_cannot_get_domain(user, domain):
+    """Regional administrators without a region cannot retrieve domains."""
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = None
+    user.save(update_fields=["user_type", "region_id"])
+
+    response = client.get(
+        "/domain/{}".format(domain.id),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_global_view_user_can_get_any_domain(user, foreign_domain):
     """Global view users can retrieve domains from any organization."""
     user.user_type = UserType.GLOBAL_VIEW
@@ -312,11 +328,215 @@ def test_get_domain_by_id_fails_404(user, domain, refresh_vuln_views):
     """Test domain by id to fail."""
     # Get domain by Id.
     response = client.get(
-        "/domain/{}".format(bad_id),
+        "/domain/{}".format(nonexistent_domain_id),
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
     assert response.status_code == 404
+
+
+def test_get_domain_by_id_unauthenticated():
+    """Unauthenticated users cannot retrieve a domain."""
+    response = client.get("/domain/{}".format(nonexistent_domain_id))
+
+    assert response.status_code == 401
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_domains_standard_user_sees_member_organizations(
+    user, domain, foreign_domain
+):
+    """Standard users only see domains from their organization memberships."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=domain.organization, role="user")
+
+    response = client.post(
+        "/domain/search",
+        json={"page": 1, "page_size": 25},
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert [result["id"] for result in response.json()["result"]] == [
+        str(domain.id)
+    ]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_domains_standard_user_cannot_filter_foreign_organization(
+    user, domain, foreign_domain
+):
+    """Standard users cannot bypass access with a foreign organization filter."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=domain.organization, role="user")
+
+    response = client.post(
+        "/domain/search",
+        json={
+            "page": 1,
+            "filters": {"organization": str(foreign_domain.organization.id)},
+            "page_size": 25,
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["result"] == []
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_domains_regional_admin_sees_only_their_region(
+    user, domain, foreign_domain
+):
+    """Regional administrators only see domains in their region."""
+    domain.organization.region_id = "7"
+    domain.organization.save(update_fields=["region_id"])
+    foreign_domain.organization.region_id = "8"
+    foreign_domain.organization.save(update_fields=["region_id"])
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = "7"
+    user.save(update_fields=["user_type", "region_id"])
+
+    response = client.post(
+        "/domain/search",
+        json={"page": 1, "page_size": 25},
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert [result["id"] for result in response.json()["result"]] == [
+        str(domain.id)
+    ]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_domains_regional_admin_cannot_see_other_region(
+    user, domain, foreign_domain
+):
+    """Regional administrators cannot see domains outside their region."""
+    domain.organization.region_id = "7"
+    domain.organization.save(update_fields=["region_id"])
+    foreign_domain.organization.region_id = "8"
+    foreign_domain.organization.save(update_fields=["region_id"])
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = "7"
+    user.save(update_fields=["user_type", "region_id"])
+
+    response = client.post(
+        "/domain/search",
+        json={
+            "page": 1,
+            "filters": {"organization": str(foreign_domain.organization.id)},
+            "page_size": 25,
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["result"] == []
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_domains_global_view_user_sees_any_organization(
+    user, domain, foreign_domain
+):
+    """Global-view users can see domains from every organization."""
+    user.user_type = UserType.GLOBAL_VIEW
+    user.save(update_fields=["user_type"])
+
+    response = client.post(
+        "/domain/search",
+        json={"page": 1, "page_size": 25},
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert {result["id"] for result in response.json()["result"]} == {
+        str(domain.id),
+        str(foreign_domain.id),
+    }
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_domains_user_without_memberships_sees_no_domains(user, domain):
+    """Users without organization memberships see no domains."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+
+    response = client.post(
+        "/domain/search",
+        json={"page": 1, "page_size": 25},
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["result"] == []
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_apply_domain_access_filter_global_users_bypass(user, domain, foreign_domain):
+    """Global admin and global-view users can access every domain."""
+    queryset = Domain.objects.all()
+
+    for user_type in (UserType.GLOBAL_ADMIN, UserType.GLOBAL_VIEW):
+        user.user_type = user_type
+        user.save(update_fields=["user_type"])
+        assert set(
+            apply_domain_access_filter(queryset, user).values_list("id", flat=True)
+        ) == {domain.id, foreign_domain.id}
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_apply_domain_access_filter_standard_memberships(user, domain, foreign_domain):
+    """Standard users are filtered to their organization memberships."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=domain.organization, role="user")
+
+    assert list(
+        apply_domain_access_filter(Domain.objects.all(), user).values_list(
+            "id", flat=True
+        )
+    ) == [domain.id]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_apply_domain_access_filter_empty_memberships(user, domain):
+    """Standard users without memberships receive an empty queryset."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+
+    assert not apply_domain_access_filter(Domain.objects.all(), user).exists()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_apply_domain_access_filter_regional_membership(user, domain, foreign_domain):
+    """Regional administrators are filtered to organizations in their region."""
+    domain.organization.region_id = "7"
+    domain.organization.save(update_fields=["region_id"])
+    foreign_domain.organization.region_id = "8"
+    foreign_domain.organization.save(update_fields=["region_id"])
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = "7"
+    user.save(update_fields=["user_type", "region_id"])
+
+    assert list(
+        apply_domain_access_filter(Domain.objects.all(), user).values_list(
+            "id", flat=True
+        )
+    ) == [domain.id]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_apply_domain_access_filter_missing_regional_assignment(user, domain):
+    """Regional administrators without a region receive an empty queryset."""
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = None
+    user.save(update_fields=["user_type", "region_id"])
+
+    assert not apply_domain_access_filter(Domain.objects.all(), user).exists()
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
