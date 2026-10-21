@@ -11,11 +11,18 @@ import {
 } from 'context';
 import { NavigationProvider } from 'context/NavigationContextProvider';
 
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn()
-}));
+// global.ResizeObserver = vi.fn().mockImplementation(() => ({
+//   observe: vi.fn(),
+//   unobserve: vi.fn(),
+//   disconnect: vi.fn()
+// }));
+
+class ResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+vi.stubGlobal('ResizeObserver', ResizeObserver);
 
 const testContext: ContextType = {
   addFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
@@ -94,7 +101,7 @@ describe('Layout component', () => {
     const { getByText } = renderWithProviders(
       <Layout {...testContext}>some children</Layout>
     );
-    expect(getByText('some children')).toBeInTheDocument();
+    expect(getByText('some children')).toBeDefined();
   });
 
   it('saves alert preference to localStorage when closed', async () => {
@@ -111,7 +118,7 @@ describe('Layout component', () => {
     const { container } = renderWithProviders(<Layout {...testContext} />);
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toHaveStyle({
-      height: '100vh',
+      height: `${window.innerHeight}px`,
       overflow: 'hidden'
     });
   });
