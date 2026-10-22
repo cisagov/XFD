@@ -95,3 +95,27 @@ if ! command -v aws >/dev/null 2>&1; then
   log "FATAL: aws CLI not found -- confirm the base AMI ships it." >&2
   exit 1
 fi
+
+# WIZ Sensor Installation - Variables fetched from SSM via env.deploy
+if [[ -d /opt/wiz/sensor ]] || systemctl list-unit-files 2>/dev/null | grep -qi '^wiz-sensor'; then
+  log "Wiz sensor already installed, skipping."
+else
+  log "Installing Wiz sensor..."
+  # shellcheck source=/dev/null
+  source /opt/open-cti/env.deploy
+  : "${WIZ_BACKEND_ENV_SSM_PARAM:?WIZ_BACKEND_ENV_SSM_PARAM must be set in /opt/open-cti/env.deploy}"
+  : "${WIZ_API_CLIENT_ID_SSM_PARAM:?WIZ_API_CLIENT_ID_SSM_PARAM must be set in /opt/open-cti/env.deploy}"
+  : "${WIZ_API_CLIENT_SECRET_SSM_PARAM:?WIZ_API_CLIENT_SECRET_SSM_PARAM must be set in /opt/open-cti/env.deploy}"
+
+  ssm_get() { aws ssm get-parameter --name "$1" --with-decryption --query 'Parameter.Value' --output text; }
+  WIZ_BACKEND_ENV=$(ssm_get "$WIZ_BACKEND_ENV_SSM_PARAM")
+  WIZ_API_CLIENT_ID=$(ssm_get "$WIZ_API_CLIENT_ID_SSM_PARAM")
+  WIZ_API_CLIENT_SECRET=$(ssm_get "$WIZ_API_CLIENT_SECRET_SSM_PARAM")
+  export WIZ_BACKEND_ENV WIZ_API_CLIENT_ID WIZ_API_CLIENT_SECRET
+
+  WIZ_INSTALLER=$(mktemp)
+  curl -fsSL https://downloads.wiz.us/sensor/sensor_install.sh -o "$WIZ_INSTALLER"
+  bash "$WIZ_INSTALLER"
+  rm -f "$WIZ_INSTALLER"
+  unset WIZ_API_CLIENT_ID WIZ_API_CLIENT_SECRET
+fi

@@ -1504,6 +1504,26 @@ class WeeklyStatuses(models.Model):
         db_table = "weekly_statuses"
 
 
+class WhoisxmlReverseDnsCache(models.Model):
+    """Define WhoisxmlReverseDnsCache model."""
+
+    ip = models.GenericIPAddressField(primary_key=True, unique=True)
+    status = models.TextField(blank=False, null=False)
+    cached_results = models.JSONField(default=list)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    last_api_attempt = models.DateTimeField(blank=True, null=True)
+    last_api_successful = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=False, null=False)
+    updated_at = models.DateTimeField(blank=True, null=True)
+    last_error = models.TextField(blank=True, null=True)
+
+    class Meta:
+        """Set WhoisxmlReverseDnsCache model metadata."""
+
+        managed = False
+        db_table = "whoisxml_reverse_dns_cache"
+
+
 class VwBreachcompCredsbydate(models.Model):
     """Define VwBreachcompCredsbydate model."""
 

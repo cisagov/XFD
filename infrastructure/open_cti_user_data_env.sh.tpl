@@ -27,4 +27,7 @@ CENSYS_ORG_ID="${censys_org_id}"
 QUALYS_API_USERNAME="${qualys_api_username}"
 XTM_ONE_HOST="${xtm_one_host}"
 XTM_ONE_ADMIN_EMAIL="${xtm_one_admin_email}"
+WIZ_BACKEND_ENV_SSM_PARAM="${wiz_backend_env_ssm_param}"
+WIZ_API_CLIENT_ID_SSM_PARAM="${wiz_api_client_id_ssm_param}"
+WIZ_API_CLIENT_SECRET_SSM_PARAM="${wiz_api_client_secret_ssm_param}"
 ENV_DEPLOY_EOF
