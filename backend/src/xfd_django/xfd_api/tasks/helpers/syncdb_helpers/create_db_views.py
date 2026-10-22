@@ -6,8 +6,8 @@ import logging
 from django.db import connections
 
 # If changes are made to materialized view make sure to update version number
-VW_SERVICE_VERSION = "20260114"
-MAT_VW_COMBINED_VULNS_VERSION = "20260114"
+VW_SERVICE_VERSION = "20260204"
+MAT_VW_COMBINED_VULNS_VERSION = "20260204"
 DOMAIN_MAT_VIEW_VERSION = "20260114"
 DOMAIN_SEARCH_MAT_VIEW_VERSION = "20260114"
 
@@ -252,8 +252,6 @@ def create_vuln_materialized_views(database):
             """
             CREATE MATERIALIZED VIEW IF NOT EXISTS mat_vw_combined_vulns AS
             SELECT * from vw_ticket_vulns
-            union all
-            SELECT * from vw_shodan_vulns
             union all
             SELECT * from vw_credential_breaches
         """
@@ -560,8 +558,6 @@ def create_service_mat_view(database):
         cursor.execute(
             """
             CREATE MATERIALIZED VIEW mat_vw_service AS
-            SELECT * FROM vw_shodan_service
-            UNION ALL
             SELECT * FROM vw_portscan_service;
             """
         )
