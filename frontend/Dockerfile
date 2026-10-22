@@ -30,7 +30,10 @@ USER node
 # Because we updated the 'node' user's ID above, these files are now
 # owned by YOUR UID, not a generic 1000.
 COPY --chown=node:node ./package* ./
-COPY --chown=node:node patches/ ./patches
+
+# 5a. Apply any patches (optional)
+# Re-enable if you have any patches to apply
+# COPY --chown=node:node patches/ ./patches
 
 # 6. Install dependencies (runs as You)
 RUN npm ci --legacy-peer-deps
