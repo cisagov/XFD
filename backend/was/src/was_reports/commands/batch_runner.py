@@ -78,6 +78,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
 NO_REPORT_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
 DEFAULT_RECENT_SCAN_DAYS_BACK = 7
+BATCH_DAYS_BACK_ENVIRONMENT = "BATCH_DAYS_BACK"
 ALL_DAYS_BACK = "all"
 
 
@@ -92,6 +93,31 @@ def parse_days_back(value: str) -> int | str:
         raise argparse.ArgumentTypeError(
             "Days back must be a positive integer or 'all'."
         ) from error
+
+
+def configured_recent_scan_days_back() -> int | None:
+    """Return the validated recent-scan window from runtime configuration."""
+    raw_value = getenv(
+        BATCH_DAYS_BACK_ENVIRONMENT,
+        str(DEFAULT_RECENT_SCAN_DAYS_BACK),
+    )
+    if raw_value is None:
+        raw_value = str(DEFAULT_RECENT_SCAN_DAYS_BACK)
+    try:
+        parsed_value = parse_days_back(raw_value)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(
+            "BATCH_DAYS_BACK must be all or an integer of at least 1; "
+            "1 means today only."
+        ) from error
+    if isinstance(parsed_value, str):
+        return None
+    if parsed_value < 1:
+        raise ValueError(
+            "BATCH_DAYS_BACK must be all or an integer of at least 1; "
+            "1 means today only."
+        )
+    return parsed_value
 
 
 @dataclass(frozen=True)
@@ -1017,7 +1043,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         elif args.include_manual:
             resolved_days_back = None
         else:
-            resolved_days_back = DEFAULT_RECENT_SCAN_DAYS_BACK
+            resolved_days_back = configured_recent_scan_days_back()
         if (args.worker_count is None) != (args.worker_index is None):
             raise ValueError("Worker count and worker index must be provided together.")
         if args.worker_count is not None:

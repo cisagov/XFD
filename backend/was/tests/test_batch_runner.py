@@ -70,6 +70,29 @@ class BatchRunnerTests(unittest.TestCase):
         self.touch_report = self.touch_patch.start()
         self.addCleanup(self.touch_patch.stop)
 
+    def test_configured_recent_scan_days_back_uses_environment(self) -> None:
+        """Use the configured positive window or explicit unlimited marker."""
+        for raw_value, expected_value in (("14", 14), ("all", None)):
+            with self.subTest(raw_value=raw_value), patch.object(
+                batch_runner,
+                "getenv",
+                return_value=raw_value,
+            ):
+                self.assertEqual(
+                    batch_runner.configured_recent_scan_days_back(),
+                    expected_value,
+                )
+
+    def test_configured_recent_scan_days_back_rejects_invalid_values(self) -> None:
+        """Reject unsafe runtime windows before report selection begins."""
+        for raw_value in ("0", "invalid"):
+            with self.subTest(raw_value=raw_value), patch.object(
+                batch_runner,
+                "getenv",
+                return_value=raw_value,
+            ), self.assertRaisesRegex(ValueError, "BATCH_DAYS_BACK"):
+                batch_runner.configured_recent_scan_days_back()
+
     def write_report(self, arguments, *, current_time: datetime) -> None:
         """Write an output artifact at the mocked generation boundary."""
         output_directory = Path(arguments[arguments.index("--output-directory") + 1])
@@ -1165,7 +1188,12 @@ class BatchRunnerTests(unittest.TestCase):
         """Apply the automated seven-date guardrail to a preflight by default."""
         mock_list_candidates.return_value = []
 
-        exit_code = batch_runner.main(["--recent-scans", "--preflight-only"])
+        with patch.object(
+            batch_runner,
+            "configured_recent_scan_days_back",
+            return_value=7,
+        ):
+            exit_code = batch_runner.main(["--recent-scans", "--preflight-only"])
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(mock_list_candidates.call_args.kwargs["days_back"], 7)
@@ -1220,16 +1248,21 @@ class BatchRunnerTests(unittest.TestCase):
             failed=0,
         )
 
-        exit_code = batch_runner.main(
-            [
-                "--recent-scans",
-                "--tag",
-                " TAG1 ",
-                "--send-email",
-                "--source-email",
-                "reports@example.gov",
-            ]
-        )
+        with patch.object(
+            batch_runner,
+            "configured_recent_scan_days_back",
+            return_value=7,
+        ):
+            exit_code = batch_runner.main(
+                [
+                    "--recent-scans",
+                    "--tag",
+                    " TAG1 ",
+                    "--send-email",
+                    "--source-email",
+                    "reports@example.gov",
+                ]
+            )
 
         self.assertEqual(exit_code, 0)
         mock_recover_stale.assert_called_once_with()

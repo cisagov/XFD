@@ -488,6 +488,13 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
                 send_summary = context_stack.enter_context(
                     patch.object(recovery.analyst_summaries, "send_batch_summary")
                 )
+                context_stack.enter_context(
+                    patch.object(
+                        recovery,
+                        "configured_recent_scan_days_back",
+                        return_value=14,
+                    )
+                )
 
                 result = recovery.main(
                     [
@@ -511,7 +518,7 @@ class InterruptedBatchRecoveryTests(unittest.TestCase):
             batch_id,
             source_email="source@example.gov",
             override_recipients=test_recipients,
-            days_back=7,
+            days_back=14,
         )
 
 

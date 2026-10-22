@@ -21,6 +21,7 @@ from was_mailer.message import approved_analyst_recipients
 # First-Party Libraries
 from was_reports.commands.batch_runner import (
     NO_REPORT_TEMPLATES,
+    configured_recent_scan_days_back,
     generate_report_output,
     record_generation_failure,
     summarize_report_failure,
@@ -541,7 +542,7 @@ def main(raw_arguments: Sequence[str] | None = None) -> int:
             batch_id,
             source_email=source_email,
             override_recipients=override_recipients,
-            days_back=7,
+            days_back=configured_recent_scan_days_back(),
         )
         print(
             "Interrupted batch recovery completed: recovered={}; selected={}; batch outcome=failed.".format(
