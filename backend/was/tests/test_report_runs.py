@@ -70,6 +70,100 @@ class FakeConnection:
 class ReportRunTests(unittest.TestCase):
     """Validate report run persistence helpers."""
 
+    def test_interrupted_recovery_rejects_sending_email(self) -> None:
+        """Do not reclaim generation while any email claim is uncertain."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (
+            "production",
+            datetime(2026, 10, 19, tzinfo=timezone.utc),
+            None,
+            None,
+            "pending",
+        )
+        cursor.fetchall.return_value = [(101, "completed", "sending")]
+
+        with self.assertRaisesRegex(ValueError, "email delivery"):
+            report_runs.list_interrupted_report_runs(
+                "batch-id",
+                [101],
+                datetime(2026, 10, 20, tzinfo=timezone.utc),
+                connection,
+            )
+
+    def test_interrupted_recovery_requires_exact_active_scope(self) -> None:
+        """Require every active row to join back to the immutable workload."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (
+            "production",
+            datetime(2026, 10, 19, tzinfo=timezone.utc),
+            None,
+            None,
+            "pending",
+        )
+        cursor.fetchall.side_effect = [
+            [(101, "running", "pending"), (102, "running", "pending")],
+            [
+                (
+                    5093,
+                    "TAG",
+                    101,
+                    "pending",
+                    datetime(2026, 10, 19, tzinfo=timezone.utc),
+                    "qualys-detail",
+                    "RUNNING",
+                    None,
+                    None,
+                    42,
+                    "Customer",
+                    "template",
+                )
+            ],
+        ]
+
+        with self.assertRaisesRegex(ValueError, "matched safely"):
+            report_runs.list_interrupted_report_runs(
+                "batch-id",
+                [101, 102],
+                datetime(2026, 10, 20, tzinfo=timezone.utc),
+                connection,
+            )
+
+    @patch("was_reports.data.report_runs.lock_tracker_tag")
+    def test_interrupted_claim_uses_compare_and_swap(self, lock_tracker_tag) -> None:
+        """Replace the lease only while the previewed row remains unchanged."""
+        interrupted_run = report_runs.InterruptedReportRun(
+            id=5093,
+            stakeholder_tag="TAG",
+            source_tracker_id=101,
+            email_status="pending",
+            updated_at=datetime(2026, 10, 19, tzinfo=timezone.utc),
+            detail_report_id="qualys-detail",
+            detail_report_status="RUNNING",
+            xml_report_id=None,
+            xml_report_status=None,
+            tag_id=42,
+            organization_name="Customer",
+            template="template",
+        )
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (5093, "TAG", "running")
+
+        claimed_run = report_runs.claim_interrupted_report_run(
+            interrupted_run, connection
+        )
+
+        self.assertEqual(claimed_run.id, 5093)
+        self.assertIsNotNone(claimed_run.generation_token)
+        lock_tracker_tag.assert_called_once_with(connection, "TAG")
+        connection.commit.assert_called_once_with()
+        update_query = str(cursor.execute.call_args.args[0])
+        self.assertIn("updated_at = %s", update_query)
+        self.assertIn("IS NOT DISTINCT FROM", update_query)
+        self.assertEqual(cursor.execute.call_args.args[1][1], 5093)
+
     @patch("was_reports.utils.database.close")
     @patch("was_reports.utils.database.connect")
     @patch("was_reports.data.report_runs.create_report_run")
@@ -146,15 +240,17 @@ class ReportRunTests(unittest.TestCase):
         self, create_run, connect, close
     ) -> None:
         """Default/manual claims do not apply automated eligibility restrictions."""
+        cursor = connect.return_value.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = ("TAG",)
         result = report_runs.create_report_run_for_tracker("TAG", 101)
         self.assertIs(result, create_run.return_value)
-        connect.return_value.cursor.assert_not_called()
         connect.return_value.set_session.assert_not_called()
         create_run.assert_called_once_with(
             stakeholder_tag="TAG",
             scheduled_epoch=None,
             source_tracker_id=101,
             conn=connect.return_value,
+            report_target_tag="TAG",
         )
 
     @patch("was_reports.utils.database.close")
@@ -203,7 +299,17 @@ class ReportRunTests(unittest.TestCase):
                 first_check.set()
                 if not second_lock_attempt.wait(timeout=5):
                     raise AssertionError("Second claim did not reach lock")
-            return [] if claimed_ids else [SimpleNamespace(id=connection_ids[id(conn)])]
+            return (
+                []
+                if claimed_ids
+                else [
+                    SimpleNamespace(
+                        id=connection_ids[id(conn)],
+                        tag="TAG",
+                        governing_stakeholder_tag="TAG",
+                    )
+                ]
+            )
 
         def insert_run(**kwargs):
             """Persist a simulated claim and release the transaction lock."""
@@ -746,8 +852,12 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 report_run.generation_token,
                 "customer",
-                "TAG1",
                 report_runs.RUNNING,
+                None,
+                "TAG1",
+                None,
+                "TAG1",
+                "TAG1",
             ),
         )
         self.assertIn("ON CONFLICT", conn.cursor_instance.query)
@@ -788,10 +898,37 @@ class ReportRunTests(unittest.TestCase):
                 report_runs.EMAIL_PENDING,
                 report_run.generation_token,
                 "customer",
-                "TAG2",
                 report_runs.RUNNING,
+                42,
+                "TAG2",
+                42,
+                "TAG2",
+                "TAG2",
             ),
         )
+
+    @patch("was_reports.data.report_runs.lock_tracker_tag")
+    def test_child_claim_uses_parent_record_and_child_conflict_scope(
+        self, lock_tracker_tag
+    ) -> None:
+        """Allow sibling children while retaining their governing parent on the run."""
+        conn = FakeConnection(row=(8, "PARENT", report_runs.RUNNING))
+
+        report_run = report_runs.create_report_run(
+            stakeholder_tag="PARENT",
+            scheduled_epoch=None,
+            source_tracker_id=42,
+            conn=conn,
+            report_target_tag="PARENT_CHILD",
+        )
+
+        self.assertEqual(report_run.stakeholder_tag, "PARENT")
+        self.assertEqual(
+            lock_tracker_tag.call_args_list,
+            [call(conn, "PARENT"), call(conn, "PARENT_CHILD")],
+        )
+        self.assertEqual(conn.cursor_instance.parameters[-1], "PARENT_CHILD")
+        self.assertIn("active_tracker.tag = %s", conn.cursor_instance.query)
 
     @patch("was_reports.utils.database.close")
     @patch("was_reports.utils.database.connect")
@@ -857,7 +994,12 @@ class ReportRunTests(unittest.TestCase):
 
     def test_retry_failed_tracker_run_reclaims_existing_record(self) -> None:
         """Reuse a failed tracker run without violating its unique link."""
-        conn = FakeConnection(row=(7, "TAG1", report_runs.RUNNING))
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [
+            ("TAG1", "TAG1"),
+            (7, "TAG1", report_runs.RUNNING),
+        ]
 
         report_run = report_runs.retry_failed_report_run_for_tracker(
             source_tracker_id=42,
@@ -867,34 +1009,112 @@ class ReportRunTests(unittest.TestCase):
         self.assertEqual(report_run.id, 7)
         self.assertTrue(conn.committed)
         self.assertEqual(
-            conn.cursor_instance.parameters,
+            cursor.execute.call_args.args[1],
             (
                 report_runs.RUNNING,
+                "TAG1",
                 report_run.generation_token,
                 report_runs.EMAIL_PENDING,
                 42,
                 report_runs.FAILED,
                 report_runs.RUNNING,
+                "TAG1",
+                "TAG1",
                 False,
             ),
         )
-        self.assertIn("error_message = NULL", conn.cursor_instance.query)
-        self.assertIn("active_run.status = %s", conn.cursor_instance.query)
+        self.assertIn("error_message = NULL", cursor.execute.call_args.args[0])
+        self.assertIn("active_run.status = %s", cursor.execute.call_args.args[0])
+
+    def test_retry_migrates_legacy_child_identity_to_current_parent(self) -> None:
+        """Move a failed legacy child run to its resolved parent before regeneration."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [
+            ("PARENT_CHILD", "PARENT_CHILD"),
+            (7, "PARENT", report_runs.RUNNING),
+        ]
+
+        with patch(
+            "was_reports.data.stakeholders.get_governing_stakeholder_details",
+            return_value=SimpleNamespace(tag="PARENT"),
+        ):
+            report_run = report_runs.retry_failed_report_run_for_tracker(
+                42,
+                connection,
+                governing_stakeholder_tag="PARENT",
+            )
+
+        update_query, update_parameters = cursor.execute.call_args.args
+        self.assertIn("stakeholder_tag = %s", update_query)
+        self.assertEqual(report_run.stakeholder_tag, "PARENT")
+        self.assertEqual(update_parameters[1], "PARENT")
+        self.assertEqual(update_parameters[7], "PARENT")
+
+    def test_retry_migrates_incorrect_parent_identity_to_exact_child(self) -> None:
+        """Move a failed parent-owned run to an enrolled exact child."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [
+            ("PARENT", "PARENT_CHILD"),
+            (7, "PARENT_CHILD", report_runs.RUNNING),
+        ]
+
+        with patch(
+            "was_reports.data.stakeholders.get_governing_stakeholder_details",
+            return_value=SimpleNamespace(tag="PARENT_CHILD"),
+        ):
+            report_run = report_runs.retry_failed_report_run_for_tracker(
+                42,
+                connection,
+                governing_stakeholder_tag="PARENT_CHILD",
+            )
+
+        update_query, update_parameters = cursor.execute.call_args.args
+        self.assertIn("stakeholder_tag = %s", update_query)
+        self.assertEqual(report_run.stakeholder_tag, "PARENT_CHILD")
+        self.assertEqual(update_parameters[1], "PARENT_CHILD")
+        self.assertEqual(update_parameters[7], "PARENT_CHILD")
+
+    def test_retry_rejects_stale_parent_resolution_after_locking(self) -> None:
+        """Do not migrate a failed child run when its governing parent changed."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = ("PARENT_CHILD", "PARENT_CHILD")
+
+        with patch(
+            "was_reports.data.stakeholders.get_governing_stakeholder_details",
+            return_value=SimpleNamespace(tag="NEW_PARENT"),
+        ):
+            report_run = report_runs.retry_failed_report_run_for_tracker(
+                42,
+                connection,
+                governing_stakeholder_tag="OLD_PARENT",
+            )
+
+        self.assertIsNone(report_run)
+        self.assertTrue(connection.rollback.called)
+        self.assertFalse(connection.commit.called)
 
     def test_retry_failed_tracker_run_locks_tag_before_reclaim(self) -> None:
         """Serialize failed-run retries with every same-tag generation claim."""
         connection = MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
-        cursor.fetchone.return_value = (7, "TAG1", report_runs.RUNNING)
+        cursor.fetchone.side_effect = [
+            ("TAG1", "TAG1"),
+            (7, "TAG1", report_runs.RUNNING),
+        ]
 
         report_runs.retry_failed_report_run_for_tracker(42, connection)
 
-        lock_query = str(cursor.execute.call_args_list[0].args[0])
-        update_query = str(cursor.execute.call_args_list[1].args[0])
+        identity_query = str(cursor.execute.call_args_list[0].args[0])
+        lock_query = str(cursor.execute.call_args_list[1].args[0])
+        update_query = str(cursor.execute.call_args_list[2].args[0])
+        self.assertIn("tracker.tag", identity_query)
         self.assertIn("pg_advisory_xact_lock", lock_query)
         self.assertEqual(
-            cursor.execute.call_args_list[0].args[1],
-            (42, report_runs.FAILED),
+            cursor.execute.call_args_list[1].args[1],
+            ("was-tracker-tag:TAG1",),
         )
         self.assertIn("NOT EXISTS", update_query)
         self.assertIn("active_run.status = %s", update_query)
@@ -1143,6 +1363,14 @@ class ReportRunTests(unittest.TestCase):
             "COALESCE(assignees.name, tracker.assignee)", conn.cursor_instance.query
         )
         self.assertIn("COALESCE(runs.email_status", conn.cursor_instance.query)
+        self.assertIn(
+            "COALESCE(tracker.tag, runs.stakeholder_tag)",
+            conn.cursor_instance.query,
+        )
+        self.assertIn(
+            "stakeholders.tag = runs.stakeholder_tag",
+            conn.cursor_instance.query,
+        )
         self.assertEqual(
             conn.cursor_instance.parameters,
             (
@@ -1154,7 +1382,10 @@ class ReportRunTests(unittest.TestCase):
                 5,
             ),
         )
-        self.assertIn("runs.stakeholder_tag = %s", conn.cursor_instance.query)
+        self.assertIn(
+            "COALESCE(tracker.tag, runs.stakeholder_tag) = %s",
+            conn.cursor_instance.query,
+        )
         self.assertIn(
             "tracker.data_pull_date >= CURRENT_DATE - (%s - 1)",
             conn.cursor_instance.query,

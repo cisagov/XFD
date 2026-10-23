@@ -121,8 +121,20 @@ def inspect_exclusions(
                         ELSE 'eligible'
                     END AS reason
                 FROM ranked tracker
-                LEFT JOIN was_stakeholders stakeholders
-                    ON stakeholders.tag = tracker.tag
+                LEFT JOIN was_stakeholders AS exact_stakeholder
+                    ON exact_stakeholder.tag = tracker.tag
+                LEFT JOIN LATERAL (
+                    SELECT candidate.*
+                    FROM was_stakeholders AS candidate
+                    WHERE candidate.tag = exact_stakeholder.tag
+                       OR (exact_stakeholder.tag IS NULL AND (
+                            CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
+                        AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
+                            = candidate.tag || '_'
+                       ))
+                    ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                    LIMIT 1
+                ) AS stakeholders ON TRUE
             )
             SELECT reason, COUNT(*) FROM classified GROUP BY reason
             UNION ALL

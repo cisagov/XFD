@@ -27,6 +27,7 @@ class CapacityWorkerTests(unittest.TestCase):
                 "WAS_RUN_MODE": "capacity",
                 "WAS_DB_NAME": "was_capacity_test",
                 "WAS_CAPACITY_TRACKER_IDS": "[1]",
+                "WAS_TMUX_LAUNCH": "1",
                 "WAS_OUTPUT_DIRECTORY": str(root / "capacity" / "trial"),
                 "WAS_METRICS_DIRECTORY": str(root / "capacity" / "trial" / "metrics"),
                 "AWS_REGION": "us-east-1",
@@ -36,7 +37,9 @@ class CapacityWorkerTests(unittest.TestCase):
             }
             with patch.dict(os.environ, environment, clear=True), patch(
                 "was_reports.utils.capacity_workers.subprocess.Popen"
-            ) as launch:
+            ) as launch, patch(
+                "was_reports.utils.capacity_workers.require_live_tmux_coordinator"
+            ):
                 worker = launch_docker_worker(
                     [
                         "/host/python",
@@ -74,6 +77,12 @@ class CapacityWorkerTests(unittest.TestCase):
                 "report_generation",
             )
             self.assertTrue(worker.name.endswith("-2"))
+            self.assertIn(
+                "was.capacity.run_id=00000000-0000-0000-0000-000000000001",
+                command,
+            )
+            self.assertIn("was.capacity.workflow=capacity", command)
+            self.assertIn("was.capacity.worker_index=2", command)
 
     def test_invalid_identity_rejected_before_launch(self):
         """An arbitrary container identity cannot be supplied to the launcher."""
@@ -92,10 +101,15 @@ class CapacityWorkerTests(unittest.TestCase):
             "WAS_RUN_MODE": "capacity",
             "WAS_DB_NAME": "was_capacity_test",
             "WAS_CAPACITY_TRACKER_IDS": "[1]",
+            "WAS_TMUX_LAUNCH": "1",
         }
         with TemporaryDirectory() as directory, patch.dict(
             os.environ, environment, clear=True
-        ), patch("was_reports.utils.capacity_workers.subprocess.Popen") as launch:
+        ), patch(
+            "was_reports.utils.capacity_workers.subprocess.Popen"
+        ) as launch, patch(
+            "was_reports.utils.capacity_workers.require_live_tmux_coordinator"
+        ):
             for options in ([], ["--test-recipients"], ["--test-recipients", ""]):
                 with self.subTest(options=options), self.assertRaises(ValueError):
                     launch_docker_worker(
@@ -172,10 +186,15 @@ class CapacityWorkerTests(unittest.TestCase):
             "WAS_DB_NAME": "was",
             "WAS_BATCH_TRACKER_IDS": "[1]",
             "WAS_ANALYST_BATCH_ID": identity,
+            "WAS_TMUX_LAUNCH": "1",
         }
         with TemporaryDirectory() as directory, patch.dict(
             os.environ, environment, clear=True
-        ), patch("was_reports.utils.capacity_workers.subprocess.Popen") as launch:
+        ), patch(
+            "was_reports.utils.capacity_workers.subprocess.Popen"
+        ) as launch, patch(
+            "was_reports.utils.capacity_workers.require_live_tmux_coordinator"
+        ):
             worker = launch_docker_worker(
                 ["was_reports.commands.batch_runner"],
                 run_id=identity,
@@ -207,6 +226,56 @@ class CapacityWorkerTests(unittest.TestCase):
                     image="was-reporting",
                     output_directory=Path(directory),
                 )
+
+    def test_docker_launch_requires_validated_tmux_coordinator(self):
+        """Do not create workers that the orphan reaper cannot verify safely."""
+        identity = "00000000-0000-0000-0000-000000000001"
+        environment = {
+            "WAS_RUN_MODE": "production",
+            "WAS_DB_NAME": "was",
+            "WAS_BATCH_TRACKER_IDS": "[1]",
+            "WAS_ANALYST_BATCH_ID": identity,
+        }
+        with TemporaryDirectory() as directory, patch.dict(
+            os.environ, environment, clear=True
+        ), patch("was_reports.utils.capacity_workers.subprocess.Popen") as launch:
+            with self.assertRaisesRegex(ValueError, "validated tmux coordinator"):
+                launch_docker_worker(
+                    ["was_reports.commands.batch_runner"],
+                    run_id=identity,
+                    worker_index=0,
+                    image="was-reporting",
+                    output_directory=Path(directory),
+                )
+        launch.assert_not_called()
+
+    def test_docker_launch_requires_live_exact_tmux_session(self):
+        """Reject a launch marker when the expected coordinator is not live."""
+        identity = "00000000-0000-0000-0000-000000000001"
+        environment = {
+            "WAS_RUN_MODE": "production",
+            "WAS_DB_NAME": "was",
+            "WAS_BATCH_TRACKER_IDS": "[1]",
+            "WAS_ANALYST_BATCH_ID": identity,
+            "WAS_TMUX_LAUNCH": "1",
+        }
+        with TemporaryDirectory() as directory, patch.dict(
+            os.environ, environment, clear=True
+        ), patch(
+            "was_reports.utils.capacity_workers.subprocess.Popen"
+        ) as launch, patch(
+            "was_reports.utils.capacity_workers.require_live_tmux_coordinator",
+            side_effect=ValueError("coordinator missing"),
+        ):
+            with self.assertRaisesRegex(ValueError, "coordinator missing"):
+                launch_docker_worker(
+                    ["was_reports.commands.batch_runner"],
+                    run_id=identity,
+                    worker_index=0,
+                    image="was-reporting",
+                    output_directory=Path(directory),
+                )
+        launch.assert_not_called()
 
     @patch("was_reports.utils.capacity_workers.subprocess.run")
     def test_container_removal_failure_is_reported(self, run):

@@ -138,6 +138,7 @@ class TrackerReportCandidate:
     tag_id: int | None = None
     organization_name: str = ""
     qualys_error: str | None = None
+    governing_stakeholder_tag: str | None = None
 
 
 @dataclass(frozen=True)
@@ -360,7 +361,14 @@ def list_ready_report_candidates(
                 tracker.data_pull_date,
                 tracker.schedule_id,
                 tracker.assignee_id,
-                COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
+                CASE
+                    WHEN exact_stakeholder.tag IS NOT NULL
+                        THEN COALESCE(
+                            tracker.tag_id,
+                            exact_stakeholder.qualys_tag_id
+                        )
+                    ELSE tracker.tag_id
+                END,
                 stakeholders.customer_name,
                 tracker.template,
                 tracker.remove_nws,
@@ -371,10 +379,26 @@ def list_ready_report_candidates(
                 tracker.report_sent_date,
                 tracker.report_scan_notes,
                 tracker.status,
-                stakeholders.manual_report
+                (
+                    stakeholders.manual_report IS TRUE
+                    OR exact_stakeholder.manual_report IS TRUE
+                ),
+                stakeholders.tag
             FROM was_daily_report_tracker AS tracker
-            JOIN was_stakeholders AS stakeholders
-              ON stakeholders.tag = tracker.tag
+            LEFT JOIN was_stakeholders AS exact_stakeholder
+              ON exact_stakeholder.tag = tracker.tag
+            JOIN LATERAL (
+                SELECT candidate.*
+                FROM was_stakeholders AS candidate
+                WHERE candidate.tag = exact_stakeholder.tag
+                   OR (exact_stakeholder.tag IS NULL AND (
+                        CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
+                    AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
+                        = candidate.tag || '_'
+                   ))
+                ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                LIMIT 1
+            ) AS stakeholders ON TRUE
             LEFT JOIN was_report_runs AS runs
               ON runs.source_tracker_id = tracker.id
             WHERE tracker.report_sent_date IS NULL
@@ -383,8 +407,10 @@ def list_ready_report_candidates(
               AND COALESCE(tracker.scan_execution_key, '') NOT LIKE %s
               AND COALESCE(tracker.template, '') <> 'Deactivated'
               AND stakeholders.retired IS NOT TRUE
+              AND exact_stakeholder.retired IS NOT TRUE
               AND (
                     stakeholders.manual_report IS TRUE
+                 OR exact_stakeholder.manual_report IS TRUE
                  OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
                  OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
                  OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
@@ -439,27 +465,49 @@ def list_ready_report_candidates(
                 tracker.data_pull_date,
                 tracker.schedule_id,
                 tracker.assignee_id,
-                COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
+                CASE
+                    WHEN exact_stakeholder.tag IS NOT NULL
+                        THEN COALESCE(
+                            tracker.tag_id,
+                            exact_stakeholder.qualys_tag_id
+                        )
+                    ELSE tracker.tag_id
+                END,
                 stakeholders.customer_name,
                 tracker.template,
                 tracker.remove_nws,
                 tracker.qualys_error,
                 runs.id,
                 runs.status,
-                runs.email_status
+                runs.email_status,
+                stakeholders.tag
             FROM ranked_tracker AS tracker
-            JOIN was_stakeholders AS stakeholders
-              ON stakeholders.tag = tracker.tag
+            LEFT JOIN was_stakeholders AS exact_stakeholder
+              ON exact_stakeholder.tag = tracker.tag
+            JOIN LATERAL (
+                SELECT candidate.*
+                FROM was_stakeholders AS candidate
+                WHERE candidate.tag = exact_stakeholder.tag
+                   OR (exact_stakeholder.tag IS NULL AND (
+                        CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
+                    AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
+                        = candidate.tag || '_'
+                   ))
+                ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                LIMIT 1
+            ) AS stakeholders ON TRUE
             LEFT JOIN was_report_runs AS runs
               ON runs.source_tracker_id = tracker.id
             WHERE tracker.candidate_rank = 1
               AND tracker.report_sent_date IS NULL
               AND COALESCE(tracker.template, '') <> 'Deactivated'
               AND stakeholders.retired IS NOT TRUE
+              AND exact_stakeholder.retired IS NOT TRUE
               AND runs.id IS NULL
               AND LOWER(BTRIM(COALESCE(tracker.status, ''))) IN ('finished', 'error')
               AND BTRIM(COALESCE(tracker.report_scan_notes, '')) = ''
               AND stakeholders.manual_report IS NOT TRUE
+              AND exact_stakeholder.manual_report IS NOT TRUE
               AND NOT EXISTS (
                   SELECT 1 FROM was_daily_report_tracker AS legacy
                   WHERE legacy.id <> tracker.id
@@ -526,6 +574,7 @@ def list_ready_report_candidates(
             report_run_id=row[10],
             report_run_status=row[11],
             report_email_status=row[12],
+            governing_stakeholder_tag=(row[17] if include_manual else row[13]),
         )
         for row in rows
     ]
@@ -618,9 +667,7 @@ def mark_manual_tracker_report_sent(
                 UPDATE was_daily_report_tracker AS tracker
                 SET report_sent_date = %s,
                     updated_at = NOW()
-                FROM was_stakeholders AS stakeholders
                 WHERE tracker.id = %s
-                  AND stakeholders.tag = tracker.tag
                   AND tracker.report_sent_date IS NULL
                   AND NOT EXISTS (
                       SELECT 1
@@ -632,7 +679,29 @@ def mark_manual_tracker_report_sent(
                         )
                   )
                   AND (
-                        stakeholders.manual_report IS TRUE
+                        EXISTS (
+                            SELECT 1 FROM LATERAL (
+                                SELECT (
+                                    candidate.manual_report IS TRUE
+                                    OR exact_stakeholder.manual_report IS TRUE
+                                ) AS manual_report
+                                FROM was_stakeholders AS candidate
+                                LEFT JOIN was_stakeholders AS exact_stakeholder
+                                  ON exact_stakeholder.tag = tracker.tag
+                                WHERE candidate.tag = exact_stakeholder.tag
+                                   OR (exact_stakeholder.tag IS NULL AND (
+                                        CHAR_LENGTH(candidate.tag)
+                                            < CHAR_LENGTH(tracker.tag)
+                                    AND LEFT(
+                                            tracker.tag,
+                                            CHAR_LENGTH(candidate.tag) + 1
+                                        ) = candidate.tag || '_'
+                                   ))
+                                ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                                LIMIT 1
+                            ) AS governing_stakeholder
+                            WHERE governing_stakeholder.manual_report IS TRUE
+                        )
                      OR NULLIF(BTRIM(tracker.report_scan_notes), '') IS NOT NULL
                      OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
                      OR UPPER(BTRIM(COALESCE(tracker.status, ''))) = 'ERROR'
@@ -1153,8 +1222,27 @@ def list_tracker_table_rows(
     if limit is not None and limit < 1:
         raise ValueError("Limit must be greater than zero.")
 
-    query = """
+    parameters: list[object] = []
+    if include_children:
+        query = """
+        WITH RECURSIVE stakeholder_descendants AS (
+            SELECT stakeholder.tag
+            FROM was_stakeholders AS stakeholder
+            WHERE stakeholder.tag = %s
+            UNION
+            SELECT child.tag
+            FROM was_stakeholders AS child
+            JOIN stakeholder_descendants AS parent
+              ON child.parent_tag = parent.tag
+        ),
+        tracker_rows AS (
+        """
+        parameters.append(stakeholder_tag)
+    else:
+        query = """
         WITH tracker_rows AS (
+        """
+    query += """
             SELECT
                 tracker.id,
                 tracker.data_pull_date,
@@ -1169,6 +1257,7 @@ def list_tracker_table_rows(
                       AND COALESCE(tracker.scan_execution_key, '') LIKE 'schedule-review:%%'
                         THEN 'RESOLVED'
                     WHEN stakeholders.manual_report IS TRUE
+                      OR exact_stakeholder.manual_report IS TRUE
                       OR NULLIF(BTRIM(tracker.report_scan_notes), '')
                          IS NOT NULL
                       OR NULLIF(BTRIM(tracker.qualys_error), '') IS NOT NULL
@@ -1211,28 +1300,40 @@ def list_tracker_table_rows(
             FROM was_daily_report_tracker AS tracker
             LEFT JOIN was_assignees AS assignees
               ON assignees.id = tracker.assignee_id
-            LEFT JOIN was_stakeholders AS stakeholders
-              ON stakeholders.tag = tracker.tag
+            LEFT JOIN was_stakeholders AS exact_stakeholder
+              ON exact_stakeholder.tag = tracker.tag
+            LEFT JOIN LATERAL (
+                SELECT candidate.*
+                FROM was_stakeholders AS candidate
+                WHERE candidate.tag = exact_stakeholder.tag
+                   OR (exact_stakeholder.tag IS NULL AND (
+                        CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
+                    AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
+                        = candidate.tag || '_'
+                   ))
+                ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                FETCH FIRST 1 ROW ONLY
+            ) AS stakeholders ON TRUE
             WHERE 1 = 1
     """
-    parameters: list[object] = []
     if days_back is not None:
         query += " AND tracker.data_pull_date >= CURRENT_DATE - %s"
         parameters.append(days_back)
     if stakeholder_tag:
-        query += " AND (tracker.tag = %s"
-        parameters.append(stakeholder_tag)
         if include_children:
-            query += """ OR tracker.tag IN (
-                WITH RECURSIVE children(tag) AS (
-                    SELECT tag FROM was_stakeholders WHERE parent_tag = %s
-                    UNION
-                    SELECT child.tag FROM was_stakeholders child
-                    JOIN children parent ON child.parent_tag = parent.tag
-                ) SELECT tag FROM children
-            )"""
+            query += """
+              AND (
+                    tracker.tag IN (
+                        SELECT descendant.tag
+                        FROM stakeholder_descendants AS descendant
+                    )
+                 OR stakeholders.tag = %s
+              )
+            """
             parameters.append(stakeholder_tag)
-        query += ")"
+        else:
+            query += " AND tracker.tag = %s"
+            parameters.append(stakeholder_tag)
     if normalized_assignee is not None:
         query += """
               AND LOWER(BTRIM(COALESCE(
