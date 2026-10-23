@@ -1051,6 +1051,31 @@ class ReportRunTests(unittest.TestCase):
         self.assertEqual(update_parameters[1], "PARENT")
         self.assertEqual(update_parameters[7], "PARENT")
 
+    def test_retry_migrates_incorrect_parent_identity_to_exact_child(self) -> None:
+        """Move a failed parent-owned run to an enrolled exact child."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [
+            ("PARENT", "PARENT_CHILD"),
+            (7, "PARENT_CHILD", report_runs.RUNNING),
+        ]
+
+        with patch(
+            "was_reports.data.stakeholders.get_governing_stakeholder_details",
+            return_value=SimpleNamespace(tag="PARENT_CHILD"),
+        ):
+            report_run = report_runs.retry_failed_report_run_for_tracker(
+                42,
+                connection,
+                governing_stakeholder_tag="PARENT_CHILD",
+            )
+
+        update_query, update_parameters = cursor.execute.call_args.args
+        self.assertIn("stakeholder_tag = %s", update_query)
+        self.assertEqual(report_run.stakeholder_tag, "PARENT_CHILD")
+        self.assertEqual(update_parameters[1], "PARENT_CHILD")
+        self.assertEqual(update_parameters[7], "PARENT_CHILD")
+
     def test_retry_rejects_stale_parent_resolution_after_locking(self) -> None:
         """Do not migrate a failed child run when its governing parent changed."""
         connection = MagicMock()

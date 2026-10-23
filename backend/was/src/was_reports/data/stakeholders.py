@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 # Standard Python Libraries
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 # Third-Party Libraries
@@ -204,39 +204,13 @@ def get_governing_stakeholder_details(
     tag: str,
     conn: connection,
 ) -> StakeholderDetails | None:
-    """Return the closest configured stakeholder governing a report target."""
+    """Return the exact stakeholder or closest enrolled underscore parent."""
     candidates = stakeholder_tag_candidates(tag)
     if not candidates:
         return None
     exact_stakeholder = get_stakeholder_details(candidates[0], conn)
     if exact_stakeholder is not None:
-        if exact_stakeholder.parent_tag is None:
-            return exact_stakeholder
-        if exact_stakeholder.parent_tag == exact_stakeholder.tag:
-            return None
-        parent_stakeholder = get_stakeholder_details(
-            exact_stakeholder.parent_tag,
-            conn,
-        )
-        if parent_stakeholder is None:
-            return None
-        manual_report = (
-            exact_stakeholder.manual_report or parent_stakeholder.manual_report
-        )
-        fceb = exact_stakeholder.fceb or parent_stakeholder.fceb
-        retired = exact_stakeholder.retired or parent_stakeholder.retired
-        if (
-            parent_stakeholder.manual_report == manual_report
-            and parent_stakeholder.fceb == fceb
-            and parent_stakeholder.retired == retired
-        ):
-            return parent_stakeholder
-        return replace(
-            parent_stakeholder,
-            manual_report=manual_report,
-            fceb=fceb,
-            retired=retired,
-        )
+        return exact_stakeholder
     for candidate_tag in candidates[1:]:
         stakeholder = get_stakeholder_details(candidate_tag, conn)
         if stakeholder is not None:

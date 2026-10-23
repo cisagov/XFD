@@ -387,15 +387,10 @@ def list_ready_report_candidates(
             FROM was_daily_report_tracker AS tracker
             LEFT JOIN was_stakeholders AS exact_stakeholder
               ON exact_stakeholder.tag = tracker.tag
-            LEFT JOIN was_stakeholders AS configured_parent
-              ON configured_parent.tag = exact_stakeholder.parent_tag
             JOIN LATERAL (
                 SELECT candidate.*
                 FROM was_stakeholders AS candidate
-                WHERE candidate.tag = COALESCE(
-                        configured_parent.tag,
-                        exact_stakeholder.tag
-                      )
+                WHERE candidate.tag = exact_stakeholder.tag
                    OR (exact_stakeholder.tag IS NULL AND (
                         CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
                     AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
@@ -489,15 +484,10 @@ def list_ready_report_candidates(
             FROM ranked_tracker AS tracker
             LEFT JOIN was_stakeholders AS exact_stakeholder
               ON exact_stakeholder.tag = tracker.tag
-            LEFT JOIN was_stakeholders AS configured_parent
-              ON configured_parent.tag = exact_stakeholder.parent_tag
             JOIN LATERAL (
                 SELECT candidate.*
                 FROM was_stakeholders AS candidate
-                WHERE candidate.tag = COALESCE(
-                        configured_parent.tag,
-                        exact_stakeholder.tag
-                      )
+                WHERE candidate.tag = exact_stakeholder.tag
                    OR (exact_stakeholder.tag IS NULL AND (
                         CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
                     AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
@@ -698,13 +688,7 @@ def mark_manual_tracker_report_sent(
                                 FROM was_stakeholders AS candidate
                                 LEFT JOIN was_stakeholders AS exact_stakeholder
                                   ON exact_stakeholder.tag = tracker.tag
-                                LEFT JOIN was_stakeholders AS configured_parent
-                                  ON configured_parent.tag
-                                     = exact_stakeholder.parent_tag
-                                WHERE candidate.tag = COALESCE(
-                                        configured_parent.tag,
-                                        exact_stakeholder.tag
-                                      )
+                                WHERE candidate.tag = exact_stakeholder.tag
                                    OR (exact_stakeholder.tag IS NULL AND (
                                         CHAR_LENGTH(candidate.tag)
                                             < CHAR_LENGTH(tracker.tag)
@@ -1318,15 +1302,10 @@ def list_tracker_table_rows(
               ON assignees.id = tracker.assignee_id
             LEFT JOIN was_stakeholders AS exact_stakeholder
               ON exact_stakeholder.tag = tracker.tag
-            LEFT JOIN was_stakeholders AS configured_parent
-              ON configured_parent.tag = exact_stakeholder.parent_tag
             LEFT JOIN LATERAL (
                 SELECT candidate.*
                 FROM was_stakeholders AS candidate
-                WHERE candidate.tag = COALESCE(
-                        configured_parent.tag,
-                        exact_stakeholder.tag
-                      )
+                WHERE candidate.tag = exact_stakeholder.tag
                    OR (exact_stakeholder.tag IS NULL AND (
                         CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
                     AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)

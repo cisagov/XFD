@@ -1330,11 +1330,7 @@ def retry_failed_report_run_for_tracker(
                 ):
                     conn.rollback()
                     return None
-            retry_governing_tag = (
-                governing_stakeholder_tag
-                if governing_stakeholder_tag is not None and governing_tag == target_tag
-                else governing_tag
-            )
+            retry_governing_tag = governing_stakeholder_tag or governing_tag
             cursor.execute(
                 """
                 UPDATE was_report_runs AS claimed_run

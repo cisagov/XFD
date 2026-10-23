@@ -45,6 +45,8 @@ class ReplayDataTests(unittest.TestCase):
         self.assertIn("runs.delivery_purpose = 'customer'", query)
         self.assertIn("Deactivated", query)
         self.assertIn("runs.email_status NOT IN ('held', 'sending', 'sent')", query)
+        self.assertIn("candidate.tag = exact_stakeholder.tag", query)
+        self.assertNotIn("configured_parent", query)
         self.connection.commit.assert_not_called()
 
     def test_new_resend_is_separate_analyst_run(self):

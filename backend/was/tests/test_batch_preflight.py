@@ -70,6 +70,8 @@ class BatchPreflightTests(unittest.TestCase):
         self.assertIn("same scan run already claimed or sent", query)
         self.assertIn("sibling.scan_name = tracker.scan_name", query)
         self.assertIn("NOT IN ('finished', 'error')", query)
+        self.assertIn("candidate.tag = exact_stakeholder.tag", query)
+        self.assertNotIn("configured_parent", query)
         for command in ("INSERT ", "UPDATE ", "DELETE ", "LOCK "):
             self.assertNotIn(command, query)
 

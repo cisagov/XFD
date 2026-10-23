@@ -1040,13 +1040,16 @@ failures, and exhausted report-generation failures remain `MANUAL` for the
 assigned analyst.
 
 Dependent child tags retain their own Qualys target, tracker identity, report
-filename, and customer-facing tag. When a child has no standalone stakeholder
-row, the batch uses the longest enrolled underscore-delimited parent tag. An
-explicit `parent_tag` takes precedence when the child has a stakeholder row.
-The governing parent supplies the report password, POC and delivery addresses,
-customer name, and reporting policy. A missing child Qualys tag ID never falls
-back to the parent's tag ID. Generation or delivery failures remain attached to
-the child tracker row and are available to the guarded manual workflow.
+filename, and customer-facing tag. An exact stakeholder row always supplies its
+own report password, POC and delivery addresses, customer name, reporting
+policy, and scan metadata, even when its `parent_tag` hierarchy field is set.
+Only when no exact stakeholder row exists does the batch recursively remove the
+last underscore-delimited component and use the longest enrolled parent tag.
+That governing parent supplies the dependent child's customer information and
+receives its scan metadata when the child scan is newer than the stored value.
+A missing child Qualys tag ID never falls back to the parent's tag ID.
+Generation or delivery failures remain attached to the child tracker row and
+are available to the guarded manual workflow.
 
 Qualys schedules without an actual launch timestamp are skipped. If an ad hoc
 schedule has no next launch date and its primary schedule also has no next

@@ -483,6 +483,11 @@ class DailyReportTrackerTests(unittest.TestCase):
             "FROM ranked_tracker AS tracker",
             conn.cursor_instance.query,
         )
+        self.assertIn(
+            "candidate.tag = exact_stakeholder.tag",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("configured_parent", conn.cursor_instance.query)
         self.assertIn("NOT LIKE %s", conn.cursor_instance.query)
         self.assertIn(
             "tracker.scan_start_date >= CURRENT_DATE - (%s - 1)",
@@ -902,6 +907,11 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
 
         self.assertIn("OR stakeholders.tag = %s", conn.cursor_instance.query)
+        self.assertIn(
+            "candidate.tag = exact_stakeholder.tag",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("configured_parent", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters[:3], ("PARENT", 7, "PARENT"))
 
     def test_mark_manual_tracker_report_sent_updates_unsent_manual_row(self) -> None:
@@ -925,6 +935,11 @@ class DailyReportTrackerTests(unittest.TestCase):
             "governing_stakeholder.manual_report IS TRUE",
             conn.cursor_instance.query,
         )
+        self.assertIn(
+            "candidate.tag = exact_stakeholder.tag",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("configured_parent", conn.cursor_instance.query)
         self.assertIn("NOT EXISTS (", conn.cursor_instance.query)
         self.assertIn(
             "linked_run.source_tracker_id = tracker.id",

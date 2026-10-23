@@ -2,7 +2,7 @@
 
 # Standard Python Libraries
 import unittest
-from unittest.mock import ANY, call, patch
+from unittest.mock import ANY, patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -73,27 +73,20 @@ class StakeholderDataTests(unittest.TestCase):
         )
 
     @patch.object(stakeholders, "get_stakeholder_details")
-    def test_governing_stakeholder_uses_explicit_parent(self, get_details) -> None:
-        """Honor a configured parent before attempting underscore inference."""
+    def test_governing_stakeholder_prefers_exact_row(self, get_details) -> None:
+        """Use an exact stakeholder even when it has a hierarchy parent."""
         child = stakeholders.StakeholderDetails(
             tag="PARENT_CHILD",
             parent_tag="PARENT",
         )
-        parent = stakeholders.StakeholderDetails(tag="PARENT")
-        get_details.side_effect = [child, parent]
+        get_details.return_value = child
 
         result = stakeholders.get_governing_stakeholder_details(
             "PARENT_CHILD", FakeConnection()
         )
 
-        self.assertIs(result, parent)
-        self.assertEqual(
-            get_details.call_args_list,
-            [
-                call("PARENT_CHILD", ANY),
-                call("PARENT", ANY),
-            ],
-        )
+        self.assertIs(result, child)
+        get_details.assert_called_once_with("PARENT_CHILD", ANY)
 
     @patch.object(stakeholders, "get_stakeholder_details")
     def test_governing_stakeholder_uses_longest_existing_prefix(
@@ -111,28 +104,28 @@ class StakeholderDataTests(unittest.TestCase):
         self.assertEqual(get_details.call_count, 2)
 
     @patch.object(stakeholders, "get_stakeholder_details")
-    def test_governing_stakeholder_preserves_restrictive_child_flags(
+    def test_governing_stakeholder_preserves_exact_row_policy(
         self, get_details
     ) -> None:
-        """Keep child manual and retired controls while using parent contacts."""
+        """Keep every reporting control from an exact stakeholder row."""
         child = stakeholders.StakeholderDetails(
             tag="ROOT_CHILD",
             parent_tag="ROOT",
             manual_report=True,
+            fceb=True,
             retired=True,
         )
-        root = stakeholders.StakeholderDetails(tag="ROOT", fceb=True)
-        get_details.side_effect = [child, root]
+        get_details.return_value = child
 
         result = stakeholders.get_governing_stakeholder_details(
             "ROOT_CHILD", FakeConnection()
         )
 
-        self.assertEqual(result.tag, "ROOT")
+        self.assertIs(result, child)
         self.assertTrue(result.manual_report)
         self.assertTrue(result.retired)
         self.assertTrue(result.fceb)
-        self.assertEqual(get_details.call_count, 2)
+        get_details.assert_called_once_with("ROOT_CHILD", ANY)
 
     def test_create_stakeholder_takes_deletion_safety_lock(self) -> None:
         """Coordinate a new exact stakeholder with an active child deletion."""

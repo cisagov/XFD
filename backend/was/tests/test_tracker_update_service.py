@@ -71,6 +71,8 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertIn("exact_stakeholder.manual_report IS TRUE", safety_query)
         self.assertIn("exact_stakeholder.fceb IS TRUE", safety_query)
         self.assertIn("exact_stakeholder.retired IS TRUE", safety_query)
+        self.assertIn("candidate.tag = exact_stakeholder.tag", safety_query)
+        self.assertNotIn("configured_parent", safety_query)
         self.assertEqual(deletion_safety_lock_tags("tag"), ("TAG",))
 
     def test_actual_scan_bounds_do_not_change_parent_execution_identity(self) -> None:
@@ -137,6 +139,40 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertEqual(metadata.call_args.kwargs["tag"], "PARENT")
         self.assertIsNone(metadata.call_args.kwargs["tag_id"])
         self.assertTrue(metadata.call_args.kwargs["preserve_qualys_tag_id"])
+
+    def test_exact_child_refresh_updates_its_own_scan_metadata(self) -> None:
+        """Update an enrolled child instead of its hierarchy parent."""
+        item = replace(self.removal_item(False), tag="PARENT_CHILD", tag_id=99)
+        stakeholder = Mock(
+            tag="PARENT_CHILD",
+            parent_tag="PARENT",
+            was_report_poc="Child POC",
+            tech_poc_email="child@example.gov",
+            distro_email=None,
+            comments=None,
+            report_password="child-password",
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=stakeholder,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata:
+            row = build_tracker_row(
+                Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2)
+            )
+
+        self.assertEqual(row.tag, "PARENT_CHILD")
+        self.assertEqual(row.poc, "Child POC")
+        self.assertEqual(row.poc_email, "child@example.gov")
+        self.assertEqual(metadata.call_args.kwargs["tag"], "PARENT_CHILD")
+        self.assertEqual(metadata.call_args.kwargs["tag_id"], 99)
+        self.assertFalse(metadata.call_args.kwargs["preserve_qualys_tag_id"])
 
     def test_insert_and_incomplete_update_persist_both_actual_bounds(self) -> None:
         """Future refreshes bind start and end on both persistence branches."""

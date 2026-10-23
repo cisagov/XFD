@@ -564,15 +564,10 @@ def validate_current_deletion_safety(
             FROM (VALUES (%s::text)) AS target(tag)
             LEFT JOIN was_stakeholders AS exact_stakeholder
               ON exact_stakeholder.tag = target.tag
-            LEFT JOIN was_stakeholders AS configured_parent
-              ON configured_parent.tag = exact_stakeholder.parent_tag
             JOIN LATERAL (
                 SELECT candidate.*
                 FROM was_stakeholders AS candidate
-                WHERE candidate.tag = COALESCE(
-                        configured_parent.tag,
-                        exact_stakeholder.tag
-                      )
+                WHERE candidate.tag = exact_stakeholder.tag
                    OR (exact_stakeholder.tag IS NULL AND (
                         CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(target.tag)
                     AND LEFT(target.tag, CHAR_LENGTH(candidate.tag) + 1)

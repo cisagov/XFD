@@ -123,15 +123,10 @@ def inspect_exclusions(
                 FROM ranked tracker
                 LEFT JOIN was_stakeholders AS exact_stakeholder
                     ON exact_stakeholder.tag = tracker.tag
-                LEFT JOIN was_stakeholders AS configured_parent
-                    ON configured_parent.tag = exact_stakeholder.parent_tag
                 LEFT JOIN LATERAL (
                     SELECT candidate.*
                     FROM was_stakeholders AS candidate
-                    WHERE candidate.tag = COALESCE(
-                            configured_parent.tag,
-                            exact_stakeholder.tag
-                          )
+                    WHERE candidate.tag = exact_stakeholder.tag
                        OR (exact_stakeholder.tag IS NULL AND (
                             CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
                         AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
