@@ -1,4 +1,4 @@
-FROM node:20.19.4-alpine
+FROM node:26.12.0-alpine
 
 # Define arguments that we will pass from docker-compose
 # We set default values (1000) just in case the args aren't passed.
@@ -30,7 +30,10 @@ USER node
 # Because we updated the 'node' user's ID above, these files are now
 # owned by YOUR UID, not a generic 1000.
 COPY --chown=node:node ./package* ./
-COPY --chown=node:node patches/ ./patches
+
+# 5a. Apply any patches (optional)
+# Re-enable if you have any patches to apply
+# COPY --chown=node:node patches/ ./patches
 
 # 6. Install dependencies (runs as You)
 RUN npm ci --legacy-peer-deps

@@ -1,7 +1,7 @@
 import React from 'react';
 import classes from './Settings.module.css';
 import { useAuthContext } from 'context';
-import { Button } from '@trussworks/react-uswds';
+import Button from '@mui/material/Button';
 
 const Settings: React.FC = () => {
   const { logout, user } = useAuthContext();
@@ -20,7 +20,7 @@ const Settings: React.FC = () => {
             .join(', ')}
       </h2>
       <h2>Region: {user && user.region_id ? user.region_id : 'None'} </h2>
-      <Button type="button" onClick={logout}>
+      <Button variant="primaryContained" onClick={logout}>
         Logout
       </Button>
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import CSSBaseline from '@mui/material/CssBaseline';
 import {
   createTheme,
   ThemeProvider,
@@ -503,7 +504,10 @@ export const CFThemeProvider: React.FC<CFThemeProviderProps> = ({
 }) => {
   return (
     <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <ThemeProvider theme={theme}>
+        <CSSBaseline />
+        {children}
+      </ThemeProvider>
     </StyledEngineProvider>
   );
 };
