@@ -250,8 +250,8 @@ def test_standard_user_cannot_get_domain_from_other_organization(
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    assert response.status_code == 404
-    assert response.json() == {"detail": "Domain not found."}
+    assert response.status_code == 403
+    assert response.json() == {"detail": "You do not have access to this domain."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -265,7 +265,7 @@ def test_user_without_memberships_cannot_get_domain(user, domain):
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -290,7 +290,7 @@ def test_regional_admin_is_limited_to_their_region(user, domain):
         "/domain/{}".format(domain.id),
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -305,7 +305,7 @@ def test_regional_admin_without_region_cannot_get_domain(user, domain):
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

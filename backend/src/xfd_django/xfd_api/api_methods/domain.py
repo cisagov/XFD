@@ -82,6 +82,17 @@ def get_domain_by_id(domain_id: str, current_user):
         raise HTTPException(status_code=404, detail="Domain not found.")
 
     if domain is None:
+        try:
+            domain_exists = Domain.objects.filter(id=domain_id).exists()
+        except Exception as e:
+            LOGGER.error("Error occurred while checking domain existence: %s", e)
+            raise HTTPException(status_code=404, detail="Domain not found.")
+
+        if domain_exists:
+            raise HTTPException(
+                status_code=403, detail="You do not have access to this domain."
+            )
+
         raise HTTPException(status_code=404, detail="Domain not found.")
 
     try:
