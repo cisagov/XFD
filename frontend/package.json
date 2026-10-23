@@ -64,7 +64,7 @@
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
     "@vitejs/plugin-react": "^4.6.0",
-    "@vitest/coverage-istanbul": "^3.2.4",
+    "@vitest/coverage-istanbul": "^5.0.5",
     "eslint": "^8.26.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -95,7 +95,7 @@
     "undici": "^6.23.0",
     "vite": "^7.3.2",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.5"
   },
   "engines": {
     "node": ">=20.19.4"
