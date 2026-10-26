@@ -12,7 +12,9 @@ describe('error pages', () => {
     );
 
     expect(screen.getByText('403')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Access denied' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Access denied' })
+    ).toBeInTheDocument();
     expect(
       screen.getByText('You do not have permission to view this page.')
     ).toBeInTheDocument();
@@ -26,7 +28,9 @@ describe('error pages', () => {
     );
 
     expect(screen.getByText('404')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Page not found' })
+    ).toBeInTheDocument();
     expect(
       screen.getByText('The page or resource you requested could not be found.')
     ).toBeInTheDocument();

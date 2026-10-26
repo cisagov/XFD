@@ -9,8 +9,8 @@ from unittest.mock import patch
 from django.db import transaction
 from fastapi.testclient import TestClient
 import pytest
-from xfd_api.auth import create_jwt_token
 from xfd_api.api_methods.domain import apply_domain_access_filter
+from xfd_api.auth import create_jwt_token
 from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
     create_domain_materialized_view,
     create_domain_search_mat_view,
@@ -358,9 +358,7 @@ def test_search_domains_standard_user_sees_member_organizations(
     )
 
     assert response.status_code == 200
-    assert [result["id"] for result in response.json()["result"]] == [
-        str(domain.id)
-    ]
+    assert [result["id"] for result in response.json()["result"]] == [str(domain.id)]
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -406,9 +404,7 @@ def test_search_domains_regional_admin_sees_only_their_region(
     )
 
     assert response.status_code == 200
-    assert [result["id"] for result in response.json()["result"]] == [
-        str(domain.id)
-    ]
+    assert [result["id"] for result in response.json()["result"]] == [str(domain.id)]
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
