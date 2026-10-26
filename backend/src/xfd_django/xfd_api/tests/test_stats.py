@@ -1,4 +1,5 @@
 """Test Stats endpoint."""
+
 # Standard Python Libraries
 from asyncio import Semaphore
 from datetime import date, datetime, timedelta
@@ -9,11 +10,13 @@ import uuid
 # Third-Party Libraries
 from django.core.management import call_command
 from django.db import transaction
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 import pytest
 from redis import asyncio as aioredis
 from xfd_api.api_methods.stats import compute_segment_ranges
-from xfd_api.auth import create_jwt_token
+from xfd_api.auth import create_jwt_token, get_stats_org_ids
+from xfd_api.schema_models.organization_schema import StatsPayloadSchema
 from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
     create_domain_materialized_view,
     create_service_mat_view,
@@ -151,6 +154,120 @@ def organization():
     transaction.commit()
     assert organization.name == search_fields["organization_name"]
     yield organization
+
+
+def stats_filters(*organization_ids):
+    """Build a stats payload with explicit organization filters."""
+    return StatsPayloadSchema(
+        filters={
+            "organizations": [
+                str(organization_id) for organization_id in organization_ids
+            ]
+        }
+    )
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_stats_org_ids_requires_membership_for_each_requested_organization(
+    user, organization
+):
+    """Standard users cannot use one membership to access another organization."""
+    foreign_organization = Organization.objects.create(
+        name="Foreign Stats Organization",
+        root_domains=["foreign-stats.example"],
+        ip_blocks=[],
+        is_passive=False,
+    )
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=organization, role="user")
+
+    assert get_stats_org_ids(user, stats_filters(organization.id)) == {
+        str(organization.id)
+    }
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_stats_org_ids(user, stats_filters(foreign_organization.id))
+
+    assert exc_info.value.status_code == 403
+    assert (
+        exc_info.value.detail
+        == "User does not have access to the specified organizations."
+    )
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_stats_org_ids_rejects_mixed_authorized_and_unauthorized_organizations(
+    user, organization
+):
+    """Explicit organization filters are authorized atomically."""
+    foreign_organization = Organization.objects.create(
+        name="Mixed Foreign Stats Organization",
+        root_domains=["mixed-foreign-stats.example"],
+        ip_blocks=[],
+        is_passive=False,
+    )
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=organization, role="user")
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_stats_org_ids(user, stats_filters(organization.id, foreign_organization.id))
+
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_stats_org_ids_rejects_nonexistent_organization(user):
+    """Explicit filters cannot pass nonexistent organization IDs to stats queries."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_stats_org_ids(user, stats_filters(uuid.uuid4()))
+
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_stats_org_ids_limits_regional_admin_to_region_or_admin_role(
+    user, organization
+):
+    """Regional admins cannot use ordinary membership outside their region."""
+    in_region_organization = Organization.objects.create(
+        name="Regional Stats Organization",
+        root_domains=["regional-stats.example"],
+        ip_blocks=[],
+        is_passive=False,
+        region_id="7",
+    )
+    outside_region_organization = Organization.objects.create(
+        name="Outside Regional Stats Organization",
+        root_domains=["outside-regional-stats.example"],
+        ip_blocks=[],
+        is_passive=False,
+        region_id="8",
+    )
+    user.user_type = UserType.REGIONAL_ADMIN
+    user.region_id = "7"
+    user.save(update_fields=["user_type", "region_id"])
+    Role.objects.create(
+        user=user, organization=outside_region_organization, role="user"
+    )
+
+    assert get_stats_org_ids(user, stats_filters(in_region_organization.id)) == {
+        str(in_region_organization.id)
+    }
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_stats_org_ids(user, stats_filters(outside_region_organization.id))
+
+    assert exc_info.value.status_code == 403
+
+    Role.objects.create(user=user, organization=organization, role="admin")
+    assert get_stats_org_ids(user, stats_filters(organization.id)) == {
+        str(organization.id)
+    }
 
 
 # Create the views

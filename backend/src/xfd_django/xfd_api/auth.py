@@ -433,6 +433,50 @@ def matches_user_region(current_user, user_region_id: str) -> bool:
     return user_region_id == current_user.region_id
 
 
+def _get_explicit_stats_org_ids(current_user, organizations_filter):
+    """Validate explicit organization filters for a stats request."""
+    requested_org_ids = {str(org_id) for org_id in organizations_filter}
+
+    try:
+        existing_org_ids = {
+            str(org_id)
+            for org_id in Organization.objects.filter(
+                id__in=organizations_filter
+            ).values_list("id", flat=True)
+        }
+    except (TypeError, ValueError):
+        existing_org_ids = set()
+
+    if is_global_view_admin(current_user):
+        authorized_org_ids = existing_org_ids
+    elif current_user.user_type == "regionalAdmin":
+        authorized_org_ids = {
+            str(org_id)
+            for org_id in Role.objects.filter(
+                user=current_user, role="admin"
+            ).values_list("organization_id", flat=True)
+            if org_id
+        }
+
+        if current_user.region_id:
+            regional_org_ids = Organization.objects.filter(
+                region_id=current_user.region_id
+            ).values_list("id", flat=True)
+            authorized_org_ids.update(str(org_id) for org_id in regional_org_ids)
+    else:
+        authorized_org_ids = {
+            str(org_id) for org_id in get_org_memberships(current_user)
+        }
+
+    if not requested_org_ids.issubset(authorized_org_ids & existing_org_ids):
+        raise HTTPException(
+            status_code=403,
+            detail="User does not have access to the specified organizations.",
+        )
+
+    return requested_org_ids
+
+
 def get_stats_org_ids(current_user, filters):
     """Get organization ids that a user has access to for the stats."""
     # Extract filters from the Pydantic model
@@ -449,21 +493,9 @@ def get_stats_org_ids(current_user, filters):
 
     # Case 1: Explicit organization IDs in filters
     if organizations_filter:
-        # Check user type restrictions for provided organization IDs
-        for org_id in organizations_filter:
-            if (
-                is_global_view_admin(current_user)
-                or (is_regional_admin_for_organization(current_user, org_id))
-                or (is_org_admin(current_user, org_id))
-                or (get_org_memberships(current_user))
-            ):
-                organization_ids.add(org_id)
-
-        if not organization_ids:
-            raise HTTPException(
-                status_code=403,
-                detail="User does not have access to the specified organizations.",
-            )
+        organization_ids.update(
+            _get_explicit_stats_org_ids(current_user, organizations_filter)
+        )
 
     # Case 2: Global view admin (if no explicit organization filter)
     elif is_global_view_admin(current_user):
