@@ -26,7 +26,28 @@ from ..tasks.es_client import ESClient
 LOGGER = logging.getLogger(__name__)
 
 
-def get_domain_by_id(domain_id: str):
+def apply_domain_access_filter(queryset, current_user):
+    """Restrict a domain queryset to objects the user is allowed to view."""
+    if is_global_view_admin(current_user):
+        return queryset
+
+    if current_user.user_type == UserType.REGIONAL_ADMIN:
+        if not current_user.region_id:
+            return queryset.none()
+
+        region_org_ids = Organization.objects.filter(
+            region_id=current_user.region_id
+        ).values_list("id", flat=True)
+        return queryset.filter(organization_id__in=region_org_ids)
+
+    organization_ids = get_org_memberships(current_user)
+    if not organization_ids:
+        return queryset.none()
+
+    return queryset.filter(organization_id__in=organization_ids)
+
+
+def get_domain_by_id(domain_id: str, current_user):
     """
     Get domain by id.
 
@@ -35,7 +56,8 @@ def get_domain_by_id(domain_id: str):
     """
     try:
         domain = (
-            Domain.objects.select_related("organization")
+            apply_domain_access_filter(Domain.objects, current_user)
+            .select_related("organization")
             .prefetch_related(
                 "vulnerabilities",
                 Prefetch(
@@ -54,8 +76,23 @@ def get_domain_by_id(domain_id: str):
             .filter(id=domain_id)
             .first()
         )
+
     except Exception as e:
         LOGGER.error("Error occurred while fetching domain by ID: %s", e)
+        raise HTTPException(status_code=404, detail="Domain not found.")
+
+    if domain is None:
+        try:
+            domain_exists = Domain.objects.filter(id=domain_id).exists()
+        except Exception as e:
+            LOGGER.error("Error occurred while checking domain existence: %s", e)
+            raise HTTPException(status_code=404, detail="Domain not found.")
+
+        if domain_exists:
+            raise HTTPException(
+                status_code=403, detail="You do not have access to this domain."
+            )
+
         raise HTTPException(status_code=404, detail="Domain not found.")
 
     try:
@@ -183,26 +220,7 @@ def search_domains(domain_search: DomainSearch, current_user):
             DomainSearchView.objects.all(), domain_search.order, domain_search.sort
         )
 
-        # Apply global user permission filters
-        if (
-            not is_global_view_admin(current_user)
-            and not current_user.user_type == "regionalAdmin"
-        ):
-            orgs = get_org_memberships(current_user)
-            if not orgs:
-                return [], 0
-            domains = domains.filter(organization_id__in=orgs)
-
-        # Regional Admins can only view vulnerabilities in their region
-        if current_user.user_type == "regionalAdmin" and current_user.region_id:
-            # Get all organization IDs in this region
-            region_org_ids = list(
-                Organization.objects.filter(
-                    region_id=current_user.region_id
-                ).values_list("id", flat=True)
-            )
-
-            domains = domains.filter(organization_id__in=region_org_ids)
+        domains = apply_domain_access_filter(domains, current_user)
 
         # Apply filters if provided
         if domain_search.filters:

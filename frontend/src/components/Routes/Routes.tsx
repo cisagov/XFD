@@ -1,5 +1,5 @@
 import React from 'react';
-import { Switch } from 'react-router-dom';
+import { Route, Switch } from 'react-router-dom';
 import { RouteGuard } from 'components/Routes/RouteGuard';
 import {
   AdminTools,
@@ -13,7 +13,9 @@ import {
   Settings,
   Users,
   Vulnerabilities,
-  Vulnerability
+  Vulnerability,
+  Forbidden,
+  NotFound
 } from 'pages';
 import { VulnerabilityScanWithSearch } from '../Gates/VSDashboardGate';
 import { ROUTES } from '@/constants/routes';
@@ -21,6 +23,8 @@ import { ROUTES } from '@/constants/routes';
 export const Routes: React.FC = () => {
   return (
     <Switch>
+      <Route exact path={ROUTES.FORBIDDEN} component={Forbidden} />
+      <Route exact path={ROUTES.NOT_FOUND} component={NotFound} />
       <RouteGuard
         exact
         path={ROUTES.HOME}
@@ -100,6 +104,7 @@ export const Routes: React.FC = () => {
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
       />
+      <Route component={NotFound} />
     </Switch>
   );
 };
