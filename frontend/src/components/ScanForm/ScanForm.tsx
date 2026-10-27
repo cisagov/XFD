@@ -4,7 +4,7 @@ import { OrganizationTag, Scan, ScanSchema } from 'types';
 import {
   Button,
   Form,
-  Dropdown,
+  Select,
   TextInput,
   Checkbox,
   Label
@@ -242,7 +242,7 @@ export const ScanForm: React.FC<{
       {type === 'create' && scanSchema && (
         <>
           <Label htmlFor="name">Name</Label>
-          <Dropdown
+          <Select
             aria-label="Select scan dropdown"
             required
             id="name"
@@ -258,7 +258,7 @@ export const ScanForm: React.FC<{
                   {i}
                 </option>
               ))}
-          </Dropdown>
+          </Select>
         </>
       )}
 
@@ -405,7 +405,7 @@ export const ScanForm: React.FC<{
               onChange(e.target.name, Number(e.target.value));
             }}
           />
-          <Dropdown
+          <Select
             aria-label="Select frequency unit dropdown"
             id="frequencyUnit"
             name="frequencyUnit"
@@ -415,7 +415,7 @@ export const ScanForm: React.FC<{
           >
             <option value="hour">Hour(s)</option>
             <option value="day">Day(s)</option>
-          </Dropdown>
+          </Select>
         </div>
       )}
       <div className="form-group">
