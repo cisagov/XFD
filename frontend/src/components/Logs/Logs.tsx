@@ -117,7 +117,10 @@ export const Logs: FC<LogsProps> = () => {
         endpoint === ENDPOINTS.LOGS_FILTERED_SEARCH
           ? { page: 1, page_size: PAGE_SIZE, filters: tableFilters }
           : {};
-      const results = await apiPost(endpoint, { body });
+      const results = await apiPost<{ count: number; result: LogDetails[] }>(
+        endpoint,
+        { body }
+      );
 
       if (!results || !Array.isArray(results.result)) {
         logger.error('Logs.fetchLogs: Invalid response format', {

@@ -1,15 +1,13 @@
 """Populate command."""
 # Standard Python Libraries
+import logging
 import os
+import time
 
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 from django.db import connections
 from xfd_api.tasks.helpers.syncdb_helpers.adjust_columns import adjust_column_types
-from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
-    populate_sample_data,
-    populate_scan_results,
-)
 from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (  # sync_es_cves,
     manage_elasticsearch_indices,
     sync_es_cves,
@@ -21,6 +19,38 @@ from xfd_api.tasks.helpers.syncdb_helpers.fill_static_tables import (
 )
 from xfd_api.tasks.searchSync import handler as sync_es_domains
 from xfd_api.tasks.syncdb_task import drop_all_tables, synchronize
+
+LOGGER = logging.getLogger(__name__)
+
+
+def run_logged_step(step_name, func, *args, raise_on_error=True, **kwargs):
+    """
+    Run a single sync step with isolated logging.
+
+    Logs the start, success, duration, and full exception traceback for the
+    specific step.
+
+    If raise_on_error is True, exceptions are re-raised.
+    If raise_on_error is False, exceptions are logged and execution continues.
+    """
+    LOGGER.info("START: %s", step_name)
+    start_time = time.monotonic()
+
+    try:
+        result = func(*args, **kwargs)
+    except Exception:
+        elapsed = time.monotonic() - start_time
+        LOGGER.exception("FAILED: %s after %.2f seconds", step_name, elapsed)
+
+        if raise_on_error:
+            raise
+
+        return None
+
+    elapsed = time.monotonic() - start_time
+    LOGGER.info("SUCCESS: %s completed in %.2f seconds", step_name, elapsed)
+
+    return result
 
 
 class Command(BaseCommand):
@@ -133,26 +163,47 @@ class Command(BaseCommand):
         self.stdout.write("Database synchronization complete.")
 
         # Step 3: Elasticsearch Index Management
-        manage_elasticsearch_indices(dangerouslyforce)
+        run_logged_step(
+            "syncmdl.manage_elasticsearch_indices",
+            manage_elasticsearch_indices,
+            dangerouslyforce,
+            raise_on_error=False,
+        )
 
         # Step 4: Populate Sample Data
         if populate:
             self.stdout.write("Populating the database with sample data...")
-            populate_sample_data()
+            if os.getenv("IS_DMZ") or os.getenv("IS_LOCAL"):
+                # Third-Party Libraries
+                from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+                    populate_sample_data,
+                )
+
+                populate_sample_data()
 
             self.stdout.write("Sample data population complete.")
 
             # Step 4.1: Sync domains in ES
-            sync_es_domains({})
+            run_logged_step(
+                "syncmdl.sync_es_domains", sync_es_domains, {}, raise_on_error=False
+            )
 
             # Step 4.2: Sync CVEs in ES - moved here to ensure CVEs are synced inside the populate block to avoid erroring out when no Vulnerability Materialized Views exist yet.
-            sync_es_cves()
+            run_logged_step("syncmdl.sync_es_cves", sync_es_cves, raise_on_error=False)
 
         # Step 5: Sync organizations in ES - may not be needed since sync_es_domains() already syncs organizations, but keeping it for completeness
-        sync_es_organizations()
+        run_logged_step(
+            "syncmdl.sync_es_organizations", sync_es_organizations, raise_on_error=False
+        )
 
         # Step 6: Populate Scan Results
         if metrics:
-            self.stdout.write("Generating scan results...")
-            populate_scan_results()
-            self.stdout.write("Scan results population complete.")
+            if os.getenv("IS_DMZ") or os.getenv("IS_LOCAL"):
+                # Third-Party Libraries
+                from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+                    populate_scan_results,
+                )
+
+                self.stdout.write("Generating scan results...")
+                populate_scan_results()
+                self.stdout.write("Scan results population complete.")

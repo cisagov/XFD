@@ -1,0 +1,695 @@
+"""Stakeholder data access for WAS report generation."""
+
+# Future Python Libraries
+from __future__ import annotations
+
+# Standard Python Libraries
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+# Third-Party Libraries
+# First-Party Libraries
+from was_reports.data.daily_report_tracker import lock_tracker_tag
+from was_reports.utils.passwords import (
+    generate_report_password,
+    validate_report_password,
+)
+from was_reports.utils.stakeholder_validation import (
+    STAKEHOLDER_EMAIL_FIELDS,
+    validate_email_value,
+    validate_required_fields,
+    validate_stakeholder_tag,
+)
+from was_reports.utils.states import validate_state_code
+
+if TYPE_CHECKING:
+    # Third-Party Libraries
+    from psycopg2.extensions import connection
+
+
+@dataclass(frozen=True)
+class Stakeholder:
+    """Stakeholder fields required by WAS report generation."""
+
+    tag: str
+    report_password: str | None
+    next_scheduled: int | None = None
+    manual_report: bool = False
+    retired: bool = False
+    customer_name: str = ""
+    qualys_tag_id: int | None = None
+
+
+@dataclass(frozen=True)
+class StakeholderDetails:
+    """Stakeholder fields required by the WAS daily tracker."""
+
+    tag: str
+    was_report_poc: str | None = None
+    tech_poc_email: str | None = None
+    distro_email: str | None = None
+    comments: str | None = None
+    report_password: str | None = None
+    manual_report: bool = False
+    fceb: bool = False
+    retired: bool = False
+
+
+STAKEHOLDER_EXPORT_COLUMNS = (
+    "tag",
+    "customer_name",
+    "comments",
+    "location_notes",
+    "ci_type",
+    "testing_sector",
+    "subtype",
+    "distro_email",
+    "tech_poc_email",
+    "was_report_poc",
+    "frequency",
+    "num_web_apps",
+    "web_apps_last_updated",
+    "last_scanned",
+    "next_scheduled",
+    "onboarding_date",
+    "parent_tag",
+    "ticket",
+    "elections",
+    "fceb",
+    "manual_report",
+    "retired",
+    "state",
+    "created_at",
+    "updated_at",
+)
+STAKEHOLDER_CONTACT_COLUMNS = frozenset(
+    {"was_report_poc", "tech_poc_email", "distro_email"}
+)
+STAKEHOLDER_CREATE_COLUMNS = (
+    "tag",
+    "customer_name",
+    "comments",
+    "location_notes",
+    "ci_type",
+    "testing_sector",
+    "subtype",
+    "distro_email",
+    "tech_poc_email",
+    "was_report_poc",
+    "frequency",
+    "num_web_apps",
+    "web_apps_last_updated",
+    "last_scanned",
+    "next_scheduled",
+    "onboarding_date",
+    "parent_tag",
+    "ticket",
+    "elections",
+    "fceb",
+    "manual_report",
+    "retired",
+    "state",
+    "report_password",
+)
+STAKEHOLDER_VIEW_COLUMNS = STAKEHOLDER_CREATE_COLUMNS + (
+    "created_at",
+    "updated_at",
+)
+STAKEHOLDER_MUTABLE_COLUMNS = frozenset(STAKEHOLDER_CREATE_COLUMNS).difference(
+    {"tag", "report_password"}
+)
+DELETION_SAFETY_COLUMNS = frozenset({"fceb", "manual_report", "retired"})
+
+
+def get_stakeholder(tag: str, conn: connection) -> Stakeholder | None:
+    """Return a stakeholder record by tag."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT tag, report_password
+            FROM was_stakeholders
+            WHERE tag = %s
+            """,
+            (tag,),
+        )
+        row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return Stakeholder(tag=row[0], report_password=row[1])
+
+
+def get_stakeholder_details(
+    tag: str,
+    conn: connection,
+) -> StakeholderDetails | None:
+    """Return stakeholder fields required by the daily tracker."""
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                tag,
+                was_report_poc,
+                tech_poc_email,
+                distro_email,
+                comments,
+                report_password,
+                manual_report,
+                fceb,
+                retired
+            FROM was_stakeholders
+            WHERE tag = %s
+            """,
+            (tag,),
+        )
+        row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return StakeholderDetails(
+        tag=row[0],
+        was_report_poc=row[1],
+        tech_poc_email=row[2],
+        distro_email=row[3],
+        comments=row[4],
+        report_password=row[5],
+        manual_report=bool(row[6]),
+        fceb=bool(row[7]),
+        retired=bool(row[8]),
+    )
+
+
+def get_stakeholder_details_by_tag(tag: str) -> StakeholderDetails | None:
+    """Return stakeholder tracker details using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_stakeholder_details(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def get_stakeholder_record(
+    tag: str,
+    conn: connection,
+) -> dict[str, object]:
+    """Return one complete stakeholder row with its password masked."""
+    normalized_tag = validate_stakeholder_tag(tag)
+    select_expressions = [
+        (
+            "CASE WHEN report_password IS NULL OR report_password = '' "
+            "THEN '<missing>' ELSE '<configured>' END AS report_password"
+            if column_name == "report_password"
+            else column_name
+        )
+        for column_name in STAKEHOLDER_VIEW_COLUMNS
+    ]
+    # Selected columns come only from the immutable stakeholder schema tuple.
+    query = "SELECT {} FROM was_stakeholders WHERE tag = %s".format(  # nosec B608
+        ", ".join(select_expressions)
+    )
+    with conn.cursor() as cursor:
+        cursor.execute(query, (normalized_tag,))
+        row = cursor.fetchone()
+    if row is None:
+        raise KeyError("Stakeholder tag {} was not found.".format(normalized_tag))
+    return dict(zip(STAKEHOLDER_VIEW_COLUMNS, row))
+
+
+def get_stakeholder_record_by_tag(tag: str) -> dict[str, object]:
+    """Return one complete stakeholder row using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_stakeholder_record(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def update_stakeholder_fields(
+    tag: str,
+    updates: dict[str, object],
+    conn: connection,
+) -> None:
+    """Update selected allowlisted stakeholder business fields."""
+    normalized_tag = validate_stakeholder_tag(tag)
+    if not updates:
+        raise ValueError("At least one stakeholder field update is required.")
+    if set(updates).difference(STAKEHOLDER_MUTABLE_COLUMNS):
+        raise ValueError("Unsupported or protected stakeholder field.")
+
+    validated_updates = dict(updates)
+    validate_required_fields(validated_updates, require_all=False)
+    for field_name in STAKEHOLDER_EMAIL_FIELDS.intersection(validated_updates):
+        validate_email_value(validated_updates[field_name], field_name)
+    if validated_updates.get("state") is not None:
+        validated_updates["state"] = validate_state_code(
+            str(validated_updates["state"])
+        )
+
+    assignments = []
+    parameters: list[object] = []
+    for column_name in sorted(validated_updates):
+        assignments.append("{} = %s".format(column_name))
+        parameters.append(validated_updates[column_name])
+    assignments.append("updated_at = NOW()")
+    parameters.append(normalized_tag)
+    # Assignments are derived only from validated mutable-column allowlists.
+    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(  # nosec B608
+        ", ".join(assignments)
+    )
+    try:
+        if DELETION_SAFETY_COLUMNS.intersection(validated_updates):
+            lock_tracker_tag(conn, normalized_tag)
+        with conn.cursor() as cursor:
+            cursor.execute(query, tuple(parameters))
+            row = cursor.fetchone()
+        if row is None:
+            raise KeyError("Stakeholder tag {} was not found.".format(normalized_tag))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_stakeholder_fields_for_tag(
+    tag: str,
+    updates: dict[str, object],
+) -> None:
+    """Update selected stakeholder fields using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        update_stakeholder_fields(tag=tag, updates=updates, conn=conn)
+    finally:
+        close(conn)
+
+
+def update_stakeholder_contacts(
+    tag: str,
+    updates: dict[str, str | None],
+    conn: connection,
+) -> None:
+    """Update selected stakeholder POC and email fields."""
+    normalized_tag = validate_stakeholder_tag(tag)
+    if not updates:
+        raise ValueError("At least one stakeholder contact field is required.")
+    invalid_columns = set(updates).difference(STAKEHOLDER_CONTACT_COLUMNS)
+    if invalid_columns:
+        raise ValueError("Unsupported stakeholder contact field.")
+    for field_name in STAKEHOLDER_EMAIL_FIELDS.intersection(updates):
+        validate_email_value(updates[field_name], field_name)
+
+    assignments = []
+    parameters: list[object] = []
+    for column_name in sorted(updates):
+        assignments.append("{} = %s".format(column_name))
+        parameters.append(updates[column_name])
+    assignments.append("updated_at = NOW()")
+    parameters.append(normalized_tag)
+
+    # Assignments are derived only from the contact-column allowlist.
+    query = "UPDATE was_stakeholders SET {} WHERE tag = %s RETURNING tag".format(  # nosec B608
+        ", ".join(assignments)
+    )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, tuple(parameters))
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is None:
+        raise KeyError("Stakeholder tag {} was not found.".format(normalized_tag))
+
+
+def update_stakeholder_contacts_for_tag(
+    tag: str,
+    updates: dict[str, str | None],
+) -> None:
+    """Update stakeholder contact fields using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        update_stakeholder_contacts(tag=tag, updates=updates, conn=conn)
+    finally:
+        close(conn)
+
+
+def create_stakeholder(values: dict[str, object], conn: connection) -> str:
+    """Insert one stakeholder and generate its report password."""
+    expected_columns = set(STAKEHOLDER_CREATE_COLUMNS).difference({"report_password"})
+    if set(values) != expected_columns:
+        raise ValueError("Stakeholder creation fields are incomplete or unsupported.")
+
+    insert_values = dict(values)
+    insert_values["tag"] = validate_stakeholder_tag(insert_values["tag"])
+    validate_required_fields(insert_values, require_all=True)
+    for field_name in STAKEHOLDER_EMAIL_FIELDS:
+        validate_email_value(insert_values.get(field_name), field_name)
+    if insert_values.get("state") is not None:
+        insert_values["state"] = validate_state_code(str(insert_values["state"]))
+    insert_values["report_password"] = generate_report_password()
+    columns = list(STAKEHOLDER_CREATE_COLUMNS)
+    placeholders = ", ".join(["%s"] * len(columns))
+    # Column names come only from the immutable stakeholder creation schema.
+    query = (
+        "INSERT INTO was_stakeholders ({}) VALUES ({}) "  # nosec B608
+        "ON CONFLICT (tag) DO NOTHING RETURNING tag"
+    ).format(", ".join(columns), placeholders)
+    try:
+        lock_tracker_tag(conn, str(insert_values["tag"]))
+        with conn.cursor() as cursor:
+            cursor.execute(
+                query,
+                tuple(insert_values[column] for column in columns),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            conn.rollback()
+            raise ValueError("Stakeholder tag already exists.")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return str(row[0])
+
+
+def create_stakeholder_in_db(values: dict[str, object]) -> str:
+    """Insert one stakeholder using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return create_stakeholder(values=values, conn=conn)
+    finally:
+        close(conn)
+
+
+def list_stakeholders_for_export(
+    conn: connection,
+    include_report_passwords: bool = False,
+) -> tuple[list[str], list[tuple[object, ...]]]:
+    """Return stakeholder export columns and rows in stable tag order."""
+    columns = list(STAKEHOLDER_EXPORT_COLUMNS)
+    if include_report_passwords:
+        columns.insert(-2, "report_password")
+    # Export columns come only from the immutable stakeholder schema tuple.
+    query = "SELECT {} FROM was_stakeholders ORDER BY tag ASC".format(  # nosec B608
+        ", ".join(columns)
+    )
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        rows = cursor.fetchall()
+    return columns, rows
+
+
+def list_stakeholders_for_export_from_db(
+    include_report_passwords: bool = False,
+) -> tuple[list[str], list[tuple[object, ...]]]:
+    """Return stakeholder export data using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_stakeholders_for_export(
+            conn=conn,
+            include_report_passwords=include_report_passwords,
+        )
+    finally:
+        close(conn)
+
+
+def update_scan_metadata(
+    tag: str,
+    last_scanned: int,
+    next_scheduled: int | None,
+    num_web_apps: int,
+    web_apps_last_updated: int,
+    qualys_tag_id: int | None,
+    conn: connection,
+) -> None:
+    """Update scan dates and web app counts for a stakeholder."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_stakeholders
+                SET last_scanned = %s,
+                    next_scheduled = %s,
+                    num_web_apps = %s,
+                    web_apps_last_updated = %s,
+                    qualys_tag_id = %s,
+                    updated_at = NOW()
+                WHERE tag = %s
+                """,
+                (
+                    last_scanned,
+                    next_scheduled,
+                    num_web_apps,
+                    web_apps_last_updated,
+                    qualys_tag_id,
+                    tag,
+                ),
+            )
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def update_scan_metadata_for_tag(
+    tag: str,
+    last_scanned: int,
+    next_scheduled: int | None,
+    num_web_apps: int,
+    web_apps_last_updated: int,
+    qualys_tag_id: int | None,
+) -> None:
+    """Update scan metadata using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        update_scan_metadata(
+            tag=tag,
+            last_scanned=last_scanned,
+            next_scheduled=next_scheduled,
+            num_web_apps=num_web_apps,
+            web_apps_last_updated=web_apps_last_updated,
+            qualys_tag_id=qualys_tag_id,
+            conn=conn,
+        )
+    finally:
+        close(conn)
+
+
+def list_due_stakeholders(
+    conn: connection,
+    current_epoch: int,
+    include_manual: bool = False,
+    include_retired: bool = False,
+    limit: int | None = None,
+) -> list[Stakeholder]:
+    """Return stakeholders whose scheduled report date is due."""
+    query = """
+        SELECT tag, report_password, next_scheduled, manual_report, retired,
+               customer_name, qualys_tag_id
+        FROM was_stakeholders
+        WHERE next_scheduled IS NOT NULL
+          AND next_scheduled <= %s
+    """
+    parameters = [current_epoch]
+
+    if not include_manual:
+        query += " AND manual_report IS NOT TRUE"
+
+    if not include_retired:
+        query += " AND retired IS NOT TRUE"
+
+    query += " ORDER BY next_scheduled ASC, tag ASC"
+
+    if limit is not None:
+        query += " LIMIT %s"
+        parameters.append(limit)
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, tuple(parameters))
+        rows = cursor.fetchall()
+
+    stakeholders = []
+    for row in rows:
+        stakeholders.append(
+            Stakeholder(
+                tag=row[0],
+                report_password=row[1],
+                next_scheduled=row[2],
+                manual_report=bool(row[3]),
+                retired=bool(row[4]),
+                customer_name=(row[5] or row[0]) if len(row) > 5 else row[0],
+                qualys_tag_id=row[6] if len(row) > 6 else None,
+            )
+        )
+
+    return stakeholders
+
+
+def list_due_stakeholders_for_report(
+    current_epoch: int,
+    include_manual: bool = False,
+    include_retired: bool = False,
+    limit: int | None = None,
+) -> list[Stakeholder]:
+    """Return due stakeholders using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return list_due_stakeholders(
+            conn=conn,
+            current_epoch=current_epoch,
+            include_manual=include_manual,
+            include_retired=include_retired,
+            limit=limit,
+        )
+    finally:
+        close(conn)
+
+
+def get_report_password(tag: str) -> str | None:
+    """Return the WAS report password for a stakeholder tag."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        stakeholder = get_stakeholder(tag, conn)
+    finally:
+        close(conn)
+
+    if stakeholder is None:
+        return None
+
+    return stakeholder.report_password
+
+
+def create_report_password(tag: str, conn: connection) -> str:
+    """Create and save a report password for a stakeholder when one is absent."""
+    generated_password = generate_report_password()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_stakeholders
+                SET report_password = %s,
+                    updated_at = NOW()
+                WHERE tag = %s
+                  AND (report_password IS NULL OR report_password = '')
+                RETURNING report_password
+                """,
+                (generated_password, tag),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is not None:
+        return row[0]
+
+    existing_password = get_stakeholder(tag, conn)
+    if existing_password is None:
+        raise KeyError("Stakeholder tag {} was not found.".format(tag))
+
+    if not existing_password.report_password:
+        raise RuntimeError(
+            "Unable to create report password for stakeholder tag {}.".format(tag)
+        )
+
+    return existing_password.report_password
+
+
+def create_report_password_for_tag(tag: str) -> str:
+    """Create and save a report password using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return create_report_password(tag, conn)
+    finally:
+        close(conn)
+
+
+def update_report_password(tag: str, report_password: str, conn: connection) -> str:
+    """Update and return the report password for a stakeholder."""
+    validate_report_password(report_password)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE was_stakeholders
+                SET report_password = %s,
+                    updated_at = NOW()
+                WHERE tag = %s
+                RETURNING report_password
+                """,
+                (report_password, tag),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    if row is None:
+        raise KeyError("Stakeholder tag {} was not found.".format(tag))
+
+    return row[0]
+
+
+def update_report_password_for_tag(tag: str, report_password: str) -> str:
+    """Update a stakeholder report password using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return update_report_password(tag, report_password, conn)
+    finally:
+        close(conn)
+
+
+def rotate_report_password(tag: str, conn: connection) -> str:
+    """Generate, update, and return a new stakeholder report password."""
+    generated_password = generate_report_password()
+    return update_report_password(tag, generated_password, conn)
+
+
+def rotate_report_password_for_tag(tag: str) -> str:
+    """Rotate a stakeholder report password using a managed database connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return rotate_report_password(tag, conn)
+    finally:
+        close(conn)

@@ -14,12 +14,13 @@ from psycopg2 import OperationalError, sql
 from psycopg2.extensions import AsIs
 import requests
 
-from .config import PE_API_REQUEST_TIMEOUT, config, staging_config
+from .config import PE_API_REQUEST_TIMEOUT, config, config_cyhy_dash_db, staging_config
 
 # Setup logging to central file
 LOGGER = logging.getLogger(__name__)
 
 CONN_PARAMS_DIC = config()
+CONN_PARAMS_DIC_CYHY_DASH_DB = config_cyhy_dash_db()
 
 # These need to filled with API key/url path in database.ini
 API_DIC = staging_config(section="pe_api")
@@ -74,10 +75,22 @@ def _rollback_query_error(conn, error):
 
 
 def connect():
-    """Connect to PostgreSQL database."""
+    """Connect to PostgreSQL PE database."""
     conn = None
     try:
         conn = psycopg2.connect(**CONN_PARAMS_DIC)
+    except OperationalError as err:
+        LOGGER.error(err)
+        show_psycopg2_exception(err)
+        conn = None
+    return conn
+
+
+def connect_cyhy_dash_db():
+    """Connect to PostgreSQL CyHy Dash database."""
+    conn = None
+    try:
+        conn = psycopg2.connect(**CONN_PARAMS_DIC_CYHY_DASH_DB)
     except OperationalError as err:
         LOGGER.error(err)
         show_psycopg2_exception(err)
@@ -344,10 +357,14 @@ def query_cidrs_by_org(org_uid):
     data = json.dumps({"org_uid": org_uid})
     try:
         # Call endpoint
-        result = requests.post(
+        response = requests.post(
             endpoint_url, headers=headers, data=data, timeout=PE_API_REQUEST_TIMEOUT
-        ).json()
+        )
+        response.raise_for_status()
+        result = response.json()
         # Process data and return
+        if not isinstance(result, list):
+            raise ValueError("cidrs_by_org API response was not a list")
         result_df = _dataframe_from_api_json(result)
         if result_df.empty:
             return _empty_dataframe(["network"])
@@ -361,17 +378,17 @@ def query_cidrs_by_org(org_uid):
         result_df["first_seen"] = pd.to_datetime(result_df["first_seen"]).dt.date
         result_df["last_seen"] = pd.to_datetime(result_df["last_seen"]).dt.date
         return result_df
-    except requests.exceptions.HTTPError as errh:
-        LOGGER.error(errh)
-    except requests.exceptions.ConnectionError as errc:
-        LOGGER.error(errc)
-    except requests.exceptions.Timeout as errt:
-        LOGGER.error(errt)
-    except requests.exceptions.RequestException as err:
-        LOGGER.error(err)
-    except json.decoder.JSONDecodeError as err:
-        LOGGER.error(err)
-    return _empty_dataframe(["network"])
+    except (
+        requests.exceptions.RequestException,
+        json.decoder.JSONDecodeError,
+        ValueError,
+    ) as err:
+        LOGGER.error(
+            "Failed to retrieve CIDRs for organization %s: %s",
+            org_uid,
+            err,
+        )
+        return None
 
 
 # --- Issue 619 ---
@@ -734,7 +751,6 @@ def query_darkweb(org_uid, start_date, end_date, table):
         "vw_darkweb_inviteonlymarkets",
         "vw_darkweb_socmedia_mostactposts",
         "vw_darkweb_mostactposts",
-        "vw_darkweb_execalerts",
         "vw_darkweb_assetalerts",
         "vw_darkweb_threatactors",
         "vw_darkweb_potentialthreats",
@@ -804,7 +820,6 @@ def query_darkweb_asset_alerts(org_uid, start_date, end_date, table):
         WHERE
             a.organizations_uid = %(org_uid)s AND
             a.date between %(start_date)s AND %(end_date)s AND
-            a.alert_name !~~ '%%executive%%'::text AND
             a.site IS NOT NULL AND
             a.site <> 'NaN'::text
         ) q1

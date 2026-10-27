@@ -18,6 +18,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import KeyboardBackspace from '@mui/icons-material/KeyboardBackspace';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
+import { isApiError } from '@/hooks/useApi';
 import { DefinitionList } from 'components/DefinitionList';
 // @ts-ignore:next-line
 import { differenceInCalendarDays, parseISO } from 'date-fns';
@@ -159,8 +160,15 @@ export const DomainDetails: React.FC<Props> = (props) => {
       setDomain(result);
     } catch (e) {
       logger.error('DomainDetails.fetchDomain failed:', { error: e, domainId });
+      if (isApiError(e)) {
+        if (e.status === 403) {
+          history.replace(ROUTES.FORBIDDEN);
+        } else if (e.status === 404) {
+          history.replace(ROUTES.NOT_FOUND);
+        }
+      }
     }
-  }, [domainId, getDomain]);
+  }, [domainId, getDomain, history]);
 
   useEffect(() => {
     fetchDomain();

@@ -1,0 +1,414 @@
+"""Create legacy-compatible WAS report attachment artifacts."""
+
+# Standard Python Libraries
+import base64
+import csv
+from dataclasses import dataclass
+from itertools import zip_longest
+import logging
+from pathlib import Path
+from typing import Any, List, Sequence, Tuple, Union
+
+# Third-Party Libraries
+from defusedxml import ElementTree as DefusedElementTree
+from defusedxml.common import DefusedXmlException
+
+# lxml is used only to construct trusted outbound Qualys request XML.
+from lxml import etree, objectify  # nosec B410
+
+# The builder creates elements from application-controlled names.
+from lxml.builder import E  # nosec B410
+from requests.exceptions import HTTPError
+
+# First-Party Libraries
+from was_reports.qualys.qualys_client import QualysClient, QualysRequest
+from was_reports.reporting.report_transformer import (
+    csv_row,
+    parse_report,
+    spreadsheet_safe_field,
+)
+
+LINKS_CRAWLED_QID = "150009"
+EMAILS_FOUND_QID = "150054"
+REJECTED_LINKS_QID = "150041"
+SSN_QIDS = ("150034", "150603")
+CREDIT_CARD_QIDS = ("150033", "150080")
+SENSITIVE_FINDING_ENDPOINT = "/search/was/finding"
+MAX_SENSITIVE_FINDING_PAGES = 10000
+UNSUPPORTED_MODULE_MESSAGE = (
+    "An error occurred during activation request processing. "
+    "Module is not supported for this agent."
+)
+LOGGER = logging.getLogger(__name__)
+
+
+class SensitiveFindingUnavailableError(RuntimeError):
+    """Signal vendor OTHER_ERROR without exposing response or finding payloads."""
+
+
+@dataclass(frozen=True)
+class ReportArtifactResult:
+    """Filenames for report attachments produced from Qualys data."""
+
+    vulnerabilities_by_webapp: str
+    application_overview: str
+    links_crawled: str
+    emails_found: str
+    rejected_links: str
+    sensitive_data: str
+
+
+def _parse_failure_xml(content: bytes) -> Any | None:
+    """Parse bounded vendor failure XML without DTD or entity processing."""
+    try:
+        return DefusedElementTree.fromstring(content, forbid_dtd=True)
+    except (DefusedElementTree.ParseError, DefusedXmlException):
+        return None
+
+
+def _write_lines(path: Path, lines: Sequence[str]) -> None:
+    """Write text lines using the newline behavior of the legacy artifacts."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_vulnerabilities_by_webapp(
+    report_xml: Union[str, bytes, object],
+    stakeholder_tag: str,
+    asset_directory: Path,
+) -> str:
+    """Write vulnerability severity totals for every web application."""
+    report = parse_report(report_xml)
+    filename = "vulns-by-webapp-{}.csv".format(stakeholder_tag)
+    lines = ["WEBAPP,LEVEL 1,LEVEL 2,LEVEL 3,LEVEL 4,LEVEL 5,TOTAL"]
+    for summary in report.xpath("./SUMMARY/SUMMARY_STATS/SUMMARY_STAT"):
+        severity_counts = [
+            int(str(summary["LEVEL{}".format(level)])) for level in range(1, 6)
+        ]
+        lines.append(
+            csv_row(
+                [
+                    str(summary.WEB_APPLICATION),
+                    severity_counts[0],
+                    severity_counts[1],
+                    severity_counts[2],
+                    severity_counts[3],
+                    severity_counts[4],
+                    sum(severity_counts),
+                ]
+            )
+        )
+    _write_lines(asset_directory / filename, lines)
+    return filename
+
+
+def write_application_overview(
+    report_xml: Union[str, bytes, object],
+    stakeholder_tag: str,
+    asset_directory: Path,
+) -> str:
+    """Write the legacy web application overview attachment."""
+    report = parse_report(report_xml)
+    filename = "webapp-overview-{}.csv".format(stakeholder_tag)
+    lines = ["WEBAPP,URL,SCOPE,DETECTED OS"]
+    for web_application in report.xpath("./APPENDIX/WEB_APPLICATION"):
+        operating_systems = web_application.xpath("./OPERATING_SYSTEM")
+        operating_system = str(operating_systems[0]) if operating_systems else "N/A"
+        lines.append(
+            csv_row(
+                [
+                    str(web_application.NAME),
+                    str(web_application.URL),
+                    str(web_application.SCOPE),
+                    operating_system,
+                ]
+            )
+        )
+    _write_lines(asset_directory / filename, lines)
+    return filename
+
+
+def _decoded_information_values(web_application, qid: str) -> List[str]:
+    """Return decoded data values for one information-gathered QID."""
+    values: List[str] = []
+    for information in web_application.xpath(
+        "./INFORMATION_GATHERED_LIST/INFORMATION_GATHERED"
+    ):
+        if str(information.QID) != qid:
+            continue
+        encoded_values = information.xpath("./DATA")
+        if not encoded_values:
+            continue
+        decoded_data = base64.b64decode(str(encoded_values[0]))
+        values.extend(line.decode("utf-8") for line in decoded_data.splitlines())
+    return values
+
+
+def write_information_attachment(
+    report_xml: Union[str, bytes, object],
+    stakeholder_tag: str,
+    asset_directory: Path,
+    filename_prefix: str,
+    heading: str,
+    qid: str,
+) -> str:
+    """Write one legacy information-gathered attachment."""
+    report = parse_report(report_xml)
+    filename = "{}-{}.csv".format(filename_prefix, stakeholder_tag)
+    lines: List[str] = []
+    for web_application in report.xpath("./RESULTS/WEB_APPLICATION"):
+        lines.extend(
+            [
+                "",
+                csv_row(["{} {}:".format(heading, str(web_application.NAME))]),
+            ]
+        )
+        lines.extend(
+            csv_row([value])
+            for value in _decoded_information_values(web_application, qid)
+        )
+    _write_lines(asset_directory / filename, lines)
+    return filename
+
+
+def build_sensitive_finding_payload(
+    stakeholder_tag: str,
+    qids: Sequence[str],
+    last_id: int | None = None,
+) -> str:
+    """Build a Qualys request for active non-false-positive sensitive findings."""
+    root = E.ServiceRequest(
+        E.preferences(E.limitResults("1000"), E.verbose("true")),
+        E.filters(
+            E.Criteria(", ".join(qids), field="qid", operator="IN"),
+            E.Criteria(
+                stakeholder_tag,
+                field="webApp.tags.name",
+                operator="EQUALS",
+            ),
+            E.Criteria(
+                "FALSE_POSITIVE",
+                field="ignoredReason",
+                operator="NOT EQUALS",
+            ),
+            E.Criteria("FIXED", field="status", operator="NOT EQUALS"),
+        ),
+    )
+    if last_id is not None:
+        root.find("filters").append(
+            E.Criteria(str(last_id), field="id", operator="GREATER")
+        )
+    objectify.deannotate(root, xsi_nil=True, pytype=True, xsi=True)
+    return etree.tostring(root).decode()
+
+
+def parse_sensitive_findings(response_xml: str) -> Tuple[List[str], List[str]]:
+    """Return links and response payloads from a Qualys finding response."""
+    root = parse_report(response_xml)
+    links: List[str] = []
+    responses: List[str] = []
+    for finding in root.xpath("./data/Finding"):
+        payload_instances = finding.xpath(
+            "./resultList/list/Result/payloads/list/PayloadInstance"
+        )
+        for payload_instance in payload_instances:
+            response_values = payload_instance.xpath("./response")
+            link_values = payload_instance.xpath("./request/link")
+            if response_values and link_values:
+                links.append(str(link_values[0]))
+                responses.append(str(response_values[0]))
+    return links, responses
+
+
+def retrieve_sensitive_findings(
+    client: QualysClient,
+    stakeholder_tag: str,
+    qids: Sequence[str],
+) -> Tuple[List[str], List[str]]:
+    """Retrieve sensitive findings for one stakeholder and QID collection."""
+    links: List[str] = []
+    responses: List[str] = []
+    last_id = None
+    for unused_page in range(MAX_SENSITIVE_FINDING_PAGES):
+        response_xml = client.request(
+            QualysRequest(
+                endpoint=SENSITIVE_FINDING_ENDPOINT,
+                payload=build_sensitive_finding_payload(stakeholder_tag, qids, last_id),
+                http_method="POST",
+            )
+        )
+        root = parse_report(response_xml)
+        response_code = root.findtext("responseCode")
+        if response_code == "OTHER_ERROR":
+            raise SensitiveFindingUnavailableError(
+                "Qualys sensitive finding search returned OTHER_ERROR."
+            )
+        if response_code is not None and response_code != "SUCCESS":
+            raise RuntimeError("Qualys sensitive finding search was rejected.")
+        page_links, page_responses = parse_sensitive_findings(response_xml)
+        links.extend(page_links)
+        responses.extend(page_responses)
+        has_more = (root.findtext("hasMoreRecords") or "").strip().lower()
+        if has_more == "false":
+            return links, responses
+        if has_more != "true":
+            raise ValueError("Qualys finding pagination flag is invalid.")
+        next_id = root.findtext("lastId")
+        if next_id is None or not next_id.isdecimal():
+            raise ValueError("Qualys finding pagination cursor is missing or invalid.")
+        next_id = int(next_id)
+        if last_id is not None and next_id <= last_id:
+            raise ValueError("Qualys finding pagination cursor did not advance.")
+        last_id = next_id
+    raise RuntimeError("Qualys finding pagination exceeded the safety page limit.")
+
+
+def is_unsupported_module_error(error: HTTPError) -> bool:
+    """Return whether Qualys rejected a request for an unsupported module."""
+    response = error.response
+    if (
+        response is None
+        or not 400 <= response.status_code < 600
+        or not response.content
+    ):
+        return False
+    root = _parse_failure_xml(response.content)
+    if root is None:
+        return False
+    message = root.findtext("./responseErrorDetails/errorMessage")
+    return bool(message) and message.strip() == UNSUPPORTED_MODULE_MESSAGE
+
+
+def retrieve_sensitive_findings_or_unavailable(
+    client: QualysClient,
+    stakeholder_tag: str,
+    qids: Sequence[str],
+    finding_label: str,
+) -> Tuple[List[str], List[str]]:
+    """Return findings or an unavailable marker for the known Qualys error."""
+    try:
+        return retrieve_sensitive_findings(client, stakeholder_tag, qids)
+    except HTTPError as error:
+        if error.response is not None and error.response.status_code in {401, 403}:
+            raise
+        if is_sensitive_other_error(error):
+            raise SensitiveFindingUnavailableError(
+                "Qualys sensitive finding search returned OTHER_ERROR."
+            ) from None
+        if not is_unsupported_module_error(error):
+            raise
+        LOGGER.warning(
+            "Qualys %s finding data is unavailable for stakeholder %s because "
+            "the scanner agent does not support the required module.",
+            finding_label,
+            stakeholder_tag,
+        )
+        return ["{} data unavailable from Qualys.".format(finding_label)], []
+
+
+def is_sensitive_other_error(error: HTTPError) -> bool:
+    """Recognize explicit vendor failure XML without suppressing authorization."""
+    response = error.response
+    if (
+        response is None
+        or not 400 <= response.status_code < 600
+        or response.status_code in {401, 403}
+        or not response.content
+    ):
+        return False
+    root = _parse_failure_xml(response.content)
+    if root is None:
+        return False
+    return root.findtext("responseCode") == "OTHER_ERROR"
+
+
+def write_sensitive_data_attachment(
+    client: QualysClient,
+    stakeholder_tag: str,
+    asset_directory: Path,
+) -> str:
+    """Write header-only sensitive data CSV while Qualys SSN/CC queries are disabled."""
+    # TODO: Re-enable only after explicit validation and operator approval.
+    # Operator reports Qualys plans a fix for 2026-10-09. Do not automatically
+    # re-enable on that date. Finding-age lookups are unrelated and remain active.
+    # ssn_links, ssn_values = retrieve_sensitive_findings_or_unavailable(
+    #     client, stakeholder_tag, SSN_QIDS, "SSN"
+    # )
+    # card_links, card_values = retrieve_sensitive_findings_or_unavailable(
+    #     client, stakeholder_tag, CREDIT_CARD_QIDS, "Credit Card"
+    # )
+    ssn_links: list[str] = []
+    ssn_values: list[str] = []
+    card_links: list[str] = []
+    card_values: list[str] = []
+    LOGGER.warning(
+        "SSN and credit-card queries are temporarily disabled for stakeholder %s "
+        "due to a known Qualys issue; sensitive data is unavailable. "
+        "Leaving Attachment 7 unpopulated, not reporting no findings.",
+        stakeholder_tag,
+    )
+
+    filename = "ssn-and-cc-found.csv"
+    output_path = asset_directory / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8", newline="") as output_file:
+        writer = csv.writer(output_file, lineterminator="\r\n")
+        writer.writerow(["SSN URL", "SSN FOUND", "", "CC URL", "CREDIT CARD FOUND"])
+        for ssn_link, ssn_value, card_link, card_value in zip_longest(
+            ssn_links,
+            ssn_values,
+            card_links,
+            card_values,
+            fillvalue="",
+        ):
+            writer.writerow(
+                [
+                    spreadsheet_safe_field(value)
+                    for value in (ssn_link, ssn_value, "", card_link, card_value)
+                ]
+            )
+    return filename
+
+
+def generate_report_artifacts(
+    report_xml: Union[str, bytes, object],
+    stakeholder_tag: str,
+    asset_directory: Path,
+    client: QualysClient,
+) -> ReportArtifactResult:
+    """Create the active report attachment artifacts used by the template."""
+    return ReportArtifactResult(
+        vulnerabilities_by_webapp=write_vulnerabilities_by_webapp(
+            report_xml, stakeholder_tag, asset_directory
+        ),
+        application_overview=write_application_overview(
+            report_xml, stakeholder_tag, asset_directory
+        ),
+        links_crawled=write_information_attachment(
+            report_xml,
+            stakeholder_tag,
+            asset_directory,
+            "links-crawled",
+            "Links for web application",
+            LINKS_CRAWLED_QID,
+        ),
+        emails_found=write_information_attachment(
+            report_xml,
+            stakeholder_tag,
+            asset_directory,
+            "emails-found",
+            "Emails found for web application",
+            EMAILS_FOUND_QID,
+        ),
+        rejected_links=write_information_attachment(
+            report_xml,
+            stakeholder_tag,
+            asset_directory,
+            "rejected-links",
+            "Rejected Links found for web application",
+            REJECTED_LINKS_QID,
+        ),
+        sensitive_data=write_sensitive_data_attachment(
+            client, stakeholder_tag, asset_directory
+        ),
+    )

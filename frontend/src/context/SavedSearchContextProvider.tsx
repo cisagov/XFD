@@ -9,6 +9,10 @@ interface SavedSearchContextProviderProps {
   children: React.ReactNode;
 }
 
+type SavedSearchesResponse = {
+  result: SavedSearch[];
+};
+
 export const SavedSearchContextProvider: React.FC<
   SavedSearchContextProviderProps
 > = ({ children }) => {
@@ -19,7 +23,9 @@ export const SavedSearchContextProvider: React.FC<
 
   const fetchSearches = useCallback(async () => {
     try {
-      const response = await apiGet(ENDPOINTS.SAVED_SEARCHES);
+      const response = await apiGet<SavedSearchesResponse>(
+        ENDPOINTS.SAVED_SEARCHES
+      );
       setSavedSearches(response.result);
       setSavedSearchCount(response.result.length);
     } catch (e) {

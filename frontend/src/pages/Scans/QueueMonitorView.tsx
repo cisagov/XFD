@@ -28,6 +28,11 @@ interface Queue {
   messages_delayed: number;
 }
 
+type QueueSearchResponse = {
+  result: Queue[];
+  count: number;
+};
+
 const QueueMonitorView: React.FC = () => {
   const { apiPost } = useAuthContext();
   const [queues, setQueues] = useState<Queue[]>([]);
@@ -35,7 +40,10 @@ const QueueMonitorView: React.FC = () => {
 
   const fetchQueues = useCallback(async () => {
     try {
-      const { result } = await apiPost(ENDPOINTS.QUEUES_SEARCH, { body: {} });
+      const { result } = await apiPost<QueueSearchResponse>(
+        ENDPOINTS.QUEUES_SEARCH,
+        { body: {} }
+      );
 
       // Ensure each queue has a unique 'id' (using its name)
       const queuesWithId = result.map((queue: Queue) => ({

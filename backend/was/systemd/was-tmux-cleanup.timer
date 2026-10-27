@@ -1,0 +1,13 @@
+[Unit]
+Description=Run guarded WAS tmux cleanup hourly
+
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+AccuracySec=1min
+Persistent=true
+Unit=was-tmux-cleanup.service
+
+[Install]
+WantedBy=timers.target

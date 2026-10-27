@@ -98,7 +98,6 @@ class OrganizationsFullTable(BaseModel):
     state_name: Optional[str] = None
     country: Optional[str] = None
     country_name: Optional[str] = None
-    exec_url: Optional[str] = None
 
 
 class DNSMonitorDomainMapTable(BaseModel):
@@ -275,3 +274,33 @@ class ShodanTopCvesInsertInput(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     top_epss_cves_dict: List[ShodanTopCvesInsert]
+
+
+class GenInputOrgCyhyNameSingle(BaseModel):
+    """GenInputOrgCyhyNameSingle schema class."""
+
+    org_cyhy_name: str
+
+    class Config:
+        """GenInputOrgCyhyNameSingle schema config class."""
+
+        orm_mode = True
+
+
+class CyhyDbAssetsByOrg(BaseModel):
+    """CyhyDbAssetsByOrg schema class."""
+
+    field_id: Optional[str] = None
+    org_id: Optional[str] = None
+    org_name: Optional[str] = None
+    contact: Optional[str] = None
+    network: Optional[str] = None
+    type: Optional[str] = None
+    first_seen: Optional[str] = None
+    last_seen: Optional[str] = None
+    currently_in_cyhy: Optional[bool] = None
+
+    class Config:
+        """CyhyDbAssetsByOrg schema config class."""
+
+        orm_mode = True

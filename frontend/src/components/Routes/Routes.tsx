@@ -6,8 +6,6 @@ import {
   AuthLogin,
   Domain,
   Domains,
-  LoginGovCallback,
-  OktaCallback,
   RegionUsers,
   Organization,
   Organizations,
@@ -15,7 +13,9 @@ import {
   Settings,
   Users,
   Vulnerabilities,
-  Vulnerability
+  Vulnerability,
+  Forbidden,
+  NotFound
 } from 'pages';
 import { VulnerabilityScanWithSearch } from '../Gates/VSDashboardGate';
 import { ROUTES } from '@/constants/routes';
@@ -23,14 +23,14 @@ import { ROUTES } from '@/constants/routes';
 export const Routes: React.FC = () => {
   return (
     <Switch>
+      <Route exact path={ROUTES.FORBIDDEN} component={Forbidden} />
+      <Route exact path={ROUTES.NOT_FOUND} component={NotFound} />
       <RouteGuard
         exact
         path={ROUTES.HOME}
         unauth={AuthLogin}
         component={VulnerabilityScanWithSearch}
       />
-      <Route exact path={ROUTES.LOGIN} component={LoginGovCallback} />
-      <Route exact path={ROUTES.OKTA_CALLBACK} component={OktaCallback} />
       <RouteGuard
         exact
         path={ROUTES.INVENTORY}
@@ -104,6 +104,7 @@ export const Routes: React.FC = () => {
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
       />
+      <Route component={NotFound} />
     </Switch>
   );
 };

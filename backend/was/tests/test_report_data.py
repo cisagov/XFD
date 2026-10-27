@@ -1,0 +1,816 @@
+"""Tests for Qualys report data helpers."""
+
+# Standard Python Libraries
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import Mock, patch
+
+# Third-Party Libraries
+from lxml import etree
+import requests
+
+# First-Party Libraries
+from was_reports.qualys import report_data
+from was_reports.qualys.qualys_client import QualysClient
+
+
+class FakeConnection:
+    """Small Qualys connection fake for report data tests."""
+
+    def __init__(self, responses):
+        """Initialize response queue and captured calls."""
+        self.responses = list(responses)
+        self.calls = []
+
+    def request(self, endpoint, payload=None, http_method=None):
+        """Capture a request and return the next response."""
+        self.calls.append(
+            {
+                "endpoint": endpoint,
+                "payload": payload,
+                "http_method": http_method,
+            }
+        )
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+def write_report_template(directory: str, filename: str) -> Path:
+    """Write a minimal report template compatible with the legacy payload."""
+    template_path = Path(directory) / filename
+    template_path.write_text(
+        """<?xml version="1.0" encoding="UTF-8" ?>
+<ServiceRequest>
+    <data>
+        <Report>
+            <name></name>
+            <format>XML</format>
+            <type>WAS_WEBAPP_REPORT</type>
+            <config>
+                <webAppReport>
+                    <target>
+                        <tags>
+                            <included>
+                                <option>ALL</option>
+                                <tagList>
+                                    <Tag>
+                                        <id></id>
+                                    </Tag>
+                                </tagList>
+                            </included>
+                        </tags>
+                    </target>
+                </webAppReport>
+            </config>
+            <template>
+                <id></id>
+            </template>
+        </Report>
+    </data>
+</ServiceRequest>
+""",
+        encoding="utf-8",
+    )
+    return template_path
+
+
+def write_detail_template(directory: str, filename: str) -> Path:
+    """Write a minimal detail-report template."""
+    template_path = Path(directory) / filename
+    template_path.write_text(
+        """<?xml version="1.0" encoding="UTF-8" ?>
+<ServiceRequest>
+    <data>
+        <Report>
+            <name></name>
+            <format>XML</format>
+            <type>WAS_WEBAPP_REPORT</type>
+            <config>
+                <webAppReport>
+                    <target>
+                        <webapps>
+                            <WebApp>
+                                <id></id>
+                            </WebApp>
+                        </webapps>
+                    </target>
+                </webAppReport>
+            </config>
+            <template>
+                <id></id>
+            </template>
+        </Report>
+    </data>
+</ServiceRequest>
+""",
+        encoding="utf-8",
+    )
+    return template_path
+
+
+class ReportDataTests(unittest.TestCase):
+    """Validate report data service behavior."""
+
+    def test_response_parsers_do_not_expand_entities(self) -> None:
+        """Reject or preserve unresolved entities without reading their content."""
+        sentinel = "777777"
+        cases = (
+            (
+                report_data.parse_tag_id,
+                "<count>1</count><data><Tag><id>&probe;</id></Tag></data>",
+            ),
+            (report_data.parse_count, "<count>&probe;</count>"),
+            (
+                report_data.parse_customer_tags,
+                "<data><Tag><children><list><Tag><name>&probe;</name></Tag></list></children></Tag></data>",
+            ),
+            (
+                report_data.parse_created_report_id,
+                "<responseCode>SUCCESS</responseCode><data><Report><id>&probe;</id></Report></data>",
+            ),
+            (
+                report_data.parse_report_search,
+                "<responseCode>SUCCESS</responseCode><data><Report><id>&probe;</id><name>stable</name><format>XML</format></Report></data>",
+            ),
+            (
+                report_data.parse_report_status,
+                "<data><Report><status>&probe;</status></Report></data>",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            entity_file = Path(directory) / "entity.txt"
+            entity_file.write_text(sentinel, encoding="utf-8")
+            for declaration in (
+                '"{}"'.format(sentinel),
+                'SYSTEM "{}"'.format(entity_file.as_uri()),
+            ):
+                for parser, body in cases:
+                    response = "<!DOCTYPE ServiceResponse [<!ENTITY probe {}>]><ServiceResponse>{}</ServiceResponse>".format(
+                        declaration, body
+                    )
+                    with self.subTest(parser=parser.__name__, declaration=declaration):
+                        try:
+                            result = parser(response)
+                        except (TypeError, ValueError, RuntimeError):
+                            continue
+                        self.assertNotIn(sentinel, str(result))
+
+    def test_delete_response_does_not_expand_success_entity(self) -> None:
+        """Do not accept an entity-expanded response as confirmed deletion."""
+        response = '<!DOCTYPE ServiceResponse [<!ENTITY probe "SUCCESS">]><ServiceResponse><responseCode>&probe;</responseCode></ServiceResponse>'
+        self.assertFalse(
+            report_data.delete_report(QualysClient(FakeConnection([response])), "123")
+        )
+
+    def test_template_loader_does_not_expand_entities(self) -> None:
+        """Apply the same explicit XML boundary to loaded request templates."""
+        with tempfile.TemporaryDirectory() as directory:
+            template = Path(directory) / "template.xml"
+            template.write_text(
+                '<!DOCTYPE ServiceRequest [<!ENTITY probe "expanded">]><ServiceRequest><name>&probe;</name></ServiceRequest>',
+                encoding="utf-8",
+            )
+            root = report_data.load_report_template(template)
+            self.assertNotIn("expanded", str(root.name))
+
+    def test_standalone_creation_does_not_require_a_persistent_marker(self) -> None:
+        """Keep one-shot unique-name requests working without a stored run."""
+        client = Mock()
+        client.request.return_value = "<ServiceResponse><responseCode>SUCCESS</responseCode><data><Report><id>9</id></Report></data></ServiceResponse>"
+        result = report_data.create_report_with_recovery(
+            client,
+            "payload",
+            "unique-standalone-name",
+            "XML",
+            "report",
+        )
+        self.assertEqual(result, "9")
+        client.request.assert_called_once()
+        self.assertEqual(
+            client.request.call_args.args[0].endpoint, "/create/was/report"
+        )
+
+    @patch(
+        "was_reports.qualys.report_data.create_report_with_recovery", return_value="9"
+    )
+    def test_xml_and_pdf_wrappers_forward_creation_intent(self, create) -> None:
+        """Keep both artifact creators wired to the same durable recovery API."""
+        claim = Mock(return_value=True)
+        with tempfile.TemporaryDirectory() as directory:
+            template_path = write_report_template(directory, "report.xml")
+            for builder in (
+                report_data.create_webapp_xml_report,
+                report_data.create_detail_pdf_report,
+            ):
+                with self.subTest(builder=builder.__name__):
+                    builder(
+                        Mock(),
+                        "stable",
+                        "123",
+                        template_path,
+                        report_request_key="key",
+                        creation_intent_claim=claim,
+                    )
+                    self.assertEqual(
+                        create.call_args.kwargs["report_request_key"], "key"
+                    )
+                    self.assertIs(
+                        create.call_args.kwargs["creation_intent_claim"], claim
+                    )
+
+    @patch("was_reports.qualys.report_data.reconcile_created_report", return_value="9")
+    def test_invalid_create_response_keeps_retry_reconciliation_only(
+        self, reconcile
+    ) -> None:
+        """Retain intent even when a successful create response is unreadable."""
+        client = Mock()
+        empty_search = "<ServiceResponse><responseCode>SUCCESS</responseCode><data/></ServiceResponse>"
+        client.request.side_effect = [empty_search, "not XML", empty_search]
+        claim = Mock(side_effect=[True, False])
+        with self.assertRaises(etree.XMLSyntaxError):
+            report_data.create_report_with_recovery(
+                client,
+                "payload",
+                "stable",
+                "XML",
+                "report",
+                report_request_key="key",
+                creation_intent_claim=claim,
+            )
+        result = report_data.create_report_with_recovery(
+            client,
+            "payload",
+            "stable",
+            "XML",
+            "report",
+            report_request_key="key",
+            creation_intent_claim=claim,
+        )
+        self.assertEqual(result, "9")
+        self.assertEqual(
+            [call.args[0].endpoint for call in client.request.call_args_list],
+            ["/search/was/report", "/create/was/report", "/search/was/report"],
+        )
+        reconcile.assert_called_once()
+
+    def test_duplicate_stable_matches_hold_without_claim_or_create(self) -> None:
+        """Never choose arbitrarily or create again when exact matches conflict."""
+        client = Mock()
+        client.request.return_value = """<ServiceResponse><responseCode>SUCCESS</responseCode><data>
+        <Report><id>1</id><name>stable</name><format>XML</format></Report>
+        <Report><id>2</id><name>stable</name><format>XML</format></Report>
+        </data></ServiceResponse>"""
+        claim = Mock(return_value=True)
+        with self.assertRaises(report_data.QualysReportCreationUncertainError):
+            report_data.create_report_with_recovery(
+                client,
+                "payload",
+                "stable",
+                "XML",
+                "report",
+                report_request_key="key",
+                creation_intent_claim=claim,
+            )
+        claim.assert_not_called()
+        client.request.assert_called_once()
+
+    def test_stable_request_reuses_visible_report_before_claim_or_create(self) -> None:
+        """Search by exact name and format before considering another create."""
+        client = Mock()
+        client.request.return_value = """<ServiceResponse><responseCode>SUCCESS</responseCode><data>
+        <Report><id>1</id><name>stable</name><format>XML</format></Report>
+        <Report><id>2</id><name>stable-other</name><format>XML</format></Report>
+        <Report><id>3</id><name>stable</name><format>PDF</format></Report>
+        </data></ServiceResponse>"""
+        claim = Mock()
+        result = report_data.create_report_with_recovery(
+            client,
+            "payload",
+            "stable",
+            "XML",
+            "report",
+            report_request_key="key",
+            creation_intent_claim=claim,
+        )
+        self.assertEqual(result, "1")
+        claim.assert_not_called()
+        client.request.assert_called_once()
+        self.assertEqual(
+            client.request.call_args.args[0].endpoint, "/search/was/report"
+        )
+
+    def test_stable_request_records_intent_before_first_create(self) -> None:
+        """Only explicit atomic first-claim authorization permits creation."""
+        events = []
+        client = Mock()
+
+        def request(operation):
+            """Capture endpoint ordering with representative Qualys responses."""
+            events.append(operation.endpoint)
+            if operation.endpoint == "/search/was/report":
+                return "<ServiceResponse><responseCode>SUCCESS</responseCode><data/></ServiceResponse>"
+            return "<ServiceResponse><responseCode>SUCCESS</responseCode><data><Report><id>9</id></Report></data></ServiceResponse>"
+
+        def claim() -> bool:
+            """Simulate a committed persistent intent claim."""
+            events.append("persist-intent")
+            return True
+
+        client.request.side_effect = request
+        self.assertEqual(
+            report_data.create_report_with_recovery(
+                client,
+                "payload",
+                "stable",
+                "XML",
+                "report",
+                report_request_key="key",
+                creation_intent_claim=claim,
+            ),
+            "9",
+        )
+        self.assertEqual(
+            events, ["/search/was/report", "persist-intent", "/create/was/report"]
+        )
+
+    @patch("was_reports.qualys.report_data.reconcile_created_report")
+    def test_prior_intent_with_delayed_visibility_never_recreates(
+        self, reconcile
+    ) -> None:
+        """Hold on unsuccessful reconciliation and recover on a later retry."""
+        client = Mock()
+        client.request.return_value = "<ServiceResponse><responseCode>SUCCESS</responseCode><data/></ServiceResponse>"
+        claim = Mock(return_value=False)
+        reconcile.side_effect = [
+            report_data.QualysReportCreationUncertainError("not visible"),
+            "9",
+        ]
+        with self.assertRaises(report_data.QualysReportCreationUncertainError):
+            report_data.create_report_with_recovery(
+                client,
+                "payload",
+                "stable",
+                "XML",
+                "report",
+                report_request_key="key",
+                creation_intent_claim=claim,
+            )
+        result = report_data.create_report_with_recovery(
+            client,
+            "payload",
+            "stable",
+            "XML",
+            "report",
+            report_request_key="key",
+            creation_intent_claim=claim,
+        )
+        self.assertEqual(result, "9")
+        self.assertTrue(
+            all(
+                call.args[0].endpoint == "/search/was/report"
+                for call in client.request.call_args_list
+            )
+        )
+
+    def test_stable_request_without_durable_authorization_holds(self) -> None:
+        """Missing, failed, or ambiguous intent claims never permit creation."""
+        for claim in (
+            None,
+            Mock(return_value=None),
+            Mock(side_effect=RuntimeError("database unavailable")),
+        ):
+            client = Mock()
+            client.request.return_value = "<ServiceResponse><responseCode>SUCCESS</responseCode><data/></ServiceResponse>"
+            with self.subTest(claim=claim), self.assertRaises(RuntimeError):
+                report_data.create_report_with_recovery(
+                    client,
+                    "payload",
+                    "stable",
+                    "XML",
+                    "report",
+                    report_request_key="key",
+                    creation_intent_claim=claim,
+                )
+            client.request.assert_called_once()
+
+    def test_search_errors_are_not_treated_as_permission_to_create(self) -> None:
+        """Reject failed, truncated, and malformed search records before claim."""
+        for body in (
+            "<responseCode>OTHER_ERROR</responseCode>",
+            "<responseCode>SUCCESS</responseCode><hasMoreRecords>true</hasMoreRecords>",
+            "<responseCode>SUCCESS</responseCode><data><Report><id>1</id></Report></data>",
+        ):
+            client = Mock()
+            client.request.return_value = (
+                "<ServiceResponse>{}</ServiceResponse>".format(body)
+            )
+            claim = Mock(return_value=True)
+            with self.subTest(body=body), self.assertRaises(
+                report_data.QualysReportCreationUncertainError
+            ):
+                report_data.create_report_with_recovery(
+                    client,
+                    "payload",
+                    "stable",
+                    "XML",
+                    "report",
+                    report_request_key="key",
+                    creation_intent_claim=claim,
+                )
+            claim.assert_not_called()
+            client.request.assert_called_once()
+
+    def test_report_names_round_trip_as_real_cdata(self) -> None:
+        """Keep XML metacharacters and CDATA terminators inside report names."""
+        report_name = 'Name & <tag> "]]>" </name><injected/>'
+        with tempfile.TemporaryDirectory() as directory:
+            template_path = write_report_template(directory, "report.xml")
+            for builder in (
+                report_data.build_webapp_report_payload,
+                report_data.build_detail_report_payload,
+            ):
+                with self.subTest(builder=builder.__name__):
+                    payload = builder(report_name, "123", template_path)
+                    root = etree.fromstring(payload.encode())
+                    self.assertEqual(root.findtext("./data/Report/name"), report_name)
+                    self.assertFalse(root.xpath(".//injected"))
+                    self.assertIn("<![CDATA[", payload)
+
+    def test_tag_lookup_preserves_xml_metacharacters(self) -> None:
+        """Do not interpret tag names as XML markup."""
+        name = "A & <tag> value"
+        payload = report_data.build_tag_lookup_payload(name)
+        self.assertEqual(
+            etree.fromstring(payload.encode()).findtext("./filters/Criteria"), name
+        )
+
+    def test_status_rejects_error_or_missing_value(self) -> None:
+        """Reject malformed and API-error responses instead of polling forever."""
+        for response in (
+            "<ServiceResponse><responseCode>INVALID_REQUEST</responseCode></ServiceResponse>",
+            "<ServiceResponse><data/></ServiceResponse>",
+            "<ServiceResponse><data><Report><status/></Report></data></ServiceResponse>",
+        ):
+            with self.subTest(response=response), self.assertRaises(
+                (RuntimeError, ValueError)
+            ):
+                report_data.parse_report_status(response)
+
+    def test_get_tag_id_uses_legacy_endpoint_and_payload(self) -> None:
+        """Look up a Qualys tag ID from a tag name."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <count>1</count>
+                    <data>
+                        <Tag>
+                            <id>12345</id>
+                            <name>CUSTOMER_TAG</name>
+                            <description>Customer Organization</description>
+                        </Tag>
+                    </data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        client = QualysClient(connection)
+
+        tag_id = report_data.get_tag_id(client, "CUSTOMER_TAG")
+
+        self.assertEqual(tag_id, "12345")
+        self.assertEqual(connection.calls[0]["endpoint"], "search/am/tag")
+        self.assertIn("CUSTOMER_TAG", connection.calls[0]["payload"])
+
+    def test_get_tag_details_returns_id_name_and_description(self) -> None:
+        """Use one exact tag response for report identity and display data."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <count>1</count>
+                    <data>
+                        <Tag>
+                            <id>12345</id>
+                            <name>CUSTOMER_TAG</name>
+                            <description>Customer Organization</description>
+                        </Tag>
+                    </data>
+                </ServiceResponse>
+                """
+            ]
+        )
+
+        details = report_data.get_tag_details(QualysClient(connection), "CUSTOMER_TAG")
+
+        self.assertEqual(details.tag_id, "12345")
+        self.assertEqual(details.name, "CUSTOMER_TAG")
+        self.assertEqual(details.description, "Customer Organization")
+        self.assertEqual(len(connection.calls), 1)
+
+    def test_parse_tag_id_rejects_missing_tag(self) -> None:
+        """Raise a lookup error when Qualys returns no matching tag."""
+        with self.assertRaises(LookupError):
+            report_data.parse_tag_details(
+                "<ServiceResponse><count>0</count></ServiceResponse>",
+                "MISSING",
+            )
+
+    def test_count_webapps_uses_count_endpoint(self) -> None:
+        """Count web applications associated with a tag."""
+        connection = FakeConnection(
+            ["<ServiceResponse><count>7</count></ServiceResponse>"]
+        )
+        client = QualysClient(connection)
+
+        count = report_data.count_webapps(client, "CUSTOMER_TAG")
+
+        self.assertEqual(count, 7)
+        self.assertEqual(connection.calls[0]["endpoint"], "/count/was/webapp")
+        self.assertEqual(connection.calls[0]["http_method"], "POST")
+        self.assertIn("tags.name", connection.calls[0]["payload"])
+
+    def test_list_customer_tags_returns_child_tag_descriptions(self) -> None:
+        """List child stakeholder tags beneath the WAS customer parent tag."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <data>
+                        <Tag>
+                            <name>WAS_CUSTOMERS</name>
+                            <children>
+                                <list>
+                                    <Tag>
+                                        <name>TAG_A</name>
+                                        <description>Agency A</description>
+                                    </Tag>
+                                    <Tag><name>TAG_B</name></Tag>
+                                </list>
+                            </children>
+                        </Tag>
+                    </data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        client = QualysClient(connection)
+
+        tags = report_data.list_customer_tags(client)
+
+        self.assertEqual(tags, {"TAG_A": "Agency A", "TAG_B": "TAG_B"})
+        self.assertEqual(connection.calls[0]["endpoint"], "/search/am/tag")
+        self.assertEqual(connection.calls[0]["http_method"], "POST")
+        self.assertIn("WAS_CUSTOMERS", connection.calls[0]["payload"])
+        self.assertIn("limitResults", connection.calls[0]["payload"])
+
+    def test_parse_customer_tags_rejects_missing_parent(self) -> None:
+        """Reject a Qualys response without the expected parent tag."""
+        with self.assertRaises(LookupError):
+            report_data.parse_customer_tags(
+                "<ServiceResponse><data /></ServiceResponse>"
+            )
+
+    def test_create_webapp_xml_report_returns_report_id(self) -> None:
+        """Create an XML report and return the Qualys report ID."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <responseCode>SUCCESS</responseCode>
+                    <data><Report><id>98765</id></Report></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        client = QualysClient(connection)
+
+        with tempfile.TemporaryDirectory() as directory:
+            template_path = write_report_template(directory, "was_report.xml")
+            report_id = report_data.create_webapp_xml_report(
+                client=client,
+                report_name="CUSTOMER_TAG",
+                tag_id="12345",
+                template_path=template_path,
+            )
+
+        self.assertEqual(report_id, "98765")
+        self.assertEqual(connection.calls[0]["endpoint"], "/create/was/report")
+        self.assertEqual(connection.calls[0]["http_method"], "post")
+        self.assertIn("1994875", connection.calls[0]["payload"])
+        self.assertIn("12345", connection.calls[0]["payload"])
+        self.assertIn("XML", connection.calls[0]["payload"])
+
+    def test_create_detail_pdf_report_uses_detail_template(self) -> None:
+        """Create a detail PDF report using a web application ID."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <responseCode>SUCCESS</responseCode>
+                    <data><Report><id>555</id></Report></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        client = QualysClient(connection)
+
+        with tempfile.TemporaryDirectory() as directory:
+            template_path = write_detail_template(directory, "was_report_details.xml")
+            report_id = report_data.create_detail_pdf_report(
+                client=client,
+                report_name="Web App",
+                target_id="2468",
+                template_path=template_path,
+                from_webapp_id=True,
+            )
+
+        self.assertEqual(report_id, "555")
+        self.assertIn("2201149", connection.calls[0]["payload"])
+        self.assertIn("2468", connection.calls[0]["payload"])
+        self.assertIn("PDF", connection.calls[0]["payload"])
+
+    def test_parse_created_report_id_rejects_failure_response(self) -> None:
+        """Reject a failed Qualys create-report response."""
+        with self.assertRaises(RuntimeError):
+            report_data.parse_created_report_id(
+                """
+                <ServiceResponse>
+                    <responseCode>INVALID_REQUEST</responseCode>
+                </ServiceResponse>
+                """
+            )
+
+    def test_search_reports_returns_exact_report_reference(self) -> None:
+        """Search Qualys reports by the unique WAS name and format."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <responseCode>SUCCESS</responseCode>
+                    <data><list><Report>
+                        <id>7429186</id>
+                        <name>WAS-USAID-RUN-13-XML</name>
+                        <format>XML</format>
+                        <status>COMPLETE</status>
+                    </Report></list></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+
+        reports = report_data.search_reports(
+            QualysClient(connection),
+            "WAS-USAID-RUN-13-XML",
+            "XML",
+        )
+
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0].report_id, "7429186")
+        self.assertEqual(reports[0].status, "COMPLETE")
+        self.assertEqual(connection.calls[0]["endpoint"], "/search/was/report")
+        payload = connection.calls[0]["payload"]
+        self.assertIn("WAS-USAID-RUN-13-XML", payload)
+        self.assertIn('<Criteria field="name" operator="EQUALS">', payload)
+        self.assertIn('<Criteria field="format" operator="EQUALS">', payload)
+        self.assertNotIn("<preferences>", payload)
+
+    @patch("was_reports.qualys.report_data.reconcile_created_report")
+    def test_create_report_recovers_id_after_read_timeout(
+        self,
+        mock_reconcile_created_report,
+    ) -> None:
+        """Recover a Qualys report ID without repeating an uncertain create."""
+        connection = FakeConnection([requests.ReadTimeout("timed out")])
+        mock_reconcile_created_report.return_value = "7429186"
+
+        report_id = report_data.create_report_with_recovery(
+            client=QualysClient(connection),
+            payload="<ServiceRequest />",
+            report_name="WAS-USAID-RUN-13-XML",
+            report_format="XML",
+            operation_label="XML report",
+        )
+
+        self.assertEqual(report_id, "7429186")
+        self.assertEqual(len(connection.calls), 1)
+        mock_reconcile_created_report.assert_called_once()
+
+    def test_reconcile_created_report_polls_until_report_is_searchable(self) -> None:
+        """Wait for Qualys search visibility after an uncertain create response."""
+        connection = FakeConnection(
+            [
+                "<ServiceResponse><responseCode>SUCCESS</responseCode><data><list /></data></ServiceResponse>",
+                """
+                <ServiceResponse>
+                    <responseCode>SUCCESS</responseCode>
+                    <data><list><Report>
+                        <id>7429186</id>
+                        <name>WAS-USAID-RUN-13-XML</name>
+                        <format>XML</format>
+                    </Report></list></data>
+                </ServiceResponse>
+                """,
+            ]
+        )
+        sleep_calls: list[float] = []
+        monotonic_values = iter([0.0, 1.0])
+
+        report_id = report_data.reconcile_created_report(
+            client=QualysClient(connection),
+            report_name="WAS-USAID-RUN-13-XML",
+            report_format="XML",
+            operation_label="XML report",
+            timeout_seconds=30.0,
+            poll_seconds=2.0,
+            sleep_function=sleep_calls.append,
+            monotonic_function=lambda: next(monotonic_values),
+        )
+
+        self.assertEqual(report_id, "7429186")
+        self.assertEqual(sleep_calls, [2.0])
+        self.assertEqual(len(connection.calls), 2)
+
+    def test_reconcile_created_report_rejects_duplicate_unique_names(self) -> None:
+        """Stop when duplicate reports make automatic recovery ambiguous."""
+        response = """
+            <ServiceResponse><responseCode>SUCCESS</responseCode><data><list>
+                <Report><id>1</id><name>WAS-TAG-RUN-1-XML</name><format>XML</format></Report>
+                <Report><id>2</id><name>WAS-TAG-RUN-1-XML</name><format>XML</format></Report>
+            </list></data></ServiceResponse>
+        """
+
+        with self.assertRaisesRegex(
+            report_data.QualysReportCreationUncertainError,
+            "Multiple Qualys",
+        ):
+            report_data.reconcile_created_report(
+                client=QualysClient(FakeConnection([response])),
+                report_name="WAS-TAG-RUN-1-XML",
+                report_format="XML",
+                operation_label="XML report",
+                timeout_seconds=30.0,
+                poll_seconds=2.0,
+            )
+
+    def test_get_report_xml_downloads_by_report_id(self) -> None:
+        """Download report XML by report ID."""
+        connection = FakeConnection(["<WAS_WEBAPP_REPORT />"])
+        client = QualysClient(connection)
+
+        response = report_data.get_report_xml(client, "98765")
+
+        self.assertEqual(response, "<WAS_WEBAPP_REPORT />")
+        self.assertEqual(
+            connection.calls[0]["endpoint"],
+            "/download/was/report/98765",
+        )
+        self.assertEqual(connection.calls[0]["http_method"], "get")
+
+    def test_get_report_status_parses_status(self) -> None:
+        """Read a generated report status."""
+        connection = FakeConnection(
+            [
+                """
+                <ServiceResponse>
+                    <data><Report><status>FINISHED</status></Report></data>
+                </ServiceResponse>
+                """
+            ]
+        )
+        client = QualysClient(connection)
+
+        status = report_data.get_report_status(client, "98765")
+
+        self.assertEqual(status, "FINISHED")
+        self.assertEqual(
+            connection.calls[0]["endpoint"],
+            "/status/was/report/98765",
+        )
+        self.assertEqual(connection.calls[0]["http_method"], "get")
+
+    def test_delete_report_returns_success_boolean(self) -> None:
+        """Delete a temporary Qualys report."""
+        connection = FakeConnection(
+            [
+                "<ServiceResponse>"
+                "<responseCode>SUCCESS</responseCode>"
+                "</ServiceResponse>"
+            ]
+        )
+        client = QualysClient(connection)
+
+        deleted = report_data.delete_report(client, "98765")
+
+        self.assertTrue(deleted)
+        self.assertEqual(
+            connection.calls[0]["endpoint"],
+            "/delete/was/report/98765",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

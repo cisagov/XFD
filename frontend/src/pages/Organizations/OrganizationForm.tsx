@@ -14,10 +14,8 @@ import Select, { SelectChangeEvent } from '@mui/material/Select';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import {
-  STATE_ABBREVIATED_OPTIONS,
-  STATE_OPTIONS
-} from '@/constants/constants';
+import { STATE_OPTIONS } from '@/constants/constants';
+import { getStateAbbreviation } from '@/utils/stringUtils';
 import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
 
@@ -37,18 +35,6 @@ export interface OrganizationFormValues {
   acronym?: string | null;
   state?: string | null;
 }
-
-const getStateAbbreviation = (
-  state_name: string | null
-): string | undefined => {
-  if (state_name) {
-    const index = STATE_OPTIONS.indexOf(state_name);
-    if (index !== -1) {
-      return STATE_ABBREVIATED_OPTIONS[index];
-    }
-  }
-  return '';
-};
 
 export const OrganizationForm: React.FC<{
   organization?: Organization;

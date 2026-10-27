@@ -25,7 +25,12 @@ export function useVulnScanData(orgId: string) {
       setLoading(true);
       setError(null);
       try {
-        const response = await apiPost(ENDPOINTS.STATS_TRENDS, {
+        const response = await apiPost<{
+          host_summaries: any[];
+          port_scan_summaries: any[];
+          port_scan_service_summaries: any[];
+          vuln_scan_summaries: any[];
+        }>(ENDPOINTS.STATS_TRENDS, {
           body: {
             filters: {
               organization_id: orgId,

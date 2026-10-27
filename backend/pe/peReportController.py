@@ -194,6 +194,10 @@ def start_local_docker_report_task(
         "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD", ""),
         "PE_API_URL": os.getenv("PE_API_URL", "http://127.0.0.1:8000"),
         "PE_API_KEY": os.getenv("PE_API_KEY", ""),
+        "DATABASE_HOST": os.getenv("DATABASE_HOST", "db"),
+        "DATABASE_NAME": os.getenv("DATABASE_NAME", ""),
+        "DATABASE_USER": os.getenv("DATABASE_USER", ""),
+        "DATABASE_PASSWORD": os.getenv("DATABASE_PASSWORD", ""),
     }
     for key, value in (
         (item["name"], item["value"]) for item in report_flare_environment()

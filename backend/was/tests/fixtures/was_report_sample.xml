@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WAS_WEBAPP_REPORT>
+  <RESULTS>
+    <WEB_APPLICATION>
+      <ID>app-1</ID>
+      <NAME>Example, Application</NAME>
+      <VULNERABILITY_LIST>
+        <VULNERABILITY>
+          <ID>vuln-1</ID>
+          <UNIQUE_ID>unique-1</UNIQUE_ID>
+          <QID>1001</QID>
+          <URL>https://example.gov/path,one</URL>
+          <FIRST_TIME_DETECTED>01 Aug 2026 01:00PM UTC</FIRST_TIME_DETECTED>
+          <LAST_TIME_DETECTED>26 Aug 2026 01:00PM UTC</LAST_TIME_DETECTED>
+          <LAST_TIME_TESTED>26 Aug 2026 01:00PM UTC</LAST_TIME_TESTED>
+          <POTENTIAL>false</POTENTIAL>
+          <STATUS>ACTIVE</STATUS>
+          <PAYLOADS>
+            <PAYLOAD>
+              <REQUEST>
+                <METHOD>GET</METHOD>
+                <URL>https://example.gov/path,one</URL>
+                <HEADERS>
+                  <HEADER><key>Accept</key><value>text/html</value></HEADER>
+                </HEADERS>
+                <BODY></BODY>
+              </REQUEST>
+              <RESPONSE><CONTENTS>UmVzcG9uc2UsIGJvZHk=</CONTENTS></RESPONSE>
+            </PAYLOAD>
+          </PAYLOADS>
+        </VULNERABILITY>
+        <VULNERABILITY>
+          <ID>vuln-fixed</ID>
+          <UNIQUE_ID>unique-fixed</UNIQUE_ID>
+          <QID>1001</QID>
+          <URL>https://example.gov/fixed</URL>
+          <FIRST_TIME_DETECTED>01 Aug 2026 01:00PM UTC</FIRST_TIME_DETECTED>
+          <LAST_TIME_DETECTED>20 Aug 2026 01:00PM UTC</LAST_TIME_DETECTED>
+          <LAST_TIME_TESTED>20 Aug 2026 01:00PM UTC</LAST_TIME_TESTED>
+          <POTENTIAL>false</POTENTIAL>
+          <STATUS>FIXED</STATUS>
+        </VULNERABILITY>
+      </VULNERABILITY_LIST>
+      <INFORMATION_GATHERED_LIST>
+        <INFORMATION_GATHERED>
+          <ID>info-1</ID>
+          <QID>1002</QID>
+          <LAST_TIME_DETECTED>26 Aug 2026 01:00PM UTC</LAST_TIME_DETECTED>
+        </INFORMATION_GATHERED>
+      </INFORMATION_GATHERED_LIST>
+    </WEB_APPLICATION>
+  </RESULTS>
+  <GLOSSARY>
+    <QID_LIST>
+      <QID>
+        <QID>1001</QID>
+        <SEVERITY>4</SEVERITY>
+        <TITLE>Test, Vulnerability</TITLE>
+        <GROUP>Injection</GROUP>
+        <DESCRIPTION>&lt;p&gt;Description, text&lt;/p&gt;</DESCRIPTION>
+        <IMPACT>&lt;p&gt;Impact, text&lt;/p&gt;</IMPACT>
+        <SOLUTION>&lt;p&gt;Solution, text&lt;/p&gt;</SOLUTION>
+        <CVSS_BASE>9.0</CVSS_BASE>
+        <CVE>CVE-2026-0001</CVE>
+        <CWE>CWE-79</CWE>
+      </QID>
+      <QID>
+        <QID>1002</QID>
+        <SEVERITY>1</SEVERITY>
+        <TITLE>Information, Finding</TITLE>
+        <DESCRIPTION>&lt;p&gt;Information, description&lt;/p&gt;</DESCRIPTION>
+        <IMPACT>&lt;p&gt;Informational&lt;/p&gt;</IMPACT>
+        <SOLUTION>&lt;p&gt;Review&lt;/p&gt;</SOLUTION>
+      </QID>
+    </QID_LIST>
+  </GLOSSARY>
+</WAS_WEBAPP_REPORT>

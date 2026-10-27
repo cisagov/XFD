@@ -5,7 +5,6 @@ mat_vw_breachcomp_credsbydate
 vw_breachcomp_breachdetails
 vw_breachcomp_credsbydate
 vw_darkweb_assetalerts
-vw_darkweb_execalerts
 vw_darkweb_inviteonlymarkets
 vw_darkweb_mentionsbydate
 vw_darkweb_mostactposts

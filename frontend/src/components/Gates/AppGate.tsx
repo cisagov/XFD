@@ -22,6 +22,19 @@ export interface WidgetProps extends BoxProps {
   children?: React.ReactNode;
 }
 
+type notifications = {
+  status: string;
+  maintenance_type: string;
+  start_datetime: string;
+  end_datetime: string;
+  message: string;
+};
+
+type updatedUser = {
+  state: string;
+  user_type: string;
+};
+
 const AppGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, apiGet, userMustSign, logout, isLoggingOut } = useAuthContext();
 
@@ -43,11 +56,13 @@ const AppGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         user_id={user?.id ?? ''}
         onClose={async () => {
           setIsUpdateStateFormOpen(false);
-          const updatedUser = await apiGet('/users/me');
+          const updatedUser = await apiGet<updatedUser>('/users/me');
           if (updatedUser?.state && user?.user_type !== 'globalAdmin') {
-            const notifications = await apiGet(ENDPOINTS.NOTIFICATIONS);
+            const notifications = await apiGet<notifications[]>(
+              ENDPOINTS.NOTIFICATIONS
+            );
             const active = notifications.find(
-              (n: any) =>
+              (n: notifications) =>
                 n.status === 'active' &&
                 n.maintenance_type === 'major' &&
                 new Date(n.start_datetime) <= new Date() &&

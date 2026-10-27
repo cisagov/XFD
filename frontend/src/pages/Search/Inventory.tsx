@@ -28,6 +28,10 @@ import { formatDisplayValue } from '@/utils/stringUtils';
 
 const TOTAL_RESULTS_LIMIT = 10000;
 
+type url = {
+  url: string;
+};
+
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
 ) => {
@@ -81,7 +85,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           body.organization_id = [currentOrganization.id];
         else body.tagId = [currentOrganization.id];
       }
-      const { url } = await apiPost(ENDPOINTS.SEARCH_ES_EXPORT, {
+      const { url } = await apiPost<url>(ENDPOINTS.SEARCH_ES_EXPORT, {
         body
       });
       return url!;

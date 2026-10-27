@@ -141,6 +141,8 @@ repos:
         # backend-only flake8 hook (T20/print-statements) further up.
         exclude: ^open-cti/connectors/(vs-org-bootstrap|vs-ticket-ingestion|vs-vulnscan-enrichment|vs-port-inventory)/
         additional_dependencies:
+          - types-python-dateutil
+          - types-pytz
           - types-requests
           - types-retry
           - types-PyYAML

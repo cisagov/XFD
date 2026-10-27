@@ -34,9 +34,8 @@ export const useOrganizationsByRegion = (
       setOrganizations(rows);
       setErrorMessage('');
     } catch (error: any) {
-      const detail = error?.response?.data?.detail;
       setOrganizations([]);
-      setErrorMessage(error.message + (detail ? `. ${detail}` : ''));
+      setErrorMessage(error.message);
       logger.error('useOrganizationsByRegion failed', { error, regionId });
     } finally {
       setIsLoading(false);

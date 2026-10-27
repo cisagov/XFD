@@ -158,3 +158,11 @@ run-mailer:
 		fi; \
 	fi; \
 	PE_LOCAL_REPORTS_DIR="$$resolved" $(PE_MAILER_QUEUE) --orgs=$(or $(ORGS),all) --test-emails="$(TEST_EMAILS)" --summary-to="$(SUMMARY_TO)" --report-date="$(REPORT_DATE)"
+
+# Invoke peAsmSyncController locally (self-contained pe-worker container, like scans).
+#   make -C backend/pe start build
+#   make -C backend/pe run-asmsync PHASE=import_s3 ORGS=DHS COUNT=1
+run-asmsync:
+	PHASE="$(PHASE)" ORGS="$(ORGS)" \
+		COUNT="$(COUNT)" \
+		"$(PE_DIR)/tools/run_local_asmsync.sh"
