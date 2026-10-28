@@ -7,6 +7,11 @@ import subprocess  # nosec B404
 from uuid import UUID, uuid4
 
 # Third-Party Libraries
+from was_reports.commands.tmux_batch import (
+    require_tmux,
+    session_name,
+    workflow_pane_states,
+)
 from was_reports.utils.capacity_scope import capacity_tracker_ids
 
 
@@ -107,6 +112,19 @@ class DockerCapacityWorker:
                 self._stop_client()
 
 
+def require_live_tmux_coordinator(workflow: str, run_id: str) -> None:
+    """Require one live exact tmux pane before launching Docker workers."""
+    executable = require_tmux()
+    expected_session = session_name(workflow, run_id)
+    states = workflow_pane_states(
+        executable,
+        workflow,
+        session=expected_session,
+    )
+    if len(states) != 1 or states[0]["pane_dead"]:
+        raise ValueError("Docker workers require one live validated tmux coordinator.")
+
+
 def launch_docker_worker(
     arguments: list[str],
     *,
@@ -145,6 +163,9 @@ def launch_docker_worker(
     mode = os.environ.get("WAS_RUN_MODE")
     if mode not in {"capacity", "production"} or capacity_tracker_ids() is None:
         raise ValueError("Docker workers require explicit coordinator workload scope.")
+    if os.environ.get("WAS_TMUX_LAUNCH") != "1":
+        raise ValueError("Docker workers require the validated tmux coordinator.")
+    require_live_tmux_coordinator(mode, identity)
     if (
         mode == "production"
         and str(UUID(os.environ["WAS_ANALYST_BATCH_ID"])) != identity
@@ -208,6 +229,12 @@ def launch_docker_worker(
         "{}:{}".format(os.getuid(), os.getgid()),
         "--label",
         "was.capacity.owner={}".format(ownership),
+        "--label",
+        "was.capacity.run_id={}".format(identity),
+        "--label",
+        "was.capacity.workflow={}".format(mode),
+        "--label",
+        "was.capacity.worker_index={}".format(worker_index),
         "-v",
         "{}:{}".format(root, container_output_directory),
     ]

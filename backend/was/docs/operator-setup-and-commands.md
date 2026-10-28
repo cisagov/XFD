@@ -310,6 +310,92 @@ held customer delivery only through the guarded command after external
 verification. Preserve and escalate other uncertain Qualys, S3, analyst,
 standalone, or active database state before any replacement work.
 
+### Recover a reboot-interrupted production batch
+
+Use this exceptional workflow only when a host interruption left generation
+runs active after the coordinator and all workers stopped. Do not delete the
+Qualys reports or edit `was_report_runs` manually. Preserve the original batch
+directory because its immutable `workload.json` defines the only tracker rows
+the recovery command may inspect.
+
+First verify the host process state with the status, console, and `docker ps`
+commands above. Then run the preview against the exact interrupted batch:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b"
+```
+
+The preview takes the production coordinator advisory lock, verifies the live
+database identity, requires all active operations to be stale generation rows
+inside that saved workload, and queries each stored Qualys report ID without
+changing database, Qualys, S3, tracker, or email state. Any active or uncertain
+email delivery, recent generation heartbeat, unmatched active row, uncertain
+Qualys creation, or non-404 Qualys error stops the entire recovery.
+
+New workload snapshots also record whether delivery used customer recipients
+or a functional-test recipient override. Test addresses are represented by a
+SHA-256 recipient-scope value rather than being stored in the snapshot. A
+legacy snapshot without this delivery metadata remains available for preview,
+but applied recovery is blocked because the original recipient path cannot be
+verified safely.
+
+Review every previewed run and Qualys status before applying. If no report is
+reported missing, apply with all of the following explicit acknowledgements:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b" \
+  APPLY=1 \
+  RECOVERY_CONFIRM=RECOVER_INTERRUPTED_BATCH \
+  RECOVERY_SEND_EMAIL=1 \
+  RECOVERY_SEND_FINAL_SUMMARY=1
+```
+
+The applied command atomically gives each unchanged run a new generation
+token, resumes polling or downloading its stored Qualys IDs, uploads the
+recovered PDF, sends the customer email, and records the attempt under the old
+batch. It runs one report at a time while retaining the coordinator lock. It
+will not finalize the batch while any `running` or `sending` operation remains.
+When all operations are reconciled, it marks the interrupted batch `failed`
+and sends that batch's final summary once. A new production batch may start
+only after a fresh preview shows no active or uncertain operations.
+
+For a batch started by `recent-scan-batch-assignee-test`, both preview and
+applied recovery may be given the original approved test recipients:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b" \
+  TEST_RECIPIENTS="approved.analyst@example.gov"
+```
+
+Applied recovery requires the same acknowledgements shown above. It also
+requires the exact original test-recipient set. The command verifies that set
+against the workload's saved recipient scope and passes the override to every
+recovered report email and the final batch summary. It refuses a missing or
+different test-recipient set and refuses a test override for a customer batch.
+
+A Qualys HTTP 404 is the only response treated as proof that a stored report no
+longer exists. Replacement then requires the exact affected report-run IDs and
+a separate confirmation. For example, after reviewing a preview that reports
+only runs `5093` and `5094` missing:
+
+```bash
+make recover-interrupted-batch \
+  BATCH_ID="0d039ae2-f152-481f-9f15-e89943cfc63b" \
+  MISSING_REPORT_RUN_IDS="5093,5094" \
+  APPLY=1 \
+  RECOVERY_CONFIRM=RECOVER_INTERRUPTED_BATCH \
+  REPLACEMENT_CONFIRM=REPLACE_MISSING_QUALYS_REPORTS \
+  RECOVERY_SEND_EMAIL=1 \
+  RECOVERY_SEND_FINAL_SUMMARY=1
+```
+
+Never list a run merely because its report is slow, failed, or returned a
+transient Qualys error. The command refuses replacement for an ID that Qualys
+still finds and refuses any missing ID not explicitly listed.
+
 The coordinator refreshes the tracker once, records a workload snapshot, sends
 the tracker summary, launches separate worker containers, performs the final
 delivery pass, and sends the final analyst summary. Customer delivery uses the
@@ -410,10 +496,42 @@ session does not stop or reconcile worker containers, settle Qualys activity,
 confirm email delivery, or repair database state. Complete those checks through
 their dedicated operational and recovery workflows.
 
+Every supported `recent-scan-batch` startup applies guarded orphan cleanup
+before creating its new tmux coordinator. If Docker inspection, tmux inspection,
+or cleanup fails, the new batch is not started. Preview the same check directly
+with:
+
+```bash
+make orphan-worker-cleanup
+```
+
+Discovery is limited to running containers with the
+`was.capacity.owner` label. A worker is eligible only when its ownership and
+batch identity are valid, it has run for at least 12 hours by default, and its
+exact production or capacity coordinator session is missing or has a retained
+dead pane. Live coordinators, young workers, ambiguous metadata, and inspection
+failures are retained. Applied cleanup repeats the Docker identity and tmux
+checks immediately before stopping and removing the exact container ID.
+
+After reviewing the preview, apply only confirmed orphan cleanup with:
+
+```bash
+make orphan-worker-cleanup ORPHAN_CLEANUP_APPLY=1
+```
+
+Routine cleanup should keep the age threshold above the eight-hour batch
+execution budget. The default 12-hour threshold provides a four-hour safety
+margin. An intentional, reviewed override can be previewed and applied with
+`ORPHAN_CLEANUP_MINIMUM_AGE_HOURS`, which accepts 1 through 168 hours. The
+cleanup never runs Docker system-wide prune commands and never signals
+`containerd-shim` directly.
+
 The repository includes an hourly systemd timer that applies this two-pass
-cleanup to both production and capacity sessions. The timer never acknowledges
-failed sessions. After deploying the same reviewed revision to the EC2 host,
-install and verify it with:
+cleanup to both production and capacity tmux sessions. Container cleanup is not
+part of the systemd unit; it runs before each supported recent-scan batch and
+remains available through the manual commands above. The timer never
+acknowledges failed sessions. After deploying the same reviewed revision to the
+EC2 host, install and verify it with:
 
 The checked-in unit is intentionally bound to user `ubuntu` and the exact
 checkout `/home/ubuntu/code/was_report/backend/was`. The commands below are
@@ -458,7 +576,7 @@ The following table is an index, not authorization to run a mutating command.
 | --- | --- | --- |
 | Menu | `make menu` | Depends on the selected menu action |
 | Tracker preflight | `make recent-scan-batch-preflight` | Read-only database selection |
-| Production batch | `make recent-scan-batch` | Guarded eligible Qualys web-application deletion, database, S3, and SES writes |
+| Production batch | `make recent-scan-batch` | First applies guarded orphan-worker cleanup, then starts Qualys, database, S3, and SES batch work; cleanup failure blocks startup |
 | Production batch status | `make recent-scan-batch-status TMUX_SESSION="..."` | Read-only tmux state |
 | Production batch console | `make recent-scan-batch-console TMUX_SESSION="..."` | Read-only retained output |
 | Graceful production stop | `make recent-scan-batch-stop TMUX_SESSION="..."` | Interrupts the selected coordinator and starts cleanup |
@@ -483,6 +601,8 @@ The following table is an index, not authorization to run a mutating command.
 | Capacity test | `make capacity-start APPLY=1 BATCH_WORKERS=30 TEST_RECIPIENTS="..."` | Test database, non-destructive Qualys access, capacity S3 prefix, and SES writes |
 | Preview capacity tmux cleanup | `make capacity-cleanup` | Read-only eligible-session review |
 | Apply capacity tmux cleanup | `make capacity-cleanup TMUX_CLEANUP_APPLY=1` | Archives and removes eligible successful sessions |
+| Preview orphan worker cleanup | `make orphan-worker-cleanup` | Read-only Docker and tmux inspection |
+| Apply orphan worker cleanup | `make orphan-worker-cleanup ORPHAN_CLEANUP_APPLY=1` | Stops and removes only old, labeled workers whose exact coordinator is absent |
 
 Commands with `APPLY=1`, `--confirm`, email delivery, tracker imports, or Qualys
 deletion have additional safeguards documented in their focused runbooks. Do

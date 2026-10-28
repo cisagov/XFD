@@ -142,16 +142,24 @@ def send_message(
     raise RuntimeError("SES retry loop exited unexpectedly.")
 
 
-def reconciliation_recipient_scope(override_recipients: Optional[str]) -> str:
-    """Return a non-sensitive scope for the recipients of one held retry."""
-    if override_recipients is None:
-        return "stored-customer"
-    normalized_recipients = approved_analyst_recipients(override_recipients)
+def approved_recipient_scope(approved_recipients: str) -> str:
+    """Hash a previously validated functional-test recipient set."""
+    normalized_recipients = unique_addresses(parse_email_addresses(approved_recipients))
+    if not normalized_recipients:
+        raise ValueError("An approved recipient scope cannot be empty.")
     canonical_recipients = ",".join(
         sorted(recipient.strip().lower() for recipient in normalized_recipients)
     )
     digest = hashlib.sha256(canonical_recipients.encode("utf-8")).hexdigest()
     return "test-sha256:{}".format(digest)
+
+
+def reconciliation_recipient_scope(override_recipients: Optional[str]) -> str:
+    """Return a non-sensitive scope for the recipients of one held retry."""
+    if override_recipients is None:
+        return "stored-customer"
+    normalized_recipients = approved_analyst_recipients(override_recipients)
+    return approved_recipient_scope(",".join(normalized_recipients))
 
 
 def send_report_run_email(

@@ -40,7 +40,7 @@ from was_reports.tracker.qualys_scans import (
 class TrackerQualysScansTests(unittest.TestCase):
     """Validate tracker schedule parsing and matching."""
 
-    @patch("was_reports.tracker.item_builder.get_stakeholder_details_by_tag")
+    @patch("was_reports.tracker.item_builder.get_governing_stakeholder_details_by_tag")
     def test_retired_stakeholder_is_classified_manual(
         self,
         mock_get_stakeholder,

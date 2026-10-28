@@ -53,6 +53,7 @@ class StakeholderDetails:
     manual_report: bool = False
     fceb: bool = False
     retired: bool = False
+    parent_tag: str | None = None
 
 
 STAKEHOLDER_EXPORT_COLUMNS = (
@@ -118,7 +119,7 @@ STAKEHOLDER_VIEW_COLUMNS = STAKEHOLDER_CREATE_COLUMNS + (
 STAKEHOLDER_MUTABLE_COLUMNS = frozenset(STAKEHOLDER_CREATE_COLUMNS).difference(
     {"tag", "report_password"}
 )
-DELETION_SAFETY_COLUMNS = frozenset({"fceb", "manual_report", "retired"})
+DELETION_SAFETY_COLUMNS = frozenset({"fceb", "manual_report", "parent_tag", "retired"})
 
 
 def get_stakeholder(tag: str, conn: connection) -> Stakeholder | None:
@@ -157,7 +158,8 @@ def get_stakeholder_details(
                 report_password,
                 manual_report,
                 fceb,
-                retired
+                retired,
+                parent_tag
             FROM was_stakeholders
             WHERE tag = %s
             """,
@@ -178,7 +180,42 @@ def get_stakeholder_details(
         manual_report=bool(row[6]),
         fceb=bool(row[7]),
         retired=bool(row[8]),
+        parent_tag=row[9],
     )
+
+
+def stakeholder_tag_candidates(tag: str) -> tuple[str, ...]:
+    """Return an exact tag followed by successively shorter parent candidates.
+
+    Candidate boundaries are underscores.  The longest matching stakeholder
+    therefore wins while tags whose parent contains underscores remain intact.
+    """
+    normalized_tag = tag.strip()
+    if not normalized_tag:
+        return ()
+    candidates = [normalized_tag]
+    while "_" in normalized_tag:
+        normalized_tag = normalized_tag.rsplit("_", 1)[0]
+        candidates.append(normalized_tag)
+    return tuple(candidates)
+
+
+def get_governing_stakeholder_details(
+    tag: str,
+    conn: connection,
+) -> StakeholderDetails | None:
+    """Return the exact stakeholder or closest enrolled underscore parent."""
+    candidates = stakeholder_tag_candidates(tag)
+    if not candidates:
+        return None
+    exact_stakeholder = get_stakeholder_details(candidates[0], conn)
+    if exact_stakeholder is not None:
+        return exact_stakeholder
+    for candidate_tag in candidates[1:]:
+        stakeholder = get_stakeholder_details(candidate_tag, conn)
+        if stakeholder is not None:
+            return stakeholder
+    return None
 
 
 def get_stakeholder_details_by_tag(tag: str) -> StakeholderDetails | None:
@@ -189,6 +226,20 @@ def get_stakeholder_details_by_tag(tag: str) -> StakeholderDetails | None:
     conn = connect()
     try:
         return get_stakeholder_details(tag=tag, conn=conn)
+    finally:
+        close(conn)
+
+
+def get_governing_stakeholder_details_by_tag(
+    tag: str,
+) -> StakeholderDetails | None:
+    """Return governing stakeholder details using a managed connection."""
+    # Third-Party Libraries
+    from was_reports.utils.database import close, connect
+
+    conn = connect()
+    try:
+        return get_governing_stakeholder_details(tag=tag, conn=conn)
     finally:
         close(conn)
 
@@ -442,26 +493,52 @@ def update_scan_metadata(
     web_apps_last_updated: int,
     qualys_tag_id: int | None,
     conn: connection,
+    preserve_qualys_tag_id: bool = False,
 ) -> None:
-    """Update scan dates and web app counts for a stakeholder."""
+    """Keep the newest parent or child scan snapshot for a stakeholder.
+
+    The scan fields change together only when ``last_scanned`` is newer than
+    the stored value. The stakeholder's Qualys tag ID remains independent so
+    a child scan cannot replace the parent's identifier.
+    """
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE was_stakeholders
-                SET last_scanned = %s,
-                    next_scheduled = %s,
-                    num_web_apps = %s,
-                    web_apps_last_updated = %s,
-                    qualys_tag_id = %s,
+                SET last_scanned = CASE
+                        WHEN last_scanned IS NULL OR last_scanned < %s THEN %s
+                        ELSE last_scanned
+                    END,
+                    next_scheduled = CASE
+                        WHEN last_scanned IS NULL OR last_scanned < %s THEN %s
+                        ELSE next_scheduled
+                    END,
+                    num_web_apps = CASE
+                        WHEN last_scanned IS NULL OR last_scanned < %s THEN %s
+                        ELSE num_web_apps
+                    END,
+                    web_apps_last_updated = CASE
+                        WHEN last_scanned IS NULL OR last_scanned < %s THEN %s
+                        ELSE web_apps_last_updated
+                    END,
+                    qualys_tag_id = CASE
+                        WHEN %s THEN qualys_tag_id
+                        ELSE %s
+                    END,
                     updated_at = NOW()
                 WHERE tag = %s
                 """,
                 (
                     last_scanned,
+                    last_scanned,
+                    last_scanned,
                     next_scheduled,
+                    last_scanned,
                     num_web_apps,
+                    last_scanned,
                     web_apps_last_updated,
+                    preserve_qualys_tag_id,
                     qualys_tag_id,
                     tag,
                 ),
@@ -479,6 +556,7 @@ def update_scan_metadata_for_tag(
     num_web_apps: int,
     web_apps_last_updated: int,
     qualys_tag_id: int | None,
+    preserve_qualys_tag_id: bool = False,
 ) -> None:
     """Update scan metadata using a managed database connection."""
     # Third-Party Libraries
@@ -494,6 +572,7 @@ def update_scan_metadata_for_tag(
             web_apps_last_updated=web_apps_last_updated,
             qualys_tag_id=qualys_tag_id,
             conn=conn,
+            preserve_qualys_tag_id=preserve_qualys_tag_id,
         )
     finally:
         close(conn)

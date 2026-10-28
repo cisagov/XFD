@@ -25,6 +25,7 @@ class ReplayCandidate:
     tag_id: int | None
     organization_name: str | None
     scan_start_date: date | None
+    governing_stakeholder_tag: str | None = None
 
 
 def list_replay_candidates(
@@ -46,10 +47,31 @@ def list_replay_candidates(
                             WHEN runs.status = 'completed' THEN 'resend'
                             ELSE 'manual' END,
                        runs.id, runs.output_path,
-                       COALESCE(tracker.tag_id, stakeholders.qualys_tag_id),
-                       stakeholders.customer_name, tracker.scan_start_date
+                       CASE
+                           WHEN exact_stakeholder.tag IS NOT NULL
+                               THEN COALESCE(
+                                   tracker.tag_id,
+                                   exact_stakeholder.qualys_tag_id
+                               )
+                           ELSE tracker.tag_id
+                       END,
+                       stakeholders.customer_name, tracker.scan_start_date,
+                       COALESCE(runs.stakeholder_tag, stakeholders.tag)
                 FROM was_daily_report_tracker AS tracker
-                JOIN was_stakeholders AS stakeholders ON stakeholders.tag = tracker.tag
+                LEFT JOIN was_stakeholders AS exact_stakeholder
+                  ON exact_stakeholder.tag = tracker.tag
+                JOIN LATERAL (
+                    SELECT candidate.*
+                    FROM was_stakeholders AS candidate
+                    WHERE candidate.tag = exact_stakeholder.tag
+                       OR (exact_stakeholder.tag IS NULL AND (
+                            CHAR_LENGTH(candidate.tag) < CHAR_LENGTH(tracker.tag)
+                        AND LEFT(tracker.tag, CHAR_LENGTH(candidate.tag) + 1)
+                            = candidate.tag || '_'
+                       ))
+                    ORDER BY CHAR_LENGTH(candidate.tag) DESC
+                    LIMIT 1
+                ) AS stakeholders ON TRUE
                 LEFT JOIN was_report_runs AS runs ON runs.source_tracker_id = tracker.id
                 WHERE COALESCE(tracker.scan_start_date, tracker.data_pull_date)
                       BETWEEN (NOW() AT TIME ZONE 'America/New_York')::date - (%s - 1)
@@ -79,8 +101,14 @@ def list_replay_candidates(
                      AND tracker.template = 'Action Required'
                      AND NULLIF(BTRIM(COALESCE(tracker.remove_nws, '')), '')
                          IS NOT NULL
-                     AND COALESCE(tracker.tag_id, stakeholders.qualys_tag_id)
-                         IS NOT NULL
+                     AND CASE
+                             WHEN exact_stakeholder.tag IS NOT NULL
+                                 THEN COALESCE(
+                                     tracker.tag_id,
+                                     exact_stakeholder.qualys_tag_id
+                                 )
+                             ELSE tracker.tag_id
+                         END IS NOT NULL
                      AND (runs.id IS NULL OR (runs.status = 'failed'
                           AND runs.email_status NOT IN ('held', 'sending', 'sent')
                           AND COALESCE(runs.qualys_detail_report_status, '')
@@ -118,10 +146,12 @@ def reserve_replay_run(
         "targets_removed",
     }:
         raise ValueError("A recipient and valid replay action are required.")
+    governing_tag = candidate.governing_stakeholder_tag or candidate.tag
     conn = connect()
     try:
         if candidate.action in {"manual", "targets_removed"}:
-            lock_tracker_tag(conn, candidate.tag)
+            for lock_tag in sorted({candidate.tag, governing_tag}):
+                lock_tracker_tag(conn, lock_tag)
         with conn.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO was_test_replay_batches (replay_id, recipient) "
@@ -151,7 +181,7 @@ def reserve_replay_run(
                 expected_override = (
                     "Targets Removed" if candidate.action == "targets_removed" else None
                 )
-                if existing[6:] != (
+                if existing[1] != governing_tag or existing[6:] != (
                     candidate.action,
                     candidate.original_run_id,
                     expected_override,
@@ -163,24 +193,47 @@ def reserve_replay_run(
                 return ReportRun(*existing[:6]), False
             cursor.execute(
                 "SELECT tag FROM was_stakeholders WHERE tag = %s FOR UPDATE",
-                (candidate.tag,),
+                (governing_tag,),
             )
             if cursor.fetchone() is None:
                 raise ValueError("Replay stakeholder no longer exists.")
             if candidate.action in {"manual", "targets_removed"}:
                 cursor.execute(
-                    "SELECT id FROM was_report_runs WHERE stakeholder_tag = %s "
-                    "AND (status = 'running' OR email_status = 'sending') LIMIT 1",
-                    (candidate.tag,),
+                    "SELECT active_run.id FROM was_report_runs AS active_run "
+                    "LEFT JOIN was_daily_report_tracker AS active_tracker "
+                    "ON active_tracker.id = active_run.source_tracker_id "
+                    "WHERE (active_run.status = 'running' "
+                    "OR active_run.email_status = 'sending') "
+                    "AND ((active_run.source_tracker_id IS NULL "
+                    "AND active_run.stakeholder_tag = %s) "
+                    "OR active_tracker.tag = %s) LIMIT 1",
+                    (governing_tag, candidate.tag),
                 )
                 if cursor.fetchone() is not None:
                     raise ValueError("Another report operation is active for this tag.")
             cursor.execute(
                 """
-                SELECT tracker.tag
+                SELECT tracker.tag, stakeholders.tag
                 FROM was_daily_report_tracker AS tracker
-                JOIN was_stakeholders AS stakeholders ON stakeholders.tag = tracker.tag
+                LEFT JOIN was_stakeholders AS exact_stakeholder
+                  ON exact_stakeholder.tag = tracker.tag
+                JOIN LATERAL (
+                    SELECT candidate_stakeholder.*
+                    FROM was_stakeholders AS candidate_stakeholder
+                    WHERE candidate_stakeholder.tag = exact_stakeholder.tag
+                       OR (exact_stakeholder.tag IS NULL AND (
+                            CHAR_LENGTH(candidate_stakeholder.tag)
+                                < CHAR_LENGTH(tracker.tag)
+                        AND LEFT(
+                                tracker.tag,
+                                CHAR_LENGTH(candidate_stakeholder.tag) + 1
+                            ) = candidate_stakeholder.tag || '_'
+                       ))
+                    ORDER BY CHAR_LENGTH(candidate_stakeholder.tag) DESC
+                    LIMIT 1
+                ) AS stakeholders ON TRUE
                 WHERE tracker.id = %s AND tracker.tag = %s
+                  AND stakeholders.tag = %s
                   AND stakeholders.retired IS NOT TRUE
                   AND COALESCE(tracker.template, '') <> 'Deactivated'
                   AND (
@@ -217,16 +270,22 @@ def reserve_replay_run(
                              AND tracker.template = 'Action Required'
                              AND NULLIF(BTRIM(COALESCE(tracker.remove_nws, '')), '')
                                  IS NOT NULL
-                             AND COALESCE(
-                                 tracker.tag_id, stakeholders.qualys_tag_id
-                             ) IS NOT NULL)
+                             AND CASE
+                                     WHEN exact_stakeholder.tag IS NOT NULL
+                                         THEN COALESCE(
+                                             tracker.tag_id,
+                                             exact_stakeholder.qualys_tag_id
+                                         )
+                                     ELSE tracker.tag_id
+                                 END IS NOT NULL)
                         ))
                   )
-                FOR SHARE OF tracker, stakeholders
+                FOR SHARE OF tracker
                 """,
                 (
                     candidate.tracker_id,
                     candidate.tag,
+                    governing_tag,
                     candidate.action,
                     candidate.original_run_id,
                     candidate.output_path,
@@ -253,7 +312,7 @@ def reserve_replay_run(
                 RETURNING id
                 """,
                 (
-                    candidate.tag,
+                    governing_tag,
                     status,
                     generation_token,
                     output_path,
@@ -286,7 +345,7 @@ def reserve_replay_run(
         return (
             ReportRun(
                 report_run_id,
-                candidate.tag,
+                governing_tag,
                 status,
                 output_path,
                 artifact_type,

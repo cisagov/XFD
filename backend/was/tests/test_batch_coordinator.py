@@ -15,16 +15,31 @@ class BatchCoordinatorTests(unittest.TestCase):
 
     def test_default_and_unlimited_window(self):
         """Normal and explicitly unlimited batches retain their selection windows."""
-        arguments = batch_coordinator.parse_args([])
+        with patch.object(
+            batch_coordinator,
+            "configured_recent_scan_days_back",
+            return_value=7,
+        ):
+            arguments = batch_coordinator.parse_args([])
+            unlimited_arguments = batch_coordinator.parse_args(["--days-back", "all"])
         self.assertEqual(arguments.workers, 30)
         self.assertEqual(arguments.worker_backend, "docker")
         self.assertEqual(arguments.days_back, 7)
         self.assertFalse(arguments.apply)
         self.assertFalse(arguments.delete_apps)
         self.assertEqual(batch_coordinator.days_back_value("1"), 1)
-        self.assertIsNone(
-            batch_coordinator.parse_args(["--days-back", "all"]).days_back
-        )
+        self.assertIsNone(unlimited_arguments.days_back)
+
+    def test_configured_window_is_the_default(self):
+        """Use runtime configuration when no command-line window is supplied."""
+        with patch.object(
+            batch_coordinator,
+            "configured_recent_scan_days_back",
+            return_value=14,
+        ):
+            arguments = batch_coordinator.parse_args([])
+
+        self.assertEqual(arguments.days_back, 14)
 
     def test_invalid_window_explains_minimum_and_today(self):
         """Tell operators that one is the minimum and represents today only."""

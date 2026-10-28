@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 # Third-Party Libraries
 from was_mailer.message import approved_analyst_recipients
 from was_reports.commands import capacity_test
+from was_reports.commands.batch_runner import configured_recent_scan_days_back
 from was_reports.utils.database import connect
 from was_reports.utils.env import load_env_file, require_env
 
@@ -38,7 +39,11 @@ def parse_args(argv=None):
     parser.add_argument("--worker-image", default="was-reporting")
     parser.add_argument("--output-root", type=Path, default=Path("/output"))
     parser.add_argument("--env-file", type=Path)
-    parser.add_argument("--days-back", type=days_back_value, default=7)
+    parser.add_argument(
+        "--days-back",
+        type=days_back_value,
+        default=configured_recent_scan_days_back(),
+    )
     parser.add_argument("--lookback-days", type=int, default=3)
     parser.add_argument("--max-seconds", type=int, default=28800)
     parser.add_argument("--test-recipients")

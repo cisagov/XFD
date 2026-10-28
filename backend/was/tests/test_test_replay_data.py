@@ -24,7 +24,15 @@ class ReplayDataTests(unittest.TestCase):
         self.addCleanup(self.connect_patch.stop)
         self.addCleanup(self.close_patch.stop)
         self.candidate = test_replay.ReplayCandidate(
-            1, "TAG", "resend", 2, "/archive/report.pdf", 3, "Customer", None
+            1,
+            "PARENT_CHILD",
+            "resend",
+            2,
+            "/archive/report.pdf",
+            3,
+            "Customer",
+            None,
+            "PARENT",
         )
         self.replay_id = "12345678-1234-1234-1234-123456789abc"
 
@@ -37,6 +45,8 @@ class ReplayDataTests(unittest.TestCase):
         self.assertIn("runs.delivery_purpose = 'customer'", query)
         self.assertIn("Deactivated", query)
         self.assertIn("runs.email_status NOT IN ('held', 'sending', 'sent')", query)
+        self.assertIn("candidate.tag = exact_stakeholder.tag", query)
+        self.assertNotIn("configured_parent", query)
         self.connection.commit.assert_not_called()
 
     def test_new_resend_is_separate_analyst_run(self):
@@ -44,8 +54,8 @@ class ReplayDataTests(unittest.TestCase):
         self.cursor.fetchone.side_effect = [
             ("test@example.gov",),
             None,
-            ("TAG",),
-            ("TAG",),
+            ("PARENT",),
+            ("PARENT_CHILD", "PARENT"),
             (9,),
         ]
         report, created = test_replay.reserve_replay_run(
@@ -53,6 +63,7 @@ class ReplayDataTests(unittest.TestCase):
         )
         self.assertTrue(created)
         self.assertEqual(9, report.id)
+        self.assertEqual("PARENT", report.stakeholder_tag)
         queries = [call.args[0] for call in self.cursor.execute.call_args_list]
         insert = next(
             query for query in queries if "INSERT INTO was_report_runs" in query
@@ -70,7 +81,7 @@ class ReplayDataTests(unittest.TestCase):
             ("test@example.gov",),
             (
                 9,
-                "TAG",
+                "PARENT",
                 "completed",
                 "/archive/report.pdf",
                 "pdf",
@@ -97,7 +108,12 @@ class ReplayDataTests(unittest.TestCase):
 
     def test_stale_source_aborts(self):
         """Revalidate source eligibility inside the child transaction."""
-        self.cursor.fetchone.side_effect = [("test@example.gov",), None, ("TAG",), None]
+        self.cursor.fetchone.side_effect = [
+            ("test@example.gov",),
+            None,
+            ("PARENT",),
+            None,
+        ]
         with self.assertRaisesRegex(ValueError, "no longer eligible"):
             test_replay.reserve_replay_run(
                 self.replay_id, "test@example.gov", self.candidate
