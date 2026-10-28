@@ -33,6 +33,51 @@ test Make commands, troubleshooting, updates, and rollback guidance.
 Update the relevant runbooks in the same review as any behavior, command,
 schema, configuration, safeguard, or side-effect change.
 
+## Django Development Setup
+
+The Django project is located at `src/was_django_project`. First create the
+ignored local environment file from the tracked placeholder inventory:
+
+```bash
+cd backend/was
+./scripts/create-local-env.sh
+```
+
+Replace every placeholder in `.env` with an approved local-development value,
+use a unique `DJANGO_KEY`, retain `IS_LOCAL=true`, and never commit `.env` or
+populated credentials. Then create and activate a local uv-managed virtual
+environment, install the WAS requirements and package, load `.env`, and start
+the development server:
+
+```bash
+cd backend/was
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install --editable .
+uv run --env-file .env python src/was_django_project/manage.py check
+uv run --env-file .env python src/was_django_project/manage.py runserver \
+  127.0.0.1:8000
+```
+
+The Django settings require access to an approved development PostgreSQL
+database through the `WAS_DB_*` values in `.env`. Do not use production database
+credentials for local development. Network access to the configured database
+must be established before running migrations, database-backed tests, or pages
+that query application data.
+
+Run the Django smoke tests from `backend/was` with the virtual environment
+active:
+
+```bash
+uv run --env-file .env python src/was_django_project/manage.py test \
+  accounts audit core operations qualys_admin reports stakeholders tracker
+```
+
+The initial smoke tests do not access PostgreSQL. Future model and integration
+tests may create and remove the configured test database, so confirm that the
+test credentials and database name are isolated before running them.
+
 For isolated load testing and production timing metrics, see
 [Capacity testing](docs/capacity-testing.md). The target is 600 report outcomes
 within eight hours through persisted SES acceptance, with no operational tracker
@@ -1991,7 +2036,7 @@ targets.
 | Target | Required input and effect |
 | --- | --- |
 | `make install` | Installs the host Python requirements and editable package. |
-| `make test` | Runs the WAS unit-test suite. |
+| `make test` | Runs the WAS and Django unit-test suites. |
 | `make lint` | Runs the repository's WAS flake8 command. |
 | `make build` | Rebuilds the local `was-reporting` image. |
 | `make menu` | Opens the interactive menu with live environment access. Menu choices can write data or send email after confirmation. |

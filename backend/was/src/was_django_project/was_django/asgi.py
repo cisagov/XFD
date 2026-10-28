@@ -12,7 +12,9 @@ import os
 
 # Third-Party Libraries
 from django.core.asgi import get_asgi_application
+from mangum import Mangum
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "was_django.settings")
 
 application = get_asgi_application()
+handler = Mangum(application, lifespan="off")
