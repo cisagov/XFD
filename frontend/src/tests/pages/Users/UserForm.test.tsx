@@ -7,7 +7,7 @@ import UserForm from '@/pages/Users/UserForm';
 
 // ---- mock handles ----
 const mockUseAuthContext = vi.fn();
-const mockUseOrganizationsByRegion = vi.fn();
+const mockUseOrganizationsByState = vi.fn();
 const mockUpdateUser = vi.fn();
 const mockAddUserToOrganization = vi.fn();
 const mockRemoveUserFromOrganization = vi.fn();
@@ -21,9 +21,9 @@ vi.mock('context', async () => {
   };
 });
 
-vi.mock('@/hooks/useOrganizationsByRegion', () => ({
-  useOrganizationsByRegion: (...args: unknown[]) =>
-    mockUseOrganizationsByRegion(...args)
+vi.mock('@/hooks/useOrganizationsByState', () => ({
+  useOrganizationsByState: (...args: unknown[]) =>
+    mockUseOrganizationsByState(...args)
 }));
 
 vi.mock('@/hooks/useUpdateUser', () => ({
@@ -159,7 +159,7 @@ describe('UserForm', () => {
       }
     } as any);
 
-    mockUseOrganizationsByRegion.mockReturnValue({
+    mockUseOrganizationsByState.mockReturnValue({
       organizations: [
         makeOrganization({
           id: 'org-1',
@@ -288,7 +288,7 @@ describe('UserForm', () => {
       originalRoleId: 'role-1'
     };
 
-    mockUseOrganizationsByRegion.mockReturnValue({
+    mockUseOrganizationsByState.mockReturnValue({
       organizations: [
         makeOrganization({
           id: 'org-1',
@@ -466,7 +466,7 @@ describe('UserForm', () => {
   it('updates getOrgsError via setApiErrorStates when org fetch fails', async () => {
     const errorMessage = 'Failed to fetch orgs. Bad request';
 
-    mockUseOrganizationsByRegion.mockReturnValue({
+    mockUseOrganizationsByState.mockReturnValue({
       organizations: [],
       isLoading: false,
       errorMessage,
@@ -710,5 +710,88 @@ describe('UserForm', () => {
     // Find the Autocomplete input wrapper element or input itself by its ID or placeholder
     const stateCombobox = screen.getByRole('combobox', { name: /state/i });
     expect(stateCombobox).toBeDisabled();
+  });
+
+  it('loads organization options using the selected state', () => {
+    mockUseOrganizationsByState.mockReturnValue({
+      organizations: [],
+      isLoading: false,
+      errorMessage: ''
+    });
+
+    render(
+      <UserForm
+        values={{
+          ...baseValues,
+          state: 'Ohio',
+          region_id: 'region-1'
+        }}
+        users={baseUsers}
+        setUsers={mockSetUsers}
+        setValues={mockSetValues}
+        editUserDialogOpen={true}
+        setEditUserDialogOpen={mockSetEditUserDialogOpen}
+        apiErrorStates={baseApiErrorStates}
+        setApiErrorStates={mockSetApiErrorStates}
+        setInfoDialogOpen={mockSetInfoDialogOpen}
+        setInfoDialogContent={mockSetInfoDialogContent}
+      />
+    );
+
+    expect(mockUseOrganizationsByState).toHaveBeenCalledWith('Ohio');
+  });
+
+  it('prevents submission when the selected organization is not in the selected state', async () => {
+    const user = userEvent.setup();
+
+    const mismatchedValues = {
+      ...baseValues,
+      state: 'Ohio',
+      region_id: 'region-1',
+      org_id: 'ca-org-1',
+      org_name: 'California Organization',
+      originalOrgId: 'ca-org-1',
+      originalRoleId: 'role-1'
+    };
+
+    mockUseOrganizationsByState.mockReturnValue({
+      organizations: [
+        makeOrganization({
+          id: 'oh-org-1',
+          name: 'Ohio Organization',
+          acronym: 'OH'
+        })
+      ],
+      isLoading: false,
+      errorMessage: ''
+    });
+
+    render(
+      <UserForm
+        users={baseUsers}
+        setUsers={mockSetUsers}
+        values={mismatchedValues}
+        setValues={mockSetValues}
+        editUserDialogOpen={true}
+        setEditUserDialogOpen={mockSetEditUserDialogOpen}
+        apiErrorStates={baseApiErrorStates}
+        setApiErrorStates={mockSetApiErrorStates}
+        setInfoDialogOpen={mockSetInfoDialogOpen}
+        setInfoDialogContent={mockSetInfoDialogContent}
+      />
+    );
+
+    expect(screen.getByTestId('user-form-dialog')).toHaveAttribute(
+      'data-disabled',
+      'true'
+    );
+
+    // The mocked dialog button still invokes onConfirm even when the dialog is
+    // disabled. This verifies the submit handler independently blocks the request.
+    await user.click(screen.getByTestId('user-form-confirm'));
+
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockAddUserToOrganization).not.toHaveBeenCalled();
+    expect(mockRemoveUserFromOrganization).not.toHaveBeenCalled();
   });
 });

@@ -66,8 +66,14 @@ def _fetch_recovery_state(
             tracker.qualys_error,
             tracker.scan_execution_key,
             stakeholders.report_password,
-            stakeholders.retired,
-            stakeholders.manual_report,
+            (
+                stakeholders.retired IS TRUE
+                OR exact_stakeholder.retired IS TRUE
+            ),
+            (
+                stakeholders.manual_report IS TRUE
+                OR exact_stakeholder.manual_report IS TRUE
+            ),
             runs.id,
             runs.status,
             runs.email_status,
@@ -117,10 +123,14 @@ def _fetch_recovery_state(
                             WHERE sibling_run.source_tracker_id = sibling.id
                         )
                   )
-            )
+            ),
+            runs.stakeholder_tag
         FROM was_daily_report_tracker AS tracker
-        JOIN was_stakeholders AS stakeholders ON stakeholders.tag = tracker.tag
         JOIN was_report_runs AS runs ON runs.source_tracker_id = tracker.id
+        JOIN was_stakeholders AS stakeholders
+          ON stakeholders.tag = runs.stakeholder_tag
+        LEFT JOIN was_stakeholders AS exact_stakeholder
+          ON exact_stakeholder.tag = tracker.tag
         WHERE tracker.id = %s
     """
     # lock_clause is selected only from the fixed strings above.
@@ -228,15 +238,25 @@ def claim_manual_report_recovery(
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT tag FROM was_daily_report_tracker WHERE id = %s",
+                "SELECT tracker.tag, runs.stakeholder_tag "
+                "FROM was_daily_report_tracker AS tracker "
+                "JOIN was_report_runs AS runs "
+                "ON runs.source_tracker_id = tracker.id "
+                "WHERE tracker.id = %s",
                 (tracker_id,),
             )
             tracker_identity = cursor.fetchone()
-        if tracker_identity is None or tracker_identity[0] is None:
+        if (
+            tracker_identity is None
+            or tracker_identity[0] is None
+            or tracker_identity[1] is None
+        ):
             conn.rollback()
             return None
         locked_tag = str(tracker_identity[0])
-        lock_tracker_tag(conn, locked_tag)
+        governing_tag = str(tracker_identity[1])
+        for lock_tag in sorted({locked_tag, governing_tag}):
+            lock_tracker_tag(conn, lock_tag)
         state = _fetch_recovery_state(conn, tracker_id, days_back, lock=True)
         if state is None or state[0] != locked_tag:
             conn.rollback()
@@ -246,6 +266,9 @@ def claim_manual_report_recovery(
             conn.rollback()
             return None
         state = cast(tuple[object, ...], state)
+        if str(state[19]) != governing_tag:
+            conn.rollback()
+            return None
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -268,8 +291,20 @@ def claim_manual_report_recovery(
                   AND NOT EXISTS (
                       SELECT 1
                       FROM was_report_runs AS active_run
-                      WHERE active_run.stakeholder_tag = %s
-                        AND active_run.status = %s
+                      WHERE active_run.status = %s
+                        AND (
+                              (
+                                  active_run.source_tracker_id IS NULL
+                              AND active_run.stakeholder_tag = %s
+                              )
+                           OR EXISTS (
+                                SELECT 1
+                                FROM was_daily_report_tracker AS active_tracker
+                                WHERE active_tracker.id
+                                    = active_run.source_tracker_id
+                                  AND active_tracker.tag = %s
+                           )
+                        )
                   )
                   AND emailed_at IS NULL
                   AND COALESCE(email_status, 'pending') IN ('pending', 'failed')
@@ -284,9 +319,10 @@ def claim_manual_report_recovery(
                     generation_token,
                     EMAIL_PENDING,
                     check.report_run_id,
-                    locked_tag,
-                    locked_tag,
+                    governing_tag,
                     RUNNING,
+                    governing_tag,
+                    locked_tag,
                 ),
             )
             row = cursor.fetchone()

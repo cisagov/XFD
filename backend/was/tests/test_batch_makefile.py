@@ -10,18 +10,51 @@ class BatchMakefileTests(unittest.TestCase):
     """Keep production, preview, and assignee-test date scopes aligned."""
 
     def test_production_public_target_starts_persistent_tmux_launcher(self) -> None:
-        """Submit production through the persistent host launcher."""
+        """Apply orphan cleanup before submitting the persistent coordinator."""
         directory = Path(__file__).resolve().parents[1]
         result = subprocess.run(
-            ["make", "-n", "-C", str(directory), "recent-scan-batch"],
+            [
+                "make",
+                "-s",
+                "-C",
+                str(directory),
+                "recent-scan-batch",
+                "PYTHON=/bin/echo",
+            ],
             capture_output=True,
             text=True,
             check=True,
             timeout=15,
         )
+        cleanup_position = result.stdout.index(
+            "was_reports.commands.orphan_worker_cleanup"
+        )
+        launch_position = result.stdout.index("was_reports.commands.tmux_batch start")
+        self.assertLess(cleanup_position, launch_position)
+        self.assertIn("--minimum-age-hours 12 --apply", result.stdout)
         self.assertIn("was_reports.commands.tmux_batch start", result.stdout)
         self.assertIn("--workflow production", result.stdout)
         self.assertNotIn("was_reports.commands.batch_coordinator", result.stdout)
+
+    def test_orphan_cleanup_failure_blocks_production_startup(self) -> None:
+        """Stop before coordinator creation when guarded cleanup cannot complete."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make",
+                "-s",
+                "-C",
+                str(directory),
+                "recent-scan-batch",
+                "PYTHON=/usr/bin/false",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
 
     def test_production_internal_target_uses_shared_coordinator(self) -> None:
         """Keep the detached implementation on the shared Python workflow."""
@@ -138,6 +171,27 @@ class BatchMakefileTests(unittest.TestCase):
         self.assertIn("--test-recipients preview@example.invalid", result.stdout)
         self.assertNotIn("--delete-apps", result.stdout)
 
+    def test_interrupted_recovery_forwards_test_recipients(self) -> None:
+        """Allow recovery to verify the interrupted test batch recipient scope."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make",
+                "-n",
+                "-C",
+                str(directory),
+                "recover-interrupted-batch",
+                "BATCH_ID=0d039ae2-f152-481f-9f15-e89943cfc63b",
+                "TEST_RECIPIENTS=analyst@example.gov",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+
+        self.assertIn('--test-recipients "analyst@example.gov"', result.stdout)
+
     def test_log_diagnostics_remain_make_only_and_read_batch_files(self) -> None:
         """Expose summary, error, and tag filters without adding menu operations."""
         directory = Path(__file__).resolve().parents[1]
@@ -183,6 +237,78 @@ class BatchMakefileTests(unittest.TestCase):
         )
         self.assertIn("--acknowledge-failures", result.stdout)
         self.assertIn('--session "{}"'.format(session), result.stdout)
+
+    def test_periodic_cleanup_remains_tmux_only(self) -> None:
+        """Keep hourly cleanup limited to the two retained tmux workflows."""
+        directory = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [
+                "make",
+                "-s",
+                "-C",
+                str(directory),
+                "tmux-cleanup",
+                "PYTHON=/bin/echo",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+
+        self.assertIn("--workflow production", result.stdout)
+        self.assertIn("--workflow capacity", result.stdout)
+        self.assertNotIn("was_reports.commands.orphan_worker_cleanup", result.stdout)
+        self.assertNotIn("--apply", result.stdout)
+
+    def test_orphan_cleanup_apply_requires_its_own_switch(self) -> None:
+        """Do not infer container removal authority from tmux cleanup alone."""
+        directory = Path(__file__).resolve().parents[1]
+        preview = subprocess.run(
+            [
+                "make",
+                "-s",
+                "-C",
+                str(directory),
+                "orphan-worker-cleanup",
+                "TMUX_CLEANUP_APPLY=1",
+                "PYTHON=/bin/echo",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+        applied = subprocess.run(
+            [
+                "make",
+                "-s",
+                "-C",
+                str(directory),
+                "orphan-worker-cleanup",
+                "ORPHAN_CLEANUP_APPLY=1",
+                "PYTHON=/bin/echo",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+
+        self.assertNotIn("--apply", preview.stdout)
+        self.assertIn("--apply", applied.stdout)
+
+    def test_hourly_service_remains_tmux_only(self) -> None:
+        """Do not add Docker cleanup requirements to the systemd restore path."""
+        directory = Path(__file__).resolve().parents[1]
+        service = directory.joinpath("systemd", "was-tmux-cleanup.service").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("TMUX_CLEANUP_APPLY=1", service)
+        self.assertNotIn("ORPHAN_CLEANUP_APPLY", service)
+        self.assertNotIn("docker system prune", service)
+        self.assertNotIn("containerd-shim", service)
 
     def test_targets_removed_test_requires_explicit_rows_and_assignee(self) -> None:
         """Route a reviewed Targets Removed test through isolated replay."""

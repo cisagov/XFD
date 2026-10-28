@@ -12,27 +12,34 @@ import requests
 
 # First-Party Libraries
 from was_reports.data.daily_report_tracker import DailyReportTrackerRow
-from was_reports.qualys.qualys_admin import WebAppIdentity
+from was_reports.qualys.qualys_admin import WebAppIdentity, WebAppTagDetailsMissingError
 from was_reports.tracker.item_builder import (
     combined_status_and_result,
     create_tracker_items,
 )
 from was_reports.tracker.models import (
     MISSING_QUALYS_FIELD_NOTE_PREFIX,
+    QUALYS_DELETION_FAILED_NOTE,
+    QUALYS_DELETION_RETRYABLE_NOTE,
     TrackerItem,
     TrackerStakeholder,
 )
 from was_reports.tracker.update_service import (
+    DEACTIVATION_COMPLETE_NOTE,
+    QualysDeletionPreflightError,
     build_tracker_row,
     combined_email_value,
     convert_qualys_date,
     delete_validated_webapp,
     deletion_safety_lock_tags,
+    deletion_status_allows_automatic_removal,
     has_legacy_execution_overlap,
     tracker_result_fields,
     update_execution,
     update_stakeholder_scan_metadata,
     update_tracker,
+    validate_current_deletion_safety,
+    validate_deletion_claim,
     validate_latest_deletion_execution,
     validate_webapp_tags,
 )
@@ -49,6 +56,23 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             deletion_safety_lock_tags(" parent_child "),
             ("PARENT", "PARENT_CHILD"),
         )
+
+    def test_child_deletion_revalidation_honors_exact_child_policy(self) -> None:
+        """Block deletion when an exact child becomes restricted after discovery."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = ("PARENT", True, False, False)
+        item = Mock(tag="PARENT_CHILD")
+
+        with self.assertRaisesRegex(RuntimeError, "safety state changed"):
+            validate_current_deletion_safety(connection, item)
+
+        safety_query = str(cursor.execute.call_args_list[0].args[0])
+        self.assertIn("exact_stakeholder.manual_report IS TRUE", safety_query)
+        self.assertIn("exact_stakeholder.fceb IS TRUE", safety_query)
+        self.assertIn("exact_stakeholder.retired IS TRUE", safety_query)
+        self.assertIn("candidate.tag = exact_stakeholder.tag", safety_query)
+        self.assertNotIn("configured_parent", safety_query)
         self.assertEqual(deletion_safety_lock_tags("tag"), ("TAG",))
 
     def test_actual_scan_bounds_do_not_change_parent_execution_identity(self) -> None:
@@ -83,6 +107,72 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertEqual(row.scan_ended_at, ended)
         self.assertEqual(row.scan_start_date, date(2026, 8, 31))
         self.assertEqual(row.scan_execution_key, "schedule:1:2026-09-01T00:00:00+00:00")
+
+    def test_child_refresh_updates_parent_metadata_without_parent_tag_id(self) -> None:
+        """Update parent scan metadata while preserving its own Qualys tag ID."""
+        item = replace(self.removal_item(False), tag="PARENT_CHILD", tag_id=99)
+        stakeholder = Mock(
+            tag="PARENT",
+            was_report_poc="POC",
+            tech_poc_email="poc@example.gov",
+            distro_email=None,
+            comments=None,
+            report_password="password",
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=stakeholder,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata:
+            row = build_tracker_row(
+                Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2)
+            )
+
+        self.assertEqual(row.tag, "PARENT_CHILD")
+        self.assertEqual(row.tag_id, 99)
+        self.assertEqual(metadata.call_args.kwargs["tag"], "PARENT")
+        self.assertIsNone(metadata.call_args.kwargs["tag_id"])
+        self.assertTrue(metadata.call_args.kwargs["preserve_qualys_tag_id"])
+
+    def test_exact_child_refresh_updates_its_own_scan_metadata(self) -> None:
+        """Update an enrolled child instead of its hierarchy parent."""
+        item = replace(self.removal_item(False), tag="PARENT_CHILD", tag_id=99)
+        stakeholder = Mock(
+            tag="PARENT_CHILD",
+            parent_tag="PARENT",
+            was_report_poc="Child POC",
+            tech_poc_email="child@example.gov",
+            distro_email=None,
+            comments=None,
+            report_password="child-password",
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=stakeholder,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata:
+            row = build_tracker_row(
+                Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2)
+            )
+
+        self.assertEqual(row.tag, "PARENT_CHILD")
+        self.assertEqual(row.poc, "Child POC")
+        self.assertEqual(row.poc_email, "child@example.gov")
+        self.assertEqual(metadata.call_args.kwargs["tag"], "PARENT_CHILD")
+        self.assertEqual(metadata.call_args.kwargs["tag_id"], 99)
+        self.assertFalse(metadata.call_args.kwargs["preserve_qualys_tag_id"])
 
     def test_insert_and_incomplete_update_persist_both_actual_bounds(self) -> None:
         """Future refreshes bind start and end on both persistence branches."""
@@ -1068,6 +1158,237 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             ("Targets Removed", "", 17, "MANUAL QUALYS DELETION PENDING"),
         )
 
+    def test_all_target_deletion_finalizes_deactivation_and_zero_inventory(
+        self,
+    ) -> None:
+        """Record the terminal no-target state without creating report work."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        row = DailyReportTrackerRow(
+            tag="TAG",
+            nws="1, 1, 1",
+            template="Deactivated",
+            report_scan_notes="DEACTIVATE",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=row,
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete, patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=Mock(tag="TAG"),
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        delete.assert_called_once()
+        finalization_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "UPDATE was_daily_report_tracker SET template" in str(call.args[0])
+        )
+        self.assertEqual(
+            finalization_call.args[1],
+            (
+                "Deactivated",
+                DEACTIVATION_COMPLETE_NOTE,
+                17,
+                "MANUAL QUALYS DELETION PENDING",
+            ),
+        )
+        inventory_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "SET num_web_apps = 0" in str(call.args[0])
+        )
+        self.assertEqual(inventory_call.args[1], ("TAG",))
+        self.assertNotIn("retired", str(inventory_call.args[0]))
+        self.assertEqual(conn.commit.call_count, 2)
+
+    def test_child_all_target_deletion_finalizes_parent_inventory(self) -> None:
+        """Finalize an unenrolled child's destructive action on its parent row."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        child_item = replace(self.removal_item(False), tag="PARENT_CHILD")
+        row = DailyReportTrackerRow(
+            tag="PARENT_CHILD",
+            nws="1, 1, 1",
+            template="Deactivated",
+            report_scan_notes="DEACTIVATE",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=row,
+        ), patch("was_reports.tracker.update_service.delete_validated_webapp"), patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=Mock(tag="PARENT"),
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    child_item,
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        inventory_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "SET num_web_apps = 0" in str(call.args[0])
+        )
+        self.assertEqual(inventory_call.args[1], ("PARENT",))
+
+    def test_partial_target_deletion_does_not_zero_stakeholder_inventory(
+        self,
+    ) -> None:
+        """Keep ordinary Targets Removed behavior when web applications remain."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        row = DailyReportTrackerRow(
+            tag="TAG",
+            nws="2, 1, 1",
+            template="Targets Removed",
+            report_scan_notes="",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=row,
+        ), patch("was_reports.tracker.update_service.delete_validated_webapp"):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        finalization_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "UPDATE was_daily_report_tracker SET template" in str(call.args[0])
+        )
+        self.assertEqual(
+            finalization_call.args[1],
+            ("Targets Removed", "", 17, "MANUAL QUALYS DELETION PENDING"),
+        )
+        self.assertFalse(
+            any(
+                "SET num_web_apps = 0" in str(call.args[0])
+                for call in cursor.execute.call_args_list
+            )
+        )
+
+    def test_distinct_qualys_error_does_not_block_nws_deletion(self) -> None:
+        """Delete repeated NWS targets when a different slice has a Qualys error."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        item = replace(
+            self.removal_item(False),
+            status="Error",
+            result="Scan Internal Error",
+            qualys_errors="https://error.example.gov<br>",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(tag="TAG"),
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp"
+        ) as delete:
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    item,
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        delete.assert_called_once_with(
+            unittest.mock.ANY,
+            conn,
+            17,
+            item,
+            "execution",
+            "https://example.gov",
+        )
+        self.assertEqual(
+            cursor.execute.call_args.args[1],
+            ("Targets Removed", "", 17, "MANUAL QUALYS DELETION PENDING"),
+        )
+
+    def test_error_target_cannot_be_automatically_deleted(self) -> None:
+        """Keep deletion blocked when the repeated NWS URL is also an error target."""
+        item = replace(
+            self.removal_item(False),
+            status="Error",
+            result="Scan Internal Error",
+            qualys_errors="https://example.gov<br>",
+        )
+
+        self.assertFalse(
+            deletion_status_allows_automatic_removal(
+                item,
+                ["https://example.gov"],
+            )
+        )
+
+    def test_error_scan_deletion_claim_preserves_exact_status(self) -> None:
+        """Validate the committed claim without rewriting a Qualys error status."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        item = replace(
+            self.removal_item(False),
+            status="Error",
+            result="Scan Internal Error",
+            qualys_errors="https://error.example.gov<br>",
+        )
+        cursor.fetchone.return_value = (
+            item.tag,
+            item.status,
+            item.result,
+            "MANUAL QUALYS DELETION PENDING",
+            "execution",
+            item.tag_id,
+            item.removed_nws,
+            None,
+            False,
+        )
+
+        validate_deletion_claim(conn, 17, item, "execution")
+
     @patch("was_reports.tracker.update_service.delete_webapp")
     @patch("was_reports.tracker.update_service.validate_current_deletion_safety")
     @patch("was_reports.tracker.update_service.validate_deletion_claim")
@@ -1281,6 +1602,10 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             validate_latest_deletion_execution(
                 Mock(), self.removal_item(False), "execution"
             )
+        self.assertEqual(
+            search.call_args.args[1],
+            datetime(2026, 8, 31, tzinfo=timezone.utc),
+        )
 
     def test_duplicate_and_pending_claims_never_delete(self) -> None:
         """Completed, pending, and report-linked executions are not replayed."""
@@ -1320,7 +1645,7 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 delete.assert_not_called()
 
     def test_failure_remains_manual_and_default_does_not_delete(self) -> None:
-        """Failures cannot claim removal and default mode has no deletion."""
+        """Uncertain deletion failures stay manual and default mode never deletes."""
         for enabled in (False, True):
             conn = MagicMock()
             cursor = conn.cursor.return_value.__enter__.return_value
@@ -1331,13 +1656,15 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 return_value=DailyReportTrackerRow(tag="TAG"),
             ), patch(
                 "was_reports.tracker.update_service.delete_validated_webapp",
-                side_effect=RuntimeError("failure"),
+                side_effect=requests.RequestException("safe diagnostic"),
             ) as delete, patch(
                 "was_reports.tracker.update_service.record_tracker_digest_failure"
             ) as digest_failure:
                 if enabled:
-                    with self.assertRaises(RuntimeError):
-                        update_execution(
+                    with self.assertLogs(
+                        "was_reports.tracker.update_service", level="ERROR"
+                    ) as logs:
+                        count = update_execution(
                             Mock(),
                             self.removal_item(False),
                             enabled,
@@ -1346,15 +1673,18 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                             conn,
                             "execution",
                         )
+                    self.assertEqual(count, 1)
                     self.assertEqual(
                         cursor.execute.call_args.args[1],
                         (
-                            "MANUAL QUALYS DELETION FAILED",
+                            QUALYS_DELETION_FAILED_NOTE,
                             17,
                             "MANUAL QUALYS DELETION PENDING",
                         ),
                     )
                     digest_failure.assert_called_once_with(17, conn)
+                    self.assertIn("RequestException", logs.output[0])
+                    self.assertNotIn("safe diagnostic", logs.output[0])
                 else:
                     update_execution(
                         Mock(),
@@ -1366,6 +1696,94 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                         "execution",
                     )
                     delete.assert_not_called()
+
+    def test_preflight_failure_is_retryable_without_external_delete(self) -> None:
+        """Record a later-refresh retry only when preflight fails before deletion."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(tag="TAG"),
+        ), patch(
+            "was_reports.tracker.update_service.find_webapp_identity",
+            side_effect=WebAppTagDetailsMissingError("safe diagnostic"),
+        ), patch(
+            "was_reports.tracker.update_service.delete_webapp"
+        ) as delete, patch(
+            "was_reports.tracker.update_service.record_tracker_digest_failure"
+        ) as digest_failure, self.assertLogs(
+            "was_reports.tracker.update_service", level="ERROR"
+        ) as logs:
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        delete.assert_not_called()
+        self.assertEqual(
+            cursor.execute.call_args.args[1],
+            (
+                QUALYS_DELETION_RETRYABLE_NOTE,
+                17,
+                "MANUAL QUALYS DELETION PENDING",
+            ),
+        )
+        digest_failure.assert_called_once_with(17, conn)
+        self.assertIn("before any delete request", logs.output[0])
+        self.assertIn("WebAppTagDetailsMissingError", logs.output[0])
+        self.assertNotIn("safe diagnostic", logs.output[0])
+
+    def test_partial_deletion_followed_by_preflight_failure_stays_manual(self) -> None:
+        """Require manual reconciliation after any earlier deletion completed."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        item = replace(
+            self.removal_item(False),
+            removed_nws="https://one.example.gov<br>https://two.example.gov",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=DailyReportTrackerRow(tag="TAG"),
+        ), patch(
+            "was_reports.tracker.update_service.delete_validated_webapp",
+            side_effect=[None, QualysDeletionPreflightError("preflight failed")],
+        ) as delete, patch(
+            "was_reports.tracker.update_service.record_tracker_digest_failure"
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    item,
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        self.assertEqual(delete.call_count, 2)
+        self.assertEqual(
+            cursor.execute.call_args.args[1],
+            (
+                QUALYS_DELETION_FAILED_NOTE,
+                17,
+                "MANUAL QUALYS DELETION PENDING",
+            ),
+        )
 
     def test_changed_deletion_note_is_not_overwritten_or_reported_successful(
         self,
@@ -1443,6 +1861,54 @@ class TrackerUpdateServiceTests(unittest.TestCase):
                 )
                 self.assertEqual(claim.args[1][-2:], [17, "QUALYS DELETION REQUIRED"])
                 self.assertIn("MANUAL QUALYS DELETION PENDING", claim.args[1])
+            else:
+                self.assertEqual(count, 0)
+                delete.assert_not_called()
+
+    def test_saved_retryable_row_can_be_claimed_on_later_refresh(self) -> None:
+        """Retry a confirmed pre-delete failure only with deletion explicitly enabled."""
+        for enabled, report_exists in ((True, False), (True, True), (False, False)):
+            conn = MagicMock()
+            cursor = conn.cursor.return_value.__enter__.return_value
+            cursor.fetchone.side_effect = [
+                (
+                    17,
+                    "Finished",
+                    "No Web Service",
+                    QUALYS_DELETION_RETRYABLE_NOTE,
+                    "existing-key",
+                ),
+                (report_exists,),
+            ]
+            cursor.rowcount = 1
+            with patch(
+                "was_reports.tracker.update_service.build_tracker_row",
+                return_value=DailyReportTrackerRow(),
+            ), patch(
+                "was_reports.tracker.update_service.delete_validated_webapp"
+            ) as delete:
+                count = update_execution(
+                    Mock(),
+                    self.removal_item(False),
+                    enabled,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                )
+
+            if enabled and not report_exists:
+                self.assertEqual(count, 1)
+                delete.assert_called_once()
+                claim = next(
+                    call
+                    for call in cursor.execute.call_args_list
+                    if "UPDATE was_daily_report_tracker SET" in str(call.args[0])
+                )
+                self.assertEqual(
+                    claim.args[1][-2:],
+                    [17, QUALYS_DELETION_RETRYABLE_NOTE],
+                )
             else:
                 self.assertEqual(count, 0)
                 delete.assert_not_called()

@@ -8,6 +8,7 @@ from unittest.mock import Mock, call, patch
 # Third-Party Libraries
 # First-Party Libraries
 from was_reports.commands import admin_cli
+from was_reports.qualys.qualys_admin import WebAppIdentity
 
 
 class AdminCliTests(unittest.TestCase):
@@ -43,10 +44,147 @@ class AdminCliTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly match"):
             admin_cli.execute_command(Mock(), args)
 
+    def test_validated_delete_requires_exact_tag_confirmation(self) -> None:
+        """Require the operator to repeat the expected deletion tag ID."""
+        args = admin_cli.parse_args(
+            [
+                "delete-webapp-validated",
+                "--url",
+                "https://example.gov",
+                "--expected-tag-id",
+                "13396052",
+                "--confirm-url",
+                "https://example.gov",
+                "--confirm-tag-id",
+                "13396053",
+            ]
+        )
+
+        with self.assertRaises(ValueError) as raised_error:
+            admin_cli.execute_command(Mock(), args)
+        self.assertIn("expected tag ID", str(raised_error.exception))
+
     def test_rejects_url_credentials(self) -> None:
         """Prevent credentials from being accepted as part of a target URL."""
         with self.assertRaises(argparse.ArgumentTypeError):
             admin_cli.validate_webapp_url("https://user:secret@example.gov")
+
+    def test_rejects_invalid_tag_ids(self) -> None:
+        """Accept only positive ASCII numeric Qualys tag IDs."""
+        for value in ("0", "-1", "tag", "１２３"):
+            with self.subTest(value=value), self.assertRaises(
+                argparse.ArgumentTypeError
+            ):
+                admin_cli.validate_tag_id(value)
+
+    @patch("was_reports.commands.admin_cli.delete_webapp")
+    @patch("was_reports.commands.admin_cli.find_webapp_identity")
+    def test_validated_delete_rechecks_identity_tag_and_stable_id(
+        self,
+        find_identity,
+        delete,
+    ) -> None:
+        """Delete only after two stable reads confirm the sole expected test tag."""
+        identity = WebAppIdentity(
+            "42",
+            "https://fakedomain.faketld",
+            ("13396052",),
+        )
+        find_identity.side_effect = [identity, identity]
+        client = Mock()
+        args = admin_cli.parse_args(
+            [
+                "delete-webapp-validated",
+                "--url",
+                "https://fakedomain.faketld",
+                "--expected-tag-id",
+                "13396052",
+                "--confirm-url",
+                "https://fakedomain.faketld",
+                "--confirm-tag-id",
+                "13396052",
+            ]
+        )
+
+        message = admin_cli.execute_command(client, args)
+
+        self.assertIn("completed", message)
+        self.assertEqual(
+            find_identity.call_args_list,
+            [
+                call(client, "https://fakedomain.faketld"),
+                call(client, "https://fakedomain.faketld"),
+            ],
+        )
+        delete.assert_called_once_with(
+            client,
+            "https://fakedomain.faketld",
+            webapp_id="42",
+        )
+
+    @patch("was_reports.commands.admin_cli.delete_webapp")
+    @patch("was_reports.commands.admin_cli.find_webapp_identity")
+    def test_validated_delete_blocks_changed_identity_or_tags(
+        self,
+        find_identity,
+        delete,
+    ) -> None:
+        """Block deletion when identity changes or the tag set is unexpected."""
+        expected = WebAppIdentity("42", "https://example.gov", ("13396052",))
+        unsafe_responses = (
+            (
+                [
+                    expected,
+                    WebAppIdentity("43", "https://example.gov", ("13396052",)),
+                ],
+                "identity changed",
+            ),
+            (
+                [
+                    WebAppIdentity("42", "https://example.gov", ("999",)),
+                    WebAppIdentity("42", "https://example.gov", ("999",)),
+                ],
+                "expected test tag",
+            ),
+            (
+                [
+                    WebAppIdentity(
+                        "42",
+                        "https://example.gov",
+                        ("13396052", "999"),
+                    ),
+                    WebAppIdentity(
+                        "42",
+                        "https://example.gov",
+                        ("13396052", "999"),
+                    ),
+                ],
+                "additional tags",
+            ),
+        )
+        args = admin_cli.parse_args(
+            [
+                "delete-webapp-validated",
+                "--url",
+                "https://example.gov",
+                "--expected-tag-id",
+                "13396052",
+                "--confirm-url",
+                "https://example.gov",
+                "--confirm-tag-id",
+                "13396052",
+            ]
+        )
+
+        for responses, expected_message in unsafe_responses:
+            with self.subTest(expected_message=expected_message):
+                find_identity.reset_mock(side_effect=True)
+                find_identity.side_effect = responses
+                delete.reset_mock()
+                with self.assertRaises(RuntimeError) as raised_error:
+                    admin_cli.execute_command(Mock(), args)
+                self.assertIn(expected_message, str(raised_error.exception))
+                delete.assert_not_called()
 
     @patch("was_reports.commands.admin_cli.update_webapp_tag")
     @patch("was_reports.commands.admin_cli.get_tag_id")

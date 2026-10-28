@@ -24,6 +24,22 @@ class WebAppIdentity:
     tag_ids: tuple[str, ...]
 
 
+class WebAppLookupCardinalityError(LookupError):
+    """Indicate that an exact URL lookup did not return exactly one web app."""
+
+
+class WebAppIdMissingError(LookupError):
+    """Indicate that Qualys omitted the selected web application's ID."""
+
+
+class WebAppUrlMismatchError(LookupError):
+    """Indicate that Qualys returned a URL other than the requested exact URL."""
+
+
+class WebAppTagDetailsMissingError(LookupError):
+    """Indicate that Qualys omitted verbose tag IDs for the selected web app."""
+
+
 def _serialize_xml(root: etree._Element) -> str:
     """Serialize an XML request while preserving escaped operator input."""
     return etree.tostring(root, encoding="unicode")
@@ -72,15 +88,20 @@ def _parse_response(response_xml: str, operation: str) -> etree._Element:
     return root
 
 
-def build_webapp_lookup_payload(webapp_url: str) -> str:
-    """Build a Qualys request that finds a web application by exact URL."""
-    return _serialize_xml(
-        E.ServiceRequest(
-            E.filters(
-                E.Criteria(webapp_url, field="url", operator="EQUALS"),
-            )
+def build_webapp_lookup_payload(
+    webapp_url: str,
+    include_tag_details: bool = False,
+) -> str:
+    """Build an exact URL search, optionally requesting associated tag details."""
+    request_elements = []
+    if include_tag_details:
+        request_elements.append(E.preferences(E.verbose("true")))
+    request_elements.append(
+        E.filters(
+            E.Criteria(webapp_url, field="url", operator="EQUALS"),
         )
     )
+    return _serialize_xml(E.ServiceRequest(*request_elements))
 
 
 def find_webapp_id(client: QualysClient, webapp_url: str) -> str:
@@ -108,7 +129,10 @@ def find_webapp_identity(client: QualysClient, webapp_url: str) -> WebAppIdentit
     response_xml = client.request(
         QualysRequest(
             endpoint="/search/was/webapp",
-            payload=build_webapp_lookup_payload(webapp_url),
+            payload=build_webapp_lookup_payload(
+                webapp_url,
+                include_tag_details=True,
+            ),
             http_method="POST",
         )
     )
@@ -118,7 +142,7 @@ def find_webapp_identity(client: QualysClient, webapp_url: str) -> WebAppIdentit
     )
     webapps = root.findall("./data/WebApp")
     if (root.findtext("count") or "").strip() != "1" or len(webapps) != 1:
-        raise LookupError(
+        raise WebAppLookupCardinalityError(
             "Qualys exact URL lookup did not return exactly one web application."
         )
     webapp = webapps[0]
@@ -131,9 +155,17 @@ def find_webapp_identity(client: QualysClient, webapp_url: str) -> WebAppIdentit
             if value.strip()
         )
     )
-    if not returned_id or returned_url != webapp_url or not tag_ids:
-        raise LookupError(
-            "Qualys could not confirm the web application identity and tags."
+    if not returned_id:
+        raise WebAppIdMissingError(
+            "Qualys omitted the web application ID from the exact URL lookup."
+        )
+    if returned_url != webapp_url:
+        raise WebAppUrlMismatchError(
+            "Qualys returned a web application URL that did not exactly match."
+        )
+    if not tag_ids:
+        raise WebAppTagDetailsMissingError(
+            "Qualys omitted verbose web application tag IDs."
         )
     return WebAppIdentity(returned_id, returned_url, tag_ids)
 

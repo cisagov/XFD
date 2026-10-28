@@ -217,6 +217,10 @@ class CapacityScopeTests(unittest.TestCase):
                 python_executable="python",
                 retry_ready_emails=False,
             )
-        retry.assert_called_once_with(4, safe_only=True)
+        retry.assert_called_once_with(
+            4,
+            safe_only=True,
+            governing_stakeholder_tag="TAG",
+        )
         create.assert_not_called()
         self.assertEqual(result.candidates, 1)

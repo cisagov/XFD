@@ -2,7 +2,7 @@
 
 # Standard Python Libraries
 import unittest
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 # Third-Party Libraries
 # First-Party Libraries
@@ -64,6 +64,68 @@ class FakeConnection:
 
 class StakeholderDataTests(unittest.TestCase):
     """Validate stakeholder maintenance and export helpers."""
+
+    def test_stakeholder_tag_candidates_preserve_longest_parent_first(self) -> None:
+        """Resolve nested child tags from the most specific boundary first."""
+        self.assertEqual(
+            stakeholders.stakeholder_tag_candidates(" PARENT_REGION_CHILD "),
+            ("PARENT_REGION_CHILD", "PARENT_REGION", "PARENT"),
+        )
+
+    @patch.object(stakeholders, "get_stakeholder_details")
+    def test_governing_stakeholder_prefers_exact_row(self, get_details) -> None:
+        """Use an exact stakeholder even when it has a hierarchy parent."""
+        child = stakeholders.StakeholderDetails(
+            tag="PARENT_CHILD",
+            parent_tag="PARENT",
+        )
+        get_details.return_value = child
+
+        result = stakeholders.get_governing_stakeholder_details(
+            "PARENT_CHILD", FakeConnection()
+        )
+
+        self.assertIs(result, child)
+        get_details.assert_called_once_with("PARENT_CHILD", ANY)
+
+    @patch.object(stakeholders, "get_stakeholder_details")
+    def test_governing_stakeholder_uses_longest_existing_prefix(
+        self, get_details
+    ) -> None:
+        """Keep an enrolled underscore parent intact for an unenrolled child."""
+        governing = stakeholders.StakeholderDetails(tag="PARENT_REGION")
+        get_details.side_effect = [None, governing]
+
+        result = stakeholders.get_governing_stakeholder_details(
+            "PARENT_REGION_CHILD", FakeConnection()
+        )
+
+        self.assertIs(result, governing)
+        self.assertEqual(get_details.call_count, 2)
+
+    @patch.object(stakeholders, "get_stakeholder_details")
+    def test_governing_stakeholder_preserves_exact_row_policy(
+        self, get_details
+    ) -> None:
+        """Keep every reporting control from an exact stakeholder row."""
+        child = stakeholders.StakeholderDetails(
+            tag="ROOT_CHILD",
+            parent_tag="ROOT",
+            manual_report=True,
+            fceb=True,
+            retired=True,
+        )
+        get_details.return_value = child
+
+        result = stakeholders.get_governing_stakeholder_details(
+            "ROOT_CHILD", FakeConnection()
+        )
+
+        self.assertIs(result, child)
+        self.assertTrue(result.manual_report)
+        self.assertTrue(result.retired)
+        self.assertTrue(result.fceb)
+        get_details.assert_called_once_with("ROOT_CHILD", ANY)
 
     def test_create_stakeholder_takes_deletion_safety_lock(self) -> None:
         """Coordinate a new exact stakeholder with an active child deletion."""
@@ -164,6 +226,60 @@ class StakeholderDataTests(unittest.TestCase):
             )
 
         lock_tag.assert_not_called()
+
+    def test_parent_reassignment_takes_generation_safety_lock(self) -> None:
+        """Serialize parent changes with child report generation claims."""
+        conn = FakeConnection(row=("TAG1",))
+
+        with patch.object(stakeholders, "lock_tracker_tag") as lock_tag:
+            stakeholders.update_stakeholder_fields(
+                tag="TAG1",
+                updates={"parent_tag": "PARENT"},
+                conn=conn,
+            )
+
+        lock_tag.assert_called_once_with(conn, "TAG1")
+
+    def test_scan_metadata_keeps_the_newest_parent_or_child_snapshot(self) -> None:
+        """Update scan fields only when the incoming scan is newer."""
+        conn = FakeConnection()
+
+        stakeholders.update_scan_metadata(
+            tag="PARENT",
+            last_scanned=1788220800,
+            next_scheduled=1790812800,
+            num_web_apps=7,
+            web_apps_last_updated=1788224400,
+            qualys_tag_id=42,
+            conn=conn,
+        )
+
+        query = str(conn.cursor_instance.query)
+        self.assertEqual(
+            query.count("last_scanned IS NULL OR last_scanned < %s"),
+            4,
+        )
+        self.assertIn("ELSE last_scanned", query)
+        self.assertIn("ELSE next_scheduled", query)
+        self.assertIn("ELSE num_web_apps", query)
+        self.assertIn("ELSE web_apps_last_updated", query)
+        self.assertEqual(
+            conn.cursor_instance.parameters,
+            (
+                1788220800,
+                1788220800,
+                1788220800,
+                1790812800,
+                1788220800,
+                7,
+                1788220800,
+                1788224400,
+                False,
+                42,
+                "PARENT",
+            ),
+        )
+        self.assertTrue(conn.committed)
 
     def test_update_stakeholder_fields_rejects_protected_columns(self) -> None:
         """Prevent general updates to identifiers and report passwords."""

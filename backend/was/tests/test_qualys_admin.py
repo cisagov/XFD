@@ -9,6 +9,10 @@ from lxml import etree
 
 # First-Party Libraries
 from was_reports.qualys.qualys_admin import (
+    WebAppIdMissingError,
+    WebAppLookupCardinalityError,
+    WebAppTagDetailsMissingError,
+    WebAppUrlMismatchError,
     build_delete_webapp_payload,
     build_false_positive_payload,
     build_reactivate_webapp_payload,
@@ -98,6 +102,9 @@ class QualysAdminTests(unittest.TestCase):
         self.assertEqual(identity.webapp_id, "42")
         self.assertEqual(identity.webapp_url, "https://example.gov")
         self.assertEqual(identity.tag_ids, ("9", "100"))
+        request = client.request.call_args.args[0]
+        request_root = etree.fromstring(request.payload.encode("utf-8"))
+        self.assertEqual(request_root.findtext("./preferences/verbose"), "true")
 
     def test_find_webapp_identity_rejects_duplicate_exact_urls(self) -> None:
         """Never choose one destructive target from an ambiguous URL result."""
@@ -115,23 +122,39 @@ class QualysAdminTests(unittest.TestCase):
                     "<ServiceResponse><count>2</count><data>{}"
                     "</data></ServiceResponse>".format(webapps)
                 )
-                with self.assertRaisesRegex(LookupError, "exactly one"):
+                with self.assertRaisesRegex(
+                    WebAppLookupCardinalityError,
+                    "exactly one",
+                ):
                     find_webapp_identity(client, "https://example.gov")
 
-    def test_find_webapp_identity_rejects_changed_url_or_missing_tags(self) -> None:
-        """Require Qualys to return all destructive identity evidence."""
-        for result in (
-            "<id>42</id><url>https://changed.example.gov</url>"
-            "<tags><list><Tag><id>9</id></Tag></list></tags>",
-            "<id>42</id><url>https://example.gov</url><tags/>",
-        ):
-            with self.subTest(result=result):
+    def test_find_webapp_identity_identifies_missing_safety_evidence(self) -> None:
+        """Identify which destructive identity safeguard Qualys did not satisfy."""
+        responses = (
+            (
+                "<url>https://example.gov</url>"
+                "<tags><list><Tag><id>9</id></Tag></list></tags>",
+                WebAppIdMissingError,
+            ),
+            (
+                "<id>42</id><url>https://changed.example.gov</url>"
+                "<tags><list><Tag><id>9</id></Tag></list></tags>",
+                WebAppUrlMismatchError,
+            ),
+            (
+                "<id>42</id><url>https://example.gov</url>"
+                "<tags><count>1</count></tags>",
+                WebAppTagDetailsMissingError,
+            ),
+        )
+        for result, error_type in responses:
+            with self.subTest(error_type=error_type.__name__):
                 client = Mock()
                 client.request.return_value = (
                     "<ServiceResponse><count>1</count><data><WebApp>{}"
                     "</WebApp></data></ServiceResponse>".format(result)
                 )
-                with self.assertRaisesRegex(LookupError, "confirm"):
+                with self.assertRaises(error_type):
                     find_webapp_identity(client, "https://example.gov")
 
     def test_tag_payload_supports_add_and_remove(self) -> None:

@@ -42,8 +42,9 @@ Existing table, row, error, manual sent-date, CSV export, and XLSX import action
 remain. Additional actions:
 
 - **View all tracker entries for a customer tag** includes all dates and no row
-  limit. Child-tag inclusion follows `parent_tag` recursively (not a name-prefix
-  match) and is cycle-safe.
+  limit. Child-tag inclusion uses the same governing-stakeholder rules as report
+  generation: an explicit `parent_tag` first, then the longest enrolled
+  underscore-delimited parent tag for a dependent child without its own row.
 - **Refresh the report tracker from API** replaces the former Qualys menu action.
 - **Export tracker CSV** offers local output, direct S3, or email to approved,
   email-enabled analysts. S3/email exports exclude the Password column and escape
@@ -65,6 +66,19 @@ remain. Additional actions:
   have no supported menu recovery action; preserve evidence and escalate rather
   than editing the row.
   Customer email addresses must be corrected in Stakeholder Management.
+- **Reconcile a held customer email delivery** lists eligible held deliveries
+  by tag, report-run ID, and tracker ID. Select the numbered row; the operator
+  does not need to find or type the report-run ID. The menu can record externally
+  confirmed delivery without resending, or retry externally confirmed
+  non-delivery to the stored customer recipients after a non-sensitive evidence
+  reference and exact customer-send confirmation. A successful retry updates the
+  report run, linked tracker sent date, and batch attempt together.
+
+Customer report delivery automatically retries once only when the returned AWS
+error code conclusively identifies a transient non-delivery, such as throttling
+or service unavailability. Response parsing, transport uncertainty, and failures
+after SES acceptance remain held for the menu workflow to prevent duplicate
+customer mail.
 
 CLI examples:
 

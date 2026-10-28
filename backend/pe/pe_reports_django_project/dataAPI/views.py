@@ -496,31 +496,14 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
     # Check for API key
     LOGGER.info("The api key submitted tokens")
     del tokens
-
+    # Get IPs from organization's CIDRs
     ips_from_cidrs = Ips.objects.filter(
         origin_cidr__organizations_uid=org_uid,
         origin_cidr__isnull=False,
         shodan_results=True,
         current=True,
     ).values_list("ip", flat=True)
-
-    ips_from_subs = Ips.objects.filter(
-        ipssubs__sub_domain_uid__root_domain_uid__organizations_uid=org_uid,  # Correct relationship traversal
-        shodan_results=True,  # 'shodan_results' is True
-        ipssubs__sub_domain_uid__current=True,  # 'current' is True for subdomains
-        current=True,  # 'current' is True for Ips
-    ).values_list("ip", flat=True)
-
-    # Convert the QuerySet to sets
-    in_first = set(ips_from_cidrs)
-    in_second = set(ips_from_subs)
-
-    # Find IPs that are in the second query but not in the first
-    in_second_but_not_in_first = in_second - in_first
-
-    # Combine the results
-    ips = list(ips_from_cidrs) + list(in_second_but_not_in_first)
-
+    ips = list(ips_from_cidrs)
     return ips
 
 

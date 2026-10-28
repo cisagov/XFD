@@ -13,6 +13,8 @@ import unittest
 from unittest.mock import Mock, patch
 
 # Third-Party Libraries
+from botocore.exceptions import ClientError
+
 # First-Party Libraries
 from was_mailer import email_reports
 from was_mailer.message import (
@@ -38,6 +40,124 @@ class WasMailerTests(unittest.TestCase):
         )
         heartbeat.start()
         self.addCleanup(heartbeat.stop)
+
+    def test_send_message_retries_one_confirmed_transient_nondelivery(self) -> None:
+        """Retry once when SES explicitly rejects a transient request."""
+        throttling_error = ClientError(
+            {
+                "Error": {
+                    "Code": "ThrottlingException",
+                    "Message": "Maximum sending rate exceeded",
+                }
+            },
+            "SendRawEmail",
+        )
+        ses_client = Mock()
+        ses_client.send_raw_email.side_effect = [
+            throttling_error,
+            {"MessageId": "message-id"},
+        ]
+        message = Mock()
+        message.as_bytes.return_value = b"message"
+        sleep_function = Mock()
+
+        message_id = email_reports.send_message(
+            ses_client,
+            message,
+            retry_confirmed_nondelivery=True,
+            sleep_function=sleep_function,
+        )
+
+        self.assertEqual(message_id, "message-id")
+        self.assertEqual(ses_client.send_raw_email.call_count, 2)
+        sleep_function.assert_called_once_with(
+            email_reports.SES_CONFIRMED_NONDELIVERY_RETRY_DELAY_SECONDS
+        )
+
+    def test_send_message_does_not_retry_uncertain_or_permanent_failure(self) -> None:
+        """Leave errors outside the narrow non-delivery allow-list unretried."""
+        rejected_error = ClientError(
+            {
+                "Error": {
+                    "Code": "MessageRejected",
+                    "Message": "Message rejected",
+                }
+            },
+            "SendRawEmail",
+        )
+        ses_client = Mock()
+        ses_client.send_raw_email.side_effect = rejected_error
+        message = Mock()
+        message.as_bytes.return_value = b"message"
+        sleep_function = Mock()
+
+        with self.assertRaises(ClientError):
+            email_reports.send_message(
+                ses_client,
+                message,
+                retry_confirmed_nondelivery=True,
+                sleep_function=sleep_function,
+            )
+
+        ses_client.send_raw_email.assert_called_once()
+        sleep_function.assert_not_called()
+
+    def test_send_message_stops_after_one_safe_retry(self) -> None:
+        """Limit a retry-safe SES rejection to one additional attempt."""
+        service_error = ClientError(
+            {
+                "Error": {
+                    "Code": "ServiceUnavailable",
+                    "Message": "Service unavailable",
+                }
+            },
+            "SendRawEmail",
+        )
+        ses_client = Mock()
+        ses_client.send_raw_email.side_effect = service_error
+        message = Mock()
+        message.as_bytes.return_value = b"message"
+        sleep_function = Mock()
+
+        with self.assertRaises(ClientError):
+            email_reports.send_message(
+                ses_client,
+                message,
+                retry_confirmed_nondelivery=True,
+                sleep_function=sleep_function,
+            )
+
+        self.assertEqual(ses_client.send_raw_email.call_count, 2)
+        sleep_function.assert_called_once_with(
+            email_reports.SES_CONFIRMED_NONDELIVERY_RETRY_DELAY_SECONDS
+        )
+
+    def test_send_message_requires_report_retry_opt_in(self) -> None:
+        """Do not broaden the customer-report retry to other email workflows."""
+        throttling_error = ClientError(
+            {
+                "Error": {
+                    "Code": "ThrottlingException",
+                    "Message": "Maximum sending rate exceeded",
+                }
+            },
+            "SendRawEmail",
+        )
+        ses_client = Mock()
+        ses_client.send_raw_email.side_effect = throttling_error
+        message = Mock()
+        message.as_bytes.return_value = b"message"
+        sleep_function = Mock()
+
+        with self.assertRaises(ClientError):
+            email_reports.send_message(
+                ses_client,
+                message,
+                sleep_function=sleep_function,
+            )
+
+        ses_client.send_raw_email.assert_called_once()
+        sleep_function.assert_not_called()
 
     def test_parse_email_addresses_accepts_semicolon_and_comma(self) -> None:
         """Parse recipient lists from common stakeholder formats."""
@@ -650,6 +770,59 @@ class WasMailerTests(unittest.TestCase):
             1, "message-id", email_claim_token=None
         )
 
+    @patch("was_mailer.email_reports.cancellable_sleep")
+    @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
+    @patch("was_mailer.email_reports.claim_report_run_email_by_id")
+    def test_customer_report_retries_one_retry_safe_ses_rejection(
+        self,
+        mock_claim_report_run_email,
+        mock_mark_emailed,
+        mock_sleep,
+    ) -> None:
+        """Retry a customer report once when SES confirms non-delivery."""
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "TAG1_report_2026-08-26.pdf"
+            report_path.write_bytes(b"%PDF")
+            mock_claim_report_run_email.return_value = ReportRunEmail(
+                id=1,
+                stakeholder_tag="TAG1",
+                output_path=str(report_path),
+                report_password="secret",
+                distro_email="recipient@example.gov",
+                tech_poc_email=None,
+                was_report_poc=None,
+                delivery_purpose="customer",
+            )
+            throttling_error = ClientError(
+                {
+                    "Error": {
+                        "Code": "ThrottlingException",
+                        "Message": "Maximum sending rate exceeded",
+                    }
+                },
+                "SendRawEmail",
+            )
+            ses_client = Mock()
+            ses_client.send_raw_email.side_effect = [
+                throttling_error,
+                {"MessageId": "message-id"},
+            ]
+
+            message_id = email_reports.send_report_run_email(
+                report_run_id=1,
+                source_email="sender@example.gov",
+                ses_client=ses_client,
+                storage_mode="local",
+                local_output_directory=directory,
+            )
+
+        self.assertEqual(message_id, "message-id")
+        self.assertEqual(ses_client.send_raw_email.call_count, 2)
+        mock_sleep.assert_called_once()
+        mock_mark_emailed.assert_called_once_with(
+            1, "message-id", email_claim_token=None
+        )
+
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.claim_report_run_email_by_id")
@@ -804,10 +977,19 @@ class WasMailerTests(unittest.TestCase):
                 tech_poc_email=None,
                 was_report_poc=None,
             )
+            rejected_error = ClientError(
+                {
+                    "Error": {
+                        "Code": "MessageRejected",
+                        "Message": "sensitive rejection detail",
+                    }
+                },
+                "SendRawEmail",
+            )
             ses_client = Mock()
-            ses_client.send_raw_email.side_effect = RuntimeError("send failed")
+            ses_client.send_raw_email.side_effect = rejected_error
 
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(ClientError):
                 email_reports.send_report_run_email(
                     report_run_id=1,
                     source_email="sender@example.gov",
@@ -827,8 +1009,12 @@ class WasMailerTests(unittest.TestCase):
             mock_logger_exception.call_args.kwargs["extra"],
             {
                 "event": "ses_delivery_uncertain",
-                "error_category": "RuntimeError",
+                "error_category": "ClientError",
+                "error_code": "MessageRejected",
             },
+        )
+        self.assertNotIn(
+            "sensitive rejection detail", str(mock_logger_exception.call_args)
         )
 
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")

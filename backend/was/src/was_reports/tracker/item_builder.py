@@ -13,7 +13,7 @@ import requests
 
 # First-Party Libraries
 from was_reports.data.special_cases import normalize_special_case_value
-from was_reports.data.stakeholders import get_stakeholder_details_by_tag
+from was_reports.data.stakeholders import get_governing_stakeholder_details_by_tag
 from was_reports.qualys.qualys_client import QualysClient
 from was_reports.tracker.models import (
     MISSING_QUALYS_FIELD_NOTE_PREFIX,
@@ -176,9 +176,7 @@ def earliest_slice_start(scans: list[QualysScan]) -> datetime | None:
 
 def stakeholder_flags(tag: str) -> tuple[str, bool]:
     """Return manual-report notes and FCEB status for a stakeholder tag."""
-    stakeholder = get_stakeholder_details_by_tag(tag)
-    if stakeholder is None and "_" in tag:
-        stakeholder = get_stakeholder_details_by_tag(tag.split("_", 1)[0])
+    stakeholder = get_governing_stakeholder_details_by_tag(tag)
     if stakeholder is None:
         LOGGER.warning(
             "Stakeholder tag %s is absent from Postgres; marking it manual.",
