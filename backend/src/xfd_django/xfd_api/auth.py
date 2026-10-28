@@ -11,6 +11,7 @@ import uuid
 
 # Third-Party Libraries
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
@@ -444,7 +445,7 @@ def _get_explicit_stats_org_ids(current_user, organizations_filter):
                 id__in=organizations_filter
             ).values_list("id", flat=True)
         }
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, ValidationError):
         existing_org_ids = set()
 
     if is_global_view_admin(current_user):

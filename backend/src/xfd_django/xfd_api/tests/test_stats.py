@@ -230,6 +230,18 @@ def test_get_stats_org_ids_rejects_nonexistent_organization(user):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_stats_org_ids_rejects_malformed_organization(user):
+    """Malformed organization IDs are rejected without an internal error."""
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_stats_org_ids(user, stats_filters("not-a-uuid"))
+
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_stats_org_ids_limits_regional_admin_to_region_or_admin_role(
     user, organization
 ):
