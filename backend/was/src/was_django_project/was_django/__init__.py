@@ -1,0 +1,1 @@
+"""WAS Django project package."""
