@@ -42,8 +42,9 @@ Existing table, row, error, manual sent-date, CSV export, and XLSX import action
 remain. Additional actions:
 
 - **View all tracker entries for a customer tag** includes all dates and no row
-  limit. Child-tag inclusion follows `parent_tag` recursively (not a name-prefix
-  match) and is cycle-safe.
+  limit. Child-tag inclusion uses the same governing-stakeholder rules as report
+  generation: an explicit `parent_tag` first, then the longest enrolled
+  underscore-delimited parent tag for a dependent child without its own row.
 - **Refresh the report tracker from API** replaces the former Qualys menu action.
 - **Export tracker CSV** offers local output, direct S3, or email to approved,
   email-enabled analysts. S3/email exports exclude the Password column and escape

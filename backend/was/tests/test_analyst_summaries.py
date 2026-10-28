@@ -643,6 +643,8 @@ class AnalystSummaryTests(unittest.TestCase):
         self.assertNotIn("BTRIM(tracker.qualys_error)", query)
         self.assertNotIn("UPPER(BTRIM(COALESCE(tracker.status", query)
         self.assertIn("= 'Resolved'", query)
+        self.assertIn("candidate.tag=exact_stakeholder.tag", query)
+        self.assertNotIn("configured_parent", query)
 
     @patch.object(summaries, "_execute")
     def test_schedule_review_manual_query_preserves_unresolved_exceptions(

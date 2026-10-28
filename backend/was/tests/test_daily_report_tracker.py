@@ -433,6 +433,7 @@ class DailyReportTrackerTests(unittest.TestCase):
                     None,
                     None,
                     None,
+                    "TAG1",
                 ),
             ]
         )
@@ -450,6 +451,14 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertIn("runs.source_tracker_id", conn.cursor_instance.query)
         self.assertIn(
             "stakeholders.manual_report IS NOT TRUE", conn.cursor_instance.query
+        )
+        self.assertIn(
+            "exact_stakeholder.manual_report IS NOT TRUE",
+            conn.cursor_instance.query,
+        )
+        self.assertIn(
+            "exact_stakeholder.retired IS NOT TRUE",
+            conn.cursor_instance.query,
         )
         self.assertIn("PARTITION BY tracker.tag", conn.cursor_instance.query)
         self.assertIn("WHERE tracker.candidate_rank = 1", conn.cursor_instance.query)
@@ -474,6 +483,11 @@ class DailyReportTrackerTests(unittest.TestCase):
             "FROM ranked_tracker AS tracker",
             conn.cursor_instance.query,
         )
+        self.assertIn(
+            "candidate.tag = exact_stakeholder.tag",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("configured_parent", conn.cursor_instance.query)
         self.assertIn("NOT LIKE %s", conn.cursor_instance.query)
         self.assertIn(
             "tracker.scan_start_date >= CURRENT_DATE - (%s - 1)",
@@ -575,6 +589,7 @@ class DailyReportTrackerTests(unittest.TestCase):
                     None,
                     None,
                     None,
+                    "TAG1",
                 )
             ]
         )
@@ -583,9 +598,42 @@ class DailyReportTrackerTests(unittest.TestCase):
 
         self.assertEqual(candidates[0].tag_id, 144)
         self.assertIn(
-            "COALESCE(tracker.tag_id, stakeholders.qualys_tag_id)",
+            "exact_stakeholder.qualys_tag_id",
             conn.cursor_instance.query,
         )
+
+    def test_child_candidate_never_uses_parent_qualys_tag_id(self) -> None:
+        """Leave a child target ID missing instead of generating a parent report."""
+        conn = FakeConnection(
+            fetchall_rows=[
+                (
+                    7,
+                    "PARENT_CHILD",
+                    date(2026, 9, 1),
+                    12345,
+                    3,
+                    None,
+                    "Parent Customer",
+                    "Results",
+                    "",
+                    "",
+                    None,
+                    None,
+                    None,
+                    "PARENT",
+                )
+            ]
+        )
+
+        candidates = list_ready_report_candidates(conn=conn)
+
+        self.assertIsNone(candidates[0].tag_id)
+        self.assertEqual(candidates[0].governing_stakeholder_tag, "PARENT")
+        self.assertIn(
+            "WHEN exact_stakeholder.tag IS NOT NULL",
+            conn.cursor_instance.query,
+        )
+        self.assertIn("ELSE tracker.tag_id", conn.cursor_instance.query)
 
     def test_list_ready_report_candidates_rejects_invalid_partition(self) -> None:
         """Reject worker settings that could overlap or omit tracker rows."""
@@ -630,6 +678,7 @@ class DailyReportTrackerTests(unittest.TestCase):
                     "MANUAL",
                     "Error",
                     False,
+                    "TAG1",
                 )
             ]
         )
@@ -646,6 +695,10 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertEqual(candidates[0].qualys_error, "Qualys internal error")
         self.assertIn("runs.status = 'failed'", conn.cursor_instance.query)
         self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
+        self.assertIn(
+            "exact_stakeholder.manual_report IS TRUE",
+            conn.cursor_instance.query,
+        )
         self.assertNotIn(
             "stakeholders.manual_report IS NOT TRUE",
             conn.cursor_instance.query,
@@ -842,6 +895,25 @@ class DailyReportTrackerTests(unittest.TestCase):
         self.assertNotIn("LIMIT %s", conn.cursor_instance.query)
         self.assertEqual(conn.cursor_instance.parameters, (7,))
 
+    def test_tracker_table_child_filter_uses_governing_stakeholder(self) -> None:
+        """Include unenrolled dependent children in a parent tracker lookup."""
+        conn = FakeConnection(fetchall_rows=[])
+
+        list_tracker_table_rows(
+            conn=conn,
+            days_back=7,
+            stakeholder_tag="PARENT",
+            include_children=True,
+        )
+
+        self.assertIn("OR stakeholders.tag = %s", conn.cursor_instance.query)
+        self.assertIn(
+            "candidate.tag = exact_stakeholder.tag",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("configured_parent", conn.cursor_instance.query)
+        self.assertEqual(conn.cursor_instance.parameters[:3], ("PARENT", 7, "PARENT"))
+
     def test_mark_manual_tracker_report_sent_updates_unsent_manual_row(self) -> None:
         """Set a manual report sent date using its tracker row ID."""
         conn = FakeConnection(fetchone_row=(7,))
@@ -859,7 +931,15 @@ class DailyReportTrackerTests(unittest.TestCase):
         )
         self.assertIn("report_sent_date IS NULL", conn.cursor_instance.query)
         self.assertIn("RETURNING tracker.id", conn.cursor_instance.query)
-        self.assertIn("stakeholders.manual_report IS TRUE", conn.cursor_instance.query)
+        self.assertIn(
+            "governing_stakeholder.manual_report IS TRUE",
+            conn.cursor_instance.query,
+        )
+        self.assertIn(
+            "candidate.tag = exact_stakeholder.tag",
+            conn.cursor_instance.query,
+        )
+        self.assertNotIn("configured_parent", conn.cursor_instance.query)
         self.assertIn("NOT EXISTS (", conn.cursor_instance.query)
         self.assertIn(
             "linked_run.source_tracker_id = tracker.id",

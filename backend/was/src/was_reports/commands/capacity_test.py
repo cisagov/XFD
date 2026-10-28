@@ -15,6 +15,7 @@ from time import monotonic
 from uuid import UUID, uuid4
 
 # Third-Party Libraries
+from was_mailer.email_reports import approved_recipient_scope
 from was_mailer.message import approved_analyst_recipients
 from was_reports.data.daily_report_tracker import list_ready_report_candidates_from_db
 from was_reports.data.report_runs import list_report_runs_ready_for_email_from_db
@@ -650,6 +651,12 @@ def execute_trial(arguments, recipients, output_directory):
                     "run_id": arguments.run_id,
                     "root_run_id": arguments.run_id,
                     "workload_label": arguments.workload_label,
+                    "delivery_mode": "test" if recipients else "customer",
+                    "recipient_scope": (
+                        approved_recipient_scope(recipients)
+                        if recipients
+                        else "stored-customer"
+                    ),
                     "workers": arguments.workers,
                     "candidate_count": len(candidate_rows),
                     "generation_count": len(candidates),

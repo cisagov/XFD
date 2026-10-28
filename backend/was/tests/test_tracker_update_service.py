@@ -38,6 +38,7 @@ from was_reports.tracker.update_service import (
     update_execution,
     update_stakeholder_scan_metadata,
     update_tracker,
+    validate_current_deletion_safety,
     validate_deletion_claim,
     validate_latest_deletion_execution,
     validate_webapp_tags,
@@ -55,6 +56,23 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             deletion_safety_lock_tags(" parent_child "),
             ("PARENT", "PARENT_CHILD"),
         )
+
+    def test_child_deletion_revalidation_honors_exact_child_policy(self) -> None:
+        """Block deletion when an exact child becomes restricted after discovery."""
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = ("PARENT", True, False, False)
+        item = Mock(tag="PARENT_CHILD")
+
+        with self.assertRaisesRegex(RuntimeError, "safety state changed"):
+            validate_current_deletion_safety(connection, item)
+
+        safety_query = str(cursor.execute.call_args_list[0].args[0])
+        self.assertIn("exact_stakeholder.manual_report IS TRUE", safety_query)
+        self.assertIn("exact_stakeholder.fceb IS TRUE", safety_query)
+        self.assertIn("exact_stakeholder.retired IS TRUE", safety_query)
+        self.assertIn("candidate.tag = exact_stakeholder.tag", safety_query)
+        self.assertNotIn("configured_parent", safety_query)
         self.assertEqual(deletion_safety_lock_tags("tag"), ("TAG",))
 
     def test_actual_scan_bounds_do_not_change_parent_execution_identity(self) -> None:
@@ -89,6 +107,72 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertEqual(row.scan_ended_at, ended)
         self.assertEqual(row.scan_start_date, date(2026, 8, 31))
         self.assertEqual(row.scan_execution_key, "schedule:1:2026-09-01T00:00:00+00:00")
+
+    def test_child_refresh_updates_parent_metadata_without_parent_tag_id(self) -> None:
+        """Update parent scan metadata while preserving its own Qualys tag ID."""
+        item = replace(self.removal_item(False), tag="PARENT_CHILD", tag_id=99)
+        stakeholder = Mock(
+            tag="PARENT",
+            was_report_poc="POC",
+            tech_poc_email="poc@example.gov",
+            distro_email=None,
+            comments=None,
+            report_password="password",
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=stakeholder,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata:
+            row = build_tracker_row(
+                Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2)
+            )
+
+        self.assertEqual(row.tag, "PARENT_CHILD")
+        self.assertEqual(row.tag_id, 99)
+        self.assertEqual(metadata.call_args.kwargs["tag"], "PARENT")
+        self.assertIsNone(metadata.call_args.kwargs["tag_id"])
+        self.assertTrue(metadata.call_args.kwargs["preserve_qualys_tag_id"])
+
+    def test_exact_child_refresh_updates_its_own_scan_metadata(self) -> None:
+        """Update an enrolled child instead of its hierarchy parent."""
+        item = replace(self.removal_item(False), tag="PARENT_CHILD", tag_id=99)
+        stakeholder = Mock(
+            tag="PARENT_CHILD",
+            parent_tag="PARENT",
+            was_report_poc="Child POC",
+            tech_poc_email="child@example.gov",
+            distro_email=None,
+            comments=None,
+            report_password="child-password",
+        )
+        with patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=stakeholder,
+        ), patch(
+            "was_reports.tracker.update_service.count_webapps", return_value=2
+        ), patch(
+            "was_reports.tracker.update_service.upsert_assignee",
+            return_value=Mock(id=1, name="Analyst"),
+        ), patch(
+            "was_reports.tracker.update_service.update_stakeholder_scan_metadata"
+        ) as metadata:
+            row = build_tracker_row(
+                Mock(), item, "Analyst", MagicMock(), date(2026, 9, 2)
+            )
+
+        self.assertEqual(row.tag, "PARENT_CHILD")
+        self.assertEqual(row.poc, "Child POC")
+        self.assertEqual(row.poc_email, "child@example.gov")
+        self.assertEqual(metadata.call_args.kwargs["tag"], "PARENT_CHILD")
+        self.assertEqual(metadata.call_args.kwargs["tag_id"], 99)
+        self.assertFalse(metadata.call_args.kwargs["preserve_qualys_tag_id"])
 
     def test_insert_and_incomplete_update_persist_both_actual_bounds(self) -> None:
         """Future refreshes bind start and end on both persistence branches."""
@@ -1093,7 +1177,10 @@ class TrackerUpdateServiceTests(unittest.TestCase):
             return_value=row,
         ), patch(
             "was_reports.tracker.update_service.delete_validated_webapp"
-        ) as delete:
+        ) as delete, patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=Mock(tag="TAG"),
+        ):
             self.assertEqual(
                 update_execution(
                     Mock(),
@@ -1130,6 +1217,46 @@ class TrackerUpdateServiceTests(unittest.TestCase):
         self.assertEqual(inventory_call.args[1], ("TAG",))
         self.assertNotIn("retired", str(inventory_call.args[0]))
         self.assertEqual(conn.commit.call_count, 2)
+
+    def test_child_all_target_deletion_finalizes_parent_inventory(self) -> None:
+        """Finalize an unenrolled child's destructive action on its parent row."""
+        conn = MagicMock()
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchone.side_effect = [None, (17,)]
+        cursor.rowcount = 1
+        child_item = replace(self.removal_item(False), tag="PARENT_CHILD")
+        row = DailyReportTrackerRow(
+            tag="PARENT_CHILD",
+            nws="1, 1, 1",
+            template="Deactivated",
+            report_scan_notes="DEACTIVATE",
+        )
+        with patch(
+            "was_reports.tracker.update_service.build_tracker_row",
+            return_value=row,
+        ), patch("was_reports.tracker.update_service.delete_validated_webapp"), patch(
+            "was_reports.tracker.update_service.resolve_stakeholder_details",
+            return_value=Mock(tag="PARENT"),
+        ):
+            self.assertEqual(
+                update_execution(
+                    Mock(),
+                    child_item,
+                    True,
+                    date.today(),
+                    "Analyst",
+                    conn,
+                    "execution",
+                ),
+                1,
+            )
+
+        inventory_call = next(
+            call
+            for call in cursor.execute.call_args_list
+            if "SET num_web_apps = 0" in str(call.args[0])
+        )
+        self.assertEqual(inventory_call.args[1], ("PARENT",))
 
     def test_partial_target_deletion_does_not_zero_stakeholder_inventory(
         self,

@@ -78,6 +78,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_STAGING_DIRECTORY = str(Path(gettempdir()) / "was-report-storage")
 NO_REPORT_TEMPLATES = frozenset({"All NWS", "FCEB All NWS"})
 DEFAULT_RECENT_SCAN_DAYS_BACK = 7
+BATCH_DAYS_BACK_ENVIRONMENT = "BATCH_DAYS_BACK"
 ALL_DAYS_BACK = "all"
 
 
@@ -92,6 +93,31 @@ def parse_days_back(value: str) -> int | str:
         raise argparse.ArgumentTypeError(
             "Days back must be a positive integer or 'all'."
         ) from error
+
+
+def configured_recent_scan_days_back() -> int | None:
+    """Return the validated recent-scan window from runtime configuration."""
+    raw_value = getenv(
+        BATCH_DAYS_BACK_ENVIRONMENT,
+        str(DEFAULT_RECENT_SCAN_DAYS_BACK),
+    )
+    if raw_value is None:
+        raw_value = str(DEFAULT_RECENT_SCAN_DAYS_BACK)
+    try:
+        parsed_value = parse_days_back(raw_value)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(
+            "BATCH_DAYS_BACK must be all or an integer of at least 1; "
+            "1 means today only."
+        ) from error
+    if isinstance(parsed_value, str):
+        return None
+    if parsed_value < 1:
+        raise ValueError(
+            "BATCH_DAYS_BACK must be all or an integer of at least 1; "
+            "1 means today only."
+        )
+    return parsed_value
 
 
 @dataclass(frozen=True)
@@ -220,13 +246,20 @@ def generate_report_output(
     organization_name: str | None = None,
     allow_tag_lookup: bool = False,
     password_override: str | None = None,
+    password_stakeholder_tag: str | None = None,
 ) -> str:
-    """Generate one report and return its durable output reference."""
+    """Generate one report using an optional governing stakeholder password."""
     check_operation_ownership()
     if not touch_report_run_by_id(report_run_id, generation_token=generation_token):
         raise OperationLeaseLostError("WAS generation ownership was lost.")
     current_time = datetime.now(timezone.utc)
     report_date = current_time.date()
+    if password_override is None and password_stakeholder_tag is not None:
+        password_override = report_generator.resolve_report_password(
+            stakeholder_tag=password_stakeholder_tag,
+            report_password=None,
+            create_missing_password=create_missing_password,
+        )
     if storage_mode == S3_STORAGE:
         staging_root = Path(staging_directory)
         staging_root.mkdir(parents=True, exist_ok=True)
@@ -512,6 +545,9 @@ def run_recent_scan_reports(
                 **retry_options,
             )
         for candidate_index, candidate in enumerate(candidates, start=1):
+            governing_stakeholder_tag = (
+                getattr(candidate, "governing_stakeholder_tag", None) or candidate.tag
+            )
             candidate_context = bind_logging_context(
                 phase="report_processing",
                 tag=candidate.tag,
@@ -575,13 +611,15 @@ def run_recent_scan_reports(
                     report_run = retry_failed_report_run_for_tracker_by_id(
                         candidate.id,
                         safe_only=True,
+                        governing_stakeholder_tag=governing_stakeholder_tag,
                     )
                 else:
                     report_run = create_report_run_for_tracker(
-                        stakeholder_tag=candidate.tag,
+                        stakeholder_tag=governing_stakeholder_tag,
                         source_tracker_id=candidate.id,
                         enforce_automated_eligibility=not include_manual,
                         days_back=days_back,
+                        report_target_tag=candidate.tag,
                     )
                 if (
                     report_run is None
@@ -589,7 +627,10 @@ def run_recent_scan_reports(
                     and not capacity_continuation
                     and recovery_causes is None
                 ):
-                    report_run = retry_failed_report_run_for_tracker_by_id(candidate.id)
+                    report_run = retry_failed_report_run_for_tracker_by_id(
+                        candidate.id,
+                        governing_stakeholder_tag=governing_stakeholder_tag,
+                    )
                 if report_run is None:
                     if recovery_causes is not None:
                         failed_count += 1
@@ -680,6 +721,7 @@ def run_recent_scan_reports(
                             staging_directory=staging_directory,
                             tag_id=candidate.tag_id,
                             organization_name=candidate.organization_name,
+                            password_stakeholder_tag=report_run.stakeholder_tag,
                         )
                     completion_attempted = True
                     complete_report_run_by_id(
@@ -1001,7 +1043,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         elif args.include_manual:
             resolved_days_back = None
         else:
-            resolved_days_back = DEFAULT_RECENT_SCAN_DAYS_BACK
+            resolved_days_back = configured_recent_scan_days_back()
         if (args.worker_count is None) != (args.worker_index is None):
             raise ValueError("Worker count and worker index must be provided together.")
         if args.worker_count is not None:

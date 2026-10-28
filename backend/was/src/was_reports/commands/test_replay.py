@@ -132,6 +132,9 @@ def execute_candidate(candidate, arguments: argparse.Namespace, recipient: str) 
                     report_run_id=report_run.id,
                     generation_token=report_run.generation_token,
                     stakeholder_tag=candidate.tag,
+                    password_stakeholder_tag=(
+                        candidate.governing_stakeholder_tag or candidate.tag
+                    ),
                     resource_root=arguments.resource_root,
                     python_executable=arguments.python_executable,
                     create_missing_password=False,

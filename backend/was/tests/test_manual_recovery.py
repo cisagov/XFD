@@ -31,6 +31,7 @@ def eligible_state(note: str, password: str = "Valid, password-with spaces") -> 
         True,
         True,
         True,
+        "TAG1",
     )
 
 
@@ -108,7 +109,7 @@ class ManualRecoveryTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchone.side_effect = [
-            ("TAG1",),
+            ("TAG1", "TAG1"),
             eligible_state(note),
             (77, "TAG1", "running"),
             (42,),
@@ -122,7 +123,7 @@ class ManualRecoveryTests(unittest.TestCase):
         self.assertEqual(result.status, "running")
         conn.commit.assert_called_once_with()
         queries = [call.args[0] for call in cursor.execute.call_args_list]
-        self.assertIn("SELECT tag", queries[0])
+        self.assertIn("SELECT tracker.tag, runs.stakeholder_tag", queries[0])
         self.assertIn("pg_advisory_xact_lock", queries[1])
         self.assertEqual(
             cursor.execute.call_args_list[1].args[1], ("was-tracker-tag:TAG1",)
@@ -133,7 +134,7 @@ class ManualRecoveryTests(unittest.TestCase):
         self.assertIn("active_run.status = %s", queries[3])
         self.assertEqual(
             cursor.execute.call_args_list[3].args[1][-3:],
-            ("TAG1", "TAG1", manual_recovery.RUNNING),
+            (manual_recovery.RUNNING, "TAG1", "TAG1"),
         )
         self.assertIn("report_scan_notes = %s", queries[4])
         self.assertEqual(cursor.execute.call_args_list[4].args[1], (42, note))
@@ -145,6 +146,7 @@ class ManualRecoveryTests(unittest.TestCase):
         fetch_state.return_value = tuple(state)
         conn = MagicMock()
         conn.cursor.return_value.__enter__.return_value.fetchone.return_value = (
+            "TAG1",
             "TAG1",
         )
         self.assertIsNone(
