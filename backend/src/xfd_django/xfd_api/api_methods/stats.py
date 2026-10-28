@@ -149,6 +149,8 @@ async def get_user_services_count(
 
         return services_data
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)
@@ -187,6 +189,8 @@ async def get_user_ports_count(
 
         return ports_data
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)
@@ -223,6 +227,8 @@ async def get_num_vulns(filter_data, current_user, redis_client, filtered_org_id
 
         return num_vulns_data
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)
@@ -261,6 +267,8 @@ async def get_severity_stats(
 
         return severity_data
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)
@@ -322,6 +330,8 @@ async def stats_latest_vulns(
 
         return vulnerabilities
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)
@@ -379,6 +389,8 @@ async def stats_most_common_vulns(
 
         return vulnerabilities
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)
@@ -426,6 +438,8 @@ async def get_by_org_stats(
 
         return by_org_data
 
+    except HTTPException:
+        raise
     except aioredis.RedisError as redis_error:
         raise HTTPException(
             status_code=500, detail="Redis error: {}".format(redis_error)

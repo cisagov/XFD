@@ -270,6 +270,46 @@ def test_get_stats_org_ids_limits_regional_admin_to_region_or_admin_role(
     }
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/stats",
+        "/services",
+        "/ports",
+        "/num-vulns",
+        "/latest-vulns",
+        "/most-common-vulns",
+        "/severity-counts",
+        "/by-org",
+    ],
+)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_stats_endpoints_preserve_organization_authorization_error(
+    endpoint, user, organization
+):
+    """Stats endpoints return 403 instead of converting authorization errors to 500."""
+    foreign_organization = Organization.objects.create(
+        name="Foreign Endpoint Stats Organization",
+        root_domains=["foreign-endpoint-stats.example"],
+        ip_blocks=[],
+        is_passive=False,
+    )
+    user.user_type = UserType.STANDARD
+    user.save(update_fields=["user_type"])
+    Role.objects.create(user=user, organization=organization, role="user")
+
+    response = client.post(
+        endpoint,
+        json={"filters": {"organizations": [str(foreign_organization.id)]}},
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "User does not have access to the specified organizations."
+    }
+
+
 # Create the views
 @pytest.fixture(autouse=True, scope="session")
 def ensure_vuln_views_created(django_db_setup, django_db_blocker):
