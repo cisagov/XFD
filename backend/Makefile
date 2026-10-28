@@ -1,5 +1,4 @@
 .PHONY: syncdb
-.PHONY: populate-cache
 .PHONY: pytest
 .PHONY: pe-test
 .PHONY: pe-requirements-audit
