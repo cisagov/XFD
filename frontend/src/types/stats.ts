@@ -1,4 +1,3 @@
-
 export interface SummaryStats {
   severity: {
     High: number | null;

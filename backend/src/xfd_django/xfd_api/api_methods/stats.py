@@ -20,6 +20,7 @@ from xfd_mini_dl.models import (
 
 from ..auth import get_org_memberships, is_global_view_admin
 
+
 def get_vs_condensed_trending_data(filters, current_user):
     """Query VS summary and return in a condensed format."""
     organization_id = filters.organization_id
