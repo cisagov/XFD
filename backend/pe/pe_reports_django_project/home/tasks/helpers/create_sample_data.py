@@ -294,6 +294,20 @@ def populate_sample_data():
             last_run=today,
         )
 
+    python_socket_source, created = DataSource.objects.get_or_create(
+        name="Python Socket",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "Data found using the Python Socket library.",
+            "last_run": today,
+        },
+    )
+    if not created:
+        DataSource.objects.filter(pk=python_socket_source.pk).update(
+            description="Data found using the Python Socket library.",
+            last_run=today,
+        )
+
     shodan_source, created = DataSource.objects.get_or_create(
         name="Shodan",
         defaults={

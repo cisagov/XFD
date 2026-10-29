@@ -1,11 +1,11 @@
-"""Enumerate subdomains from IP lookups."""
+"""Enumerate subdomains from IP reverse lookups."""
 
 # Standard Python Libraries
 import datetime
 import hashlib
 import ipaddress
 import logging
-import os
+import socket
 import threading
 import time
 
@@ -17,60 +17,62 @@ from pe_asm.remote_step.asm_sync_remote_query import (
     query_cidrs_by_org,
     upsert_ips,
 )
-import requests
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
 
 DATE = datetime.datetime.today().date()
 
+QPS_MAX = 100
+QPS_DELAY = 1 / QPS_MAX
+QPS_RATE_LOCK = threading.Lock()
+NEXT_LOOKUP = 0.0
+
+
+def limit_lookup_rate():
+    """Limit all threads in this process to a combined 100 lookups/second."""
+    global NEXT_LOOKUP
+
+    with QPS_RATE_LOCK:
+        now = time.monotonic()
+        if now < NEXT_LOOKUP:
+            time.sleep(NEXT_LOOKUP - now)
+        NEXT_LOOKUP = max(now, NEXT_LOOKUP) + QPS_DELAY
+
 
 def reverseLookup(ip_obj, failed_ips, thread):
-    """Take an ip and find all associated subdomains."""
-    # Query WhoisXML endpoint
-    whoisxml_key = os.environ.get("WHOIS_XML_KEY")
-    url = f"https://dns-history.whoisxmlapi.com/api/v1?apiKey={whoisxml_key}&ip={ip_obj['ip']}"
-    payload = {}
-    headers = {}
-    response = requests.request("GET", url, headers=headers, data=payload)
-    # Retry clause
-    retry_count, max_retries, time_delay = 1, 5, 3
-    while response.status_code != 200 and retry_count <= max_retries:
-        if retry_count >= 4:
-            LOGGER.warning(
-                f"Retrying WhoisXML API endpoint (code {response.status_code}), attempt {retry_count} of {max_retries} (url: {url})"
-            )
-        time.sleep(time_delay)
-        response = requests.request("GET", url, headers=headers, data=payload)
-        retry_count += 1
-    # If API call still unsuccessful
-    if response.status_code != 200:
-        bad_ip = ip_obj["ip"]
-        LOGGER.error(f"Max retries reached for {bad_ip}, labeling as failed")
-        failed_ips.append(ip_obj["ip"])
-    # Extract found domains from response
-    response = response.json()
-    found_domains = []
+    """Perform a PTR-based reverse lookup on IP and return the associated domain."""
+    # Enforce rate limit across all threads
+    limit_lookup_rate()
+    # Perform PTR-based reverse lookup on IP
     try:
-        # If there is a response, save domain
-        if response["size"] > 0:
-            # Insert or update IP
-            upsert_ips(ip_obj)
-            result = response["result"]
-            for domain in result:
-                try:
-                    found_domains.append(
-                        {
-                            "sub_domain": domain["name"],
-                            "root": ".".join(domain["name"].rsplit(".")[-2:]),
-                        }
-                    )
-                except KeyError:
-                    continue
-    except Exception as e:
-        LOGGER.error(f"{thread}: Failed to return WHOIsXML response")
-        LOGGER.error(f"{thread}: {response}")
-        LOGGER.error(f"{thread}: {e}")
+        hostname, aliases, _ = socket.gethostbyaddr(ip_obj["ip"])
+        hostnames = {hostname, *aliases}
+    except socket.herror:
+        # A missing PTR record is a valid negative result, not a failure.
+        return [], failed_ips
+    except (socket.gaierror, TimeoutError, OSError) as e:
+        LOGGER.error(
+            "%s: PTR reverse lookup failed for %s: %s", thread, ip_obj["ip"], e
+        )
+        failed_ips.append(ip_obj["ip"])
+        return [], failed_ips
+    # Parse out root and subdomains
+    found_domains = []
+    for hostname in hostnames:
+        hostname = hostname.rstrip(".").lower()
+        if not hostname:
+            continue
+        found_domains.append(
+            {
+                "sub_domain": hostname,
+                "root": ".".join(hostname.rsplit(".")[-2:]),
+            }
+        )
+    # If any domains found, ensure the IP they came from exists in the DB (upsert)
+    if found_domains:
+        upsert_ips(ip_obj)
+    # Return results
     return found_domains, failed_ips
 
 
@@ -106,6 +108,7 @@ def run_ip_chunk(org_name, org_uid, ips_df, thread):
     count = 0
     last_chunk = time.time()
     failed_ips = []
+    # Iterate over each IP in the chunk
     for ip_index, ip in ips_df.iterrows():
         # Log progress
         count += 1
@@ -114,28 +117,24 @@ def run_ip_chunk(org_name, org_uid, ips_df, thread):
                 f"{thread}: Running {org_name} IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk"
             )
             last_chunk = time.time()
-        # Link domain from IP
-        try:
-            link_domain_from_ip(ip, org_uid, "WhoisXML", failed_ips, conn, thread)
-        except requests.exceptions.SSLError as e:
-            LOGGER.error(e)
-            time.sleep(1)
-            continue
+        # Get domain from IP and link them in the database
+        link_domain_from_ip(ip, org_uid, "Python Socket", failed_ips, conn, thread)
     conn.close()
 
 
 def enum_subs_from_ips(orgs_df):
     """Enumerate subdomains from an org's IPs and create link in the ip_subs table."""
     num_orgs = len(orgs_df.index)
-    # Loop through orgs
+    # Iterate over each organization
     org_count = 1
     for org_index, org in orgs_df.iloc[::-1].iterrows():
         org_name = org["cyhy_db_name"]
         LOGGER.info("Running on %s, %d/%d", org_name, org_count, num_orgs)
-        # Query IPs
+        # Get current CIDRs for this org
         org_uid = org["organizations_uid"]
         cidrs = query_cidrs_by_org(org_uid)
         ips_list = []
+        # Break CIDRs into individual IPs
         for cidr_index, cidr_row in cidrs.iterrows():
             for ip in list(ipaddress.IPv4Network(cidr_row["network"]).hosts()):
                 hash_object = hashlib.sha256(str(ip).encode("utf-8"))
@@ -152,23 +151,21 @@ def enum_subs_from_ips(orgs_df):
                 }
                 ips_list.append(ip_obj)
         ips_df = pd.DataFrame(ips_list)
-
         LOGGER.info(f"Number of CIDRs: {len(cidrs)}")
-
-        # if no IPS, continue to next org
+        # if no IPs, continue to next org
         if len(ips_df.index) == 0:
             org_count += 1
             continue
 
-        # Split IPs into 8 threads, then call run_ip_chunk function
-        num_chunks = 5
+        # Split IPs across 10 threads, for each thread call run_ip_chunk
+        num_chunks = 10
         row_chunks = np.array_split(np.arange(len(ips_df)), num_chunks)
         ips_split = [ips_df.iloc[row_indexes].copy() for row_indexes in row_chunks]
         thread_num = 0
         thread_list = []
         while thread_num < len(ips_split):
-            thread_name = f"Thread {thread_num + 1}: "
             # Start thread
+            thread_name = f"Thread {thread_num + 1}: "
             t = threading.Thread(
                 target=run_ip_chunk,
                 args=(org_name, org_uid, ips_split[thread_num], thread_name),
@@ -176,9 +173,8 @@ def enum_subs_from_ips(orgs_df):
             t.start()
             thread_list.append(t)
             thread_num += 1
-
+        # Wait for all threads to finish
         for thread in thread_list:
             thread.join()
-
         LOGGER.info("All threads have finished.")
         org_count += 1
