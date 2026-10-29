@@ -609,7 +609,7 @@ def query_floating_ips(org_id):
 
 
 def update_shodan_ips(conn, df):
-    """Update if an IP is a shodan IP."""
+    """Update IP records if they have shodan results."""
     tpls = [tuple(x) for x in df.to_numpy()]
     cols = ",".join(list(df.columns))
     table = "ips"
