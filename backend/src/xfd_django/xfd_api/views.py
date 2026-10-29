@@ -104,7 +104,6 @@ from .api_methods.vulnerability import (
     v2_get_vulnerability_by_id,
 )
 from .api_methods.was_sync import (
-    get_all_was_scan_summaries,
     get_was_findings_queryset,
     paginate_queryset,
 )
@@ -190,9 +189,7 @@ from .schema_models.vulnerability import (
 )
 from .schema_models.was_sync import (
     GetAllWasFindingsResponse,
-    GetWasScanSummariesResponse,
     WasFinding,
-    WasScanSummarySchema,
 )
 from .tools.serializers import serialize_organization, serialize_user
 from .tools.user_logger_decorator import (
@@ -2113,52 +2110,6 @@ def generate_presigned_object_store_url(
 # ==========================
 # WAS Scan Endpoints  #
 # ==========================
-
-
-# POST
-@api_router.post(
-    "/was_scan_summaries",
-    response_model=GetWasScanSummariesResponse,
-    status_code=status.HTTP_200_OK,
-    dependencies=[Depends(get_current_active_user)],
-    tags=["WAS Scan Summaries"],
-)
-async def get_was_scan_summaries_endpoint(
-    response: Response,
-    page: int = Query(1, ge=1, description="Which page to fetch (1-indexed)."),
-    per_page: int = Query(100, ge=1, description="How many items per page."),
-):
-    """
-    Return paginated WAS scan summaries plus an X‑Salted‑Checksum header for integrity.
-
-    - `page` & `per_page` control pagination.
-    - Only authenticated users may call this.
-    """
-    try:
-        total_pages, records = await get_all_was_scan_summaries(
-            page=page,
-            per_page=per_page,
-        )
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error: {}".format(error),
-        )
-
-    # Serialize ORM objects to plain dicts
-    payload = [
-        WasScanSummarySchema.model_validate(record, from_attributes=True).model_dump()
-        for record in records
-    ]
-
-    response_body = {
-        "status": "ok",
-        "payload": jsonable_encoder(payload),
-        "total_pages": total_pages,
-        "current_page": page,
-    }
-
-    return build_checksum_response(response_body, response, status.HTTP_200_OK)
 
 
 # WAS Findings Sync
