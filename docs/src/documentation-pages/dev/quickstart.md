@@ -44,7 +44,7 @@ This quickstart describes the initial setup required to run an instance of Cross
    - Frontend or backend dependency changes
    - Backend changes to `serverless.yml` or `env.yml`
    - Environment variables in root `.env`
-10. Install [Prettier](https://www.robinwieruch.de/how-to-use-prettier-vscode) in your dev environment to format code on save.
+9. Install [Prettier](https://www.robinwieruch.de/how-to-use-prettier-vscode) in your dev environment to format code on save.
 
 ### Simulate SQS Process
 
