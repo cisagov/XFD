@@ -7,9 +7,6 @@ import time
 
 # Third-Party Libraries
 import pandas as pd
-from pe_asm.remote_step.asm_sync_remote_helpers.enum_ips_from_subs import (
-    enum_ips_from_subs,
-)
 from pe_asm.remote_step.asm_sync_remote_helpers.enum_subs_from_ips import (
     enum_subs_from_ips,
 )
@@ -81,15 +78,11 @@ def run_asm_sync_remote(orgs_list):
         LOGGER.info("Enumerating sub-domains from root domains...")
         enum_subs_from_roots(curr_org_df)
         LOGGER.info("Finished enumerating sub-domains from root domains")
-        # Enumerate subdomains from IPs, this takes the longest
+        # Enumerate subdomains by performing PTR-based reverse lookup on IPs
         LOGGER.info("Enumerating sub-domains from IPs...")
         enum_subs_from_ips(curr_org_df)
         LOGGER.info("Finished enumerating sub-domains from IPs")
-        # Enumerate IPs from subdomains
-        LOGGER.info("Enumerating IPs sub-domains...")
-        enum_ips_from_subs(curr_org_df)
-        LOGGER.info("Finished enumerating IPs sub-domains")
-        # Identify which IPs, sub-domains, and connections are current
+        # Update "current" and "identified" status for IPs, subdomains, and ips_subs records
         LOGGER.info("Updating statuses of this org's IPs...")
         update_ips_status(curr_org_uid)
         LOGGER.info("Finished updating statuses of this org's IPs...")
