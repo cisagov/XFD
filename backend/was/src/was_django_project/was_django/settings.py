@@ -68,6 +68,8 @@ MESSAGE_TAGS = {
 IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
 IS_FARGATE = os.getenv("ECS_CONTAINER_METADATA_URI") is not None
 
+AUTH_USER_MODEL = "accounts.User"
+
 
 # Application definition
 
