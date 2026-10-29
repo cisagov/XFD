@@ -103,10 +103,7 @@ from .api_methods.vulnerability import (
     search_vulnerabilities,
     v2_get_vulnerability_by_id,
 )
-from .api_methods.was_sync import (
-    get_was_findings_queryset,
-    paginate_queryset,
-)
+from .api_methods.was_sync import get_was_findings_queryset, paginate_queryset
 from .api_methods.xpanse_sync import xpanse_sync_post
 from .auth import get_current_active_user, get_current_active_user_unsafe
 from .auth_saml import router as saml_router
@@ -187,10 +184,7 @@ from .schema_models.vulnerability import (
     VulnerabilitySearch,
     VulnerabilitySearchResponse,
 )
-from .schema_models.was_sync import (
-    GetAllWasFindingsResponse,
-    WasFinding,
-)
+from .schema_models.was_sync import GetAllWasFindingsResponse, WasFinding
 from .tools.serializers import serialize_organization, serialize_user
 from .tools.user_logger_decorator import (
     get_organization_sync,
