@@ -149,17 +149,17 @@ def cidr_dedupe(cidrs, api, org_type, conn):
         # Search Shodan for the current CIDR
         query = f"net:{cidr['network']}"
         result = search(api, query, ip_results, cidr["cidr_uid"], org_type)
-        # Record how many IPs w/ Shodan results this CIDR contained
+        # Record how many Shodan results this CIDR contained
         cidr_result_totals.append(result)
     # Log how many CIDRs contained IPs with Shodan results
     found = len([i for i in cidr_result_totals if i != 0])
     LOGGER.info(f"CIDRs that contain IPs with Shodan results: {found}")
-    # If there were any CIDR IPs with Shodan results
+    # If there were any Shodan results within this org's CIDRs
     new_ips = pd.DataFrame(ip_results)
     if len(new_ips) > 0:
-        # Deduplicate the list of IPs
+        # Deduplicate the list of CIDR IPs that had Shodan results
         new_ips = new_ips.drop_duplicates(subset="ip", keep="first")
-        # Update those IP records in the PE DB
+        # Mark those IP records in the PE DB as having Shodan results
         LOGGER.info(f"Updating {len(new_ips)} IPs after Shodan CIDR dedupe")
         update_shodan_ips(conn, new_ips)
 

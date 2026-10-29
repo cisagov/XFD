@@ -67,9 +67,9 @@ def run_asm_sync_remote(orgs_list):
             f"Running ASM Sync process on {curr_org_name}, {idx + 1} of {len(orgs_df)}"
         )
         # Fill the cidrs table with new data from the cyhy_db_assets
-        LOGGER.info("Upserting retieved CyHy CIDR assets into the CIDRs table...")
+        LOGGER.info("Upserting latest CyHy CIDR assets into the CIDRs table...")
         upsert_cyhy_cidrs(curr_org_df)
-        LOGGER.info("Finished upserting retieved CyHy CIDR assets into the CIDRs table")
+        LOGGER.info("Finished upserting latest CyHy CIDR assets into the CIDRs table")
         # Update CIDRs "current" status
         LOGGER.info("Updating statuses of this org's CIDRs...")
         update_cidrs_status(curr_org_uid)
@@ -79,9 +79,9 @@ def run_asm_sync_remote(orgs_list):
         enum_subs_from_roots(curr_org_df)
         LOGGER.info("Finished enumerating sub-domains from root domains")
         # Enumerate subdomains by performing PTR-based reverse lookup on IPs
-        LOGGER.info("Enumerating sub-domains from IPs...")
+        LOGGER.info("Enumerating sub-domains from IPs via reverse lookup...")
         enum_subs_from_ips(curr_org_df)
-        LOGGER.info("Finished enumerating sub-domains from IPs")
+        LOGGER.info("Finished enumerating sub-domains from IPs via reverse lookup")
         # Update "current" and "identified" status for IPs, subdomains, and ips_subs records
         LOGGER.info("Updating statuses of this org's IPs...")
         update_ips_status(curr_org_uid)
@@ -95,10 +95,10 @@ def run_asm_sync_remote(orgs_list):
         LOGGER.info("Updating identified field for this org's subdomains...")
         update_subs_identified(curr_org_uid)
         LOGGER.info("Finished updating identified field for this org's subdomains")
-        # Run shodan dedupe using the specified API key
-        LOGGER.info("Running Shodan dedupe...")
+        # Mark which IPs have Shodan results
+        LOGGER.info("Marking IPs with Shodan results...")
         shodan_dedupe(curr_org_df)
-        LOGGER.info("Finished running Shodan dedupe")
+        LOGGER.info("Finished marking IPs with Shodan results")
         LOGGER.info(
             f"Finished running ASM Sync on {curr_org_name}, {idx + 1} of {len(orgs_df)}"
         )
