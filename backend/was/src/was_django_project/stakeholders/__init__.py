@@ -1,0 +1,1 @@
+"""Stakeholders application package."""

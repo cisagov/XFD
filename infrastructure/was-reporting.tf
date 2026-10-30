@@ -1,5 +1,9 @@
 # WAS reporting EC2. This mirrors the P&E/OpenCTI EC2 pattern while retaining
 # independent WAS variables and an intentionally smaller 50 GiB gp3 volume.
+# TODO: When the approved WAS serverless resources are added, configure Lambda
+# and Fargate log delivery, KMS encryption, retention, metric filters, alarms,
+# dashboards, and least-privilege logging permissions. The application emits
+# logs only to the process console.
 
 locals {
   create_was_reporting_instance = var.is_dmz && var.create_was_reporting_instance

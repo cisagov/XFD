@@ -219,20 +219,6 @@ class OrganizationSearchBody(BaseModel):
     search_term: str
 
 
-class FilterSchema(BaseModel):
-    """Elastic search orgnaization model."""
-
-    regions: Optional[List[str]] = []
-    organizations: Optional[List[str]] = []
-    tags: Optional[List[str]] = []
-
-
-class StatsPayloadSchema(BaseModel):
-    """Elastic search orgnaization model."""
-
-    filters: Optional[FilterSchema]
-
-
 class OrganizationSearch(BaseModel):
     """Organization search schema."""
 

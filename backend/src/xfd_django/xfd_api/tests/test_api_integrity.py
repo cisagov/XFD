@@ -133,13 +133,6 @@ EXCLUDED_ENDPOINTS_TESTS = {
     ("OPTIONS", "/pe/{path:path}"),  # Tested
     ("POST", "/domain/export"),  # TODO
     ("POST", "/vulnerabilities/export"),  # TODO
-    ("POST", "/services"),  # Tested by /stats
-    ("POST", "/ports"),  # Tested by /stats
-    ("POST", "/num-vulns"),  # Tested by /stats
-    ("POST", "/latest-vulns"),  # Tested by /stats
-    ("POST", "/most-common-vulns"),  # Tested by /stats
-    ("POST", "/severity-counts"),  # Tested by /stats
-    ("POST", "/by-org"),  # Tested by /stats
 }
 
 
