@@ -38,6 +38,11 @@ LATEST_PORT_SCAN_CUTOFF = int(os.getenv("LATEST_PORT_SCAN_CUTOFF", "14"))
 CHUNK_SIZE = 500_000
 
 
+def _elapsed_seconds(started_at: float) -> float:
+    """Return elapsed time from a time.time() start value."""
+    return time.time() - started_at
+
+
 @cloudwatch_metric()
 def fetch_port_scans_from_databricks(
     org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
@@ -51,9 +56,25 @@ def fetch_port_scans_from_databricks(
         LOGGER.warning("No organizations provided for port scan fetch.")
         return
 
+    fetch_started_at = time.time()
+
+    LOGGER.info(
+        "Port scan fetch started | org_count=%d | start_datetime=%s | "
+        "end_datetime=%s | chunk_size=%d",
+        len(org_id_dict),
+        ps_start_dt,
+        ps_end_dt,
+        CHUNK_SIZE,
+    )
+
     total_processed = 0
     chunk_number = 1
     org_acronyms = list(org_id_dict.keys())
+
+    LOGGER.info(
+        "Port scan Databricks keyset fetch initialized | org_count=%d",
+        len(org_acronyms),
+    )
 
     for chunk in fetch_in_chunks_keyset_frozen_bulk(
         table="cyber_insights_prd.cyhy_silver.port_scans",
@@ -63,6 +84,16 @@ def fetch_port_scans_from_databricks(
         chunk_size=CHUNK_SIZE,
         org_acronyms=org_acronyms,
     ):
+        chunk_started_at = time.time()
+
+        LOGGER.info(
+            "Port scan chunk started | chunk_number=%d | row_count=%d | "
+            "org_count=%d",
+            chunk_number,
+            len(chunk),
+            len(org_acronyms),
+        )
+
         LOGGER.info(
             "Processing port scan chunk #%d with %d rows for %d orgs",
             chunk_number,
@@ -70,8 +101,22 @@ def fetch_port_scans_from_databricks(
             len(org_acronyms),
         )
 
+        LOGGER.info(
+            "Port scan chunk ingestion started | chunk_number=%d | row_count=%d",
+            chunk_number,
+            len(chunk),
+        )
+
         bulk_insert_ips_and_link_to_port_scans(
             chunk, org_id_dict, risky_service_groups, nmi_service_groups
+        )
+
+        LOGGER.info(
+            "Port scan chunk ingestion finished | chunk_number=%d | "
+            "row_count=%d | elapsed_seconds=%.2f",
+            chunk_number,
+            len(chunk),
+            _elapsed_seconds(chunk_started_at),
         )
 
         total_processed += len(chunk)
@@ -89,140 +134,30 @@ def fetch_port_scans_from_databricks(
             len(org_id_dict),
         )
 
+    LOGGER.info(
+        "Port scan stale latest cleanup started | total_processed=%d | "
+        "chunk_count=%d",
+        total_processed,
+        chunk_number - 1,
+    )
+
     mark_stale_latest_port_scans()
 
-
-# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
-@cloudwatch_metric()
-def bulk_insert_ips_and_link_to_port_scans(
-    port_scans, org_id_dict, risky_service_groups, nmi_service_groups
-):
-    """Bulk insert IPs and link them to port scans for multiple orgs."""
-    ip_key_to_obj = {}
-    port_scan_batch = []
-    affected_keys = set()
-
-    for port_scan in port_scans:
-        try:
-            owner = port_scan.get("owner")
-            org_id = org_id_dict.get(owner)
-            if not org_id:
-                LOGGER.warning("No org_id found for owner '%s'. Skipping scan.", owner)
-                continue
-
-            ip_str = port_scan.get("ip")
-            port_num = port_scan.get("port")
-
-            if ip_str:
-                key = (ip_str, org_id)
-                if key not in ip_key_to_obj:
-                    ip_key_to_obj[key] = Ip(
-                        ip=ip_str,
-                        organization_id=org_id,
-                        ip_hash=hash_ip(ip_str),
-                    )
-
-            if ip_str and port_num is not None:
-                affected_keys.add((org_id, ip_str, port_num))
-
-            service_obj = json.loads(port_scan.get("service", "{}"))
-            port_scan_batch.append(
-                {
-                    "raw": port_scan,
-                    "service_obj": service_obj,
-                    "org_id": org_id,
-                }
-            )
-
-        except Exception as e:
-            LOGGER.exception("Error staging port scan: %s", e)
-            raise IngestionError(SCAN_NAME, str(e), "Failed staging port scans") from e
-
-    # Bulk insert IPs
-    ip_objs = list(ip_key_to_obj.values())
-    if ip_objs:
-        Ip.objects.bulk_create(ip_objs, ignore_conflicts=True, batch_size=1000)
-
-    # Link to IP records
-    ip_records = Ip.objects.filter(
-        ip__in=[ip.ip for ip in ip_objs],
-        organization_id__in=[ip.organization_id for ip in ip_objs],
-    )
-    ip_map = {(ip.ip, ip.organization_id): ip for ip in ip_records}
-
-    # Insert port scans using psycopg2 execute_values
-    insert_port_scans_sql(
-        port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
+    LOGGER.info(
+        "Port scan stale latest cleanup finished | total_processed=%d | "
+        "chunk_count=%d",
+        total_processed,
+        chunk_number - 1,
     )
 
-    # Update latest flag
-    # TODO Determine if we want to even do this anymore, possibly wait until the new table fills a bit before removing this functionality
-    if affected_keys:
-        update_latest_flag_for_keys_batched(affected_keys, 5000)
-
-
-PortScanRow = namedtuple(
-    "PortScanRow",
-    [
-        "id",
-        "ip_string",
-        "ip_id",
-        "latest",
-        "port",
-        "protocol",
-        "reason",
-        "service",
-        "service_name",
-        "service_confidence",
-        "service_method",
-        "service_cpe",
-        "service_hostname",
-        "service_extra_info",
-        "service_os_type",
-        "service_product",
-        "service_version",
-        "service_tunnel",
-        "service_device_type",
-        "source",
-        "state",
-        "time_scanned",
-        "organization_id",
-        "risky_service_group",
-        "nmi_service_group",
-    ],
-)
-
-LatestPortScanRow = namedtuple(
-    "LatestPortScanRow",
-    [
-        "id",
-        "port_scan_id",
-        "ip_string",
-        "ip_id",
-        "port",
-        "protocol",
-        "reason",
-        "service",
-        "service_name",
-        "service_confidence",
-        "service_method",
-        "service_cpe",
-        "service_hostname",
-        "service_extra_info",
-        "service_os_type",
-        "service_product",
-        "service_version",
-        "service_tunnel",
-        "service_device_type",
-        "source",
-        "state",
-        "time_scanned",
-        "organization_id",
-        "risky_service_group",
-        "nmi_service_group",
-        "current",
-    ],
-)
+    LOGGER.info(
+        "Port scan fetch completed | total_processed=%d | chunk_count=%d | "
+        "org_count=%d | elapsed_seconds=%.2f",
+        total_processed,
+        chunk_number - 1,
+        len(org_id_dict),
+        _elapsed_seconds(fetch_started_at),
+    )
 
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
@@ -231,7 +166,15 @@ def insert_port_scans_sql(
     port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
 ):
     """Insert rows into port_scan + upsert into latest_port_scan."""
+    function_started_at = time.time()
     db = "mini_data_lake"
+
+    LOGGER.info(
+        "Port scan SQL preparation started | port_scan_batch_count=%d | "
+        "ip_map_count=%d",
+        len(port_scan_batch),
+        len(ip_map),
+    )
 
     base_columns = PortScanRow._fields
     latest_columns = LatestPortScanRow._fields
@@ -315,11 +258,20 @@ def insert_port_scans_sql(
         latest_tuples.append(latest_row)
 
     if not tuples:
+        LOGGER.info("Port scan SQL preparation found no rows to insert.")
         return
+
+    LOGGER.info(
+        "Port scan SQL rows built | port_scan_row_count=%d | "
+        "latest_port_scan_input_count=%d",
+        len(tuples),
+        len(latest_tuples),
+    )
 
     # --------------------------------------------------
     # Dedup latest_port_scan by (org, ip_id, port, protocol)
     # --------------------------------------------------
+    latest_before_dedup_count = len(latest_tuples)
     dedup = {}
     for row in latest_tuples:
         key = (row.organization_id, row.ip_id, row.port, row.protocol)
@@ -332,6 +284,12 @@ def insert_port_scans_sql(
             dedup[key] = row
 
     latest_tuples = list(dedup.values())
+
+    LOGGER.info(
+        "LatestPortScan rows deduplicated | input_count=%d | output_count=%d",
+        latest_before_dedup_count,
+        len(latest_tuples),
+    )
 
     # --------------------------------------------------
     # SQL (Bandit-safe) with ID excluded from updates
@@ -372,12 +330,30 @@ def insert_port_scans_sql(
     PAGE_SIZE = 5000
     BATCH_COMMIT = 10000
 
+    LOGGER.info(
+        "Port scan SQL batching started | port_scan_row_count=%d | "
+        "latest_port_scan_row_count=%d | page_size=%d | batch_commit=%d",
+        len(tuples),
+        len(latest_tuples),
+        PAGE_SIZE,
+        BATCH_COMMIT,
+    )
+
     # --------------------------------------------------
     # Batching with logging (restored)
     # --------------------------------------------------
     for i in range(0, len(tuples), BATCH_COMMIT):
+        batch_started_at = time.time()
         subset = tuples[i : i + BATCH_COMMIT]
         latest_subset = latest_tuples[i : i + BATCH_COMMIT]
+
+        LOGGER.info(
+            "Port scan database batch started | batch_start=%d | "
+            "port_scan_count=%d | latest_port_scan_count=%d",
+            i,
+            len(subset),
+            len(latest_subset),
+        )
 
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
@@ -385,11 +361,27 @@ def insert_port_scans_sql(
 
                 # ---- port_scan insert ----
                 try:
+                    port_scan_insert_started_at = time.time()
+
+                    LOGGER.info(
+                        "Port scan insert started | batch_start=%d | row_count=%d",
+                        i,
+                        len(subset),
+                    )
+
                     execute_values(
                         cursor,
                         insert_portscan_sql.as_string(cursor.cursor),
                         subset,
                         page_size=PAGE_SIZE,
+                    )
+
+                    LOGGER.info(
+                        "Port scan insert finished | batch_start=%d | "
+                        "row_count=%d | elapsed_seconds=%.2f",
+                        i,
+                        len(subset),
+                        _elapsed_seconds(port_scan_insert_started_at),
                     )
                 except Exception as exc:
                     LOGGER.exception(
@@ -406,11 +398,28 @@ def insert_port_scans_sql(
                 # ---- latest_port_scan upsert ----
                 if latest_subset:
                     try:
+                        latest_upsert_started_at = time.time()
+
+                        LOGGER.info(
+                            "LatestPortScan upsert started | batch_start=%d | "
+                            "row_count=%d",
+                            i,
+                            len(latest_subset),
+                        )
+
                         execute_values(
                             cursor,
                             insert_latest_sql.as_string(cursor.cursor),
                             latest_subset,
                             page_size=PAGE_SIZE,
+                        )
+
+                        LOGGER.info(
+                            "LatestPortScan upsert finished | batch_start=%d | "
+                            "row_count=%d | elapsed_seconds=%.2f",
+                            i,
+                            len(latest_subset),
+                            _elapsed_seconds(latest_upsert_started_at),
                         )
                     except Exception as exc:
                         LOGGER.exception(
@@ -423,6 +432,238 @@ def insert_port_scans_sql(
                             },
                         )
                         raise
+
+        LOGGER.info(
+            "Port scan database batch committed | batch_start=%d | "
+            "port_scan_count=%d | latest_port_scan_count=%d | "
+            "elapsed_seconds=%.2f",
+            i,
+            len(subset),
+            len(latest_subset),
+            _elapsed_seconds(batch_started_at),
+        )
+
+    LOGGER.info(
+        "Port scan SQL insert/upsert completed | port_scan_row_count=%d | "
+        "latest_port_scan_row_count=%d | elapsed_seconds=%.2f",
+        len(tuples),
+        len(latest_tuples),
+        _elapsed_seconds(function_started_at),
+    )
+
+
+# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
+@cloudwatch_metric()
+def bulk_insert_ips_and_link_to_port_scans(
+    port_scans, org_id_dict, risky_service_groups, nmi_service_groups
+):
+    """Bulk insert IPs and link them to port scans for multiple orgs."""
+    ingestion_started_at = time.time()
+
+    LOGGER.info(
+        "Port scan bulk ingestion started | input_row_count=%d | org_count=%d",
+        len(port_scans),
+        len(org_id_dict),
+    )
+
+    ip_key_to_obj = {}
+    port_scan_batch = []
+    affected_keys = set()
+
+    for port_scan in port_scans:
+        try:
+            owner = port_scan.get("owner")
+            org_id = org_id_dict.get(owner)
+            if not org_id:
+                LOGGER.warning("No org_id found for owner '%s'. Skipping scan.", owner)
+                continue
+
+            ip_str = port_scan.get("ip")
+            port_num = port_scan.get("port")
+
+            if ip_str:
+                key = (ip_str, org_id)
+                if key not in ip_key_to_obj:
+                    ip_key_to_obj[key] = Ip(
+                        ip=ip_str,
+                        organization_id=org_id,
+                        ip_hash=hash_ip(ip_str),
+                    )
+
+            if ip_str and port_num is not None:
+                affected_keys.add((org_id, ip_str, port_num))
+
+            service_obj = json.loads(port_scan.get("service", "{}"))
+            port_scan_batch.append(
+                {
+                    "raw": port_scan,
+                    "service_obj": service_obj,
+                    "org_id": org_id,
+                }
+            )
+
+        except Exception as e:
+            LOGGER.exception("Error staging port scan: %s", e)
+            raise IngestionError(SCAN_NAME, str(e), "Failed staging port scans") from e
+
+    LOGGER.info(
+        "Port scan staging completed | input_row_count=%d | "
+        "staged_port_scan_count=%d | unique_ip_count=%d | "
+        "affected_latest_key_count=%d",
+        len(port_scans),
+        len(port_scan_batch),
+        len(ip_key_to_obj),
+        len(affected_keys),
+    )
+
+    # Bulk insert IPs
+    ip_objs = list(ip_key_to_obj.values())
+    if ip_objs:
+        ip_insert_started_at = time.time()
+
+        LOGGER.info(
+            "IP bulk create started | ip_count=%d",
+            len(ip_objs),
+        )
+
+        Ip.objects.bulk_create(ip_objs, ignore_conflicts=True, batch_size=1000)
+
+        LOGGER.info(
+            "IP bulk create finished | ip_count=%d | elapsed_seconds=%.2f",
+            len(ip_objs),
+            _elapsed_seconds(ip_insert_started_at),
+        )
+
+    # Link to IP records
+    ip_lookup_started_at = time.time()
+
+    LOGGER.info(
+        "IP lookup started | requested_ip_count=%d",
+        len(ip_objs),
+    )
+
+    ip_records = Ip.objects.filter(
+        ip__in=[ip.ip for ip in ip_objs],
+        organization_id__in=[ip.organization_id for ip in ip_objs],
+    )
+    ip_map = {(ip.ip, ip.organization_id): ip for ip in ip_records}
+
+    LOGGER.info(
+        "IP lookup finished | resolved_ip_count=%d | elapsed_seconds=%.2f",
+        len(ip_map),
+        _elapsed_seconds(ip_lookup_started_at),
+    )
+
+    # Insert port scans using psycopg2 execute_values
+    port_scan_insert_started_at = time.time()
+
+    LOGGER.info(
+        "Port scan SQL insert/upsert started | port_scan_count=%d | "
+        "resolved_ip_count=%d",
+        len(port_scan_batch),
+        len(ip_map),
+    )
+
+    insert_port_scans_sql(
+        port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
+    )
+
+    LOGGER.info(
+        "Port scan SQL insert/upsert finished | port_scan_count=%d | "
+        "elapsed_seconds=%.2f",
+        len(port_scan_batch),
+        _elapsed_seconds(port_scan_insert_started_at),
+    )
+
+    # Update latest flag
+    # TODO Determine if we want to even do this anymore, possibly wait until the new table fills a bit before removing this functionality
+    if affected_keys:
+        latest_flag_started_at = time.time()
+
+        LOGGER.info(
+            "Port scan latest flag update started | affected_key_count=%d",
+            len(affected_keys),
+        )
+
+        update_latest_flag_for_keys_batched(affected_keys, 5000)
+
+        LOGGER.info(
+            "Port scan latest flag update finished | affected_key_count=%d | "
+            "elapsed_seconds=%.2f",
+            len(affected_keys),
+            _elapsed_seconds(latest_flag_started_at),
+        )
+
+    LOGGER.info(
+        "Port scan bulk ingestion completed | input_row_count=%d | "
+        "elapsed_seconds=%.2f",
+        len(port_scans),
+        _elapsed_seconds(ingestion_started_at),
+    )
+
+
+PortScanRow = namedtuple(
+    "PortScanRow",
+    [
+        "id",
+        "ip_string",
+        "ip_id",
+        "latest",
+        "port",
+        "protocol",
+        "reason",
+        "service",
+        "service_name",
+        "service_confidence",
+        "service_method",
+        "service_cpe",
+        "service_hostname",
+        "service_extra_info",
+        "service_os_type",
+        "service_product",
+        "service_version",
+        "service_tunnel",
+        "service_device_type",
+        "source",
+        "state",
+        "time_scanned",
+        "organization_id",
+        "risky_service_group",
+        "nmi_service_group",
+    ],
+)
+
+LatestPortScanRow = namedtuple(
+    "LatestPortScanRow",
+    [
+        "id",
+        "port_scan_id",
+        "ip_string",
+        "ip_id",
+        "port",
+        "protocol",
+        "reason",
+        "service",
+        "service_name",
+        "service_confidence",
+        "service_method",
+        "service_cpe",
+        "service_hostname",
+        "service_extra_info",
+        "service_os_type",
+        "service_product",
+        "service_version",
+        "service_tunnel",
+        "service_device_type",
+        "source",
+        "state",
+        "time_scanned",
+        "organization_id",
+        "risky_service_group",
+        "nmi_service_group",
+        "current",
+    ],
+)
 
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
@@ -442,11 +683,22 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
     keys = sorted(set(affected_keys))
     start_time = time.time()
 
+    LOGGER.info(
+        "Latest flag update started | affected_key_count=%d | batch_size=%d",
+        len(keys),
+        batch_size,
+    )
+
     try:
         with connections[db].cursor() as cur, transaction.atomic(using=db):
             cur.execute("SET LOCAL synchronous_commit = OFF;")
 
             # 1) Temp table for keys
+            LOGGER.info(
+                "Latest flag update creating/loading key temp table | key_count=%d",
+                len(keys),
+            )
+
             cur.execute(
                 """
                 CREATE TEMP TABLE _ps_keys(
@@ -465,7 +717,14 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
             )
             cur.execute("ANALYZE _ps_keys;")
 
+            LOGGER.info(
+                "Latest flag update key temp table loaded | key_count=%d",
+                len(keys),
+            )
+
             # 2) Latest row per key, only look back 90 days
+            LOGGER.info("Latest flag update calculating newest port scan IDs.")
+
             cur.execute(
                 """
                 CREATE TEMP TABLE _ps_latest_ids (id text PRIMARY KEY) ON COMMIT DROP;
@@ -484,7 +743,18 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
             )
             cur.execute("ANALYZE _ps_latest_ids;")
 
+            cur.execute("SELECT COUNT(*) FROM _ps_latest_ids")
+            latest_id_count = cur.fetchone()[0]
+
+            LOGGER.info(
+                "Latest flag update calculated newest port scan IDs | "
+                "latest_id_count=%d",
+                latest_id_count,
+            )
+
             # 3a) Turn off stale 'latest=true'
+            LOGGER.info("Latest flag update clearing stale latest=TRUE flags.")
+
             cur.execute(
                 """
                 UPDATE port_scan p
@@ -500,7 +770,14 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
                 """
             )
 
+            LOGGER.info(
+                "Latest flag update cleared stale flags | updated_row_count=%d",
+                cur.rowcount,
+            )
+
             # 3b) Turn on the true latest
+            LOGGER.info("Latest flag update setting newest latest=TRUE flags.")
+
             cur.execute(
                 """
                 UPDATE port_scan p
@@ -509,6 +786,11 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
                 WHERE p.id = l.id
                   AND p.latest IS DISTINCT FROM TRUE;
                 """
+            )
+
+            LOGGER.info(
+                "Latest flag update set newest flags | updated_row_count=%d",
+                cur.rowcount,
             )
 
         duration = time.time() - start_time
@@ -550,6 +832,13 @@ def create_port_scan_summaries_bulk(
     if not org_ids:
         LOGGER.info("No org_ids provided for bulk port scan summary.")
         return
+
+    summary_started_at = time.time()
+
+    LOGGER.info(
+        "Port scan summary bulk creation started | summary_date=%s",
+        summary_date,
+    )
 
     # We pass org_ids as a Postgres array parameter.
     # summary_date is passed as date (or defaults to CURRENT_DATE in SQL).
@@ -637,7 +926,23 @@ def create_port_scan_summaries_bulk(
             org_id_list = list(org_ids)
             chunk_number = 1
 
+            LOGGER.info(
+                "Port scan summary bulk creation prepared | org_count=%d | "
+                "summary_date=%s",
+                len(org_id_list),
+                summary_date,
+            )
+
             for org_chunk in chunked(org_id_list, 10):
+                chunk_started_at = time.time()
+
+                LOGGER.info(
+                    "Port scan summary chunk started | chunk_number=%d | "
+                    "org_count=%d",
+                    chunk_number,
+                    len(org_chunk),
+                )
+
                 try:
                     with transaction.atomic(using="mini_data_lake"):
                         with connections["mini_data_lake"].cursor() as cur:
@@ -649,14 +954,24 @@ def create_port_scan_summaries_bulk(
                         len(org_chunk),
                     )
 
-                except Exception as e:
-                    LOGGER.error(
-                        "FAILED chunk %d for org_ids=%s — error: %s",
+                    LOGGER.info(
+                        "Port scan summary chunk finished | chunk_number=%d | "
+                        "org_count=%d | elapsed_seconds=%.2f",
                         chunk_number,
-                        org_chunk,
-                        str(e),
-                        exc_info=True,
+                        len(org_chunk),
+                        _elapsed_seconds(chunk_started_at),
                     )
+
+                except Exception as e:
+                    LOGGER.exception(
+                        "Port scan summary chunk failed | chunk_number=%d | "
+                        "org_count=%d | elapsed_seconds=%.2f | error=%s",
+                        chunk_number,
+                        len(org_chunk),
+                        _elapsed_seconds(chunk_started_at),
+                        e,
+                    )
+
                     # Continue to next chunk
                     # (Do NOT raise unless you want abort-on-first-error behavior)
 
@@ -667,15 +982,34 @@ def create_port_scan_summaries_bulk(
                 len(org_id_list),
             )
 
+    LOGGER.info(
+        "Port scan summary bulk creation completed | elapsed_seconds=%.2f",
+        _elapsed_seconds(summary_started_at),
+    )
+
 
 @cloudwatch_metric()
 def create_port_scan_service_summaries(summary_date=None):
     """Fill the port scan service summary table."""
+    function_started_at = time.time()
+
+    LOGGER.info(
+        "Port scan service summary creation started | summary_date=%s",
+        summary_date,
+    )
+
     try:
         if summary_date is None:
             summary_date = timezone.now().date()
 
         for org in Organization.objects.all():
+            org_started_at = time.time()
+
+            LOGGER.info(
+                "Port scan service summary organization started | org_id=%s",
+                org.id,
+            )
+
             scans = LatestPortScan.objects.filter(
                 organization=org,
                 current=True,
@@ -684,12 +1018,26 @@ def create_port_scan_service_summaries(summary_date=None):
             )
 
             if not scans.exists():
+                LOGGER.info(
+                    "Port scan service summary organization skipped; no scans | "
+                    "org_id=%s | elapsed_seconds=%.2f",
+                    org.id,
+                    _elapsed_seconds(org_started_at),
+                )
                 continue
 
             # Group by service_name
             service_names = scans.values_list("service_name", flat=True).distinct()
 
             for service in service_names:
+                service_started_at = time.time()
+
+                LOGGER.info(
+                    "Port scan service summary started | org_id=%s | service_name=%s",
+                    org.id,
+                    service,
+                )
+
                 service_scans = scans.filter(service_name=service)
 
                 agg = service_scans.aggregate(
@@ -717,8 +1065,33 @@ def create_port_scan_service_summaries(summary_date=None):
                         "risky_ports": risky_ports,
                     },
                 )
+
+                LOGGER.info(
+                    "Port scan service summary finished | org_id=%s | "
+                    "service_name=%s | elapsed_seconds=%.2f",
+                    org.id,
+                    service,
+                    _elapsed_seconds(service_started_at),
+                )
+
+            LOGGER.info(
+                "Port scan service summary organization finished | org_id=%s | "
+                "elapsed_seconds=%.2f",
+                org.id,
+                _elapsed_seconds(org_started_at),
+            )
+
+        LOGGER.info(
+            "Port scan service summary creation completed | elapsed_seconds=%.2f",
+            _elapsed_seconds(function_started_at),
+        )
     except Exception as e:
-        LOGGER.exception("Error creating port scan service summary: %s", e)
+        LOGGER.exception(
+            "Error creating port scan service summary | elapsed_seconds=%.2f | "
+            "error=%s",
+            _elapsed_seconds(function_started_at),
+            e,
+        )
         raise QueryError(
             SCAN_NAME, str(e), "Error creating port scan service summary"
         ) from e
@@ -735,6 +1108,8 @@ def enforce_latest_flag_port_scan():
     """
     start = time.time()
     db = "mini_data_lake"
+
+    LOGGER.info("Enforce latest port scan flag started.")
 
     sql_insert = """
         WITH ranked_scans AS (
@@ -757,23 +1132,45 @@ def enforce_latest_flag_port_scan():
 
     try:
         with connections[db].cursor() as cursor:
+            LOGGER.info("Enforce latest port scan flag executing update.")
             cursor.execute(sql_insert)
+
+            LOGGER.info(
+                "Enforce latest port scan flag update finished | "
+                "updated_row_count=%d",
+                cursor.rowcount,
+            )
 
         duration = time.time() - start
         LOGGER.info("Completed enforce_latest_flag in %.2fs", duration)
 
     except Exception as e:
-        LOGGER.exception("Failed to enforce latest flag on port scans: %s", e)
+        LOGGER.exception(
+            "Failed to enforce latest flag on port scans | "
+            "elapsed_seconds=%.2f | error=%s",
+            _elapsed_seconds(start),
+            e,
+        )
         # Do not raise — just log the failure and let the job continue
 
 
 @cloudwatch_metric()
 def mark_stale_latest_port_scans():
     """Mark any LatestPortScan rows where time_scanned is older than cut off as current = FALSE."""
+    started_at = time.time()
+
     try:
         cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
 
+        LOGGER.info(
+            "LatestPortScan stale cleanup started | cutoff_date=%s | cutoff_days=%d",
+            cutoff_date,
+            LATEST_PORT_SCAN_CUTOFF,
+        )
+
         with connections["mini_data_lake"].cursor() as cursor:
+            LOGGER.info("LatestPortScan stale cleanup executing update.")
+
             cursor.execute(
                 """
                 UPDATE latest_port_scan
@@ -783,9 +1180,18 @@ def mark_stale_latest_port_scans():
                 [cutoff_date],
             )
 
-        LOGGER.info("Marked stale LatestPortScan rows as current=FALSE.")
+            updated_count = cursor.rowcount
+
+        LOGGER.info(
+            "Marked stale LatestPortScan rows as current=FALSE | "
+            "updated_row_count=%d | elapsed_seconds=%.2f",
+            updated_count,
+            _elapsed_seconds(started_at),
+        )
 
     except Exception as e:
         LOGGER.exception(
-            "Failed to mark stale LatestPortScan rows as current=FALSE: %s", e
+            "LatestPortScan stale cleanup failed | elapsed_seconds=%.2f | error=%s",
+            _elapsed_seconds(started_at),
+            e,
         )
