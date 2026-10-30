@@ -1,0 +1,50 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      {% block title %}{{ page_title|default:"WAS Reporting" }}{% endblock %}
+    </title>
+    <link rel="stylesheet" href="{% static 'css/was.css' %}" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="site-header__content">
+        <a class="site-title" href="{% url 'core:home' %}">WAS Reporting</a>
+        <nav aria-label="Primary navigation">
+          <ul class="site-navigation">
+            <li><a href="{% url 'core:home' %}">Home</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    {% if messages %}
+    <section class="messages" aria-label="System messages" aria-live="polite">
+      <ul class="messages__list">
+        {% for message in messages %}
+        <li class="message{% if message.tags %} {{ message.tags }}{% endif %}">
+          {% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %}
+          <span class="message__label">Error:</span>
+          {% elif message.level == DEFAULT_MESSAGE_LEVELS.WARNING %}
+          <span class="message__label">Warning:</span>
+          {% elif message.level == DEFAULT_MESSAGE_LEVELS.SUCCESS %}
+          <span class="message__label">Success:</span>
+          {% else %}
+          <span class="message__label">Information:</span>
+          {% endif %} {{ message }}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <main id="main-content" class="main-content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>
