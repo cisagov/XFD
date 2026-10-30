@@ -168,7 +168,7 @@ resource "aws_security_group" "open_cti_lz" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["10.236.32.0/21", "10.234.96.0/21"]
+    cidr_blocks = ["10.236.32.0/21", "0.0.0.0/0"]
   }
 
   egress {
