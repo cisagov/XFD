@@ -10,10 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 # Standard Python Libraries
-import logging.config
 import os
 from pathlib import Path
-from typing import Any, Dict
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
@@ -64,10 +62,6 @@ MESSAGE_TAGS = {
     messages.WARNING: "alert-warning",
     messages.ERROR: "alert-danger",
 }
-
-IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
-IS_FARGATE = os.getenv("ECS_CONTAINER_METADATA_URI") is not None
-
 
 # Application definition
 
@@ -166,63 +160,21 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Log Level defaults to INFO, can be changed to DEBUG in development
+# Log level defaults to INFO and changes to DEBUG for local development.
 LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
-ROOT_LEVEL = "INFO"
-# Logging configuration
-handlers: Dict[str, Any] = {
-    "console": {
-        "level": LOGGING_LEVEL,
-        "class": "logging.StreamHandler",
-        "formatter": "standard",
-    }
-}
-
-
-def _env_handlers(requests: bool = False) -> list[str]:
-    """
-    Return appropriate logging handlers based on environment.
-
-    - Uses CloudWatch if running in Lambda and not local.
-    - Otherwise falls back to console logging.
-    - `requests=True` will select the requests-specific CloudWatch handler.
-    """
-    if IS_LAMBDA and not IS_LOCAL_TRUTHY:
-        return ["requests_cloudwatch"] if requests else ["app_cloudwatch"]
-    return ["console"]
-
-
-# Add CloudWatch handlers if in Lambda
-if IS_LAMBDA and not IS_LOCAL_TRUTHY:
-    # Third-Party Libraries
-    import boto3
-
-    AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-    STAGE = os.getenv("STAGE", "dev")
-    logs_client = boto3.client("logs", region_name=AWS_REGION)
-
-    handlers.update(
-        {
-            "app_cloudwatch": {
-                "level": LOGGING_LEVEL,
-                "class": "watchtower.CloudWatchLogHandler",
-                "formatter": "standard",
-                "boto3_client": logs_client,
-                "log_group_name": "was-{}-backend-api".format(STAGE),
-                "stream_name": "{machine_name}/{logger_name}/{process_id}",
-                "use_queues": False,
-            },
-            "requests_cloudwatch": {
-                "level": "INFO",
-                "class": "watchtower.CloudWatchLogHandler",
-                "formatter": "standard",
-                "boto3_client": logs_client,
-                "log_group_name": "was-{}-backend-api-requests".format(STAGE),
-                "stream_name": "{machine_name}/{logger_name}/{process_id}",
-                "use_queues": False,
-            },
-        }
-    )
+WAS_LOGGER_NAMES = (
+    "was_django",
+    "core",
+    "accounts",
+    "audit",
+    "operations",
+    "qualys_admin",
+    "reports",
+    "stakeholders",
+    "tracker",
+    "was_reports",
+    "was_mailer",
+)
 
 # TODO: CRASM-3282
 # Consider using JSON formatter instead
@@ -235,36 +187,46 @@ LOGGING = {
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },
-    "handlers": handlers,
+    "handlers": {
+        "console": {
+            "level": LOGGING_LEVEL,
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
     "root": {
-        "handlers": ["console"] if not IS_LAMBDA else [],
-        "level": "WARNING" if IS_LAMBDA else ROOT_LEVEL,
+        "handlers": ["console"],
+        # Avoid verbose SDK output that can contain request metadata or headers.
+        "level": "INFO",
     },
     "loggers": {
-        # Catch-all for your project namespace
-        "was": {
-            "handlers": _env_handlers(),
-            "level": LOGGING_LEVEL,
-            "propagate": False,
+        **{
+            logger_name: {
+                "handlers": ["console"],
+                "level": LOGGING_LEVEL,
+                "propagate": False,
+            }
+            for logger_name in WAS_LOGGER_NAMES
         },
-        # Request logs stay separate
-        "django.request": {
-            "handlers": (
-                ["requests_cloudwatch"]
-                if IS_LAMBDA and not IS_LOCAL_TRUTHY
-                else ["console"]
-            ),
+        # Normalize Django and its child loggers onto the shared console handler.
+        "django": {
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
         },
     },
 }
 
-# Apply the logging configuration
-LOGGING_CONFIG = None
-logging.config.dictConfig(LOGGING)
-
-TIME_ZONE = "UTC"
+# AWS Lambda and ECS capture stdout/stderr through their configured log drivers.
+# CloudWatch resources, encryption, retention, and alarms belong to deployment
+# configuration and must not be created or written through AWS clients here.
+# TODO: When the WAS Lambda is added to backend/serverless.yml, configure its
+# log group and sanitized API Gateway access logs after their infrastructure exists.
+# TODO: When the API Gateway/Mangum request-context contract is defined, add
+# correlation IDs without logging headers, cookies, SAML assertions, secrets,
+# report passwords, recipient lists, report contents, or customer identifiers.
+# TODO: When infrastructure/was_worker.tf is created, configure the Fargate
+# task definition's awslogs driver to collect this same console output.
 
 
 # Static files (CSS, JavaScript, Images)
