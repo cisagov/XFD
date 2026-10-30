@@ -205,15 +205,16 @@ def search(api, query, ip_results, cidr_uid, cidr_network, org_type):
             ):
                 accepted_results += 1
         # Continue retrieving results from the next page if there's more
-        i = 1
-        while i < results["total"] / 100:
+        total_results = results["total"]
+        page = 2
+        while (page - 1) * 100 < total_results:
             try:
-                # Search Shodan for page i
+                # Search Shodan for current page
                 try:
-                    results = api.search(query=query, page=i)
+                    results = api.search(query=query, page=page)
                 except shodan.exception.APIError:
                     time.sleep(2)
-                    results = api.search(query, page=i)
+                    results = api.search(query, page=page)
                 # Iterate over this page of Shodan search results
                 for result in results["matches"]:
                     if append_if_result_valid(
@@ -224,11 +225,11 @@ def search(api, query, ip_results, cidr_uid, cidr_network, org_type):
                         org_type,
                     ):
                         accepted_results += 1
-                i = i + 1
+                page += 1
             except shodan.APIError as e:
                 LOGGER.error("Error: {}".format(e))
                 LOGGER.error(query)
-                results = {"total": 0}
+                break
     except shodan.APIError as e:
         LOGGER.error("Error: {}".format(e))
         LOGGER.error(f"Failed on {query}")

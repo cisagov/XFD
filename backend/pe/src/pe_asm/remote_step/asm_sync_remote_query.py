@@ -572,42 +572,6 @@ def update_subs_identified(org_ids):
         conn.close()
 
 
-def query_floating_ips(org_id):
-    """Query floating IPs found from current subdomains."""
-    conn = connect()
-    if conn is None:
-        raise ConnectionError("Unable to connect to the PE database")
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT i.ip
-                FROM ips AS i
-                JOIN ips_subs AS ip_s
-                    ON ip_s.ip_hash = i.ip_hash
-                JOIN sub_domains AS sd
-                    ON sd.sub_domain_uid = ip_s.sub_domain_uid
-                JOIN root_domains AS rd
-                    ON rd.root_domain_uid = sd.root_domain_uid
-                WHERE rd.organizations_uid = %(org_id)s
-                    AND i.origin_cidr IS NULL
-                    AND sd.current
-                    AND i.current
-                """,
-                {"org_id": org_id},
-            )
-
-            return {row[0] for row in cursor.fetchall()}
-    except Exception:
-        LOGGER.exception(
-            "Failed to retrieve floating IPs for organization %s",
-            org_id,
-        )
-        raise
-    finally:
-        conn.close()
-
-
 def update_shodan_ips(conn, df):
     """Update IP records if they have shodan results."""
     tpls = [tuple(x) for x in df.to_numpy()]
