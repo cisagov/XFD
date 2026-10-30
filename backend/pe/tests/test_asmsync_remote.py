@@ -4,6 +4,7 @@
 from contextlib import ExitStack
 import os
 from pathlib import Path
+import socket
 import sys
 import unittest
 from unittest.mock import MagicMock, call, patch
@@ -26,7 +27,6 @@ with (
     # Third-Party Libraries
     from pe_asm.remote_step import asm_sync_remote, asm_sync_remote_query
     from pe_asm.remote_step.asm_sync_remote_helpers import (
-        enum_ips_from_subs,
         enum_subs_from_ips,
         enum_subs_from_roots,
         import_cyhy_from_s3,
@@ -193,7 +193,6 @@ class RunAsmSyncRemoteTests(unittest.TestCase):
             "update_cidrs_status",
             "enum_subs_from_roots",
             "enum_subs_from_ips",
-            "enum_ips_from_subs",
             "update_ips_status",
             "update_subs_status",
             "update_ips_subs_status",
@@ -239,7 +238,6 @@ class RunAsmSyncRemoteTests(unittest.TestCase):
             "upsert_cyhy_cidrs",
             "enum_subs_from_roots",
             "enum_subs_from_ips",
-            "enum_ips_from_subs",
             "shodan_dedupe",
         ]
         for helper_name in dataframe_helpers:
@@ -321,128 +319,24 @@ class RunAsmSyncRemoteTests(unittest.TestCase):
         )
 
 
-class EnumIpsFromSubsTests(unittest.TestCase):
-    """Verify forward DNS results are linked to subdomains."""
-
-    @patch.object(enum_ips_from_subs.socket, "gethostbyname", return_value="192.0.2.1")
-    def test_get_ip_for_domain_returns_resolved_address(self, resolver_mock):
-        """Return the IPv4 address supplied by the system resolver."""
-        self.assertEqual(
-            enum_ips_from_subs.get_ip_for_domain("www.example.gov"),
-            "192.0.2.1",
-        )
-        resolver_mock.assert_called_once_with("www.example.gov")
-
-    @patch.object(enum_ips_from_subs.socket, "gethostbyname", side_effect=OSError)
-    def test_get_ip_for_domain_returns_none_on_resolution_error(self, _resolver_mock):
-        """Treat DNS resolution failures as missing addresses."""
-        self.assertIsNone(enum_ips_from_subs.get_ip_for_domain("missing.example.gov"))
-
-    @patch.object(enum_ips_from_subs, "get_ip_for_domain", return_value="192.0.2.1")
-    def test_link_ip_from_domain_calls_database_procedure(self, _resolver_mock):
-        """Hash and link a resolved IP using the database procedure."""
-        connection = MagicMock()
-        cursor = connection.cursor.return_value
-
-        result = enum_ips_from_subs.link_ip_from_domain(
-            "www.example.gov",
-            "root-uid",
-            "org-uid",
-            "unknown",
-            connection,
-        )
-
-        expected_hash = enum_ips_from_subs.hashlib.sha256(b"192.0.2.1").hexdigest()
-        self.assertEqual(result, 1)
-        cursor.callproc.assert_called_once_with(
-            "link_ips_and_subs",
-            (
-                enum_ips_from_subs.DATE,
-                expected_hash,
-                "192.0.2.1",
-                "org-uid",
-                "www.example.gov",
-                "unknown",
-                "root-uid",
-                None,
-            ),
-        )
-        cursor.fetchone.assert_called_once_with()
-        connection.commit.assert_called_once_with()
-        cursor.close.assert_called_once_with()
-
-    @patch.object(enum_ips_from_subs, "get_ip_for_domain", return_value=None)
-    def test_link_ip_from_domain_skips_unresolved_domain(self, _resolver_mock):
-        """Do not open a cursor when a domain has no address."""
-        connection = MagicMock()
-
-        self.assertEqual(
-            enum_ips_from_subs.link_ip_from_domain(
-                "missing.example.gov",
-                "root-uid",
-                "org-uid",
-                "unknown",
-                connection,
-            ),
-            0,
-        )
-        connection.cursor.assert_not_called()
-
-    @patch.object(enum_ips_from_subs, "link_ip_from_domain")
-    @patch.object(enum_ips_from_subs, "query_subs_by_org")
-    @patch.object(enum_ips_from_subs, "connect")
-    def test_enum_ips_skips_null_subdomain_and_closes_connection(
-        self,
-        connect_mock,
-        query_mock,
-        link_mock,
-    ):
-        """Link real subdomains while skipping the Null_Sub sentinel."""
-        connection = connect_mock.return_value
-        query_mock.return_value = pd.DataFrame(
-            [
-                {"sub_domain": "Null_Sub", "root_domain_uid": "root-1"},
-                {"sub_domain": "www.example.gov", "root_domain_uid": "root-2"},
-            ]
-        )
-        organizations = pd.DataFrame(
-            [{"organizations_uid": "org-uid", "cyhy_db_name": "EXAMPLE"}]
-        )
-
-        enum_ips_from_subs.enum_ips_from_subs(organizations)
-
-        query_mock.assert_called_once_with("org-uid")
-        link_mock.assert_called_once_with(
-            "www.example.gov",
-            "root-2",
-            "org-uid",
-            "unknown",
-            connection,
-        )
-        connection.close.assert_called_once_with()
-
-
 class EnumSubsFromIpsTests(unittest.TestCase):
     """Verify reverse DNS enumeration and IP chunk processing."""
 
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
     @patch.object(enum_subs_from_ips, "upsert_ips")
-    @patch.object(enum_subs_from_ips.requests, "request")
-    def test_reverse_lookup_returns_domains_and_upserts_ip(
+    @patch.object(enum_subs_from_ips.socket, "gethostbyaddr")
+    def test_reverse_lookup_returns_ptr_domains_and_upserts_ip(
         self,
-        request_mock,
+        resolver_mock,
         upsert_mock,
+        _rate_mock,
     ):
-        """Normalize WhoisXML domain results and ignore malformed entries."""
-        response = MagicMock(status_code=200)
-        response.json.return_value = {
-            "size": 3,
-            "result": [
-                {"name": "www.example.gov"},
-                {"name": "mail.example.gov"},
-                {"missing": "name"},
-            ],
-        }
-        request_mock.return_value = response
+        """Return PTR hostnames with correctly extracted root domains."""
+        resolver_mock.return_value = (
+            "host.example.co.uk",
+            ["mail.example.gov"],
+            ["192.0.2.1"],
+        )
         ip_object = {"ip": "192.0.2.1", "ip_hash": "hash"}
 
         domains, failures = enum_subs_from_ips.reverseLookup(
@@ -451,28 +345,37 @@ class EnumSubsFromIpsTests(unittest.TestCase):
             "Thread 1",
         )
 
-        self.assertEqual(
+        self.assertCountEqual(
             domains,
             [
-                {"sub_domain": "www.example.gov", "root": "example.gov"},
-                {"sub_domain": "mail.example.gov", "root": "example.gov"},
+                {
+                    "sub_domain": "host.example.co.uk",
+                    "root": "example.co.uk",
+                },
+                {
+                    "sub_domain": "mail.example.gov",
+                    "root": "example.gov",
+                },
             ],
         )
         self.assertEqual(failures, [])
+        resolver_mock.assert_called_once_with("192.0.2.1")
         upsert_mock.assert_called_once_with(ip_object)
 
-    @patch.object(enum_subs_from_ips.time, "sleep")
-    @patch.object(enum_subs_from_ips.requests, "request")
-    def test_reverse_lookup_records_ip_after_max_retries(
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips, "upsert_ips")
+    @patch.object(
+        enum_subs_from_ips.socket,
+        "gethostbyaddr",
+        side_effect=socket.herror(1, "Host not found"),
+    )
+    def test_reverse_lookup_treats_missing_ptr_as_negative_result(
         self,
-        request_mock,
-        sleep_mock,
+        _resolver_mock,
+        upsert_mock,
+        _rate_mock,
     ):
-        """Record an address when every WhoisXML request fails."""
-        response = MagicMock(status_code=503)
-        response.json.return_value = {"size": 0, "result": []}
-        request_mock.return_value = response
-
+        """Treat HOST_NOT_FOUND as a valid missing-PTR response."""
         domains, failures = enum_subs_from_ips.reverseLookup(
             {"ip": "192.0.2.2"},
             [],
@@ -480,9 +383,29 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         )
 
         self.assertEqual(domains, [])
-        self.assertEqual(failures, ["192.0.2.2"])
-        self.assertEqual(request_mock.call_count, 6)
-        self.assertEqual(sleep_mock.call_count, 5)
+        self.assertEqual(failures, [])
+        upsert_mock.assert_not_called()
+
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(
+        enum_subs_from_ips.socket,
+        "gethostbyaddr",
+        side_effect=socket.herror(2, "Try again"),
+    )
+    def test_reverse_lookup_records_temporary_resolver_failure(
+        self,
+        _resolver_mock,
+        _rate_mock,
+    ):
+        """Record TRY_AGAIN as a failed lookup."""
+        domains, failures = enum_subs_from_ips.reverseLookup(
+            {"ip": "192.0.2.3"},
+            [],
+            "Thread 3",
+        )
+
+        self.assertEqual(domains, [])
+        self.assertEqual(failures, ["192.0.2.3"])
 
     @patch.object(enum_subs_from_ips, "reverseLookup")
     def test_link_domain_from_ip_links_each_found_domain(self, reverse_mock):
@@ -501,7 +424,7 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         domains = enum_subs_from_ips.link_domain_from_ip(
             ip_object,
             "org-uid",
-            "WhoisXML",
+            "Python Socket",
             [],
             connection,
             "Thread 1",
@@ -532,22 +455,22 @@ class EnumSubsFromIpsTests(unittest.TestCase):
 
         self.assertEqual(link_mock.call_count, 2)
         for invocation in link_mock.call_args_list:
-            self.assertEqual(invocation.args[1:3], ("org-uid", "WhoisXML"))
+            self.assertEqual(invocation.args[1:3], ("org-uid", "Python Socket"))
             self.assertIs(invocation.args[4], connection)
         connection.close.assert_called_once_with()
 
     @patch.object(enum_subs_from_ips.threading, "Thread")
     @patch.object(enum_subs_from_ips, "query_cidrs_by_org")
-    def test_enum_subs_builds_ip_rows_and_runs_five_threads(
+    def test_enum_subs_builds_ip_rows_and_runs_ten_threads(
         self,
         query_mock,
         thread_mock,
     ):
-        """Expand CIDR hosts, split them into five dataframes, and join all threads."""
+        """Expand CIDR hosts, split them into ten dataframes, and join all threads."""
         query_mock.return_value = pd.DataFrame(
             [{"network": "192.0.2.0/30", "cidr_uid": "cidr-uid"}]
         )
-        threads = [MagicMock() for _ in range(5)]
+        threads = [MagicMock() for _ in range(10)]
         thread_mock.side_effect = threads
         organizations = pd.DataFrame(
             [{"organizations_uid": "org-uid", "cyhy_db_name": "ORG"}]
@@ -556,7 +479,7 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         enum_subs_from_ips.enum_subs_from_ips(organizations)
 
         query_mock.assert_called_once_with("org-uid")
-        self.assertEqual(thread_mock.call_count, 5)
+        self.assertEqual(thread_mock.call_count, 10)
         chunk_lengths = [
             len(item.kwargs["args"][2]) for item in thread_mock.call_args_list
         ]
@@ -667,10 +590,11 @@ class ShodanDedupeTests(unittest.TestCase):
             "net:192.0.2.0/24",
             ip_objects,
             "cidr-uid",
+            "192.0.2.0/24",
             "FEDERAL",
         )
 
-        self.assertEqual(total, 2)
+        self.assertEqual(total, 1)
         self.assertEqual([item["ip"] for item in ip_objects], ["192.0.2.2"])
         self.assertEqual(ip_objects[0]["origin_cidr"], "cidr-uid")
 
@@ -679,7 +603,7 @@ class ShodanDedupeTests(unittest.TestCase):
     def test_cidr_dedupe_deduplicates_discovered_ips(self, search_mock, update_mock):
         """Consolidate duplicate IP results before updating the database."""
 
-        def add_result(_api, _query, ip_objects, cidr_uid, _org_type):
+        def add_result(_api, _query, ip_objects, cidr_uid, _cidr_network, _org_type):
             ip_objects.append(
                 {
                     "ip_hash": "hash",
@@ -705,49 +629,30 @@ class ShodanDedupeTests(unittest.TestCase):
         self.assertEqual(len(dataframe), 1)
         self.assertEqual(dataframe.iloc[0]["ip"], "192.0.2.1")
 
-    @patch.object(shodan_dedupe, "update_shodan_ips")
-    def test_ip_dedupe_filters_federal_state_results(self, update_mock):
-        """Only persist floating Shodan IPs allowed by agency-state filtering."""
-        api = MagicMock()
-        api.host.return_value = [
-            {"org": "State of Virginia", "ip_str": "192.0.2.1"},
-            {"org": "Example Corporation", "ip_str": "192.0.2.2"},
-        ]
-        connection = MagicMock()
-
-        shodan_dedupe.ip_dedupe(
-            api,
-            ["192.0.2.1", "192.0.2.2"],
-            "FEDERAL",
-            connection,
-        )
-
-        dataframe = update_mock.call_args.args[1]
-        self.assertEqual(dataframe["ip"].tolist(), ["192.0.2.2"])
-
-    @patch.object(shodan_dedupe, "ip_dedupe")
     @patch.object(shodan_dedupe, "cidr_dedupe")
-    @patch.object(shodan_dedupe, "query_floating_ips")
     @patch.object(shodan_dedupe, "query_cidrs_by_org")
     @patch.object(shodan_dedupe, "connect")
     @patch.object(shodan_dedupe, "shodan_api_init")
-    def test_shodan_dedupe_runs_cidr_and_floating_ip_workflows(
+    def test_shodan_dedupe_runs_only_cidr_workflow(
         self,
         api_init_mock,
         connect_mock,
         cidr_query_mock,
-        ip_query_mock,
         cidr_dedupe_mock,
-        ip_dedupe_mock,
     ):
-        """Query and process both Shodan asset sources for each organization."""
+        """Query and process only organization CIDRs."""
         api = MagicMock()
         api_init_mock.return_value = [api]
         connection = connect_mock.return_value
-        cidrs = pd.DataFrame([{"network": "192.0.2.0/24"}])
-        floating_ips = ["192.0.2.1"]
+        cidrs = pd.DataFrame(
+            [
+                {
+                    "network": "192.0.2.0/24",
+                    "cidr_uid": "cidr-uid",
+                }
+            ]
+        )
         cidr_query_mock.return_value = cidrs
-        ip_query_mock.return_value = floating_ips
         organizations = pd.DataFrame(
             [
                 {
@@ -760,14 +665,83 @@ class ShodanDedupeTests(unittest.TestCase):
 
         shodan_dedupe.shodan_dedupe(organizations)
 
-        cidr_dedupe_mock.assert_called_once_with(cidrs, api, "FEDERAL", connection)
-        ip_dedupe_mock.assert_called_once_with(
+        cidr_query_mock.assert_called_once_with("org-uid")
+        cidr_dedupe_mock.assert_called_once_with(
+            cidrs,
             api,
-            floating_ips,
             "FEDERAL",
             connection,
         )
         connection.close.assert_called_once_with()
+
+    def test_search_rejects_ip_outside_queried_cidr(self):
+        """Do not attribute an out-of-range Shodan result to the CIDR."""
+        api = MagicMock()
+        api.search.return_value = {
+            "total": 1,
+            "matches": [
+                {
+                    "org": "Example Corporation",
+                    "ip_str": "198.51.100.10",
+                }
+            ],
+        }
+        ip_objects = []
+
+        accepted = shodan_dedupe.search(
+            api,
+            "net:192.0.2.0/24",
+            ip_objects,
+            "cidr-uid",
+            "192.0.2.0/24",
+            "STATE",
+        )
+
+        self.assertEqual(accepted, 0)
+        self.assertEqual(ip_objects, [])
+
+    def test_search_requests_second_page(self):
+        """Retrieve page 2 when Shodan reports more than 100 results."""
+        api = MagicMock()
+        api.search.side_effect = [
+            {
+                "total": 101,
+                "matches": [
+                    {
+                        "org": "Example Corporation",
+                        "ip_str": "192.0.2.1",
+                    }
+                ],
+            },
+            {
+                "total": 101,
+                "matches": [
+                    {
+                        "org": "Example Corporation",
+                        "ip_str": "192.0.2.2",
+                    }
+                ],
+            },
+        ]
+        ip_objects = []
+
+        accepted = shodan_dedupe.search(
+            api,
+            "net:192.0.2.0/24",
+            ip_objects,
+            "cidr-uid",
+            "192.0.2.0/24",
+            "STATE",
+        )
+
+        self.assertEqual(accepted, 2)
+        self.assertEqual(
+            api.search.call_args_list,
+            [
+                call("net:192.0.2.0/24"),
+                call(query="net:192.0.2.0/24", page=2),
+            ],
+        )
 
 
 class UpsertCyhyCidrsTests(unittest.TestCase):
