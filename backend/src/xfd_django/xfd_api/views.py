@@ -22,7 +22,6 @@ from fastapi import (
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from redis import asyncio as aioredis
 import xfd_api.api_methods.dmz_sync as cybersix_module
 from xfd_api.auth import is_global_write_admin
 
@@ -70,18 +69,10 @@ from .api_methods.saved_search import (
 )
 from .api_methods.search import search_export, search_post
 from .api_methods.stats import (
-    get_by_org_stats,
-    get_num_vulns,
-    get_severity_stats,
-    get_stats,
     get_stats_comparison_data,
-    get_user_ports_count,
-    get_user_services_count,
     get_v2_trending_data,
     get_vs_condensed_trending_data,
     get_vs_trending_data,
-    stats_latest_vulns,
-    stats_most_common_vulns,
 )
 from .api_methods.sync import sync_post
 from .api_methods.user import (
@@ -103,11 +94,7 @@ from .api_methods.vulnerability import (
     search_vulnerabilities,
     v2_get_vulnerability_by_id,
 )
-from .api_methods.was_sync import (
-    get_all_was_scan_summaries,
-    get_was_findings_queryset,
-    paginate_queryset,
-)
+from .api_methods.was_sync import get_was_findings_queryset, paginate_queryset
 from .api_methods.xpanse_sync import xpanse_sync_post
 from .auth import get_current_active_user, get_current_active_user_unsafe
 from .auth_saml import router as saml_router
@@ -188,12 +175,7 @@ from .schema_models.vulnerability import (
     VulnerabilitySearch,
     VulnerabilitySearchResponse,
 )
-from .schema_models.was_sync import (
-    GetAllWasFindingsResponse,
-    GetWasScanSummariesResponse,
-    WasFinding,
-    WasScanSummarySchema,
-)
+from .schema_models.was_sync import GetAllWasFindingsResponse, WasFinding
 from .tools.serializers import serialize_organization, serialize_user
 from .tools.user_logger_decorator import (
     get_organization_sync,
@@ -207,11 +189,6 @@ LOGGER = logging.getLogger(__name__)
 api_router = APIRouter()
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
-
-
-async def get_redis_client(request: Request):
-    """Get the Redis client from the application state."""
-    return request.app.state.redis
 
 
 # ========================================
@@ -1376,131 +1353,6 @@ async def get_stats_comparison(
     return get_stats_comparison_data(filter_data, current_user)
 
 
-@api_router.post(
-    "/stats",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=stat_schema.StatsResponse,
-    tags=["Stats"],
-)
-async def get_stats_combined(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    redis_client=Depends(get_redis_client),
-):
-    """Retrieve all stats from Elasticache filtered by user."""
-    return await get_stats(filter_data, current_user, redis_client, request)
-
-
-@api_router.post(
-    "/services",
-    response_model=List[stat_schema.ServiceStat],
-    dependencies=[Depends(get_current_active_user)],
-    tags=["Stats"],
-)
-async def post(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client=Depends(get_redis_client),
-):
-    """Retrieve services from Elasticache filtered by user."""
-    return await get_user_services_count(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/ports",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.PortStat],
-    tags=["Stats"],
-)
-async def get_ports_stats(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client=Depends(get_redis_client),
-):
-    """Retrieve Port Stats from Elasticache."""
-    return await get_user_ports_count(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/num-vulns",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.VulnerabilityStat],
-    tags=["Stats"],
-)
-async def get_num_vulns_stats(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Retrieve number of vulnerabilities stats from ElastiCache (Redis) filtered by user."""
-    return await get_num_vulns(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/latest-vulns",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.LatestVulnerability],
-    tags=["Stats"],
-)
-async def get_latest_vulnerabilities(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Get latest vulnerabilities."""
-    return await stats_latest_vulns(filter_data, current_user, redis_client, request)
-
-
-@api_router.post(
-    "/most-common-vulns",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.MostCommonVulnerability],
-    tags=["Stats"],
-)
-async def get_most_common_vulns(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Get most common vulns."""
-    return await stats_most_common_vulns(
-        filter_data, current_user, redis_client, request
-    )
-
-
-@api_router.post(
-    "/severity-counts",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.SeverityCountStat],
-    tags=["Stats"],
-)
-async def get_severity_counts(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Retrieve the count of open vulnerabilities grouped by severity from Redis."""
-    return await get_severity_stats(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/by-org",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.ByOrgStat],
-    tags=["Stats"],
-)
-async def get_by_org(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Retrieve the count of open vulnerabilities grouped by severity from Redis."""
-    return await get_by_org_stats(filter_data, current_user, redis_client)
-
-
 # ========================================
 #   Testing Endpoints
 # ========================================
@@ -2113,52 +1965,6 @@ def generate_presigned_object_store_url(
 # ==========================
 # WAS Scan Endpoints  #
 # ==========================
-
-
-# POST
-@api_router.post(
-    "/was_scan_summaries",
-    response_model=GetWasScanSummariesResponse,
-    status_code=status.HTTP_200_OK,
-    dependencies=[Depends(get_current_active_user)],
-    tags=["WAS Scan Summaries"],
-)
-async def get_was_scan_summaries_endpoint(
-    response: Response,
-    page: int = Query(1, ge=1, description="Which page to fetch (1-indexed)."),
-    per_page: int = Query(100, ge=1, description="How many items per page."),
-):
-    """
-    Return paginated WAS scan summaries plus an X‑Salted‑Checksum header for integrity.
-
-    - `page` & `per_page` control pagination.
-    - Only authenticated users may call this.
-    """
-    try:
-        total_pages, records = await get_all_was_scan_summaries(
-            page=page,
-            per_page=per_page,
-        )
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error: {}".format(error),
-        )
-
-    # Serialize ORM objects to plain dicts
-    payload = [
-        WasScanSummarySchema.model_validate(record, from_attributes=True).model_dump()
-        for record in records
-    ]
-
-    response_body = {
-        "status": "ok",
-        "payload": jsonable_encoder(payload),
-        "total_pages": total_pages,
-        "current_page": page,
-    }
-
-    return build_checksum_response(response_body, response, status.HTTP_200_OK)
 
 
 # WAS Findings Sync

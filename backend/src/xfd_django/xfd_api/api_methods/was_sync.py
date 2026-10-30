@@ -3,12 +3,11 @@
 # Standard Python Libraries
 from datetime import date
 import logging
-import math
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 # Third-Party Libraries
 from django.db.models import QuerySet
-from xfd_mini_dl.models import WasFindings, WasScanSummary
+from xfd_mini_dl.models import WasFindings
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,19 +41,6 @@ READ_ONLY_FIELDS = (
     "cve_id",
     "sub_domain_id",
 )
-
-
-async def get_all_was_scan_summaries(
-    page: int, per_page: int
-) -> Tuple[int, List[WasScanSummary]]:
-    """Retrieve paginated WAS scan summaries."""
-    qs = WasScanSummary.objects.all().order_by("-start_date")
-    total_count = qs.count()
-    total_pages = max(1, math.ceil(total_count / per_page))
-
-    offset = (page - 1) * per_page
-    records = list(qs[offset : offset + per_page])
-    return total_pages, records
 
 
 def get_was_findings_queryset(since_date: Optional[date]) -> QuerySet:

@@ -1,6 +1,7 @@
 PYTHON ?= ../../was_report/bin/python
 REPO_ROOT ?= ../..
 ROOT_PYTHON ?= ./was_report/bin/python
+DJANGO_TEST_LABELS ?= accounts audit core operations qualys_admin reports stakeholders tracker
 IMAGE ?= was-reporting
 ENV_FILE ?= .env
 OUTPUT_DIR ?= $(CURDIR)/local-output
@@ -61,7 +62,9 @@ HOST_SOFTWARE_INVENTORY_DIR ?= $(OUTPUT_DIR)/host-inventory-$(shell date -u +%Y%
 HOST_SOFTWARE_SINCE ?=
 HOST_SOFTWARE_BASELINE ?=
 
+
 .PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports recover-interrupted-batch reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
+
 
 export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
 export CAPACITY_ACTION CAPACITY_CONTINUE_RUN_ID CAPACITY_EXPECTED_CANDIDATES
@@ -81,6 +84,14 @@ install:
 
 test:
 	cd $(REPO_ROOT) && PYTHONPATH=backend/was/src $(ROOT_PYTHON) -m unittest discover -s backend/was/tests
+	$(MAKE) django-test
+
+django-test:
+	@cd $(REPO_ROOT) && \
+		DJANGO_KEY="$$($(ROOT_PYTHON) -c 'import secrets; print(secrets.token_urlsafe(50))')" \
+		IS_LOCAL=true \
+		PYTHONPATH=backend/was/src \
+		$(ROOT_PYTHON) backend/was/src/was_django_project/manage.py test $(DJANGO_TEST_LABELS)
 
 lint:
 	cd $(REPO_ROOT) && $(ROOT_PYTHON) -m flake8 \
