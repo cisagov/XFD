@@ -20,4 +20,3 @@ python-dateutil==2.9.0.post0
 qualysapi==5.1.0
 requests==2.34.2
 seaborn==0.13.2
-watchtower==3.4.0

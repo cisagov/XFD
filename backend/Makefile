@@ -1,5 +1,4 @@
 .PHONY: syncdb
-.PHONY: populate-cache
 .PHONY: pytest
 .PHONY: pe-test
 .PHONY: pe-requirements-audit
@@ -75,16 +74,6 @@ PE_SMOKE_ENV = \
 pe-worker-smoke:
 	docker run --rm $(PE_SMOKE_ENV) pe-worker pe-source --help
 	docker run --rm $(PE_SMOKE_ENV) pe-worker python -c "import pe_source.dnstwist.dnstwist"
-
-# Redis lambdas
-populate-cache:
-	docker compose exec backend python manage.py populate_services_cache
-	docker compose exec backend python manage.py populate_ports_cache
-	docker compose exec backend python manage.py populate_vulns_cache
-	docker compose exec backend python manage.py populate_most_common_vulns_cache
-	docker compose exec backend python manage.py populate_latest_vulns_cache
-	docker compose exec backend python manage.py populate_severity_count_cache
-	docker compose exec backend python manage.py populate_by_orgs_cache
 
 # Run scan execution locally with RabbitMQ and Docker
 local-scan-execution:
