@@ -1173,7 +1173,7 @@ def mark_stale_latest_port_scans():
         cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
 
         LOGGER.info(
-            "LatestPortScan stale cleanup started | cutoff_date=%s | " "cutoff_days=%d",
+            "LatestPortScan stale cleanup started | cutoff_date=%s | cutoff_days=%d",
             cutoff_date,
             LATEST_PORT_SCAN_CUTOFF,
         )
@@ -1201,7 +1201,7 @@ def mark_stale_latest_port_scans():
 
     except Exception as e:
         LOGGER.exception(
-            "LatestPortScan stale cleanup failed | elapsed_seconds=%.2f | " "error=%s",
+            "LatestPortScan stale cleanup failed | elapsed_seconds=%.2f | error=%s",
             _elapsed_seconds(started_at),
             e,
         )

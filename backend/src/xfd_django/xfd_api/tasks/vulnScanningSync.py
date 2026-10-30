@@ -130,7 +130,9 @@ def handler(event):
     Returns:
         dict: Response containing the status code and message.
     """
+    event = dict(event or {})  # Ensure event is a dict for logging
     run_id = _get_run_id(event)
+    event["run_id"] = run_id  # Ensure run_id is in the event for downstream logging
 
     LOGGER.info(
         "VS sync handler received event | run_id=%s | event_keys=%s | "
@@ -164,7 +166,7 @@ def handler(event):
 @cloudwatch_metric()
 def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
-    run_id = _get_run_id(event)
+    run_id = event.get("run_id")
     sync_started_at = monotonic()
 
     setup_vuln_sync_logging()
@@ -408,7 +410,7 @@ def main(event):  # pylint: disable=R0915
         )
     except Exception as e:
         LOGGER.exception(
-            "Ticket sync phase failed | run_id=%s | elapsed_seconds=%.2f | " "error=%s",
+            "Ticket sync phase failed | run_id=%s | elapsed_seconds=%.2f | error=%s",
             run_id,
             monotonic() - phase_started_at,
             e,
