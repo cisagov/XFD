@@ -3,6 +3,7 @@
 
 # Standard Python Libraries
 import hashlib
+import ipaddress
 import logging
 import time
 
@@ -140,6 +141,102 @@ def state_check(host_org):
     return found
 
 
+def append_if_result_valid(
+    result,
+    ip_results,
+    cidr_uid,
+    cidr_network,
+    org_type,
+):
+    """Append a Shodan result only if it meets criteria."""
+    # Check if the Shodan result's IP address is valid
+    try:
+        result_ip = ipaddress.ip_address(result["ip_str"])
+    except (KeyError, TypeError, ValueError):
+        LOGGER.warning("Skipping Shodan result b/c invalid IP: %s", result)
+        return False
+    # Check if the Shodan result's IP is within the specified CIDR
+    if result_ip not in cidr_network:
+        LOGGER.warning(
+            "Skipping Shodan result b/c IP %s is outside queried CIDR %s",
+            result_ip,
+            cidr_network,
+        )
+        return False
+    # Skip if Shodan result is within USA and federal organization
+    state = state_check(result.get("org"))
+    if state and org_type == "FEDERAL":
+        return False
+    # Calculate hash for Shodan result's IP and append to results list
+    ip_string = str(result_ip)
+    ip_hash = hashlib.sha256(ip_string.encode("utf-8")).hexdigest()
+    ip_results.append(
+        {
+            "ip_hash": ip_hash,
+            "ip": ip_string,
+            "shodan_results": True,
+            "origin_cidr": cidr_uid,
+            "current": True,
+        }
+    )
+    return True
+
+
+def search(api, query, ip_results, cidr_uid, cidr_network, org_type):
+    """Search Shodan API using query and add IPs to set."""
+    network = ipaddress.ip_network(str(cidr_network), strict=False)
+    accepted_results = 0
+    # Wrap the request in a try/ except block to catch errors
+    try:
+        # Attempt to search Shodan
+        try:
+            results = api.search(query)
+        except shodan.exception.APIError:
+            time.sleep(2)
+            results = api.search(query)
+        # Iterate over first page of Shodan search results
+        for result in results["matches"]:
+            if append_if_result_valid(
+                result,
+                ip_results,
+                cidr_uid,
+                network,
+                org_type,
+            ):
+                accepted_results += 1
+        # Continue retrieving results from the next page if there's more
+        i = 1
+        while i < results["total"] / 100:
+            try:
+                # Search Shodan for page i
+                try:
+                    results = api.search(query=query, page=i)
+                except shodan.exception.APIError:
+                    time.sleep(2)
+                    results = api.search(query, page=i)
+                # Iterate over this page of Shodan search results
+                for result in results["matches"]:
+                    if append_if_result_valid(
+                        result,
+                        ip_results,
+                        cidr_uid,
+                        network,
+                        org_type,
+                    ):
+                        accepted_results += 1
+                i = i + 1
+            except shodan.APIError as e:
+                LOGGER.error("Error: {}".format(e))
+                LOGGER.error(query)
+                results = {"total": 0}
+    except shodan.APIError as e:
+        LOGGER.error("Error: {}".format(e))
+        LOGGER.error(f"Failed on {query}")
+        return 0
+    # Return total number of results for this query
+    return accepted_results
+
+
 def cidr_dedupe(cidrs, api, org_type, conn):
     """Dedupe CIDR."""
     ip_results = []
@@ -148,7 +245,14 @@ def cidr_dedupe(cidrs, api, org_type, conn):
     for cidr_index, cidr in cidrs.iterrows():
         # Search Shodan for the current CIDR
         query = f"net:{cidr['network']}"
-        result = search(api, query, ip_results, cidr["cidr_uid"], org_type)
+        result = search(
+            api,
+            query,
+            ip_results,
+            cidr["cidr_uid"],
+            cidr["network"],
+            org_type,
+        )
         # Record how many Shodan results this CIDR contained
         cidr_result_totals.append(result)
     # Log how many CIDRs contained IPs with Shodan results
@@ -162,83 +266,6 @@ def cidr_dedupe(cidrs, api, org_type, conn):
         # Mark those IP records in the PE DB as having Shodan results
         LOGGER.info(f"Updating {len(new_ips)} IPs after Shodan CIDR dedupe")
         update_shodan_ips(conn, new_ips)
-
-
-def search(api, query, ip_results, cidr_uid, org_type):
-    """Search Shodan API using query and add IPs to set."""
-    # Wrap the request in a try/ except block to catch errors
-    try:
-        # Attempt to search Shodan
-        try:
-            results = api.search(query)
-        except shodan.exception.APIError:
-            time.sleep(2)
-            results = api.search(query)
-        # Iterate over first page of Shodan search results
-        for result in results["matches"]:
-            # Check if the state for this result is in USA
-            state = state_check(result["org"])
-            # Get the IP hash for this result
-            hash_object = hashlib.sha256(str(result["ip_str"]).encode("utf-8"))
-            ip_hash = hash_object.hexdigest()
-            # Check if this result is within USA and for a federal organization
-            if state and org_type == "FEDERAL":
-                # If it is, skip
-                continue
-            else:
-                # Otherwise append the IP result to the list
-                ip_results.append(
-                    {
-                        "ip_hash": ip_hash,
-                        "ip": result["ip_str"],
-                        "shodan_results": True,
-                        "origin_cidr": cidr_uid,
-                        "current": True,
-                    }
-                )
-        # Continue retrieving results from the next page if there's more
-        i = 1
-        while i < results["total"] / 100:
-            try:
-                # Search Shodan for page i
-                try:
-                    results = api.search(query=query, page=i)
-                except shodan.exception.APIError:
-                    time.sleep(2)
-                    results = api.search(query, page=i)
-                # Iterate over this page of Shodan search results
-                for result in results["matches"]:
-                    # Check if the state for this result is in USA
-                    state = state_check(result["org"])
-                    # Get the IP hash for this result
-                    hash_object = hashlib.sha256(str(result["ip_str"]).encode("utf-8"))
-                    ip_hash = hash_object.hexdigest()
-                    # Check if this result is within USA and for a federal organization
-                    if state and org_type == "FEDERAL":
-                        # If it is, skip
-                        continue
-                    else:
-                        # Otherwise append the IP result to the list
-                        ip_results.append(
-                            {
-                                "ip_hash": ip_hash,
-                                "ip": result["ip_str"],
-                                "shodan_results": True,
-                                "origin_cidr": cidr_uid,
-                                "current": True,
-                            }
-                        )
-                i = i + 1
-            except shodan.APIError as e:
-                LOGGER.error("Error: {}".format(e))
-                LOGGER.error(query)
-                results = {"total": 0}
-    except shodan.APIError as e:
-        LOGGER.error("Error: {}".format(e))
-        LOGGER.error(f"Failed on {query}")
-        return 0
-    # Return total number of results for this query
-    return results["total"]
 
 
 def shodan_dedupe(orgs_df):
