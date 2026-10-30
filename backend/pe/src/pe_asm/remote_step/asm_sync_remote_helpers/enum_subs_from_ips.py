@@ -17,6 +17,7 @@ from pe_asm.remote_step.asm_sync_remote_query import (
     query_cidrs_by_org,
     upsert_ips,
 )
+import tldextract
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
@@ -27,6 +28,8 @@ QPS_MAX = 100
 QPS_DELAY = 1 / QPS_MAX
 QPS_RATE_LOCK = threading.Lock()
 NEXT_LOOKUP = 0.0
+
+TLD_EXTRACTOR = tldextract.TLDExtract(suffix_list_urls=())
 
 
 def limit_lookup_rate():
@@ -63,10 +66,17 @@ def reverseLookup(ip_obj, failed_ips, thread):
         hostname = hostname.rstrip(".").lower()
         if not hostname:
             continue
+        extracted = TLD_EXTRACTOR(hostname)
+        if not extracted.domain or not extracted.suffix:
+            LOGGER.warning(
+                "Unable to determine root domain for hostname %s during reverse lookup",
+                hostname,
+            )
+            continue
         found_domains.append(
             {
                 "sub_domain": hostname,
-                "root": ".".join(hostname.rsplit(".")[-2:]),
+                "root": f"{extracted.domain}.{extracted.suffix}",
             }
         )
     # If any domains found, ensure the IP they came from exists in the DB (upsert)
