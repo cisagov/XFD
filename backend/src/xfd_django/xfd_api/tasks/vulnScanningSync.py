@@ -166,7 +166,7 @@ def handler(event):
 @cloudwatch_metric()
 def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
-    run_id = event.get("run_id")
+    run_id = event.get("run_id") or _get_run_id(event)
     sync_started_at = monotonic()
 
     setup_vuln_sync_logging()
@@ -298,7 +298,6 @@ def main(event):  # pylint: disable=R0915
             monotonic() - phase_started_at,
             e,
         )
-        LOGGER.exception("Vuln Scan error occurred: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
 
     LOGGER.info("Prefetching risky and NMI service groups...")
@@ -382,9 +381,6 @@ def main(event):  # pylint: disable=R0915
             monotonic() - phase_started_at,
             e,
         )
-        LOGGER.error(
-            "Failed to create port scan summaries (bulk): %s", e, exc_info=True
-        )
 
     # Process Tickets (Chunked)
     phase_started_at = _log_phase_started(
@@ -454,12 +450,6 @@ def main(event):  # pylint: disable=R0915
                 org_id,
                 monotonic() - org_summary_started_at,
                 e,
-            )
-            LOGGER.error(
-                "Failed to create vuln scan summary for org %s: %s",
-                org_id,
-                e,
-                exc_info=True,
             )
 
     _log_phase_finished(

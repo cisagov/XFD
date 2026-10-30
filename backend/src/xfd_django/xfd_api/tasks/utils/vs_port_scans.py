@@ -963,14 +963,6 @@ def create_port_scan_summaries_bulk(
                     )
 
                 except Exception as e:
-                    LOGGER.error(
-                        "FAILED chunk %d for org_ids=%s — error: %s",
-                        chunk_number,
-                        org_chunk,
-                        str(e),
-                        exc_info=True,
-                    )
-
                     LOGGER.exception(
                         "Port scan summary chunk failed | chunk_number=%d | "
                         "org_count=%d | elapsed_seconds=%.2f | error=%s",
@@ -1100,7 +1092,6 @@ def create_port_scan_service_summaries(summary_date=None):
             _elapsed_seconds(function_started_at),
             e,
         )
-        LOGGER.exception("Error creating port scan service summary: %s", e)
         raise QueryError(
             SCAN_NAME, str(e), "Error creating port scan service summary"
         ) from e
@@ -1160,7 +1151,6 @@ def enforce_latest_flag_port_scan():
             _elapsed_seconds(start),
             e,
         )
-        LOGGER.exception("Failed to enforce latest flag on port scans: %s", e)
         # Do not raise — just log the failure and let the job continue
 
 
@@ -1204,7 +1194,4 @@ def mark_stale_latest_port_scans():
             "LatestPortScan stale cleanup failed | elapsed_seconds=%.2f | error=%s",
             _elapsed_seconds(started_at),
             e,
-        )
-        LOGGER.exception(
-            "Failed to mark stale LatestPortScan rows as current=FALSE: %s", e
         )
