@@ -51,8 +51,18 @@ def reverseLookup(ip_obj, failed_ips, thread):
     try:
         hostname, aliases, _ = socket.gethostbyaddr(ip_obj["ip"])
         hostnames = {hostname, *aliases}
-    except socket.herror:
-        # A missing PTR record is a valid negative result, not a failure.
+    except socket.herror as e:
+        # HOST_NOT_FOUND (1) and NO_DATA (4) = no PTR exists
+        if e.errno in (1, 4):
+            return [], failed_ips
+        # TRY_AGAIN (2) and NO_RECOVERY (3) = resolver error
+        LOGGER.error(
+            "%s: PTR reverse lookup failed for %s: %s",
+            thread,
+            ip_obj["ip"],
+            e,
+        )
+        failed_ips.append(ip_obj["ip"])
         return [], failed_ips
     except (socket.gaierror, TimeoutError, OSError) as e:
         LOGGER.error(
