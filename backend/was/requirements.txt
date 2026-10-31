@@ -13,7 +13,7 @@ pikepdf==9.11.0
 Pillow==12.3.0
 psycopg2-binary==2.9.10
 pyfiglet==1.0.4
-pypdf==6.16.2
+pypdf==6.21.4
 PyPDF4==1.27.0
 pystache==0.6.8
 python-dateutil==2.9.0.post0
