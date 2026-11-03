@@ -1176,6 +1176,7 @@ def mark_stale_latest_port_scans():
                 UPDATE latest_port_scan
                 SET current = FALSE
                 WHERE time_scanned < %s
+                AND current IS DISTINCT FROM FALSE
                 """,
                 [cutoff_date],
             )
