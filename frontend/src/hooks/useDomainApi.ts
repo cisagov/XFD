@@ -1,8 +1,16 @@
-import { Query, Domain, DomainSearchApiResponse } from 'types';
-import { useAuthContext } from 'context';
 import { useCallback } from 'react';
-import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+
+// Hooks
+import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
+import { useAuthContext } from '@/context';
+
+// Types
+import { Query, Domain, DomainSearchApiResponse } from '@/types';
 
 export interface DomainQuery extends Query<DomainSearchApiResponse> {
   showAll?: boolean;
