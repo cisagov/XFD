@@ -1,7 +1,7 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
-// Material UI Components
+// Material-UI Components
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 
