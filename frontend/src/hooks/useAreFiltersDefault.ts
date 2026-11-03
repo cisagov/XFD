@@ -1,5 +1,7 @@
-import { ContextType } from 'context';
 import { useMemo } from 'react';
+
+// Context
+import { ContextType } from '@/context';
 
 type UseAreFiltersDefault = (
   filters: ContextType['filters'],
