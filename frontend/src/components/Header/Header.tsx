@@ -1,23 +1,25 @@
 import React from 'react';
-import { logger } from '@/utils/logger';
 import { useHistory } from 'react-router-dom';
-import { useAuthContext } from 'context';
-import {
-  useUserLevel,
-  GLOBAL_ADMIN,
-  REGIONAL_ADMIN,
-  STANDARD_USER
-} from 'hooks/useUserLevel';
+
+// Material-UI Components
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons
 import MenuIcon from '@mui/icons-material/Menu';
-import cisaLogo from 'assets/cisaSeal.svg';
+
+// Assets
+import cisaLogo from '@/assets/cisaSeal.svg';
+
+// Components
 import { NavMenuButton } from './NavMenuButton';
 import { NavMenuDrawer } from './NavMenuDrawer';
+
+// Constants
 import {
   MAILTO_BUG,
   MAILTO_FEEDBACK,
@@ -26,6 +28,19 @@ import {
 import { ENDPOINTS } from '@/constants/endpoints';
 import { ROUTES } from '@/constants/routes';
 
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import {
+  useUserLevel,
+  GLOBAL_ADMIN,
+  REGIONAL_ADMIN,
+  STANDARD_USER
+} from '@/hooks/useUserLevel';
+
+// Utils
+import { logger } from '@/utils/logger';
 export interface MenuItemType {
   menuItemTitle: string;
   path?: string;
