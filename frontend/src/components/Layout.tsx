@@ -6,26 +6,42 @@ import React, {
   useState
 } from 'react';
 import { useLocation } from 'react-router-dom';
-import { withSearch } from '@elastic/react-search-ui';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Utils
 import { styled, useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/system';
-import { GovBanner, Header } from 'components';
-import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
-import { useAuthContext } from 'context/AuthContext';
-import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
-import { matchPath } from 'utils/stringUtils';
-import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
-import { ContextType } from 'context';
-import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
-import { useStaticsContext } from 'context/StaticsContext';
-import { useFilterDrawerContext } from 'context/FilterDrawerContext';
-import { useUserLevel } from 'hooks/useUserLevel';
-import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
+
+// Node Packages
+import { withSearch } from '@elastic/react-search-ui';
+
+// Components
+import { GovBanner, Header } from '@/components';
+import FilterDrawerToggle from '@/components/FilterDrawer/FilterDrawerToggle';
+import { FilterDrawerV2 } from '@/components/FilterDrawer/FilterDrawerV2';
+import UserInactiveModal from '@/components/UserInactivityModal/UserInactivityModal';
+
+// Constants
 import { FILTER_ENABLED_PATHS } from '@/constants/filterPaths';
+
+// Context
+import { ContextType } from '@/context';
+import { useAuthContext } from '@/context/AuthContext';
+import { useFilterDrawerContext } from '@/context/FilterDrawerContext';
+import { useStaticsContext } from '@/context/StaticsContext';
+
+// Hooks
+import { useUserActivityTimeout } from '@/hooks/useUserActivityTimeout';
+import { useUserLevel } from '@/hooks/useUserLevel';
+import { useUserTypeFilters } from '@/hooks/useUserTypeFilters';
+
+// Utils
+import { matchPath } from '@/utils/stringUtils';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
