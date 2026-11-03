@@ -23,10 +23,10 @@ import {
 
 // Components
 import CustomDataGrid from '../DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
