@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
+
+// Material-UI Components
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import { useAuthContext } from 'context';
-import { User } from 'types';
+import Typography from '@mui/material/Typography';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { User } from '@/types';
 
 export const TermsOfUse: React.FC = () => {
   const history = useHistory();
