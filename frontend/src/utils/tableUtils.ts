@@ -1,7 +1,12 @@
+// Material-UI Data Grid
 import { GridFilterItem, GridFilterModel } from '@mui/x-data-grid';
-import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
-import { UserOrganization } from 'types';
-import { LocationState } from 'types/vulnerabilities';
+
+// Hooks
+import { ORGANIZATION_EXCLUSIONS } from '@/hooks/useUserTypeFilters';
+
+// Types
+import { LocationState } from '@/types/vulnerabilities';
+import { UserOrganization } from '@/types';
 
 const titleCase = (str: string) =>
   str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
