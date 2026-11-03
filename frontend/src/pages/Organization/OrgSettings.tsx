@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+
+// Material-UI Components`
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -13,15 +15,27 @@ import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import Place from '@mui/icons-material/Place';
 import Public from '@mui/icons-material/Public';
-import { logger } from '@/utils/logger';
-import { useAuthContext } from 'context';
-import { Organization as OrganizationType, OrganizationTag } from 'types';
-import InfoDialog from 'components/Dialog/InfoDialog';
+
+// Components
+import InfoDialog from '@/components/Dialog/InfoDialog';
 import ListInput from './ListInput';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { Organization as OrganizationType, OrganizationTag } from '@/types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
