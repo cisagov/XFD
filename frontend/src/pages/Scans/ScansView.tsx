@@ -36,12 +36,12 @@ import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
-// Local Components & Context
+// Components & Context
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import { ModalToggleButton } from 'components';
-import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-import { useAuthContext } from 'context';
-import { ScanForm, ScanFormValues } from 'components/ScanForm';
+import { ModalToggleButton } from '@/components';
+import { Scan, Organization, ScanSchema, OrganizationTag } from '@/types';
+import { useAuthContext } from '@/context';
+import { ScanForm, ScanFormValues } from '@/components/ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Errors extends Partial<Scan> {
