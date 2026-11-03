@@ -10,15 +10,15 @@ import Typography, { TypographyProps } from '@mui/material/Typography';
 // Components
 import InfoTooltipIcon from './InfoTooltipIcon';
 
+// Constants
+import { ROUTES } from '@/constants/routes';
+
 // Context
 import {
   useNavigationContext,
   isVSDashboard,
   isDrillDownDestination
 } from '@/context/NavigationContext';
-
-// Constants
-import { ROUTES } from '@/constants/routes';
 
 type InfoLabelProps = {
   label: string;
