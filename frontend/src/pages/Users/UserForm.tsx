@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { isEqual } from 'lodash';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
 import DialogContent from '@mui/material/DialogContent';
@@ -9,18 +10,32 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
-import { Organization, User, UserFormValues } from 'types';
-import { initialUserFormValues } from '@/constants/userAndOrgData';
-import { useAuthContext } from 'context';
-import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
-import { logger } from '@/utils/logger';
 
-import { useOrganizationsByState } from '@/hooks/useOrganizationsByState';
-import { useUpdateUser } from '@/hooks/useUpdateUser';
-import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
-import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
+// Node Packages
+import { isEqual } from 'lodash';
+
+// Components
+import AnimatedConfirmDialog from '@/components/Dialog/AnimatedConfirmDialog';
 import { ElevationControl } from './ElevationControl';
+
+// Constants
+import { initialUserFormValues } from '@/constants/userAndOrgData';
+import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
+import { useOrganizationsByState } from '@/hooks/useOrganizationsByState';
+import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
+import { useUpdateUser } from '@/hooks/useUpdateUser';
+
+// Types
+import { Organization, User, UserFormValues } from '@/types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 type ApiErrorStates = {
   getUsersError: string;
