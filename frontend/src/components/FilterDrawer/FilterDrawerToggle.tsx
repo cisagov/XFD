@@ -1,11 +1,17 @@
 import React from 'react';
+
+// Material-UI Components
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons
 import FilterAlt from '@mui/icons-material/FilterAlt';
-import { useFilterDrawerContext } from 'context/FilterDrawerContext';
+
+// Context
+import { useFilterDrawerContext } from '@/context/FilterDrawerContext';
 
 const FilterDrawerToggle: React.FC = () => {
   const {
