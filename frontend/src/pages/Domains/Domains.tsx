@@ -31,30 +31,30 @@ import {
   GridSortModel
 } from '@mui/x-data-grid';
 
-// Types
-import { Query } from 'types';
-import { DomainSearchApiResponse } from 'types';
-
-// Context
-import { useAuthContext } from 'context';
-
-// Hooks
-import { useDomainApi } from 'hooks';
-
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import CustomPagination from 'components/DataGrid/CustomPagination';
-import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import CustomNoRowsOverlay from '@/components/DataGrid/CustomNoRowsOverlay';
+import CustomPagination from '@/components/DataGrid/CustomPagination';
+import { FindingsHeader } from '@/components/FindingsLibrary/FindingsHeader';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import { useDomainApi } from '@/hooks';
+
+// Types
+import { Query } from '@/types';
+import { DomainSearchApiResponse } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';
 import { extractInitialFilters } from '@/utils/tableUtils';
-import { formatDisplayValue } from 'utils/stringUtils';
-
-// Constants
-import { ROUTES } from '@/constants/routes';
+import { formatDisplayValue } from '@/utils/stringUtils';
 
 const PAGE_SIZE = 15;
 
