@@ -1,27 +1,6 @@
 // React
 import React, { useCallback, useRef, useState } from 'react';
 
-// Icons
-import { FaPlayCircle, FaTimes } from 'react-icons/fa';
-
-// Date utilities
-import { formatDistanceToNow, parseISO } from 'date-fns';
-
-// Styles & Utils
-import classes from './Scans.module.scss';
-import { textFilterOperators } from '@/utils/transformTableData';
-import { logger } from '@/utils/logger';
-
-// TODO: Refactor to use Material-UI components
-import {
-  Button,
-  Modal,
-  ButtonGroup,
-  ModalFooter,
-  ModalHeading,
-  ModalRef
-} from '@trussworks/react-uswds';
-
 // Material-UI Components
 import Alert from '@mui/material/Alert';
 import MuiButton from '@mui/material/Button';
@@ -36,13 +15,38 @@ import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
-// Components & Context
+// Node Packages
+import { formatDistanceToNow, parseISO } from 'date-fns';
+
+// Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import { ModalToggleButton } from '@/components';
-import { Scan, Organization, ScanSchema, OrganizationTag } from '@/types';
-import { useAuthContext } from '@/context';
 import { ScanForm, ScanFormValues } from '@/components/ScanForm';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { Scan, Organization, ScanSchema, OrganizationTag } from '@/types';
+
+// Utils
+import { textFilterOperators } from '@/utils/transformTableData';
+import { logger } from '@/utils/logger';
+
+// TODO: Refactor to use Material-UI components
+import {
+  Button,
+  Modal,
+  ButtonGroup,
+  ModalFooter,
+  ModalHeading,
+  ModalRef
+} from '@trussworks/react-uswds';
+import classes from './Scans.module.scss';
+import { FaPlayCircle, FaTimes } from 'react-icons/fa';
 
 interface Errors extends Partial<Scan> {
   global?: string;
