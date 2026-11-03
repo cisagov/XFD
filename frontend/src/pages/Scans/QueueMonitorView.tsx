@@ -12,13 +12,15 @@ import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 
-// Context & Hooks
-import { useAuthContext } from 'context';
-
-// Constants & Utils
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Utils
 import { logger } from '@/utils/logger';
-import { formatDisplayValue } from 'utils/stringUtils';
+import { formatDisplayValue } from '@/utils/stringUtils';
 import { textFilterOperators } from '@/utils/transformTableData';
 
 interface Queue {
