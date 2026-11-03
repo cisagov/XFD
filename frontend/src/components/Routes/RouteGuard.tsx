@@ -1,7 +1,13 @@
 import React from 'react';
 import { RouteProps, Route, useHistory } from 'react-router-dom';
-import { useAuthContext } from 'context';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Utils
 import { logger } from '@/utils/logger';
 
 interface AuthRedirectRouteProps extends RouteProps {
