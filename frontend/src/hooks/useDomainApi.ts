@@ -4,10 +4,10 @@ import { useCallback } from 'react';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 // Context
+import { useAuthContext } from '@/context';
 
 // Hooks
 import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
-import { useAuthContext } from '@/context';
 
 // Types
 import { Query, Domain, DomainSearchApiResponse } from '@/types';
