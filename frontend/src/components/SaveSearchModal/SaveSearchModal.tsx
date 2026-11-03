@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { useSavedSearchContext } from 'context/SavedSearchContext';
+
+// Material-UI Components
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -8,10 +8,22 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import Add from '@mui/icons-material/Add';
-import { SavedSearch } from 'types/saved-search';
-import { ContextType, useAuthContext } from 'context';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { ContextType, useAuthContext } from '@/context';
+import { useSavedSearchContext } from '@/context/SavedSearchContext';
+
+// Hooks
 import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
+
+// Types
+import { SavedSearch } from '@/types/saved-search';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 interface SaveSearchModalProps {
   searchTerm: string;
