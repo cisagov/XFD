@@ -8,7 +8,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 type DialogComponentProps = {
   isOpen: boolean;
   onClose?: (...args: any[]) => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel: () => void;
   onSave?: () => void;
   title: string;
@@ -46,14 +46,16 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
             Save
           </Button>
         )}
-        <Button
-          size="large"
-          variant="contained"
-          onClick={onConfirm}
-          disabled={disabled}
-        >
-          Confirm
-        </Button>
+        {onConfirm && (
+          <Button
+            size="large"
+            variant="contained"
+            onClick={onConfirm}
+            disabled={disabled}
+          >
+            Confirm
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

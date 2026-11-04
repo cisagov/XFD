@@ -155,7 +155,6 @@ const ScansView: React.FC = () => {
       setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
       setSnackbarOpen(true);
       logger.error('ScansView.createScan failed:', { error: e });
-      setNewScanDialogOpen(false);
     }
   };
 
@@ -465,7 +464,6 @@ const ScansView: React.FC = () => {
   const addNewScanDialog = (
     <ConfirmDialog
       isOpen={newScanDialogOpen}
-      onConfirm={() => onSubmit(values)}
       onCancel={() => setNewScanDialogOpen(false)}
       title={'Add a Scan'}
       content={
@@ -509,8 +507,8 @@ const ScansView: React.FC = () => {
               slotProps={{
                 basePopper: { placement: 'bottom-start' },
                 toolbar: {
-                  children: newScanDialogOpen ? addNewScan : addNewScan,
-                  exportTitle: 'Vulnerabilities'
+                  children: addNewScan,
+                  exportTitle: 'Scans'
                 } as any,
                 columnsManagement: {
                   disableResetButton: true,
