@@ -20,11 +20,11 @@ import { SavedSearch } from '@/types';
 
 // Mock hooks
 vi.mock('@/hooks/useAreFiltersDefault');
-vi.mock('context/SavedSearchContext');
+vi.mock('@/context/SavedSearchContext');
 
 // Mock auth context hook
-vi.mock('context', async () => {
-  const actual = await vi.importActual('context');
+vi.mock('@/context', async () => {
+  const actual = await vi.importActual('@/context');
   return {
     ...actual,
     useAuthContext: () => ({
