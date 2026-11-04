@@ -156,7 +156,17 @@ def enum_subs_from_ips(orgs_df):
         ips_list = []
         # Break CIDRs into individual IPs
         for cidr_index, cidr_row in cidrs.iterrows():
-            for ip in list(ipaddress.IPv4Network(cidr_row["network"]).hosts()):
+            # Skip IPv6 CIDRs
+            network = ipaddress.ip_network(cidr_row["network"])
+            if network.version == 6:
+                LOGGER.warning(
+                    "Skipping IPv6 CIDR %s found for org %s, unsupported",
+                    network,
+                    org_name,
+                )
+                continue
+            # Continue if IPv4 CIDR
+            for ip in network.hosts():
                 hash_object = hashlib.sha256(str(ip).encode("utf-8"))
                 ip_obj = {
                     "ip_hash": hash_object.hexdigest(),
