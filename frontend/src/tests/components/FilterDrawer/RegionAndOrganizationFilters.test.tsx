@@ -27,8 +27,8 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useStaticsContext } from '@/context/StaticsContext';
 
 //Mock hooks
-vi.mock('context/AuthContext');
-vi.mock('context/StaticsContext');
+vi.mock('@/context/AuthContext');
+vi.mock('@/context/StaticsContext');
 
 describe('RegionAndOrganizationFilters Component', () => {
   const defaultProps = {
