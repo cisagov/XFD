@@ -24,8 +24,8 @@ import { CVEFilter } from '@/components/FilterDrawer/CVEFilter';
 import { useAuthContext } from '@/context/AuthContext';
 
 //Mock hooks
-vi.mock('context/AuthContext');
-vi.mock('context/StaticsContext');
+vi.mock('@/context/AuthContext');
+vi.mock('@/context/StaticsContext');
 
 describe('CVE Filter Component', () => {
   const defaultCVEProps = {
