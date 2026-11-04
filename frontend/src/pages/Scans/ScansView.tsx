@@ -2,7 +2,9 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 // Icons
-import { FaPlayCircle, FaTimes } from 'react-icons/fa';
+import Delete from '@mui/icons-material/Delete';
+import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
+import Add from '@mui/icons-material/Add';
 
 // Date utilities
 import { formatDistanceToNow, parseISO } from 'date-fns';
@@ -12,37 +14,24 @@ import classes from './Scans.module.scss';
 import { textFilterOperators } from '@/utils/transformTableData';
 import { logger } from '@/utils/logger';
 
-// TODO: Refactor to use Material-UI components
-import {
-  Button,
-  Modal,
-  ButtonGroup,
-  ModalFooter,
-  ModalHeading,
-  ModalRef
-} from '@trussworks/react-uswds';
-
 // Material-UI Components
 import Alert from '@mui/material/Alert';
-import MuiButton from '@mui/material/Button';
 import Box from '@mui/material/Box';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
+import Typography from '@mui/material/Typography';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Local Components & Context
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import { ModalToggleButton } from 'components';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
 import { useAuthContext } from 'context';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -75,11 +64,12 @@ const ScansView: React.FC = () => {
   >([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
-  const deleteModalRef = useRef<ModalRef>(null);
+  const [deleteScanDialogOpen, setDeleteScanDialogOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
-  const [open, setOpen] = useState(false);
+  const [runScanDialogOpen, setRunScanDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
+  const [newScanDialogOpen, setNewScanDialogOpen] = useState(false);
 
   const [values] = useState<ScanFormValues>({
     name: 'censys',
@@ -157,6 +147,7 @@ const ScansView: React.FC = () => {
       setScans(scans.concat(scan));
       setSnackbarMsg('Scan created successfully!');
       setSnackbarOpen(true);
+      setNewScanDialogOpen(false);
     } catch (e: any) {
       setErrors({
         global: e.message ?? e.toString()
@@ -164,6 +155,7 @@ const ScansView: React.FC = () => {
       setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
       setSnackbarOpen(true);
       logger.error('ScansView.createScan failed:', { error: e });
+      setNewScanDialogOpen(false);
     }
   };
 
@@ -208,14 +200,6 @@ const ScansView: React.FC = () => {
     await invokeScheduler();
   };
 
-  const handleSubmit = () => {
-    runScan(selectedId);
-    setOpen(false);
-  };
-  const handleClose = () => {
-    setOpen(false);
-  };
-
   type SnackbarCloseReason = 'timeout' | 'clickaway';
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -226,10 +210,6 @@ const ScansView: React.FC = () => {
     if (reason === 'clickaway') return;
     setSnackbarOpen(false);
     triggerRef.current?.focus();
-  };
-
-  const handleClick = () => {
-    setOpen(true);
   };
 
   React.useEffect(() => {
@@ -276,10 +256,10 @@ const ScansView: React.FC = () => {
             onClick={() => {
               setSelectedId(cellValues.row.id);
               setSelectedName(cellValues.row.name);
-              handleClick();
+              setRunScanDialogOpen(true);
             }}
           >
-            <FaPlayCircle />
+            <PlayCircleFilledIcon />
           </IconButton>
         );
       }
@@ -287,7 +267,7 @@ const ScansView: React.FC = () => {
     {
       field: 'name',
       headerName: 'Name',
-      minWidth: 100,
+      minWidth: 130,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -304,7 +284,7 @@ const ScansView: React.FC = () => {
     {
       field: 'tags',
       headerName: 'Tags',
-      minWidth: 100,
+      minWidth: 65,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -321,7 +301,7 @@ const ScansView: React.FC = () => {
     {
       field: 'mode',
       headerName: 'Mode',
-      minWidth: 100,
+      minWidth: 80,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -410,12 +390,12 @@ const ScansView: React.FC = () => {
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
-              deleteModalRef.current?.toggleModal(undefined, true);
+              setDeleteScanDialogOpen(true);
               setSelectedId(cellValues.row.id);
               setSelectedName(cellValues.row.name);
             }}
           >
-            <FaTimes />
+            <Delete />
           </IconButton>
         );
       }
@@ -440,40 +420,83 @@ const ScansView: React.FC = () => {
   ];
 
   //To-do: Add a button to toolbar to import scans
-  //To-do: Add a button to toolbar to add scans
-  //To-do: Dialogs/Modals need to be built for Import and Add Scan. Export is already handled by MUI DataGrid.
+  //To-do: Dialogs/Modals need to be built for Import. Export is already handled by MUI DataGrid.
 
+  const confirmDeleteScanDialog = (
+    <ConfirmDialog
+      isOpen={deleteScanDialogOpen}
+      onConfirm={() => {
+        deleteRow(selectedId);
+        setDeleteScanDialogOpen(false);
+      }}
+      onCancel={() => setDeleteScanDialogOpen(false)}
+      title={'Delete scan?'}
+      content={
+        <>
+          <Typography mb={3}>
+            Are you sure you would like to delete the{' '}
+            <code>{selectedName}</code> scan?
+          </Typography>
+        </>
+      }
+      screenWidth="xs"
+    />
+  );
+  const confirmRunScanDialog = (
+    <ConfirmDialog
+      isOpen={runScanDialogOpen}
+      onConfirm={() => {
+        runScan(selectedId);
+        setRunScanDialogOpen(false);
+      }}
+      onCancel={() => setRunScanDialogOpen(false)}
+      title={'Run scan?'}
+      content={
+        <>
+          <Typography mb={3}>
+            Are you sure you would like to run the <code>{selectedName}</code>{' '}
+            scan?
+          </Typography>
+        </>
+      }
+      screenWidth="xs"
+    />
+  );
+  const addNewScanDialog = (
+    <ConfirmDialog
+      isOpen={newScanDialogOpen}
+      onConfirm={() => onSubmit(values)}
+      onCancel={() => setNewScanDialogOpen(false)}
+      title={'Add a Scan'}
+      content={
+        <ScanForm
+          organizationOption={organizationOptions}
+          tags={tags}
+          propValues={values}
+          onSubmit={onSubmit}
+          type="create"
+          scanSchema={scanSchema}
+        />
+      }
+      screenWidth="xs"
+    />
+  );
+  const addNewScan = (
+    <Button
+      size="small"
+      sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
+      startIcon={<Add />}
+      onClick={() => {
+        setNewScanDialogOpen(true);
+      }}
+    >
+      Add New Scan
+    </Button>
+  );
   return (
     <>
       <Box mb={3}>
-        <Dialog
-          open={open}
-          onClose={handleClose}
-          aria-labelledby="run-scan-dialog-title"
-          aria-describedby="run-scan-dialog-description"
-        >
-          <DialogTitle id="run-scan-dialog-title">Confirmation</DialogTitle>
-          <DialogContent>
-            <DialogContentText id="run-scan-dialog-description">
-              Are you sure you would like to run the {selectedName} scan?
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <MuiButton
-              onClick={handleClose}
-              aria-label="Cancel running the scan"
-            >
-              Cancel
-            </MuiButton>
-            <MuiButton
-              variant="contained"
-              onClick={handleSubmit}
-              aria-label="Confirm and run the scan"
-            >
-              Run
-            </MuiButton>
-          </DialogActions>
-        </Dialog>
+        {confirmRunScanDialog}
         <Paper elevation={0}>
           {scans?.length === 0 ? (
             <Alert severity="info">No scans found</Alert>
@@ -481,61 +504,37 @@ const ScansView: React.FC = () => {
             <CustomDataGrid
               rows={scansRows}
               columns={scansCols}
-              //To-do: re-enable Custom Toolbar to handle scan Create, Export, Import,
+              showToolbar
+              slots={{ toolbar: CustomToolbar }}
+              slotProps={{
+                basePopper: { placement: 'bottom-start' },
+                toolbar: {
+                  children: newScanDialogOpen ? addNewScan : addNewScan,
+                  exportTitle: 'Vulnerabilities'
+                } as any,
+                columnsManagement: {
+                  disableResetButton: true,
+                  getTogglableColumns: (columns) => {
+                    const alwaysVisible = ['name'];
+                    return columns
+                      .filter(
+                        (col) => col.field && !alwaysVisible.includes(col.field)
+                      )
+                      .map((col) => col.field as string);
+                  }
+                }
+              }}
             />
           )}
         </Paper>
       </Box>
-      <Button type="submit" outline onClick={invokeScheduler}>
+      <Button variant="contained" color="primary" onClick={invokeScheduler}>
         Manually run scheduler
       </Button>
       {errors.scheduler && <p className={classes.error}>{errors.scheduler}</p>}
-      <h2>Add a scan</h2>
       {errors.global && <p className={classes.error}>{errors.global}</p>}
-      <ScanForm
-        organizationOption={organizationOptions}
-        tags={tags}
-        propValues={values}
-        onSubmit={onSubmit}
-        type="create"
-        scanSchema={scanSchema}
-      ></ScanForm>
-      {/* To-Do: Undefined props are needed to avoid errors. This Modal needs to
-      be replaced with a MUI Dialog. */}
-      <Modal
-        ref={deleteModalRef}
-        id="deleteModal"
-        placeholder={undefined}
-        onPointerEnterCapture={undefined}
-        onPointerLeaveCapture={undefined}
-      >
-        <ModalHeading>Delete scan?</ModalHeading>
-        <p>
-          Are you sure you would like to delete the <code>{selectedName}</code>{' '}
-          scan?
-        </p>
-        <ModalFooter>
-          <ButtonGroup>
-            <ModalToggleButton
-              modalRef={deleteModalRef}
-              closer
-              onClick={() => {
-                deleteRow(selectedId);
-              }}
-            >
-              Delete
-            </ModalToggleButton>
-            <ModalToggleButton
-              modalRef={deleteModalRef}
-              closer
-              unstyled
-              className="padding-105 text-center"
-            >
-              Cancel
-            </ModalToggleButton>
-          </ButtonGroup>
-        </ModalFooter>
-      </Modal>
+      {addNewScanDialog}
+      {confirmDeleteScanDialog}
       <Snackbar
         open={snackbarOpen}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}

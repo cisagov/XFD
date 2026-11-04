@@ -453,9 +453,9 @@ export const ScanForm: React.FC<{
         </Link>
       )}
 
-      <Button type="submit" color="secondary.main">
+      {/* <Button type="submit" color="secondary.main">
         {type === 'edit' ? 'Save Changes' : 'Create Scan'}
-      </Button>
+      </Button> */}
     </Form>
   );
 };
