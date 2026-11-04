@@ -182,19 +182,67 @@ def append_if_result_valid(
     return True
 
 
-def search(api, query, ip_results, cidr_uid, cidr_network, org_type):
-    """Search Shodan API using query and add IPs to set."""
+def search_shodan(api, query, page=None, max_attempts=5):
+    """Call Shodan search API with retries, return None after all attempts fail."""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            # Attempt to call the Shodan API
+            if page is None:
+                return api.search(query)
+            return page, api.search(query, page=page)
+        except shodan.APIError as e:
+            # If max attempts reached, log error and return None
+            if attempt == max_attempts:
+                LOGGER.error(
+                    "Shodan API failed for %s page %s after %d attempts: %s",
+                    query,
+                    page or 1,
+                    max_attempts,
+                    e,
+                )
+                return None
+            # Otherwise, log warning and retry with exponential backoff
+            delay = 2**attempt
+            LOGGER.warning(
+                "Shodan API error for %s page %s (attempt %d/%d): %s. Retrying in %d seconds...",
+                query,
+                page or 1,
+                attempt,
+                max_attempts,
+                delay,
+                e,
+            )
+            time.sleep(delay)
+
+
+def search_shodan_for_cidr(api, query, ip_results, cidr_uid, cidr_network, org_type):
+    """Search Shodan API for CIDR and add IPs to set, return None on API failure."""
     network = ipaddress.ip_network(str(cidr_network), strict=False)
     accepted_results = 0
-    # Wrap the request in a try/ except block to catch errors
-    try:
-        # Attempt to search Shodan
-        try:
-            results = api.search(query)
-        except shodan.exception.APIError:
-            time.sleep(2)
-            results = api.search(query)
-        # Iterate over first page of Shodan search results
+    # Attempt to search Shodan
+    results = search_shodan(api, query)
+    # Return None if max retries reached
+    if results is None:
+        return None
+    # Otherwise, iterate over first page of results
+    for result in results["matches"]:
+        if append_if_result_valid(
+            result,
+            ip_results,
+            cidr_uid,
+            network,
+            org_type,
+        ):
+            accepted_results += 1
+    # Continue retrieving results from the next page if there's more
+    total_results = results["total"]
+    page = 2
+    while (page - 1) * 100 < total_results:
+        # Search shodan for current page
+        results = search_shodan(api, query, page=page)
+        if results is None:
+            return None
+        # Iterate over this page of Shodan search results
         for result in results["matches"]:
             if append_if_result_valid(
                 result,
@@ -204,36 +252,7 @@ def search(api, query, ip_results, cidr_uid, cidr_network, org_type):
                 org_type,
             ):
                 accepted_results += 1
-        # Continue retrieving results from the next page if there's more
-        total_results = results["total"]
-        page = 2
-        while (page - 1) * 100 < total_results:
-            try:
-                # Search Shodan for current page
-                try:
-                    results = api.search(query=query, page=page)
-                except shodan.exception.APIError:
-                    time.sleep(2)
-                    results = api.search(query, page=page)
-                # Iterate over this page of Shodan search results
-                for result in results["matches"]:
-                    if append_if_result_valid(
-                        result,
-                        ip_results,
-                        cidr_uid,
-                        network,
-                        org_type,
-                    ):
-                        accepted_results += 1
-                page += 1
-            except shodan.APIError as e:
-                LOGGER.error("Error: {}".format(e))
-                LOGGER.error(query)
-                break
-    except shodan.APIError as e:
-        LOGGER.error("Error: {}".format(e))
-        LOGGER.error(f"Failed on {query}")
-        return 0
+        page += 1
     # Return total number of results for this query
     return accepted_results
 
@@ -246,7 +265,7 @@ def cidr_dedupe(cidrs, api, org_type, conn):
     for cidr_index, cidr in cidrs.iterrows():
         # Search Shodan for the current CIDR
         query = f"net:{cidr['network']}"
-        result = search(
+        result = search_shodan_for_cidr(
             api,
             query,
             ip_results,
@@ -254,6 +273,11 @@ def cidr_dedupe(cidrs, api, org_type, conn):
             cidr["network"],
             org_type,
         )
+        # Raise error if Shodan API search failed after max retries
+        if result is None:
+            raise RuntimeError(
+                f"Shodan API search failed for CIDR {query}, max retries reached"
+            )
         # Record how many Shodan results this CIDR contained
         cidr_result_totals.append(result)
     # Log how many CIDRs contained IPs with Shodan results
