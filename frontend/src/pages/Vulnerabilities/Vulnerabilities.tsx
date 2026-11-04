@@ -70,6 +70,7 @@ import {
 // Constants
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { SERVER_FILTER_DEBOUNCE_MS } from '@/constants/dataGrid';
 
 const PAGE_SIZE = 15;
 
@@ -237,6 +238,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     setPreloadedFiltersActive(false);
     setFilters([]);
     setFilterModel({ items: [] });
+    setHasActiveFilters(false);
     if (filterTimerRef.current) {
       clearTimeout(filterTimerRef.current);
       filterTimerRef.current = null;
@@ -675,12 +677,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           </Stack>
         </Box>
       )}
-      <Box mb={3} display="flex" justifyContent="center">
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Vulnerabilities..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
+      <Box mb={3} display="flex" flexDirection="column" alignItems="center">
+        {loadingError && (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Vulnerabilities!</Alert>
@@ -703,13 +701,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               Retry
             </Button>
           </Stack>
-        ) : isLoading === false && loadingError === false ? (
-          <Paper
-            elevation={2}
-            sx={{ width: '100%', minHeight: 500 }}
-            aria-label="Vulnerabilities Table"
-          >
-            <CustomDataGrid<VulnerabilityRow>
+        )}
+        <Paper
+          elevation={2}
+          sx={{ width: '100%', minHeight: 500 }}
+          aria-label="Vulnerabilities Table"
+        >
+          <CustomDataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
@@ -750,7 +748,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   setFilters(cleanedModel.items);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
-                }, 500);
+                }, SERVER_FILTER_DEBOUNCE_MS);
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -800,8 +798,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               disableRowSelectionOnClick
               showToolbar
             />
-          </Paper>
-        ) : null}
+        </Paper>
       </Box>
     </Box>
   );
