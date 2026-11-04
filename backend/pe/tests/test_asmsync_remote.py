@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from contextlib import ExitStack
+import ipaddress
 import os
 from pathlib import Path
 import socket
@@ -488,6 +489,42 @@ class EnumSubsFromIpsTests(unittest.TestCase):
             thread.start.assert_called_once_with()
             thread.join.assert_called_once_with()
 
+    @patch.object(enum_subs_from_ips.LOGGER, "warning")
+    @patch.object(enum_subs_from_ips.threading, "Thread")
+    @patch.object(enum_subs_from_ips, "query_cidrs_by_org")
+    def test_enum_subs_skips_ipv6_cidrs(
+        self,
+        query_mock,
+        thread_mock,
+        warning_mock,
+    ):
+        """Log and skip IPv6 CIDRs instead of expanding them."""
+        query_mock.return_value = pd.DataFrame(
+            [
+                {
+                    "network": "2001:db8::/64",
+                    "cidr_uid": "ipv6-cidr",
+                }
+            ]
+        )
+        organizations = pd.DataFrame(
+            [
+                {
+                    "organizations_uid": "org-uid",
+                    "cyhy_db_name": "ORG",
+                }
+            ]
+        )
+
+        enum_subs_from_ips.enum_subs_from_ips(organizations)
+
+        warning_mock.assert_called_once_with(
+            "Skipping IPv6 CIDR %s found for org %s, unsupported",
+            ipaddress.ip_network("2001:db8::/64"),
+            "ORG",
+        )
+        thread_mock.assert_not_called()
+
 
 class EnumSubsFromRootsTests(unittest.TestCase):
     """Verify WhoisXML root-domain enumeration and insertion."""
@@ -585,7 +622,7 @@ class ShodanDedupeTests(unittest.TestCase):
         }
         ip_objects = []
 
-        total = shodan_dedupe.search(
+        total = shodan_dedupe.search_shodan_for_cidr(
             api,
             "net:192.0.2.0/24",
             ip_objects,
@@ -599,7 +636,7 @@ class ShodanDedupeTests(unittest.TestCase):
         self.assertEqual(ip_objects[0]["origin_cidr"], "cidr-uid")
 
     @patch.object(shodan_dedupe, "update_shodan_ips")
-    @patch.object(shodan_dedupe, "search")
+    @patch.object(shodan_dedupe, "search_shodan_for_cidr")
     def test_cidr_dedupe_deduplicates_discovered_ips(self, search_mock, update_mock):
         """Consolidate duplicate IP results before updating the database."""
 
@@ -688,7 +725,7 @@ class ShodanDedupeTests(unittest.TestCase):
         }
         ip_objects = []
 
-        accepted = shodan_dedupe.search(
+        accepted = shodan_dedupe.search_shodan_for_cidr(
             api,
             "net:192.0.2.0/24",
             ip_objects,
@@ -725,7 +762,7 @@ class ShodanDedupeTests(unittest.TestCase):
         ]
         ip_objects = []
 
-        accepted = shodan_dedupe.search(
+        accepted = shodan_dedupe.search_shodan_for_cidr(
             api,
             "net:192.0.2.0/24",
             ip_objects,
@@ -739,9 +776,101 @@ class ShodanDedupeTests(unittest.TestCase):
             api.search.call_args_list,
             [
                 call("net:192.0.2.0/24"),
-                call(query="net:192.0.2.0/24", page=2),
+                call("net:192.0.2.0/24", page=2),
             ],
         )
+
+    @patch.object(shodan_dedupe.time, "sleep")
+    def test_search_shodan_retries_then_succeeds(self, sleep_mock):
+        """Retry temporary Shodan failures and return the successful response."""
+        api = MagicMock()
+        expected_response = {"total": 0, "matches": []}
+        api.search.side_effect = [
+            shodan_dedupe.shodan.APIError("Temporary failure"),
+            shodan_dedupe.shodan.APIError("Temporary failure"),
+            expected_response,
+        ]
+        result = shodan_dedupe.search_shodan(
+            api,
+            "net:192.0.2.0/24",
+        )
+        self.assertEqual(result, expected_response)
+        self.assertEqual(api.search.call_count, 3)
+        self.assertEqual(sleep_mock.call_args_list, [call(2), call(4)])
+
+    @patch.object(shodan_dedupe.time, "sleep")
+    def test_search_shodan_returns_none_after_max_attempts(self, sleep_mock):
+        """Return None when every Shodan attempt fails."""
+        api = MagicMock()
+        api.search.side_effect = shodan_dedupe.shodan.APIError("Persistent failure")
+
+        result = shodan_dedupe.search_shodan(
+            api,
+            "net:192.0.2.0/24",
+            max_attempts=5,
+        )
+
+        self.assertIsNone(result)
+        self.assertEqual(api.search.call_count, 5)
+        self.assertEqual(
+            sleep_mock.call_args_list,
+            [call(2), call(4), call(8), call(16)],
+        )
+
+    def test_search_shodan_for_cidr_returns_zero_for_empty_response(self):
+        """Return zero, rather than None, for a successful empty search."""
+        api = MagicMock()
+        api.search.return_value = {
+            "total": 0,
+            "matches": [],
+        }
+
+        result = shodan_dedupe.search_shodan_for_cidr(
+            api,
+            "net:192.0.2.0/24",
+            [],
+            "cidr-uid",
+            "192.0.2.0/24",
+            "STATE",
+        )
+
+        self.assertEqual(result, 0)
+        self.assertIsNotNone(result)
+
+    @patch.object(shodan_dedupe, "update_shodan_ips")
+    @patch.object(
+        shodan_dedupe,
+        "search_shodan_for_cidr",
+        return_value=None,
+    )
+    def test_cidr_dedupe_raises_on_shodan_failure(
+        self,
+        search_mock,
+        update_mock,
+    ):
+        """Do not treat an exhausted API failure as an empty result."""
+        cidrs = pd.DataFrame(
+            [
+                {
+                    "network": "192.0.2.0/24",
+                    "cidr_uid": "cidr-uid",
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "max retries reached",
+        ):
+            shodan_dedupe.cidr_dedupe(
+                cidrs,
+                MagicMock(),
+                "STATE",
+                MagicMock(),
+            )
+
+        search_mock.assert_called_once()
+        update_mock.assert_not_called()
 
 
 class UpsertCyhyCidrsTests(unittest.TestCase):

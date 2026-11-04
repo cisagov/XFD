@@ -189,7 +189,7 @@ def search_shodan(api, query, page=None, max_attempts=5):
             # Attempt to call the Shodan API
             if page is None:
                 return api.search(query)
-            return page, api.search(query, page=page)
+            return api.search(query, page=page)
         except shodan.APIError as e:
             # If max attempts reached, log error and return None
             if attempt == max_attempts:
@@ -209,8 +209,8 @@ def search_shodan(api, query, page=None, max_attempts=5):
                 page or 1,
                 attempt,
                 max_attempts,
-                delay,
                 e,
+                delay,
             )
             time.sleep(delay)
 
@@ -303,22 +303,24 @@ def shodan_dedupe(orgs_df):
     for org_index, org in orgs_df.iterrows():
         # Connect to database
         conn = connect()
-        LOGGER.info(
-            "Running Shodan dedupe on %s, %d/%d",
-            org["cyhy_db_name"],
-            org_count,
-            num_orgs,
-        )
-        # Query CIDRS for this org
-        cidrs = query_cidrs_by_org(org["organizations_uid"])
-        LOGGER.info(f"{len(cidrs)} CIDRs found")
-        # Run CIDR dedupe if there are any CIDRs
-        if len(cidrs) > 0:
-            LOGGER.info("Running dedupe on CIDR IPs")
-            cidr_dedupe(cidrs, api, org["agency_type"], conn)
-        LOGGER.info("Finished deduping CIDR IPs")
-        org_count += 1
-        conn.close()
+        try:
+            LOGGER.info(
+                "Running Shodan dedupe on %s, %d/%d",
+                org["cyhy_db_name"],
+                org_count,
+                num_orgs,
+            )
+            # Query CIDRS for this org
+            cidrs = query_cidrs_by_org(org["organizations_uid"])
+            LOGGER.info(f"{len(cidrs)} CIDRs found")
+            # Run CIDR dedupe if there are any CIDRs
+            if len(cidrs) > 0:
+                LOGGER.info("Running dedupe on CIDR IPs")
+                cidr_dedupe(cidrs, api, org["agency_type"], conn)
+            LOGGER.info("Finished deduping CIDR IPs")
+            org_count += 1
+        finally:
+            conn.close()
 
 
 def main():
