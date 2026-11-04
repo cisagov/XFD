@@ -141,7 +141,7 @@ def fetch_port_scans_from_databricks(
         chunk_number - 1,
     )
 
-    mark_stale_latest_port_scans()
+    mark_stale_latest_port_scans(org_ids=list(org_id_dict.values()))
 
     LOGGER.info(
         "Port scan stale latest cleanup finished | total_processed=%d | "
@@ -1155,17 +1155,19 @@ def enforce_latest_flag_port_scan():
 
 
 @cloudwatch_metric()
-def mark_stale_latest_port_scans():
-    """Mark any LatestPortScan rows where time_scanned is older than cut off as current = FALSE."""
+def mark_stale_latest_port_scans(org_ids):
+    """Mark stale LatestPortScan rows as not current for the specified organizations."""
     started_at = time.time()
 
     try:
         cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
 
         LOGGER.info(
-            "LatestPortScan stale cleanup started | cutoff_date=%s | cutoff_days=%d",
+            "LatestPortScan stale cleanup started | cutoff_date=%s | "
+            "cutoff_days=%d | organization_count=%d",
             cutoff_date,
             LATEST_PORT_SCAN_CUTOFF,
+            len(org_ids) if org_ids else 0,
         )
 
         with connections["mini_data_lake"].cursor() as cursor:
@@ -1175,24 +1177,28 @@ def mark_stale_latest_port_scans():
                 """
                 UPDATE latest_port_scan
                 SET current = FALSE
-                WHERE time_scanned < %s
+                WHERE organization_id = ANY(%s)
+                AND time_scanned < %s
                 AND current IS DISTINCT FROM FALSE
                 """,
-                [cutoff_date],
+                [org_ids, cutoff_date],
             )
 
             updated_count = cursor.rowcount
 
         LOGGER.info(
             "Marked stale LatestPortScan rows as current=FALSE | "
-            "updated_row_count=%d | elapsed_seconds=%.2f",
+            "organization_count=%d | updated_row_count=%d | elapsed_seconds=%.2f",
+            len(org_ids) if org_ids else 0,
             updated_count,
             _elapsed_seconds(started_at),
         )
 
     except Exception as e:
         LOGGER.exception(
-            "LatestPortScan stale cleanup failed | elapsed_seconds=%.2f | error=%s",
+            "LatestPortScan stale cleanup failed | organization_count=%d | "
+            "elapsed_seconds=%.2f | error=%s",
+            len(org_ids) if org_ids else 0,
             _elapsed_seconds(started_at),
             e,
         )
