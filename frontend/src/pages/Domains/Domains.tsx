@@ -55,6 +55,7 @@ import { formatDisplayValue } from 'utils/stringUtils';
 
 // Constants
 import { ROUTES } from '@/constants/routes';
+import { SERVER_FILTER_DEBOUNCE_MS } from '@/constants/dataGrid';
 
 const PAGE_SIZE = 15;
 
@@ -123,6 +124,7 @@ export const Domains: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
   const filterTimerRef = useRef<number | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -135,6 +137,7 @@ export const Domains: React.FC = () => {
       const extracted = extractInitialFilters(state);
       setFilters(extracted);
       setPreloadedFiltersActive(extracted.length > 0);
+      setHasActiveFilters(extracted.length > 0);
     }
   }, [state]);
 
@@ -210,6 +213,7 @@ export const Domains: React.FC = () => {
     setPreloadedFiltersActive(false);
     setFilters([]);
     setFilterModel({ items: [] });
+    setHasActiveFilters(false);
     setSortModel([]);
     setPaginationModel((prev) => ({
       ...prev,
@@ -506,12 +510,8 @@ export const Domains: React.FC = () => {
           </Stack>
         </Box>
       )}
-      <Box mb={3} display="flex" justifyContent="center">
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Domains..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
+      <Box mb={3} display="flex" flexDirection="column" alignItems="center">
+        {loadingError && (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Domains!</Alert>
@@ -533,13 +533,13 @@ export const Domains: React.FC = () => {
               Retry
             </Button>
           </Stack>
-        ) : isLoading === false && loadingError === false ? (
-          <Paper
-            elevation={2}
-            sx={{ width: '100%', minHeight: 500 }}
-            aria-label="Domains Table"
-          >
-            <CustomDataGrid<DomainRow>
+        )}
+        <Paper
+          elevation={2}
+          sx={{ width: '100%', minHeight: 500 }}
+          aria-label="Domains Table"
+        >
+          <CustomDataGrid<DomainRow>
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
@@ -575,6 +575,7 @@ export const Domains: React.FC = () => {
                       item.value !== null &&
                       String(item.value).trim() !== ''
                   );
+                setHasActiveFilters(mappedFilters.length > 0);
                 const mappedKeys = JSON.stringify(mappedFilters);
                 if (mappedKeys === lastFiltersKeyRef.current) {
                   return;
@@ -588,7 +589,7 @@ export const Domains: React.FC = () => {
                   lastFiltersKeyRef.current = mappedKeys;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
-                }, 1000);
+                }, SERVER_FILTER_DEBOUNCE_MS);
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -613,7 +614,10 @@ export const Domains: React.FC = () => {
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
-                toolbar: { exportTitle: 'Domains' } as any,
+                toolbar: {
+                  exportTitle: 'Domains',
+                  hasActiveFilters
+                } as any,
                 basePopper: {
                   placement: 'bottom-start'
                 },
@@ -632,8 +636,7 @@ export const Domains: React.FC = () => {
               disableRowSelectionOnClick
               showToolbar
             />
-          </Paper>
-        ) : null}
+        </Paper>
       </Box>
     </Box>
   );

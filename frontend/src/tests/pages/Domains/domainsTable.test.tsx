@@ -50,8 +50,8 @@ describe('Domains component', () => {
       }
     });
 
-    const loadingText = await screen.findByText(/loading domains../i);
-    expect(loadingText).toBeInTheDocument();
+    const gridWhileLoading = await screen.findByRole('grid');
+    expect(gridWhileLoading).toBeInTheDocument();
 
     resolveApi!(sampleResponse);
 
@@ -273,6 +273,7 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Should have header row + data rows
+      await screen.findByText(/^192\.0\.2\.1$/i);
       const rows = await screen.findAllByRole('row');
       expect(rows.length).toBe(sampleResponse.result.length + 1); // +1 for header
     });
@@ -297,6 +298,7 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Should have header row + 1 data row
+      await screen.findByText(/^192\.0\.2\.1$/i);
       const rows = await screen.findAllByRole('row');
       expect(rows.length).toBe(2);
 
