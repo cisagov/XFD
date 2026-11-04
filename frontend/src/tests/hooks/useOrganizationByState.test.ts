@@ -1,15 +1,28 @@
+// Testing Library
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useOrganizationsByState } from '@/hooks/useOrganizationsByState';
-import type { Organization } from 'types';
-import { useAuthContext } from 'context';
-import { ApiError } from '@/hooks/useApi';
+
+// Testing Utilities
 import { jsonResponse } from '@/test-utils/jsonResponse';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import { ApiError } from '@/hooks/useApi';
+import { useOrganizationsByState } from '@/hooks/useOrganizationsByState';
+
+// Types
+import type { Organization } from '@/types';
+
+// Utils
 import { getStateAbbreviation } from '@/utils/stringUtils';
 import { logger } from '@/utils/logger';
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 
