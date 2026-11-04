@@ -1,21 +1,27 @@
+// React
 import React from 'react';
+import { act } from 'react';
+
+// Testing Library
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render } from '@/test-utils/test-utils';
-import { screen, waitFor } from '@testing-library/react';
-import { useStaticsContext } from '@/context/StaticsContext';
-import { useAuthContext } from '@/context/AuthContext';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+// Testing utilities
 import { authCtx } from '@/test-utils/authCtx';
+import { render } from '@/test-utils/test-utils';
 import {
   regionalAdminUser,
   globalViewUser,
-  globalAdminUser,
-  testUser
+  globalAdminUser
 } from '@/test-utils';
-import { testRole } from '@/test-utils/role';
-import userEvent from '@testing-library/user-event';
-import { act } from 'react';
-import { CVEFilter } from '@/components/FilterDrawer/CVEFilter';
 import { mockCVEs } from '@/test-utils/searchCVEs';
+
+// Components
+import { CVEFilter } from '@/components/FilterDrawer/CVEFilter';
+
+//Context
+import { useAuthContext } from '@/context/AuthContext';
 
 //Mock hooks
 vi.mock('context/AuthContext');

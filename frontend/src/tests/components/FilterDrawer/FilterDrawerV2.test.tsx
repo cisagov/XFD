@@ -1,10 +1,16 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-import { FilterDrawer } from '@components/FilterDrawer/FilterDrawerV2';
+// Components
+import { FilterDrawer } from '@/components/FilterDrawer/FilterDrawerV2';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 
 // ----------------------

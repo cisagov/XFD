@@ -1,10 +1,14 @@
+// React
 import React from 'react';
+import { act } from 'react';
+
+// Testing Library
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render } from '@/test-utils/test-utils';
 import { screen } from '@testing-library/react';
-import { RegionAndOrganizationFilters } from '../../../components/FilterDrawer/RegionAndOrganizationFilters';
-import { useStaticsContext } from '@/context/StaticsContext';
-import { useAuthContext } from '@/context/AuthContext';
+import userEvent from '@testing-library/user-event';
+
+// Testing Utilities
+import { render } from '@/test-utils/test-utils';
 import { authCtx } from '@/test-utils/authCtx';
 import {
   regionalAdminUser,
@@ -14,8 +18,13 @@ import {
 } from '@/test-utils';
 import { mockOrganizations } from '@/test-utils/searchOrg';
 import { testRole } from '@/test-utils/role';
-import userEvent from '@testing-library/user-event';
-import { act } from 'react';
+
+// Components
+import { RegionAndOrganizationFilters } from '@/components/FilterDrawer/RegionAndOrganizationFilters';
+
+// Context
+import { useAuthContext } from '@/context/AuthContext';
+import { useStaticsContext } from '@/context/StaticsContext';
 
 //Mock hooks
 vi.mock('context/AuthContext');

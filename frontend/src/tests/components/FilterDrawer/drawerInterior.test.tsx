@@ -1,10 +1,17 @@
+// React
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+
+// Testing Library
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { DrawerInterior } from '../../../components/FilterDrawer/DrawerInterior';
-import { AuthContext } from '../../../context';
-import { SavedSearchContext } from '../../../context/SavedSearchContext';
-import { CFThemeProvider } from '../../../context/Theme';
+import { render, screen, within } from '@testing-library/react';
+
+// Components
+import { DrawerInterior } from '@/components/FilterDrawer/DrawerInterior';
+
+// Context
+import { AuthContext } from '@/context';
+import { SavedSearchContext } from '@/context/SavedSearchContext';
+import { CFThemeProvider } from '@/context/Theme';
 
 vi.mock('@elastic/react-search-ui', () => ({
   withSearch: (component: any) => component
