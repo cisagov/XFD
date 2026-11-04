@@ -45,7 +45,8 @@ import {
 import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
-  DEFAULT_DATA_GRID_PAGE_SIZE
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
 } from '@/constants/dataGrid';
 
 type OrgsApiResponse = {
@@ -250,7 +251,7 @@ export const Organizations: React.FC = () => {
               setFilters({ items: cleanedModel.items });
               setPaginationModel((prev) => ({ ...prev, page: 0 }));
               filterTimerRef.current = null;
-            }, 500);
+            }, SERVER_FILTER_DEBOUNCE_MS);
           }}
           sortingMode="server"
           sortModel={sortModel}
