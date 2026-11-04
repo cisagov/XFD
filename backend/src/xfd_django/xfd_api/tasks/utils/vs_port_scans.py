@@ -1179,7 +1179,7 @@ def mark_stale_latest_port_scans(org_ids):
                 SET current = FALSE
                 WHERE organization_id = ANY(%s)
                 AND time_scanned < %s
-                AND current IS DISTINCT FROM FALSE
+                AND current = TRUE
                 """,
                 [org_ids, cutoff_date],
             )
