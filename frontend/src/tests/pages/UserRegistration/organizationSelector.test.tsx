@@ -1,13 +1,24 @@
+// React
 import React from 'react';
-import { render, screen, testUser } from 'test-utils';
+
+// Testing Library
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+
+// Test Utilities
+import { authCtx } from '@/test-utils/authCtx';
+import { mockOrganizations as organizations } from '@/test-utils/searchOrg';
+import { render, screen, testUser } from '@/test-utils';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
 import type { AuthUser } from '@/context';
+
+// Pages
 import OrganizationSelector from '@/pages/UserRegistration/OrganizationSelector';
 import type { OrganizationSelectorProps } from '@/pages/UserRegistration/OrganizationSelector';
-import { ENDPOINTS } from '@/constants/endpoints';
-import { mockOrganizations as organizations } from '@/test-utils/searchOrg';
-import { authCtx } from '@/test-utils/authCtx';
 
 describe('OrganizationSelector', () => {
   const apiGetMock = vi.fn().mockResolvedValue(organizations);
