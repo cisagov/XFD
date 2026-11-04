@@ -6,7 +6,7 @@
 import React from 'react';
 
 //Testing utilities
-import { render, screen } from 'test-utils';
+import { render, screen } from '@/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 //Components

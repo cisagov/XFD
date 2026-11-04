@@ -6,7 +6,7 @@
 import React from 'react';
 
 // Testing utilities
-import { render, screen, fireEvent } from 'test-utils/test-utils';
+import { render, screen, fireEvent } from '@/test-utils/test-utils';
 import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 
 // MUI DataGrid
