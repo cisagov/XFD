@@ -55,9 +55,11 @@ import { formatDisplayValue } from 'utils/stringUtils';
 
 // Constants
 import { ROUTES } from '@/constants/routes';
-import { SERVER_FILTER_DEBOUNCE_MS } from '@/constants/dataGrid';
-
-const PAGE_SIZE = 15;
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 
 export interface DomainRow {
   id: string;
@@ -128,7 +130,7 @@ export const Domains: React.FC = () => {
   const filterTimerRef = useRef<number | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
-    pageSize: PAGE_SIZE
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
@@ -153,7 +155,7 @@ export const Domains: React.FC = () => {
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE
+            pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -163,7 +165,7 @@ export const Domains: React.FC = () => {
         setPaginationModel((prevState) => ({
           ...prevState,
           page: q.page - 1,
-          pageSize: q.pageSize ?? PAGE_SIZE
+          pageSize: q.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE
         }));
       } catch (e) {
         logger.error('Domains.fetchDomains failed:', {
@@ -218,11 +220,11 @@ export const Domains: React.FC = () => {
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      pageSize: PAGE_SIZE
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
     }));
     fetchDomains({
       page: 1,
-      pageSize: PAGE_SIZE,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: [],
       order: undefined,
       sort: undefined
@@ -600,7 +602,7 @@ export const Domains: React.FC = () => {
                   pageSize: model.pageSize
                 }));
               }}
-              pageSizeOptions={[15, 30, 50, 100]}
+              pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
               sortingMode="server"
               sortModel={sortModel}
               onSortModelChange={(model) => {

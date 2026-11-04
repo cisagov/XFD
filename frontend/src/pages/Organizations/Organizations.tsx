@@ -43,6 +43,10 @@ import {
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE
+} from '@/constants/dataGrid';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -61,7 +65,7 @@ export const Organizations: React.FC = () => {
   const [chosenTags, setChosenTags] = useState<string[]>([]);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
-    pageSize: 15
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
   });
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
@@ -255,9 +259,14 @@ export const Organizations: React.FC = () => {
             setPaginationModel((prev) => ({ ...prev, page: 0 }));
           }}
           initialState={{
-            pagination: { paginationModel: { pageSize: 15, page: 0 } }
+            pagination: {
+              paginationModel: {
+                pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
+                page: 0
+              }
+            }
           }}
-          pageSizeOptions={[15, 30, 50, 100]}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
           disableRowSelectionOnClick
           showToolbar
         />

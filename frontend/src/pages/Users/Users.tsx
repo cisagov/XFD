@@ -24,6 +24,10 @@ import {
   initialUserFormValues
 } from '@/constants/userAndOrgData';
 import { ENDPOINTS } from '@/constants/endpoints';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE
+} from '@/constants/dataGrid';
 
 //Context
 import { useAuthContext } from 'context';
@@ -266,7 +270,11 @@ export const Users: React.FC = () => {
               }
             }}
             initialState={{
-              pagination: { paginationModel: { pageSize: 15 } },
+              pagination: {
+                paginationModel: {
+                  pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
+                }
+              },
               columns: {
                 columnVisibilityModel: {
                   dateToUSigned: false,
@@ -275,7 +283,7 @@ export const Users: React.FC = () => {
                 }
               }
             }}
-            pageSizeOptions={[15, 30, 50, 100]}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
             showToolbar
           />
         </Paper>

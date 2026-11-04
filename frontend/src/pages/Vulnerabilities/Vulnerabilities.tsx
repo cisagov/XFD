@@ -70,9 +70,11 @@ import {
 // Constants
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
-import { SERVER_FILTER_DEBOUNCE_MS } from '@/constants/dataGrid';
-
-const PAGE_SIZE = 15;
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 
 interface VulnerabilitiesProps {
   group_by?: string;
@@ -109,7 +111,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
-    pageSize: PAGE_SIZE
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
   });
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
@@ -133,7 +135,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     async ({
       filters,
       page,
-      pageSize = PAGE_SIZE,
+      pageSize = DEFAULT_DATA_GRID_PAGE_SIZE,
       order,
       sort,
       doExport = false,
@@ -191,7 +193,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
           page: query.page,
-          pageSize: query.pageSize ?? PAGE_SIZE,
+          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
           order: query.order,
           sort: query.sort,
           group_by,
@@ -205,7 +207,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE
+            pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -215,7 +217,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         setPaginationModel((prevState) => ({
           ...prevState,
           page: query.page - 1,
-          pageSize: query.pageSize ?? PAGE_SIZE
+          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE
         }));
         setLoadingError(false);
       } catch (e) {
@@ -246,11 +248,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      pageSize: PAGE_SIZE
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
     }));
     fetchVulnerabilities({
       page: 1,
-      pageSize: PAGE_SIZE,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: [],
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
@@ -759,7 +761,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   pageSize: model.pageSize
                 }));
               }}
-              pageSizeOptions={[15, 30, 50, 100]}
+              pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
               sortModel={sortModel}
               sortingMode="server"
               onSortModelChange={(model) => {
