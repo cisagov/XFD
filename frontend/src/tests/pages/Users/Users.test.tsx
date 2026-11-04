@@ -141,7 +141,7 @@ describe('Users Component', () => {
   });
 
   describe('Component rendering and data loading', () => {
-    it('should render loading state initially', () => {
+    it('should keep the data grid mounted during the initial load', () => {
       mockApiGet.mockImplementation(() => new Promise(() => {})); // Never resolves
 
       render(<Users />, {
@@ -151,7 +151,7 @@ describe('Users Component', () => {
         }
       });
 
-      expect(screen.getByText('Loading Users..')).toBeInTheDocument();
+      expect(screen.getByRole('grid')).toBeInTheDocument();
     });
 
     it('should render users table after loading', async () => {

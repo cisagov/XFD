@@ -10,6 +10,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import type { GridFilterModel } from '@mui/x-data-grid';
 
 // Components
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
@@ -40,6 +41,10 @@ import { User, UserFormValues } from 'types';
 
 // Utils
 import { logger } from '@/utils/logger';
+import {
+  cleanFilterModelItems,
+  isFilterModelEmpty
+} from '@/utils/tableUtils';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -85,6 +90,10 @@ export const Users: React.FC = () => {
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
   const [apiErrorStates, setApiErrorStates] = useState<ApiErrorStates>({
     getUsersError: '',
     getAddUserError: '',
@@ -226,11 +235,7 @@ export const Users: React.FC = () => {
       >
         Users
       </Typography>
-      {isLoading ? (
-        <Paper elevation={2}>
-          <Alert severity="info">Loading Users..</Alert>
-        </Paper>
-      ) : isLoading === false && loadingError ? (
+      {loadingError && (
         <Stack direction="row" spacing={2}>
           <Paper elevation={2}>
             <Alert severity="warning">Error Loading Users!</Alert>
@@ -244,50 +249,57 @@ export const Users: React.FC = () => {
             Retry
           </Button>
         </Stack>
-      ) : isLoading === false && loadingError === false ? (
-        <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-          <CustomDataGrid
-            rows={users}
-            columns={userCols}
-            slots={{ toolbar: CustomToolbar }}
-            slotProps={{
-              toolbar: {
-                disableExport: true,
-                exportTitle: 'Users'
-              } as any,
-              basePopper: {
-                placement: 'bottom-start'
-              },
-              columnsManagement: {
-                getTogglableColumns: (columns) => {
-                  const alwaysVisible = ['full_name'];
-                  return columns
-                    .filter(
-                      (col) => col.field && !alwaysVisible.includes(col.field)
-                    )
-                    .map((col) => col.field as string);
-                }
+      )}
+      <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
+        <CustomDataGrid
+          rows={users}
+          columns={userCols}
+          loading={isLoading}
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!isFilterModelEmpty(cleanedModel));
+          }}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: {
+              disableExport: true,
+              exportTitle: 'Users',
+              hasActiveFilters
+            } as any,
+            basePopper: {
+              placement: 'bottom-start'
+            },
+            columnsManagement: {
+              getTogglableColumns: (columns) => {
+                const alwaysVisible = ['full_name'];
+                return columns
+                  .filter(
+                    (col) => col.field && !alwaysVisible.includes(col.field)
+                  )
+                  .map((col) => col.field as string);
               }
-            }}
-            initialState={{
-              pagination: {
-                paginationModel: {
-                  pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
-                }
-              },
-              columns: {
-                columnVisibilityModel: {
-                  dateToUSigned: false,
-                  accepted_terms_version: false,
-                  invite_pending: false
-                }
+            }
+          }}
+          initialState={{
+            pagination: {
+              paginationModel: {
+                pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
               }
-            }}
-            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
-            showToolbar
-          />
-        </Paper>
-      ) : null}
+            },
+            columns: {
+              columnVisibilityModel: {
+                dateToUSigned: false,
+                accepted_terms_version: false,
+                invite_pending: false
+              }
+            }
+          }}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+          showToolbar
+        />
+      </Paper>
       {confirmDeleteUserDialog}
       {editUserDialogOpen && renderUserForm}
       <InfoDialog
