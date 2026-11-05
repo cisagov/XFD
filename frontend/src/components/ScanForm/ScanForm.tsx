@@ -6,7 +6,7 @@ import { ROUTES } from '@/constants/routes';
 
 // Pages
 import MultiSelect from '@/pages/Scans/MultiSelect';
-import { OrganizationOption } from '@/pages/Scans/ScansView';
+import { OrganizationOption } from '@/types/organization';
 
 // Types
 import { OrganizationTag, Scan, ScanSchema } from '@/types';

@@ -30,7 +30,13 @@ import { ENDPOINTS } from '@/constants/endpoints';
 import { useAuthContext } from '@/context';
 
 // Types
-import { Scan, Organization, ScanSchema, OrganizationTag } from '@/types';
+import {
+  Scan,
+  Organization,
+  ScanSchema,
+  OrganizationTag,
+  OrganizationOption
+} from '@/types';
 
 // Utils
 import { textFilterOperators } from '@/utils/transformTableData';
@@ -51,11 +57,6 @@ import { FaPlayCircle, FaTimes } from 'react-icons/fa';
 interface Errors extends Partial<Scan> {
   global?: string;
   scheduler?: string;
-}
-
-export interface OrganizationOption {
-  label: string;
-  value: string;
 }
 
 export interface ScansRow {
