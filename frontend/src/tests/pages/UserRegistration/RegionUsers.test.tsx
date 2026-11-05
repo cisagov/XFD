@@ -1,9 +1,18 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { waitFor, act } from '@testing-library/react';
+
+// Testing Utilities
 import { render } from '@/test-utils/test-utils';
-import { RegionUsers } from '@/pages/UserRegistration/RegionUsers';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Pages
+import { RegionUsers } from '@/pages/UserRegistration/RegionUsers';
 
 const REGISTRATION_USERS_REFRESH_INTERVAL_MS = 30_000;
 
@@ -42,11 +51,11 @@ vi.mock('@mui/x-data-grid', async (importOriginal) => {
   };
 });
 
-vi.mock('@components/Metrics/Widgets/ExportCustomerMetricsButton', () => ({
+vi.mock('@/components/Metrics/Widgets/ExportCustomerMetricsButton', () => ({
   ExportCustomerMetricsButton: () => null
 }));
 
-vi.mock('hooks/useUserLevel', () => ({
+vi.mock('@/hooks/useUserLevel', () => ({
   useUserLevel: () => ({ formattedUserType: 'standard' })
 }));
 
