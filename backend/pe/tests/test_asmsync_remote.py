@@ -525,6 +525,36 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         )
         thread_mock.assert_not_called()
 
+    @patch.object(enum_subs_from_ips.threading, "Thread")
+    @patch.object(
+        enum_subs_from_ips,
+        "query_cidrs_by_org",
+        side_effect=RuntimeError("CIDR database unavailable"),
+    )
+    def test_cidr_lookup_failure_aborts_org(
+        self,
+        query_mock,
+        thread_mock,
+    ):
+        """Abort the organization when CIDRs cannot be retrieved."""
+        organizations = pd.DataFrame(
+            [
+                {
+                    "organizations_uid": "org-uid",
+                    "cyhy_db_name": "ORG",
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "CIDR database unavailable",
+        ):
+            enum_subs_from_ips.enum_subs_from_ips(organizations)
+
+        query_mock.assert_called_once_with("org-uid")
+        thread_mock.assert_not_called()
+
 
 class EnumSubsFromRootsTests(unittest.TestCase):
     """Verify WhoisXML root-domain enumeration and insertion."""
@@ -999,6 +1029,85 @@ class PeDatabaseQueryTests(unittest.TestCase):
         )
         cursor.execute.assert_called_once()
         cursor.fetchall.assert_called_once_with()
+
+    @patch.object(asm_sync_remote_query, "connect")
+    def test_query_cidrs_database_failure_is_propagated(
+        self,
+        connect_mock,
+    ):
+        """Raise CIDR query failures rather than returning an empty dataframe."""
+        connection = connect_mock.return_value
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.execute.side_effect = RuntimeError("database unavailable")
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "database unavailable",
+        ):
+            asm_sync_remote_query.query_cidrs_by_org("org-uid")
+
+        connection.close.assert_called_once_with()
+
+    @patch.object(asm_sync_remote_query, "connect")
+    def test_ips_not_seen_for_fifteen_days_become_non_current(
+        self,
+        connect_mock,
+    ):
+        """Mark IPs non-current when their last_seen value has aged out."""
+        connection = connect_mock.return_value
+        cursor = connection.cursor.return_value.__enter__.return_value
+
+        asm_sync_remote_query.update_ips_status(["org-uid"])
+
+        non_current_sql = " ".join(cursor.execute.call_args_list[1].args[0].split())
+
+        self.assertIn("SET current = FALSE", non_current_sql)
+        self.assertIn(
+            "last_seen < CURRENT_DATE - INTERVAL '15 days'",
+            non_current_sql,
+        )
+        self.assertIn("last_seen IS NULL", non_current_sql)
+        self.assertIn(
+            "organizations_uid = ANY(%s::uuid[])",
+            non_current_sql,
+        )
+
+        cursor.execute.assert_any_call(
+            cursor.execute.call_args_list[1].args[0],
+            (["org-uid"],),
+        )
+        connection.commit.assert_called_once_with()
+        connection.close.assert_called_once_with()
+
+    @patch.object(asm_sync_remote_query, "connect")
+    def test_recently_seen_ips_remain_current(
+        self,
+        connect_mock,
+    ):
+        """Keep IPs current when ASM Sync has recently refreshed last_seen."""
+        connection = connect_mock.return_value
+        cursor = connection.cursor.return_value.__enter__.return_value
+
+        asm_sync_remote_query.update_ips_status(["org-uid"])
+
+        current_sql = " ".join(cursor.execute.call_args_list[0].args[0].split())
+
+        self.assertIn("SET current = TRUE", current_sql)
+        self.assertIn(
+            "last_seen > CURRENT_DATE - INTERVAL '15 days'",
+            current_sql,
+        )
+        self.assertIn(
+            "organizations_uid = ANY(%s::uuid[])",
+            current_sql,
+        )
+
+        cursor.execute.assert_any_call(
+            cursor.execute.call_args_list[0].args[0],
+            (["org-uid"],),
+        )
+        connection.commit.assert_called_once_with()
+        connection.close.assert_called_once_with()
 
 
 if __name__ == "__main__":
