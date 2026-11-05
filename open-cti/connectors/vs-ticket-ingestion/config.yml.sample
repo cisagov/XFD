@@ -1,0 +1,66 @@
+# Connector A — VS Ticket Ingestion
+#
+# See ../../OpenCTI-connector.md §7a for the design this implements, and §10 (especially §10i,
+# lessons from building connector D) for the discipline this config exists to enforce.
+#
+# Copy to config.yml for local runs (docker-compose.yml drives the containerized version purely
+# from env vars instead — see README.md).
+
+opencti:
+  url: 'http://localhost:8080'
+  token: 'ChangeMe'
+
+connector:
+  id: 'ChangeMe-generate-a-uuid4'
+  name: 'VS Ticket Ingestion'
+  scope: 'ipv4-addr,ipv6-addr,vulnerability'
+  type: 'EXTERNAL_IMPORT'
+  confidence_level: 75
+  log_level: 'info'
+  # ISO 8601 duration. Should not poll tighter than VulnScanningSync's own cadence (§5, still
+  # unresolved) -- P1D matches connector-cisa-known-exploited-vulnerabilities' current setting,
+  # used as the starting point per §7a.
+  duration_period: 'P1D'
+
+vs_ticket_ingestion:
+  # --- mini_data_lake connectivity (OpenCTI-connector.md §2) ---
+  db_host: 'ChangeMe'
+  db_port: 5432
+  db_name: 'cyhy_mini_data_lake_staging'
+  db_user: 'open_cti'
+  # IAM database authentication, not a static password -- see §2. When true, db_password is
+  # ignored and a short-lived token is generated per connection via boto3/STS.
+  db_use_iam_auth: true
+  db_password: ''
+  aws_region: 'us-gov-west-1'
+
+  # --- dev/test discipline (§9) ---
+  # When true, skip mini_data_lake entirely and load tests/fixtures/*.json instead.
+  is_local: false
+  local_fixture_dir: './tests/fixtures'
+
+  # Comma-separated org acronym allowlist. REQUIRED to be non-empty outside of a deliberate
+  # production run -- see §9c. Empty string here means "no orgs," not "all orgs": this connector
+  # refuses to run unscoped by accident (see src/config.py).
+  org_acronym_allowlist: ''
+  # Explicit opt-in to remove the allowlist requirement for a real production run.
+  allow_unscoped_run: false
+  # Tickets outnumber orgs/CIDRs by a lot (§7a) -- start at the same cap connector D used for its
+  # first scoped test runs, tune upward deliberately once real per-run timings are observed.
+  max_rows_per_run: 5000
+  # §9c's "lookback override" lever. Empty/unset (default) = no bound, first poll pulls every
+  # ticket ever recorded for the scoped orgs. Set to a small number (e.g. 7) during dev to bound
+  # a fresh/reset connector's *first* poll against an org with a lot of history -- has no effect
+  # once a real watermark exists. Only skips data outright if a still-open ticket's last-seen
+  # timestamp genuinely never moves again after falling outside this window on the first poll --
+  # a real, if narrow, completeness tradeoff (see connector.py's _effective_since docstring), not
+  # something to set in production without understanding that risk.
+  lookback_days: ''
+
+  # --- attribution / marking (§10c) ---
+  # Same author name as connector D on purpose -- one consistent system Identity across all four
+  # connectors.
+  author_name: 'CISA VulnScanning'
+  # Deliberately left unset -- same undecided policy question as connector D (§10c). Set to a
+  # marking definition name once the policy call is made; must match connector D's value.
+  tlp_marking: ''

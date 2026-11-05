@@ -275,6 +275,8 @@ locals {
       wiz_backend_env_ssm_param       = var.ssm_wiz_backend_env
       wiz_api_client_id_ssm_param     = var.ssm_wiz_api_client_id
       wiz_api_client_secret_ssm_param = var.ssm_wiz_api_client_secret
+      vs_org_bootstrap_db_host        = aws_db_instance.db.address
+      vs_org_bootstrap_aws_region     = var.aws_region
     }),
     "",
     "cat > /opt/open-cti/install-deps.sh <<'INSTALL_DEPS_EOF'",

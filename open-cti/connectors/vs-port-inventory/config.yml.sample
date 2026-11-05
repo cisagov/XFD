@@ -1,0 +1,51 @@
+# Connector C — VS Port/Service Inventory
+#
+# See ../../OpenCTI-connector.md §7c for the design this implements, and §10 for the discipline
+# this config exists to enforce.
+#
+# Copy to config.yml for local runs (docker-compose.yml drives the containerized version purely
+# from env vars instead — see README.md).
+
+opencti:
+  url: 'http://localhost:8080'
+  token: 'ChangeMe'
+
+connector:
+  id: 'ChangeMe-generate-a-uuid4'
+  name: 'VS Port/Service Inventory'
+  scope: 'ipv4-addr,ipv6-addr,network-traffic,software'
+  type: 'EXTERNAL_IMPORT'
+  confidence_level: 75
+  log_level: 'info'
+  duration_period: 'P1D'
+
+vs_port_inventory:
+  # --- mini_data_lake connectivity (OpenCTI-connector.md §2) ---
+  db_host: 'ChangeMe'
+  db_port: 5432
+  db_name: 'cyhy_mini_data_lake_staging'
+  db_user: 'open_cti'
+  db_use_iam_auth: true
+  db_password: ''
+  aws_region: 'us-gov-west-1'
+
+  # --- dev/test discipline (§9) ---
+  is_local: false
+  local_fixture_dir: './tests/fixtures'
+
+  # §9c -- REQUIRED to be non-empty outside of a deliberate production run, same reason as
+  # connectors A/D.
+  org_acronym_allowlist: ''
+  allow_unscoped_run: false
+  # Bounds both the bootstrap poll (which can still be very large -- every row the source
+  # considers `current`, regardless of age) and every steady-state poll after it. Size this off
+  # real numbers once known -- even a plain aggregate query against this table timed out in the
+  # bastion Lambda (2026-08-31).
+  max_rows_per_run: 5000
+  # This connector's own copy of LATEST_PORT_SCAN_CUTOFF (backend/.../vs_port_scans.py, default
+  # 14) -- staleness is computed locally from this instead of re-polling for it. See db.py.
+  latest_port_scan_cutoff_days: 14
+
+  # --- attribution / marking (§10c) ---
+  author_name: 'CISA VulnScanning'
+  tlp_marking: ''

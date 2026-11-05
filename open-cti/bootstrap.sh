@@ -35,7 +35,7 @@ cat "$ENV_STATIC" >> "$ENV_TMP"
 # 2) Per-environment config from Terraform vars. XTM One's two values are optional (inactive on
 #    stage-cd); the rest fail closed on empty.
 empty_deploy_keys=()
-for key in OPENCTI_HOST OPENCTI_ADMIN_EMAIL SMTP_HOSTNAME CENSYS_ORG_ID QUALYS_API_USERNAME; do
+for key in OPENCTI_HOST OPENCTI_ADMIN_EMAIL SMTP_HOSTNAME CENSYS_ORG_ID QUALYS_API_USERNAME VS_ORG_BOOTSTRAP_DB_HOST VS_ORG_BOOTSTRAP_AWS_REGION; do
   [[ -n "${!key:-}" ]] || empty_deploy_keys+=("$key")
 done
 if (( ${#empty_deploy_keys[@]} > 0 )); then
@@ -49,6 +49,8 @@ fi
   echo "QUALYS_API_USERNAME=\"${QUALYS_API_USERNAME}\""
   echo "XTM_ONE_HOST=\"${XTM_ONE_HOST:-}\""
   echo "XTM_ONE_ADMIN_EMAIL=\"${XTM_ONE_ADMIN_EMAIL:-}\""
+  echo "VS_ORG_BOOTSTRAP_DB_HOST=\"${VS_ORG_BOOTSTRAP_DB_HOST}\""
+  echo "VS_ORG_BOOTSTRAP_AWS_REGION=\"${VS_ORG_BOOTSTRAP_AWS_REGION}\""
 } >> "$ENV_TMP"
 
 # 3) Secrets. Names fetched in one call (safe -- no whitespace/newlines in names), each value fetched
