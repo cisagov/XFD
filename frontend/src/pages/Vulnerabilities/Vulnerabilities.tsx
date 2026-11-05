@@ -710,96 +710,96 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           aria-label="Vulnerabilities Table"
         >
           <CustomDataGrid<VulnerabilityRow>
-              rows={vulRows}
-              rowCount={totalResults}
-              columns={vulCols}
-              loading={isLoading}
-              columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={(model) =>
-                setColumnVisibilityModel(model)
+            rows={vulRows}
+            rowCount={totalResults}
+            columns={vulCols}
+            loading={isLoading}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(model) =>
+              setColumnVisibilityModel(model)
+            }
+            filterMode="server"
+            filterModel={filterModel}
+            onFilterModelChange={(model) => {
+              const cleanedModel = cleanFilterModelItems(model, filterModel);
+              const emptyModel = isFilterModelEmpty(cleanedModel);
+              setFilterModel(cleanedModel);
+              setHasActiveFilters(!emptyModel);
+
+              const shouldUpdate = shouldTriggerFilterUpdate(
+                cleanedModel.items,
+                filterModel.items
+              );
+
+              if (!shouldUpdate) {
+                return;
               }
-              filterMode="server"
-              filterModel={filterModel}
-              onFilterModelChange={(model) => {
-                const cleanedModel = cleanFilterModelItems(model, filterModel);
-                const emptyModel = isFilterModelEmpty(cleanedModel);
-                setFilterModel(cleanedModel);
-                setHasActiveFilters(!emptyModel);
 
-                const shouldUpdate = shouldTriggerFilterUpdate(
-                  cleanedModel.items,
-                  filterModel.items
-                );
+              if (filterTimerRef.current) {
+                clearTimeout(filterTimerRef.current);
+                filterTimerRef.current = null;
+              }
 
-                if (!shouldUpdate) {
-                  return;
-                }
+              if (emptyModel) {
+                setFilters([]);
+                return;
+              }
 
-                if (filterTimerRef.current) {
-                  clearTimeout(filterTimerRef.current);
-                  filterTimerRef.current = null;
-                }
-
-                if (emptyModel) {
-                  setFilters([]);
-                  return;
-                }
-
-                filterTimerRef.current = window.setTimeout(() => {
-                  setIsLoading(true);
-                  setFilters(cleanedModel.items);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  filterTimerRef.current = null;
-                }, SERVER_FILTER_DEBOUNCE_MS);
-              }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                setPaginationModel((prev) => ({
-                  ...prev,
-                  page: model.page,
-                  pageSize: model.pageSize
-                }));
-              }}
-              pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
-              sortModel={sortModel}
-              sortingMode="server"
-              onSortModelChange={(model) => {
-                setSortModel(model);
+              filterTimerRef.current = window.setTimeout(() => {
+                setIsLoading(true);
+                setFilters(cleanedModel.items);
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              slots={{
-                toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay,
-                pagination: CustomPagination
-              }}
-              slotProps={{
-                toolbar: {
-                  children: onlyOpenVulns
-                    ? showAllVulnsButton
-                    : showOpenVulnsButton,
-                  exportTitle: 'Vulnerabilities',
-                  hasActiveFilters: hasActiveFilters
-                } as any,
-                noRowsOverlay: { children: noRowsOverlay },
-                basePopper: {
-                  placement: 'bottom-start'
-                },
-                columnsManagement: {
-                  disableResetButton: true,
-                  getTogglableColumns: (columns) => {
-                    const alwaysVisible = ['title'];
-                    return columns
-                      .filter(
-                        (col) => col.field && !alwaysVisible.includes(col.field)
-                      )
-                      .map((col) => col.field as string);
-                  }
+                filterTimerRef.current = null;
+              }, SERVER_FILTER_DEBOUNCE_MS);
+            }}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: model.page,
+                pageSize: model.pageSize
+              }));
+            }}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+            sortModel={sortModel}
+            sortingMode="server"
+            onSortModelChange={(model) => {
+              setSortModel(model);
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+            }}
+            slots={{
+              toolbar: CustomToolbar,
+              noRowsOverlay: CustomNoRowsOverlay,
+              pagination: CustomPagination
+            }}
+            slotProps={{
+              toolbar: {
+                children: onlyOpenVulns
+                  ? showAllVulnsButton
+                  : showOpenVulnsButton,
+                exportTitle: 'Vulnerabilities',
+                hasActiveFilters: hasActiveFilters
+              } as any,
+              noRowsOverlay: { children: noRowsOverlay },
+              basePopper: {
+                placement: 'bottom-start'
+              },
+              columnsManagement: {
+                disableResetButton: true,
+                getTogglableColumns: (columns) => {
+                  const alwaysVisible = ['title'];
+                  return columns
+                    .filter(
+                      (col) => col.field && !alwaysVisible.includes(col.field)
+                    )
+                    .map((col) => col.field as string);
                 }
-              }}
-              disableRowSelectionOnClick
-              showToolbar
-            />
+              }
+            }}
+            disableRowSelectionOnClick
+            showToolbar
+          />
         </Paper>
       </Box>
     </Box>

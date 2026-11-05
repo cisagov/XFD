@@ -41,10 +41,7 @@ import { User, UserFormValues } from 'types';
 
 // Utils
 import { logger } from '@/utils/logger';
-import {
-  cleanFilterModelItems,
-  isFilterModelEmpty
-} from '@/utils/tableUtils';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 type ApiErrorStates = {
   getUsersError: string;

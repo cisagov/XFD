@@ -542,102 +542,102 @@ export const Domains: React.FC = () => {
           aria-label="Domains Table"
         >
           <CustomDataGrid<DomainRow>
-              rows={domRows}
-              rowCount={totalResults}
-              columns={domCols}
-              columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={(model) =>
-                setColumnVisibilityModel(model)
+            rows={domRows}
+            rowCount={totalResults}
+            columns={domCols}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(model) =>
+              setColumnVisibilityModel(model)
+            }
+            loading={isLoading}
+            filterMode="server"
+            filterModel={filterModel}
+            onFilterModelChange={(model) => {
+              const mappedModel = model.items.map((item) => ({
+                ...item,
+                value:
+                  typeof item.value === 'string'
+                    ? item.value.trim()
+                    : item.value
+              }));
+              const modelWithTrimmedValues = {
+                ...model,
+                items: mappedModel
+              };
+              setFilterModel(modelWithTrimmedValues);
+              const mappedFilters = modelWithTrimmedValues.items
+                .map((item) => ({
+                  field: item.field,
+                  operator: item.operator,
+                  value: item.value
+                }))
+                .filter(
+                  (item) =>
+                    item.value !== undefined &&
+                    item.value !== null &&
+                    String(item.value).trim() !== ''
+                );
+              setHasActiveFilters(mappedFilters.length > 0);
+              const mappedKeys = JSON.stringify(mappedFilters);
+              if (mappedKeys === lastFiltersKeyRef.current) {
+                return;
               }
-              loading={isLoading}
-              filterMode="server"
-              filterModel={filterModel}
-              onFilterModelChange={(model) => {
-                const mappedModel = model.items.map((item) => ({
-                  ...item,
-                  value:
-                    typeof item.value === 'string'
-                      ? item.value.trim()
-                      : item.value
-                }));
-                const modelWithTrimmedValues = {
-                  ...model,
-                  items: mappedModel
-                };
-                setFilterModel(modelWithTrimmedValues);
-                const mappedFilters = modelWithTrimmedValues.items
-                  .map((item) => ({
-                    field: item.field,
-                    operator: item.operator,
-                    value: item.value
-                  }))
-                  .filter(
-                    (item) =>
-                      item.value !== undefined &&
-                      item.value !== null &&
-                      String(item.value).trim() !== ''
-                  );
-                setHasActiveFilters(mappedFilters.length > 0);
-                const mappedKeys = JSON.stringify(mappedFilters);
-                if (mappedKeys === lastFiltersKeyRef.current) {
-                  return;
-                }
-                if (filterTimerRef.current) {
-                  clearTimeout(filterTimerRef.current);
-                }
-                filterTimerRef.current = window.setTimeout(() => {
-                  setIsLoading(true);
-                  setFilters(mappedFilters);
-                  lastFiltersKeyRef.current = mappedKeys;
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  filterTimerRef.current = null;
-                }, SERVER_FILTER_DEBOUNCE_MS);
-              }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                setPaginationModel((prev) => ({
-                  ...prev,
-                  page: model.page,
-                  pageSize: model.pageSize
-                }));
-              }}
-              pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
-              sortingMode="server"
-              sortModel={sortModel}
-              onSortModelChange={(model) => {
-                setSortModel(model);
+              if (filterTimerRef.current) {
+                clearTimeout(filterTimerRef.current);
+              }
+              filterTimerRef.current = window.setTimeout(() => {
+                setIsLoading(true);
+                setFilters(mappedFilters);
+                lastFiltersKeyRef.current = mappedKeys;
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              slots={{
-                toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay,
-                pagination: CustomPagination
-              }}
-              slotProps={{
-                noRowsOverlay: { children: noRowsOverlay },
-                toolbar: {
-                  exportTitle: 'Domains',
-                  hasActiveFilters
-                } as any,
-                basePopper: {
-                  placement: 'bottom-start'
-                },
-                columnsManagement: {
-                  disableResetButton: true,
-                  getTogglableColumns: (columns) => {
-                    const alwaysVisible = ['name'];
-                    return columns
-                      .filter(
-                        (col) => col.field && !alwaysVisible.includes(col.field)
-                      )
-                      .map((col) => col.field as string);
-                  }
+                filterTimerRef.current = null;
+              }, SERVER_FILTER_DEBOUNCE_MS);
+            }}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: model.page,
+                pageSize: model.pageSize
+              }));
+            }}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+            sortingMode="server"
+            sortModel={sortModel}
+            onSortModelChange={(model) => {
+              setSortModel(model);
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+            }}
+            slots={{
+              toolbar: CustomToolbar,
+              noRowsOverlay: CustomNoRowsOverlay,
+              pagination: CustomPagination
+            }}
+            slotProps={{
+              noRowsOverlay: { children: noRowsOverlay },
+              toolbar: {
+                exportTitle: 'Domains',
+                hasActiveFilters
+              } as any,
+              basePopper: {
+                placement: 'bottom-start'
+              },
+              columnsManagement: {
+                disableResetButton: true,
+                getTogglableColumns: (columns) => {
+                  const alwaysVisible = ['name'];
+                  return columns
+                    .filter(
+                      (col) => col.field && !alwaysVisible.includes(col.field)
+                    )
+                    .map((col) => col.field as string);
                 }
-              }}
-              disableRowSelectionOnClick
-              showToolbar
-            />
+              }
+            }}
+            disableRowSelectionOnClick
+            showToolbar
+          />
         </Paper>
       </Box>
     </Box>
