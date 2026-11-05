@@ -200,7 +200,9 @@ describe('ScansView', () => {
       screen.getByLabelText('Description for test-scan scan: A test scan')
     ).toBeInTheDocument();
   });
-  it('shows "No scans found" when the API returns no scans', async () => {
+  it('shows an empty-state message and allows a user to create a scan when no scans exist', async () => {
+    const user = userEvent.setup();
+
     apiGet.mockImplementation((endpoint: string) => {
       if (endpoint === ENDPOINTS.SCANS) {
         return Promise.resolve({
@@ -215,8 +217,20 @@ describe('ScansView', () => {
       return Promise.resolve([]);
     });
     render(<ScansView />);
-    expect(await screen.findByText('No scans found')).toBeInTheDocument();
-    expect(screen.queryByTestId('custom-data-grid')).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'No scans found. Create a new scan with the "Add New Scan" button.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('custom-data-grid')).toBeInTheDocument();
+    const addNewScanButton = screen.getByRole('button', {
+      name: 'Add New Scan'
+    });
+    expect(addNewScanButton).toBeInTheDocument();
+    await user.click(addNewScanButton);
+    expect(
+      screen.getByRole('dialog', { name: 'Add a Scan' })
+    ).toBeInTheDocument();
   });
   it('logs an error when loading scans fails', async () => {
     const error = new Error('Unable to load scans');
