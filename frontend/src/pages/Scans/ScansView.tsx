@@ -496,35 +496,36 @@ const ScansView: React.FC = () => {
       <Box mb={3}>
         {confirmRunScanDialog}
         <Paper elevation={0}>
-          {scans?.length === 0 ? (
-            <Alert severity="info">No scans found</Alert>
-          ) : (
-            <CustomDataGrid
-              rows={scansRows}
-              columns={scansCols}
-              showToolbar
-              slots={{ toolbar: CustomToolbar }}
-              slotProps={{
-                basePopper: { placement: 'bottom-start' },
-                toolbar: {
-                  children: addNewScan,
-                  exportTitle: 'Scans'
-                } as any,
-                columnsManagement: {
-                  disableResetButton: true,
-                  getTogglableColumns: (columns) => {
-                    const alwaysVisible = ['name'];
-                    return columns
-                      .filter(
-                        (col) => col.field && !alwaysVisible.includes(col.field)
-                      )
-                      .map((col) => col.field as string);
-                  }
+          <CustomDataGrid
+            rows={scansRows}
+            columns={scansCols}
+            showToolbar
+            slots={{ toolbar: CustomToolbar }}
+            slotProps={{
+              basePopper: { placement: 'bottom-start' },
+              toolbar: {
+                children: addNewScan,
+                exportTitle: 'Scans'
+              } as any,
+              columnsManagement: {
+                disableResetButton: true,
+                getTogglableColumns: (columns) => {
+                  const alwaysVisible = ['name'];
+                  return columns
+                    .filter(
+                      (col) => col.field && !alwaysVisible.includes(col.field)
+                    )
+                    .map((col) => col.field as string);
                 }
-              }}
-            />
-          )}
+              }
+            }}
+          />
         </Paper>
+        {scans?.length === 0 && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            No scans found. Create a new scan with the "Add New Scan" button.
+          </Alert>
+        )}
       </Box>
       <Button variant="contained" color="primary" onClick={invokeScheduler}>
         Manually run scheduler
