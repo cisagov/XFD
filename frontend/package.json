@@ -89,7 +89,7 @@
     "serverless-iam-roles-per-function": "^3.2.0",
     "serverless-plugin-ifelse": "^1.0.7",
     "serverless-prune-versions": "^1.0.4",
-    "simple-git": "^3.33.0",
+    "simple-git": "^4.0.2",
     "typescript": "^4.9.5",
     "undici": "^6.23.0",
     "vite": "^7.3.2",
