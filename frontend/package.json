@@ -21,7 +21,7 @@
     "@melloware/react-logviewer": "^6.5.5",
     "@mui/icons-material": "^7.3.1",
     "@mui/lab": "^7.0.0-beta.16",
-    "@mui/material": "^7.3.1",
+    "@mui/material": "^9.5.0",
     "@mui/system": "^7.3.1",
     "@mui/x-charts": "^8.9.2",
     "@mui/x-data-grid": "^8.9.2",
