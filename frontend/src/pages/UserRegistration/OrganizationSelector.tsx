@@ -258,7 +258,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
             '& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer':
               {
                 display: 'none'
-              }
+              },
+            '& .MuiDataGrid-toolbarContainer': {
+              minHeight: 48,
+              overflow: 'visible',
+              paddingTop: 1.5,
+              paddingBottom: 1
+            }
           }}
           disableRowSelectionOnClick
           showToolbar
