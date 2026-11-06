@@ -128,6 +128,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       const extracted = extractInitialFilters(state);
       setFilters(extracted);
       setPreloadedFiltersActive(extracted.length > 0);
+      setHasActiveFilters(extracted.length > 0);
     }
   }, [state]);
 

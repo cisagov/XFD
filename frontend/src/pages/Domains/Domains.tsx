@@ -216,6 +216,10 @@ export const Domains: React.FC = () => {
     setFilters([]);
     setFilterModel({ items: [] });
     setHasActiveFilters(false);
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
+      filterTimerRef.current = null;
+    }
     setSortModel([]);
     setPaginationModel((prev) => ({
       ...prev,
