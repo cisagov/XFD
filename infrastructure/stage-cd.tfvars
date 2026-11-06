@@ -124,6 +124,44 @@ create_open_cti_instance             = false
 open_cti_instance_type               = "m5.4xlarge"
 create_was_reporting_instance        = true
 was_reporting_reports_bucket_name    = "cisa-was-reports"
+
+# Enable ME uploads and 14-day retention in this change. The existing bucket
+# policy is preserved below, and no existing lifecycle rules were reported.
+# Bucket ownership is unchanged; analyst roles can be added later.
+techops_reports = {
+  enabled     = true
+  kms_key_arn = "arn:aws:kms:us-east-1:957221700844:key/b87523e3-0cf1-45c2-87a4-2ca800dadc67"
+  producer_role_arns = [
+    "arn:aws:iam::344440683180:role/cyhy_reporter_instance_profile_production",
+    "arn:aws:iam::344440683180:role/bod_docker_instance_role_production",
+  ]
+  reader_role_arns                                = []
+  existing_bucket_policy_json                     = <<-POLICY
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "RequireSSLRequests",
+          "Effect": "Deny",
+          "Principal": "*",
+          "Action": "s3:*",
+          "Resource": [
+            "arn:aws:s3:::cisa-was-reports",
+            "arn:aws:s3:::cisa-was-reports/*"
+          ],
+          "Condition": {
+            "Bool": {
+              "aws:SecureTransport": "false"
+            }
+          }
+        }
+      ]
+    }
+  POLICY
+  manage_retention                                = true
+  existing_lifecycle_configuration_reviewed_empty = true
+}
+
 # Confirmed against stage-cd's real, running .env on 2026-08-17.
 open_cti_host                = "localhost"
 open_cti_admin_email         = "admin@opencti.io"
