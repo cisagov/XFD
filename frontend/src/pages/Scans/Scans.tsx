@@ -1,10 +1,17 @@
-import classes from './Scans.module.scss';
+// React
 import React from 'react';
-import ScansView from './ScansView';
-import ScanTasksView from './ScanTasksView';
-import { Subnav } from 'components';
 import { Switch, Route } from 'react-router-dom';
+
+// Material-UI Components
+import ScanTasksView from './ScanTasksView';
+import ScansView from './ScansView';
+import { Subnav } from '@/components';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
+
+// Styles
+import classes from './Scans.module.scss';
 
 export const Scans: React.FC = () => {
   return (

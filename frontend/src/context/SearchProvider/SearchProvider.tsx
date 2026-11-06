@@ -1,10 +1,18 @@
 import React from 'react';
-import { logger } from '@/utils/logger';
-import applyDisjunctiveFaceting from './applyDisjunctiveFaceting';
-import buildState from './buildState';
-import { useAuthContext } from 'context';
+
+// Node Packages
 import { SearchProvider as ESProvider } from '@elastic/react-search-ui';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import applyDisjunctiveFaceting from '@/context/SearchProvider/applyDisjunctiveFaceting';
+import buildState from '@/context/SearchProvider/buildState';
+import { useAuthContext } from '@/context';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 interface ApiResponse {
   suggest: any;

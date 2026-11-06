@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { withSearch } from '@elastic/react-search-ui';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControl from '@mui/material/FormControl';
@@ -9,22 +10,39 @@ import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
+
+// Material-UI Icons and Styles
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
-import { ResultCard } from './ResultCard';
-import { ContextType } from 'context/SearchProvider';
-import { SortBar } from './SortBar';
-import { useAuthContext } from 'context';
-import { NoResults } from 'components/NoResults';
-import { exportCSV } from 'utils/exportCSV';
-import { useStaticsContext } from 'context/StaticsContext';
-import { useUserLevel } from 'hooks/useUserLevel';
-import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
-import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
-import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
+import { useTheme } from '@mui/material/styles';
+
+// Node Packages
+import { withSearch } from '@elastic/react-search-ui';
+
+// Components
 import CustomAlert from '@/components/Dashboard/CustomAlert';
+import { FindingsHeader } from '@/components/FindingsLibrary/FindingsHeader';
+import { NoResults } from '@/components/NoResults';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { ContextType } from '@/context/SearchProvider';
+import { useAuthContext } from '@/context';
+import { useStaticsContext } from '@/context/StaticsContext';
+
+// Hooks
+import { useUserLevel } from '@/hooks/useUserLevel';
+import { useUserTypeFilters } from '@/hooks/useUserTypeFilters';
+
+// Pages
+import { ResultCard } from '@/pages/Search/ResultCard';
+import { SortBar } from '@/pages/Search/SortBar';
+
+// Utils
+import { exportCSV } from '@/utils/exportCSV';
 import { formatDisplayValue } from '@/utils/stringUtils';
+import { logger } from '@/utils/logger';
 
 const TOTAL_RESULTS_LIMIT = 10000;
 

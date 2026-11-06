@@ -1,14 +1,21 @@
+// React
 import React from 'react';
-import { render } from '@testing-library/react';
-import { testUser, testOrganization, waitFor, fireEvent } from 'test-utils';
+
+// Testing Library
 import { vi, it, expect, afterEach, afterAll } from 'vitest';
-import { useAuthContext } from '../../context/AuthContext';
-import { AuthContextProvider } from 'context/AuthContextProvider';
+import { render } from '@testing-library/react';
+
+// Testing Utilities
+import { testUser, testOrganization, waitFor, fireEvent } from '@/test-utils';
+
+// Context
+import { useAuthContext } from '@/context/AuthContext';
+import { AuthContextProvider } from '@/context/AuthContextProvider';
 
 const mockedApi = {
   apiGet: vi.fn()
 };
-vi.mock('hooks/useApi', () => ({
+vi.mock('@/hooks/useApi', () => ({
   useApi: () => mockedApi
 }));
 

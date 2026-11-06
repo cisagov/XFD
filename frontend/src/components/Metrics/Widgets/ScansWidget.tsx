@@ -32,14 +32,14 @@ import {
 } from '../../../types/metrics';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import InfoLabel from 'components/Dashboard/InfoLabel';
+import InfoLabel from '@/components/Dashboard/InfoLabel';
 
 // Utils
-import { formatDisplayValue } from 'utils/stringUtils';
+import { formatDisplayValue } from '@/utils/stringUtils';
 import { textFilterOperators } from '@/utils/transformTableData';
 
 // Constants

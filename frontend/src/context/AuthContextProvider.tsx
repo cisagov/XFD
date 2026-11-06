@@ -1,20 +1,34 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { logger } from '@/utils/logger';
+
+// Material-UI Components
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+
+// Node Packages
+import Cookies from 'universal-cookie';
+
+// Context
 import { AuthContext, AuthUser } from './AuthContext';
-import { User, Organization, OrganizationTag } from 'types';
-import { isApiError, useApi } from 'hooks/useApi';
-import { usePersistentState } from 'hooks';
+
+// Endpoints
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Hooks
+import { isApiError, useApi } from '@/hooks/useApi';
+import { usePersistentState } from '@/hooks';
+
+// Types
+import { User, Organization, OrganizationTag } from '@/types';
+
+// Utils
 import {
   getExtendedOrg,
   getMaximumRole,
   getTouVersion,
   getUserMustSign
 } from './userStateUtils';
-import Cookies from 'universal-cookie';
-import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 export const currentTermsVersion = '1';
 

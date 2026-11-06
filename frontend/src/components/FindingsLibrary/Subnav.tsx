@@ -1,8 +1,14 @@
 import React from 'react';
+import { useLocation, Link } from 'react-router-dom';
+
+// Material-UI Components
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import { useLocation, Link } from 'react-router-dom';
-import { useNavigationContext } from 'context/NavigationContext';
+
+// Context
+import { useNavigationContext } from '@/context/NavigationContext';
+
+// Routes
 import { ROUTES } from '@/constants/routes';
 
 type NavTabItem = {

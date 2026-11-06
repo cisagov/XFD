@@ -1,7 +1,13 @@
-import { render, screen } from '@testing-library/react';
+// React
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+
+// Testing Library
 import { describe, expect, it } from 'vitest';
-import { Forbidden, NotFound } from 'pages/Errors';
+import { render, screen } from '@testing-library/react';
+
+// Pages
+import { Forbidden, NotFound } from '@/pages/Errors';
 
 describe('error pages', () => {
   it('renders the forbidden page', () => {

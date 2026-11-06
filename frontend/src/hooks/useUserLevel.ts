@@ -1,4 +1,5 @@
-import { AuthContextType, useAuthContext } from 'context';
+// Context
+import { AuthContextType, useAuthContext } from '@/context';
 
 export const GLOBAL_ADMIN = 4;
 export const GLOBAL_VIEW = 3;

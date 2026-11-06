@@ -1,7 +1,11 @@
 import { useCallback } from 'react';
+
+// Types
+import { MaintenanceNotification } from '@/types';
+
+// Utils
 import { logger } from '@/utils/logger';
-import { toUTC } from 'utils/dateUtils';
-import { MaintenanceNotification } from 'types';
+import { toUTC } from '@/utils/dateUtils';
 
 interface UseSubmitFormProps {
   formValues: any;
