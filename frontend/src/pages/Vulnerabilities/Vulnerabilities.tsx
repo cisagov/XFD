@@ -707,7 +707,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         )}
         <Paper
           elevation={2}
-          sx={{ width: '100%', minHeight: 500 }}
+          sx={{ width: '100%', minHeight: 200 }}
           aria-label="Vulnerabilities Table"
         >
           <CustomDataGrid<VulnerabilityRow>

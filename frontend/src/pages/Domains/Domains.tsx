@@ -542,7 +542,7 @@ export const Domains: React.FC = () => {
         )}
         <Paper
           elevation={2}
-          sx={{ width: '100%', minHeight: 500 }}
+          sx={{ width: '100%', minHeight: 200 }}
           aria-label="Domains Table"
         >
           <CustomDataGrid<DomainRow>
