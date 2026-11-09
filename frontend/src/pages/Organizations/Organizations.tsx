@@ -243,6 +243,7 @@ export const Organizations: React.FC = () => {
 
             if (emptyModel) {
               setFilters({ items: [] });
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
               return;
             }
 

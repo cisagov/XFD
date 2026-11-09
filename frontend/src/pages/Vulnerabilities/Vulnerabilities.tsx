@@ -743,6 +743,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
               if (emptyModel) {
                 setFilters([]);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
                 return;
               }
 
