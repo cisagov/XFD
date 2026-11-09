@@ -29,6 +29,9 @@ import { NavigationProvider } from '@/context/NavigationContextProvider';
 import { SavedSearchContextProvider } from '@/context/SavedSearchContextProvider';
 import { StaticsContextProvider } from '@/context/StaticsContextProvider';
 
+// Styles
+import './styles.scss';
+
 // Utils
 import { DevInspector } from '@/utils/devInspector';
 import { openInVSCode } from '@/utils/openInVSCode';
