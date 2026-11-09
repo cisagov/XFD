@@ -15,9 +15,10 @@ import { visuallyHidden } from '@mui/utils';
 
 // DataGrid Components
 import {
+  GridCellParams,
   GridColDef,
-  GridRenderCellParams,
-  GridCellParams
+  GridFilterModel,
+  GridRenderCellParams
 } from '@mui/x-data-grid';
 
 // Charts
@@ -36,11 +37,17 @@ import { useAuthContext } from 'context';
 
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 
 // Utils
 import { formatDisplayValue } from 'utils/stringUtils';
 import { textFilterOperators } from '@/utils/transformTableData';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE
+} from '@/constants/dataGrid';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -87,6 +94,13 @@ const ScansWidget: React.FC = () => {
   );
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [scanDetails, setScanDetails] = useState<ScanDetails | null>(null);
+  const [summaryFilterModel, setSummaryFilterModel] =
+    useState<GridFilterModel>({ items: [] });
+  const [hasSummaryFilters, setHasSummaryFilters] = useState(false);
+  const [detailFilterModel, setDetailFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasDetailFilters, setHasDetailFilters] = useState(false);
 
   const { cardRoot, cardSmall, header, body } = MetricsStyles.classesMetrics;
 
@@ -125,6 +139,8 @@ const ScansWidget: React.FC = () => {
 
   const handleScanClick = (scanId: string) => {
     setSelectedScanId(scanId);
+    setDetailFilterModel({ items: [] });
+    setHasDetailFilters(false);
     fetchScanDetails(scanId);
   };
 
@@ -449,6 +465,35 @@ const ScansWidget: React.FC = () => {
                   columns={summaryColumns}
                   disableRowSelectionOnClick
                   hideFooter
+                  filterModel={summaryFilterModel}
+                  onFilterModelChange={(model) => {
+                    const cleanedModel = cleanFilterModelItems(
+                      model,
+                      summaryFilterModel
+                    );
+                    setSummaryFilterModel(cleanedModel);
+                    setHasSummaryFilters(!isFilterModelEmpty(cleanedModel));
+                  }}
+                  slots={{ toolbar: CustomToolbar }}
+                  slotProps={{
+                    toolbar: {
+                      disableExport: true,
+                      exportTitle: 'Scan Result Summary',
+                      hasActiveFilters: hasSummaryFilters
+                    } as any,
+                    basePopper: {
+                      placement: 'bottom-start'
+                    }
+                  }}
+                  initialState={{
+                    pagination: {
+                      paginationModel: {
+                        pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
+                      }
+                    }
+                  }}
+                  pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+                  showToolbar
                   onCellKeyDown={(
                     params: GridCellParams,
                     event: React.KeyboardEvent
@@ -494,6 +539,35 @@ const ScansWidget: React.FC = () => {
                   getRowId={(row) => row.id}
                   disableRowSelectionOnClick
                   hideFooter
+                  filterModel={detailFilterModel}
+                  onFilterModelChange={(model) => {
+                    const cleanedModel = cleanFilterModelItems(
+                      model,
+                      detailFilterModel
+                    );
+                    setDetailFilterModel(cleanedModel);
+                    setHasDetailFilters(!isFilterModelEmpty(cleanedModel));
+                  }}
+                  slots={{ toolbar: CustomToolbar }}
+                  slotProps={{
+                    toolbar: {
+                      disableExport: true,
+                      exportTitle: 'HTTP Status Trends',
+                      hasActiveFilters: hasDetailFilters
+                    } as any,
+                    basePopper: {
+                      placement: 'bottom-start'
+                    }
+                  }}
+                  initialState={{
+                    pagination: {
+                      paginationModel: {
+                        pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
+                      }
+                    }
+                  }}
+                  pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+                  showToolbar
                   sx={{
                     '& .MuiDataGrid-cell:focus-within': {
                       outline: '2px solid #1976d2',
