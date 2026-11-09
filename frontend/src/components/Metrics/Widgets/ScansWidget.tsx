@@ -14,7 +14,7 @@ import Paper from '@mui/material/Paper';
 import { visuallyHidden } from '@mui/utils';
 
 // DataGrid Components
-import {
+import type {
   GridCellParams,
   GridColDef,
   GridFilterModel,

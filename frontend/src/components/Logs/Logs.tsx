@@ -15,7 +15,7 @@ import Paper from '@mui/material/Paper';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import {
+import type {
   GridColDef,
   GridFilterItem,
   GridFilterModel,
