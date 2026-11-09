@@ -13,12 +13,20 @@ import subprocess  # nosec B404
 # Third-Party Libraries
 import boto3
 from botocore.exceptions import ClientError
+from pe_reports.data.config import config
 
-BUCKET_NAME = ""
-BACKUP_ROOT = Path("/var/www/db_backups")
+BUCKET_ENV_VAR = "DB_BACKUP_BUCKET_NAME"
+BACKUP_ROOT = Path(__file__).resolve().parent
 DATE = datetime.datetime.now().strftime("%Y-%m-%d")
-ZIP_DATE = datetime.datetime.now().strftime("%m-%d-%Y")
 LOGGER = logging.getLogger(__name__)
+
+
+def get_backup_bucket_name():
+    """Get the DB backup S3 bucket name from environment variable."""
+    bucket_name = os.environ.get(BUCKET_ENV_VAR, "").strip()
+    if not bucket_name:
+        raise RuntimeError(f"Missing required env variable: {BUCKET_ENV_VAR}")
+    return bucket_name
 
 
 def locate_executable(name):
@@ -29,7 +37,7 @@ def locate_executable(name):
     return executable
 
 
-def run_dump_cmd(command, output_file, error_file):
+def run_dump_cmd(command, output_file, error_file, environment):
     """Run a PostgreSQL dump command without invoking a shell."""
     with (
         output_file.open("wb") as stdout_file,
@@ -38,9 +46,11 @@ def run_dump_cmd(command, output_file, error_file):
         # Executable is trusted, arguments passed as list, and shell set to False
         subprocess.run(  # nosec B603
             command,
+            shell=False,
             check=True,
             stdout=stdout_file,
             stderr=stderr_file,
+            env=environment,
         )
 
 
@@ -59,10 +69,13 @@ def create_backup_files():
         pg_dumpall = locate_executable("pg_dumpall")
         pg_dump = locate_executable("pg_dump")
         # Load env variables for DB
-        database_name = os.environ["PE_DB_NAME"]
-        database_port = os.environ["PE_DB_PORT"]
-        database_user = os.environ["PE_DB_USER"]
-        database_host = os.environ["DATABASE_HOST"]
+        database_config = config()
+        database_name = database_config["database"]
+        database_port = str(database_config["port"])
+        database_user = database_config["user"]
+        database_host = database_config["host"]
+        dump_environment = os.environ.copy()
+        dump_environment["PGPASSWORD"] = database_config["password"]
         # Call pg_dumpall command (globals file)
         LOGGER.info("Creating PostgreSQL globals backup")
         run_dump_cmd(
@@ -82,6 +95,7 @@ def create_backup_files():
             ],
             globals_file,
             error_file,
+            dump_environment,
         )
         LOGGER.info("Globals dump created")
         # Call pg_dump command (database file)
@@ -103,6 +117,7 @@ def create_backup_files():
             ],
             database_file,
             error_file,
+            dump_environment,
         )
         LOGGER.info("Database dump created")
     except (
@@ -153,9 +168,10 @@ def run_db_backup():
         backup_folder / "stderr.txt",
     ]
     # Upload each backup file to S3 bucket
+    bucket_name = get_backup_bucket_name()
     for backup_file in backup_files:
         upload_backup_to_s3(
             backup_file,
             DATE,
-            BUCKET_NAME,
+            bucket_name,
         )
