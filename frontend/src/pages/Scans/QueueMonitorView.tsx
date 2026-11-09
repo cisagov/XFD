@@ -7,17 +7,27 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import type {
+  GridColDef,
+  GridFilterModel,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
 
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 // Context & Hooks
 import { useAuthContext } from 'context';
 
 // Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE
+} from '@/constants/dataGrid';
 import { logger } from '@/utils/logger';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 import { formatDisplayValue } from 'utils/stringUtils';
 import { textFilterOperators } from '@/utils/transformTableData';
 
@@ -37,8 +47,15 @@ const QueueMonitorView: React.FC = () => {
   const { apiPost } = useAuthContext();
   const [queues, setQueues] = useState<Queue[]>([]);
   const [errors, setErrors] = useState<{ global?: string }>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const fetchQueues = useCallback(async () => {
+    setIsLoading(true);
+    setErrors({});
     try {
       const { result } = await apiPost<QueueSearchResponse>(
         ENDPOINTS.QUEUES_SEARCH,
@@ -55,6 +72,8 @@ const QueueMonitorView: React.FC = () => {
     } catch (e) {
       logger.error(e);
       setErrors({ global: 'Failed to fetch queue data.' });
+    } finally {
+      setIsLoading(false);
     }
   }, [apiPost]);
 
@@ -133,8 +152,32 @@ const QueueMonitorView: React.FC = () => {
         <CustomDataGrid
           rows={queues}
           columns={queueColumns}
-          pageSizeOptions={[10, 25, 100]}
+          loading={isLoading}
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!isFilterModelEmpty(cleanedModel));
+          }}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: {
+              disableExport: true,
+              exportTitle: 'Queue Monitor',
+              hasActiveFilters
+            } as any,
+            basePopper: {
+              placement: 'bottom-start'
+            }
+          }}
+          initialState={{
+            pagination: {
+              paginationModel: { pageSize: DEFAULT_DATA_GRID_PAGE_SIZE }
+            }
+          }}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
           disableRowSelectionOnClick
+          showToolbar
         />
       </Paper>
     </>
