@@ -22,7 +22,6 @@ from fastapi import (
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from redis import asyncio as aioredis
 import xfd_api.api_methods.dmz_sync as cybersix_module
 from xfd_api.auth import is_global_write_admin
 
@@ -70,18 +69,10 @@ from .api_methods.saved_search import (
 )
 from .api_methods.search import search_export, search_post
 from .api_methods.stats import (
-    get_by_org_stats,
-    get_num_vulns,
-    get_severity_stats,
-    get_stats,
     get_stats_comparison_data,
-    get_user_ports_count,
-    get_user_services_count,
     get_v2_trending_data,
     get_vs_condensed_trending_data,
     get_vs_trending_data,
-    stats_latest_vulns,
-    stats_most_common_vulns,
 )
 from .api_methods.sync import sync_post
 from .api_methods.user import (
@@ -198,11 +189,6 @@ LOGGER = logging.getLogger(__name__)
 api_router = APIRouter()
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
-
-
-async def get_redis_client(request: Request):
-    """Get the Redis client from the application state."""
-    return request.app.state.redis
 
 
 # ========================================
@@ -1365,131 +1351,6 @@ async def get_stats_comparison(
 ):
     """Retrieve Summary Comparison between two dates provided by the user."""
     return get_stats_comparison_data(filter_data, current_user)
-
-
-@api_router.post(
-    "/stats",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=stat_schema.StatsResponse,
-    tags=["Stats"],
-)
-async def get_stats_combined(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    redis_client=Depends(get_redis_client),
-):
-    """Retrieve all stats from Elasticache filtered by user."""
-    return await get_stats(filter_data, current_user, redis_client, request)
-
-
-@api_router.post(
-    "/services",
-    response_model=List[stat_schema.ServiceStat],
-    dependencies=[Depends(get_current_active_user)],
-    tags=["Stats"],
-)
-async def post(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client=Depends(get_redis_client),
-):
-    """Retrieve services from Elasticache filtered by user."""
-    return await get_user_services_count(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/ports",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.PortStat],
-    tags=["Stats"],
-)
-async def get_ports_stats(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client=Depends(get_redis_client),
-):
-    """Retrieve Port Stats from Elasticache."""
-    return await get_user_ports_count(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/num-vulns",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.VulnerabilityStat],
-    tags=["Stats"],
-)
-async def get_num_vulns_stats(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Retrieve number of vulnerabilities stats from ElastiCache (Redis) filtered by user."""
-    return await get_num_vulns(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/latest-vulns",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.LatestVulnerability],
-    tags=["Stats"],
-)
-async def get_latest_vulnerabilities(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Get latest vulnerabilities."""
-    return await stats_latest_vulns(filter_data, current_user, redis_client, request)
-
-
-@api_router.post(
-    "/most-common-vulns",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.MostCommonVulnerability],
-    tags=["Stats"],
-)
-async def get_most_common_vulns(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Get most common vulns."""
-    return await stats_most_common_vulns(
-        filter_data, current_user, redis_client, request
-    )
-
-
-@api_router.post(
-    "/severity-counts",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.SeverityCountStat],
-    tags=["Stats"],
-)
-async def get_severity_counts(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Retrieve the count of open vulnerabilities grouped by severity from Redis."""
-    return await get_severity_stats(filter_data, current_user, redis_client)
-
-
-@api_router.post(
-    "/by-org",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[stat_schema.ByOrgStat],
-    tags=["Stats"],
-)
-async def get_by_org(
-    filter_data: OrganizationSchema.StatsPayloadSchema,
-    current_user: User = Depends(get_current_active_user),
-    redis_client: aioredis.Redis = Depends(get_redis_client),
-):
-    """Retrieve the count of open vulnerabilities grouped by severity from Redis."""
-    return await get_by_org_stats(filter_data, current_user, redis_client)
 
 
 # ========================================
