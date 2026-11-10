@@ -10,7 +10,11 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import RemoveCircleOutline from '@mui/icons-material/RemoveCircleOutline';
 
 // DataGrid Components
-import type { GridColDef, GridFilterModel, GridRenderCellParams } from '@mui/x-data-grid';
+import type {
+  GridColDef,
+  GridFilterModel,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
 
 // Components
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';

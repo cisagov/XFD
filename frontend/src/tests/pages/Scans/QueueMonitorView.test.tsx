@@ -38,7 +38,9 @@ describe('QueueMonitorView', () => {
       }
     });
 
-    expect(await screen.findByRole('button', { name: /filters/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /filters/i })
+    ).toBeInTheDocument();
     expect(await screen.findByText('queue-1')).toBeInTheDocument();
   });
 });

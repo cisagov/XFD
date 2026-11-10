@@ -52,9 +52,7 @@ vi.mock('@/components/DataGrid/CustomDataGrid', () => ({
           data-testid={`${gridName}-apply-filter`}
           onClick={() =>
             onFilterModelChange({
-              items: [
-                { field: 'name', operator: 'contains', value: 'censys' }
-              ]
+              items: [{ field: 'name', operator: 'contains', value: 'censys' }]
             })
           }
         >
@@ -146,7 +144,8 @@ describe('ScansWidget', () => {
     await user.click(screen.getByTestId('details-apply-filter'));
     await waitFor(() => {
       expect(
-        screen.getByTestId('metrics-filter-badge-HTTP Status Trends').textContent
+        screen.getByTestId('metrics-filter-badge-HTTP Status Trends')
+          .textContent
       ).toBe('true');
     });
 
@@ -155,7 +154,8 @@ describe('ScansWidget', () => {
     await waitFor(() => {
       expect(screen.getByTestId('details-filter-model').textContent).toBe('0');
       expect(
-        screen.getByTestId('metrics-filter-badge-HTTP Status Trends').textContent
+        screen.getByTestId('metrics-filter-badge-HTTP Status Trends')
+          .textContent
       ).toBe('false');
     });
   });

@@ -77,11 +77,10 @@ export const Logs: FC<LogsProps> = () => {
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingError, setLoadingError] = useState(false);
-  const [paginationModel, setPaginationModel] =
-    useState<GridPaginationModel>({
-      page: 0,
-      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
-    });
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
+  });
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogDetails, setDialogDetails] = useState<LogDetails | null>(null);
   const [logs, setLogs] = useState<{

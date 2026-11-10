@@ -29,9 +29,7 @@ vi.mock('components/DataGrid/CustomToolbar', () => ({
     <div data-testid="custom-toolbar">
       <span data-testid="disable-export">{String(disableExport)}</span>
       <span data-testid="export-title">{exportTitle}</span>
-      <span data-testid="has-active-filters">
-        {String(hasActiveFilters)}
-      </span>
+      <span data-testid="has-active-filters">{String(hasActiveFilters)}</span>
       {!disableExport && <button data-testid="export-button">Export</button>}
     </div>
   )
@@ -260,7 +258,9 @@ describe('OrgMembers Component', () => {
         />
       );
 
-      expect(screen.getByTestId('has-active-filters').textContent).toBe('false');
+      expect(screen.getByTestId('has-active-filters').textContent).toBe(
+        'false'
+      );
     });
 
     it('should render remove buttons for each member if Global Admin', () => {

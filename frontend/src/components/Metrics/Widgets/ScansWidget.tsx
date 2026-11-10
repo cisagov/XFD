@@ -94,8 +94,9 @@ const ScansWidget: React.FC = () => {
   );
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [scanDetails, setScanDetails] = useState<ScanDetails | null>(null);
-  const [summaryFilterModel, setSummaryFilterModel] =
-    useState<GridFilterModel>({ items: [] });
+  const [summaryFilterModel, setSummaryFilterModel] = useState<GridFilterModel>(
+    { items: [] }
+  );
   const [hasSummaryFilters, setHasSummaryFilters] = useState(false);
   const [detailFilterModel, setDetailFilterModel] = useState<GridFilterModel>({
     items: []

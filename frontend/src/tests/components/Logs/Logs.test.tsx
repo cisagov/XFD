@@ -23,9 +23,7 @@ const renderLogs = (apiPost: any) =>
 
 vi.mock('components/DataGrid/CustomToolbar', () => ({
   default: ({ hasActiveFilters }: { hasActiveFilters?: boolean }) => (
-    <span data-testid="logs-filter-badge">
-      {String(hasActiveFilters)}
-    </span>
+    <span data-testid="logs-filter-badge">{String(hasActiveFilters)}</span>
   )
 }));
 
@@ -40,7 +38,9 @@ vi.mock('../../../components/DataGrid/CustomDataGrid', () => ({
     columns
   }: any) => {
     const Toolbar = slots?.toolbar;
-    const detailsColumn = columns.find((column: any) => column.field === 'details');
+    const detailsColumn = columns.find(
+      (column: any) => column.field === 'details'
+    );
 
     return (
       <div data-testid="logs-grid">
@@ -66,9 +66,7 @@ vi.mock('../../../components/DataGrid/CustomDataGrid', () => ({
         <button
           type="button"
           data-testid="next-log-page"
-          onClick={() =>
-            onPaginationModelChange({ page: 1, pageSize: 15 })
-          }
+          onClick={() => onPaginationModelChange({ page: 1, pageSize: 15 })}
         >
           Next page
         </button>

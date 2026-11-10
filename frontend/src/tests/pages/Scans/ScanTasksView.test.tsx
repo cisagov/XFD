@@ -13,9 +13,7 @@ vi.mock('context', () => ({
 
 vi.mock('@/components/DataGrid/CustomToolbar', () => ({
   default: ({ hasActiveFilters }: { hasActiveFilters?: boolean }) => (
-    <span data-testid="scan-task-filter-badge">
-      {String(hasActiveFilters)}
-    </span>
+    <span data-testid="scan-task-filter-badge">{String(hasActiveFilters)}</span>
   )
 }));
 
@@ -24,13 +22,7 @@ vi.mock('@/components/DataGrid/CustomPagination', () => ({
 }));
 
 vi.mock('@/components/DataGrid/CustomDataGrid', () => ({
-  default: ({
-    loading,
-    slotProps,
-    slots,
-    onFilterModelChange,
-    rows
-  }: any) => {
+  default: ({ loading, slotProps, slots, onFilterModelChange, rows }: any) => {
     const Toolbar = slots?.toolbar;
     return (
       <div data-testid="scan-task-grid">
@@ -41,7 +33,9 @@ vi.mock('@/components/DataGrid/CustomDataGrid', () => ({
           data-testid="apply-scan-task-filter"
           onClick={() =>
             onFilterModelChange({
-              items: [{ field: 'status', operator: 'contains', value: 'failed' }]
+              items: [
+                { field: 'status', operator: 'contains', value: 'failed' }
+              ]
             })
           }
         >
@@ -126,11 +120,14 @@ describe('ScanTasksView', () => {
     await new Promise((resolve) => setTimeout(resolve, 250));
     expect(apiPost).toHaveBeenCalledTimes(initialCallCount);
 
-    await waitFor(() => {
-      expect(apiPost.mock.calls.length).toBeGreaterThan(initialCallCount);
-    }, { timeout: 1000 });
-    expect(
-      apiPost.mock.calls.at(-1)?.[1]?.body?.filters
-    ).toEqual({ status: 'failed' });
+    await waitFor(
+      () => {
+        expect(apiPost.mock.calls.length).toBeGreaterThan(initialCallCount);
+      },
+      { timeout: 1000 }
+    );
+    expect(apiPost.mock.calls.at(-1)?.[1]?.body?.filters).toEqual({
+      status: 'failed'
+    });
   });
 });
