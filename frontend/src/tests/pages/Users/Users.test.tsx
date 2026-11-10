@@ -1,8 +1,19 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from 'test-utils';
-import Users from '../../../pages/Users/Users';
-import { User } from 'types';
+
+// Testing Utilities
+import { render, screen, fireEvent, waitFor } from '@/test-utils';
+
+// Pages
+import Users from '@/pages/Users/Users';
+
+// Types
+import { User } from '@/types';
+
+// Utils
 import * as logger from '@/utils/logger';
 
 // Mock the logger
@@ -13,7 +24,7 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 // Mock CustomToolbar
-vi.mock('components/DataGrid/CustomToolbar', () => ({
+vi.mock('@/components/DataGrid/CustomToolbar', () => ({
   default: ({ disableExport, exportTitle }: any) => (
     <div data-testid="custom-toolbar">
       <span data-testid="disable-export">{String(disableExport)}</span>
@@ -24,13 +35,13 @@ vi.mock('components/DataGrid/CustomToolbar', () => ({
 }));
 
 // Mock UserForm
-vi.mock('../../../pages/Users/UserForm', () => ({
+vi.mock('@/pages/Users/UserForm', () => ({
   default: ({ editUserDialogOpen }: any) =>
     editUserDialogOpen ? <div data-testid="user-form">User Form</div> : null
 }));
 
 // Mock the dialogs
-vi.mock('components/Dialog/ConfirmDialog', () => ({
+vi.mock('@/components/Dialog/ConfirmDialog', () => ({
   default: ({ isOpen, onConfirm, onCancel, title }: any) =>
     isOpen ? (
       <div data-testid="confirm-dialog">
@@ -45,7 +56,7 @@ vi.mock('components/Dialog/ConfirmDialog', () => ({
     ) : null
 }));
 
-vi.mock('components/Dialog/InfoDialog', () => ({
+vi.mock('@/components/Dialog/InfoDialog', () => ({
   default: ({ isOpen, handleClick, content }: any) =>
     isOpen ? (
       <div data-testid="info-dialog">

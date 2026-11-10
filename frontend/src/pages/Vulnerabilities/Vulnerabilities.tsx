@@ -6,7 +6,6 @@ import React, {
   useRef
 } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 // Material-UI Components
 import Alert from '@mui/material/Alert';
@@ -34,30 +33,37 @@ import {
   GridSortModel
 } from '@mui/x-data-grid';
 
+// Node Packages
+import { differenceInCalendarDays, parseISO } from 'date-fns';
+
+// Components
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import CustomNoRowsOverlay from '@/components/DataGrid/CustomNoRowsOverlay';
+import CustomPagination from '@/components/DataGrid/CustomPagination';
+import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
+import { FindingsHeader } from '@/components/FindingsLibrary/FindingsHeader';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
 // Types
-import { Query, UserOrganization } from 'types';
-import { Vulnerability } from 'types/domain';
+import { Query, UserOrganization } from '@/types';
+import { Vulnerability } from '@/types/domain';
 import {
   ApiResponse,
   LocationState,
   SearchParams,
   VulnerabilityRow
-} from 'types/vulnerabilities';
-
-// Context
-import { useAuthContext } from 'context';
-
-// Components
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import CustomPagination from 'components/DataGrid/CustomPagination';
-import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+} from '@/types/vulnerabilities';
 
 // Utils
 import { logger } from '@/utils/logger';
-import { getSeverityColor } from 'utils/getSeverityColor';
-import { truncateString } from 'utils/stringUtils';
+import { getSeverityColor } from '@/utils/getSeverityColor';
+import { truncateString } from '@/utils/stringUtils';
 import {
   cleanFilterModelItems,
   extractInitialFilters,
@@ -67,9 +73,6 @@ import {
   shouldTriggerFilterUpdate
 } from '@/utils/tableUtils';
 
-// Constants
-import { ROUTES } from '@/constants/routes';
-import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
   DEFAULT_DATA_GRID_PAGE_SIZE,

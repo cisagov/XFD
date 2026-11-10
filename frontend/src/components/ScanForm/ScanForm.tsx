@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Pages
+import MultiSelect from '@/pages/Scans/MultiSelect';
+import { OrganizationOption } from '@/types/organization';
+
+// Types
+import { OrganizationTag, Scan, ScanSchema } from '@/types';
+
+// Components and Styles to be refactored with MUI
 import classes from './styles.module.scss';
-import { OrganizationTag, Scan, ScanSchema } from 'types';
 import {
   Button,
   Form,
@@ -9,10 +21,6 @@ import {
   Checkbox,
   Label
 } from '@trussworks/react-uswds';
-import MultiSelect from 'pages/Scans/MultiSelect';
-import { OrganizationOption } from 'pages/Scans/ScansView';
-import { Link } from 'react-router-dom';
-import { ROUTES } from '@/constants/routes';
 
 export interface ScanFormValues {
   name: string;

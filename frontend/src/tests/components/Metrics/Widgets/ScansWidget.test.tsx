@@ -1,11 +1,11 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from 'test-utils';
+import { render, screen, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import { ENDPOINTS } from '@/constants/endpoints';
 import ScansWidget from '@/components/Metrics/Widgets/ScansWidget';
 
-vi.mock('components/Dashboard/InfoLabel', () => ({
+vi.mock('@/components/Dashboard/InfoLabel', () => ({
   default: ({ label }: { label: string }) => <h2>{label}</h2>
 }));
 

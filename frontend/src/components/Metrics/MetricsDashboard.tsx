@@ -1,10 +1,20 @@
 import React from 'react';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import { useAuthContext } from 'context/AuthContext';
+
+// Assets
 import MatomoLogo from '@/assets/matomo-logo.png';
+
+// Components
 import ScansWidget from './Widgets/ScansWidget';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
+
+// Context
+import { useAuthContext } from '@/context/AuthContext';
 
 const MetricsDashboard: React.FC = () => {
   const { user } = useAuthContext();

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { SavedSearch } from 'types/saved-search';
+
+// Material-UI Components
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -13,20 +14,35 @@ import ListItem from '@mui/material/ListItem';
 import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
+
+// Material-UI Icons and Styles
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
-import { FacetFilter } from 'components';
-import { ContextType } from 'context/SearchProvider';
-import { useAuthContext } from 'context';
-import { useSavedSearchContext } from 'context/SavedSearchContext';
+import { useTheme } from '@mui/material/styles';
+
+// Node Packages
 import { withSearch } from '@elastic/react-search-ui';
-import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
+
+// Components
+import { CVEFilter } from '@/components/FilterDrawer/CVEFilter';
+import { DomainAndIPFilter } from '@/components/FilterDrawer/DomainAndIPFilter';
+import { FacetFilter } from '@/components';
+import { SaveSearchModal } from '@/components/SaveSearchModal/SaveSearchModal';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+import { ContextType } from '@/context/SearchProvider';
+import { useSavedSearchContext } from '@/context/SavedSearchContext';
+
+// Types
+import { SavedSearch } from '@/types/saved-search';
+
+// Utils
 import { logger } from '@/utils/logger';
-import { DomainAndIPFilter } from './DomainAndIPFilter';
-import { CVEFilter } from './CVEFilter';
 
 interface Props {
   addFilter: ContextType['addFilter'];

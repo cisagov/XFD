@@ -1,7 +1,13 @@
 import React from 'react';
-import classes from './Settings.module.css';
-import { useAuthContext } from 'context';
+
+// Material-UI Components
 import Button from '@mui/material/Button';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Styles
+import classes from './Settings.module.css';
 
 const Settings: React.FC = () => {
   const { logout, user } = useAuthContext();

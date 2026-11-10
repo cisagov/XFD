@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAuthContext } from 'context';
-import type { Organization } from 'types';
+import { useAuthContext } from '@/context';
+import type { Organization } from '@/types';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 

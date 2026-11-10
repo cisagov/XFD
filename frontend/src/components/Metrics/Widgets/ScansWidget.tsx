@@ -33,15 +33,15 @@ import {
 } from '../../../types/metrics';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import InfoLabel from 'components/Dashboard/InfoLabel';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import InfoLabel from '@/components/Dashboard/InfoLabel';
 
 // Utils
-import { formatDisplayValue } from 'utils/stringUtils';
+import { formatDisplayValue } from '@/utils/stringUtils';
 import { textFilterOperators } from '@/utils/transformTableData';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,

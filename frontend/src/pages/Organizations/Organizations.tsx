@@ -18,19 +18,22 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 // DataGrid Components
 import { GridFilterModel, GridSortModel } from '@mui/x-data-grid';
 
-// Types
-import { Organization } from 'types';
-
-// Context
-import { useAuthContext } from 'context';
-
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomPagination from 'components/DataGrid/CustomPagination';
-import InfoDialog from 'components/Dialog/InfoDialog';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import CustomPagination from '@/components/DataGrid/CustomPagination';
+import InfoDialog from '@/components/Dialog/InfoDialog';
 import { OrganizationForm } from './OrganizationForm';
 import { useOrgsColumns } from './useOrgsColumns';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { Organization } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';
@@ -41,14 +44,11 @@ import {
   isFilterModelEmpty
 } from '@/utils/tableUtils';
 
-// Constants
-import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
   DEFAULT_DATA_GRID_PAGE_SIZE,
   SERVER_FILTER_DEBOUNCE_MS
 } from '@/constants/dataGrid';
-
 type OrgsApiResponse = {
   result: Organization[];
   count: number;

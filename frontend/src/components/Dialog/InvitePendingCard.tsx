@@ -1,12 +1,18 @@
 import React from 'react';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons and Styles
 import { alpha, useTheme } from '@mui/material/styles';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import { useAuthContext } from 'context';
+
+// Context
+import { useAuthContext } from '@/context';
 
 const InvitePendingCard: React.FC = ({}) => {
   const { logout } = useAuthContext();

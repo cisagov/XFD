@@ -23,11 +23,11 @@ import { ENDPOINTS } from '@/constants/endpoints';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Types
-import { Organization as OrganizationType } from 'types';
-import { User } from 'types';
+import { Organization as OrganizationType } from '@/types';
+import { User } from '@/types';
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (organization: OrganizationType | null) => void;

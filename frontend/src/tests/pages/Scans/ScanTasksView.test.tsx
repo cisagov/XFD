@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScanTasksView from '@/pages/Scans/ScanTasksView';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { authCtx } from '@/test-utils/authCtx';
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 

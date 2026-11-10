@@ -1,16 +1,7 @@
 // React
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-// Date utilities
-// @ts-ignore:next-line
-import { formatDistanceToNow, parseISO } from 'date-fns';
-
-// External libraries
-import { FaSyncAlt } from 'react-icons/fa';
-import { LazyLog as MellowareLazyLog } from '@melloware/react-logviewer';
-import { Button } from '@trussworks/react-uswds';
-
-// MUI Components
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import MuiButton from '@mui/material/Button';
@@ -31,19 +22,25 @@ import type {
   GridRenderCellParams
 } from '@mui/x-data-grid';
 
+// Node Packages
+// @ts-ignore:next-line
+import { formatDistanceToNow, parseISO } from 'date-fns';
+
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomPagination from 'components/DataGrid/CustomPagination';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import CustomPagination from '@/components/DataGrid/CustomPagination';
 
-// Context & Hooks
-import { useAuthContext } from 'context';
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
 
 // Types
-import { OrgQuery, Scan, ScanTask } from 'types';
+import { OrgQuery, Scan, ScanTask } from '@/types';
 
 // Constants & Utils
-import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
   DEFAULT_DATA_GRID_PAGE_SIZE,
@@ -53,8 +50,11 @@ import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
 import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
-// Styles
+// Todo: Refactor with Material-UI
 import classes from './Scans.module.scss';
+import { FaSyncAlt } from 'react-icons/fa';
+import { LazyLog as MellowareLazyLog } from '@melloware/react-logviewer';
+import { Button } from '@trussworks/react-uswds';
 
 interface ApiResponse {
   result: ScanTask[];

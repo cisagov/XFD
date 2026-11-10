@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from 'test-utils';
+import { render, screen } from '@/test-utils';
 import { authCtx } from '@/test-utils/authCtx';
 import QueueMonitorView from '../../../pages/Scans/QueueMonitorView';
 

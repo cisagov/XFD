@@ -15,12 +15,9 @@ import type {
 
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
 
-// Context & Hooks
-import { useAuthContext } from 'context';
-
-// Constants & Utils
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
@@ -28,7 +25,12 @@ import {
 } from '@/constants/dataGrid';
 import { logger } from '@/utils/logger';
 import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
-import { formatDisplayValue } from 'utils/stringUtils';
+import { formatDisplayValue } from '@/utils/stringUtils';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Utils
 import { textFilterOperators } from '@/utils/transformTableData';
 
 interface Queue {

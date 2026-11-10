@@ -9,10 +9,15 @@
  * - Full test coverage for all branches and state transitions
  */
 
+// React
 import React, { act } from 'react';
+
+// Testing Library
 import { screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'test-utils';
+
+// Testing Utils
+import { render } from '@/test-utils';
 import {
   NavigationTestComponent,
   ComponentWithoutProvider,
@@ -25,9 +30,11 @@ import {
   TestComponentWithReset,
   createNavigationMocks,
   testRoutes
-} from 'test-utils/navigation';
-import { useNavigationContext } from '../../context/NavigationContext';
-import { NavigationProvider } from '../../context/NavigationContextProvider';
+} from '@/test-utils/navigation';
+
+// Context
+import { useNavigationContext } from '@/context/NavigationContext';
+import { NavigationProvider } from '@/context/NavigationContextProvider';
 
 describe('NavigationContextProvider', () => {
   describe('Initial State', () => {

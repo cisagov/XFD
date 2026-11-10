@@ -13,10 +13,10 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import type { GridFilterModel } from '@mui/x-data-grid';
 
 // Components
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import InfoDialog from 'components/Dialog/InfoDialog';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import InfoDialog from '@/components/Dialog/InfoDialog';
 import UserForm from './UserForm';
 
 // Constants
@@ -31,13 +31,13 @@ import {
 } from '@/constants/dataGrid';
 
 //Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Hooks
 import { useUserColumns } from './useUserColumns';
 
 // Types
-import { User, UserFormValues } from 'types';
+import { User, UserFormValues } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';

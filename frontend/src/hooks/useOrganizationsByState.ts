@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useAuthContext } from 'context';
-import type { Organization } from 'types';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import type { Organization } from '@/types';
+
+// Utils
 import { getStateAbbreviation } from '@/utils/stringUtils';
+import { logger } from '@/utils/logger';
 
 type UseOrganizationsByStateResult = {
   organizations: Organization[];

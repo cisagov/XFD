@@ -2,18 +2,15 @@
  * Unit tests for CustomPagination component.
  */
 
-// React
-import React from 'react';
-
 // Testing utilities
-import { render, screen, fireEvent } from 'test-utils/test-utils';
+import { render, screen, fireEvent } from '@/test-utils/test-utils';
 import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 
 // MUI DataGrid
 import { GridApi } from '@mui/x-data-grid';
 
 // Components
-import CustomPagination from '../../../components/DataGrid/CustomPagination';
+import CustomPagination from '@/components/DataGrid/CustomPagination';
 
 // Mock the formatDisplayValue utility
 vi.mock('utils/stringUtils', () => ({

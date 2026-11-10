@@ -1,10 +1,19 @@
+// React
 import React from 'react';
-import { render, screen, testUser, waitFor } from 'test-utils';
-import { makeDomainResponse } from '@/test-utils/domains';
-import type { AuthUser } from '../../../context/';
+
+// Testing Library
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
-import { Domains } from '../../../pages/Domains/Domains';
 import userEvent from '@testing-library/user-event';
+
+// Test Utils
+import { makeDomainResponse } from '@/test-utils/domains';
+import { render, screen, testUser, waitFor } from '@/test-utils';
+
+// Context
+import type { AuthUser } from '@/context/';
+
+// Pages
+import { Domains } from '@/pages/Domains/Domains';
 
 const namePool = [
   'example.com',

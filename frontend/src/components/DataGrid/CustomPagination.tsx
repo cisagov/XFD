@@ -8,6 +8,8 @@
  */
 
 import React from 'react';
+
+// Material-UI Components
 import TablePagination from '@mui/material/TablePagination';
 import {
   gridPageSelector,
@@ -18,7 +20,7 @@ import {
 } from '@mui/x-data-grid';
 
 // Utils
-import { formatDisplayValue } from 'utils/stringUtils';
+import { formatDisplayValue } from '@/utils/stringUtils';
 
 /**
  * Custom pagination component for DataGrid with comma-formatted numbers

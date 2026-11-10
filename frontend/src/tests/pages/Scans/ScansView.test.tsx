@@ -1,15 +1,27 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ScansView from '@/pages/Scans/ScansView';
-import { useAuthContext } from 'context';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Pages
+import ScansView from '@/pages/Scans/ScansView';
+
+// Utils
 import { logger } from '@/utils/logger';
+
 const apiGet = vi.fn();
 const apiPost = vi.fn();
 const apiDelete = vi.fn();
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 vi.mock('@/utils/logger', () => ({
@@ -53,7 +65,7 @@ vi.mock('@/components/DataGrid/CustomDataGrid', () => ({
     </div>
   )
 }));
-vi.mock('components/DataGrid/CustomToolbar', () => ({
+vi.mock('@/components/DataGrid/CustomToolbar', () => ({
   default: () => <div data-testid="custom-toolbar" />
 }));
 /**
@@ -101,7 +113,7 @@ vi.mock('@/components/Dialog/ConfirmDialog', () => ({
 ScanForm has its own unit tests. Here, the mock provides a form with a
 representative valid submission payload and invokes ScansView.onSubmit.
 **/
-vi.mock('components/ScanForm', () => ({
+vi.mock('@/components/ScanForm', () => ({
   ScanForm: ({
     onSubmit
   }: {
