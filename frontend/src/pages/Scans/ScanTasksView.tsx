@@ -159,9 +159,11 @@ export const ScanTasksView: React.FC = () => {
   const fetchScanTasks = useCallback(
     async (query: OrgQuery<ScanTask>) => {
       const { page, sort, filters } = query;
+      const requestId = ++requestIdRef.current;
       setIsLoading(true);
       setErrors({});
       try {
+        if (requestId !== requestIdRef.current) return;
         const tableFilters: {
           [key: string]: string | boolean | undefined;
         } = filters
@@ -210,7 +212,9 @@ export const ScanTasksView: React.FC = () => {
           filters: query.filters
         });
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -353,7 +357,7 @@ export const ScanTasksView: React.FC = () => {
   useEffect(() => {
     fetchScanTasks({
       page: 1,
-      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
+      pageSize: paginationModel.pageSize,
       sort: paginationModel.sort,
       filters: paginationModel.filters
     });
@@ -376,6 +380,7 @@ export const ScanTasksView: React.FC = () => {
   const openStatusMenu = Boolean(anchorElStatus);
   const [selectedName, setSelectedName] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const requestIdRef = useRef(0);
   const handleStatusClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElStatus(event.currentTarget);
   };
