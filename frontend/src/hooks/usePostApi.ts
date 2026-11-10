@@ -1,4 +1,4 @@
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 type PostInit = {
   body?: unknown;

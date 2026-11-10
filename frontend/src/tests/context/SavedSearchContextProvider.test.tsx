@@ -1,13 +1,20 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-import { SavedSearchContextProvider } from '@context/SavedSearchContextProvider';
-import { SavedSearchContext } from '@context/SavedSearchContext';
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 
+// Context
+import { SavedSearchContextProvider } from '@/context/SavedSearchContextProvider';
+import { SavedSearchContext } from '@/context/SavedSearchContext';
+
+// Types
 import type { SavedSearch } from '@/types/saved-search';
 
 // ----------------------
@@ -21,7 +28,7 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 const mockApiGet = vi.fn();
-vi.mock('@context/AuthContext', () => ({
+vi.mock('@/context/AuthContext', () => ({
   useAuthContext: () => ({
     apiGet: mockApiGet,
     user: { id: 'user-123' }

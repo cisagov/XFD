@@ -1,15 +1,22 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from 'test-utils';
 import userEvent from '@testing-library/user-event';
+
+// Testing Utilities
+import { render, screen, waitFor } from '@/test-utils';
+
+// Pages
 import { OrganizationForm } from '@/pages/Organizations/OrganizationForm';
 
 // ----- mocks -----
 const mockApiGet = vi.fn();
 const mockLoggerError = vi.fn();
 
-vi.mock('context', async () => {
-  const actualModule = await vi.importActual<any>('context');
+vi.mock('@/context', async () => {
+  const actualModule = await vi.importActual<any>('@/context');
   return {
     ...actualModule,
     useAuthContext: () => ({

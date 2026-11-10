@@ -16,9 +16,9 @@ import { logger } from '@/utils/logger';
 
 // Material-UI Components
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
@@ -26,21 +26,22 @@ import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Local Components & Context
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-import { useAuthContext } from 'context';
-import { ScanForm, ScanFormValues } from 'components/ScanForm';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import {
+  Scan,
+  Organization,
+  ScanSchema,
+  OrganizationTag,
+  OrganizationOption
+} from '@/types';
+import { useAuthContext } from '@/context';
+import { ScanForm, ScanFormValues } from '@/components/ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
 import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 
 interface Errors extends Partial<Scan> {
   global?: string;
   scheduler?: string;
-}
-
-export interface OrganizationOption {
-  label: string;
-  value: string;
 }
 
 export interface ScansRow {

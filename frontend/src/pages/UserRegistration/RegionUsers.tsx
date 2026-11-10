@@ -16,11 +16,11 @@ import {
 } from '@mui/x-data-grid';
 
 // Components
-import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import AlreadyApprovedDialog from '@/components/Dialog/AlreadyApprovedDialog';
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
-import InfoDialog from 'components/Dialog/InfoDialog';
+import { ExportCustomerMetricsButton } from '@/components/Metrics/Widgets/ExportCustomerMetricsButton';
+import InfoDialog from '@/components/Dialog/InfoDialog';
 import { OrganizationSelector } from './OrganizationSelector';
 
 // Constants
@@ -28,7 +28,7 @@ import { initializeUser } from '@/constants/userAndOrgData';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 import { useTheme } from '@mui/material/styles';
 
 // Hooks
@@ -36,10 +36,10 @@ import {
   getPendingUserColumns,
   getMemberUserColumns
 } from './UserRegistrationColumns';
-import { useUserLevel } from 'hooks/useUserLevel';
+import { useUserLevel } from '@/hooks/useUserLevel';
 
 // Types
-import { User } from 'types';
+import { User } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';

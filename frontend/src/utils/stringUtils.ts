@@ -1,4 +1,7 @@
-import { STATE_ABBREVIATED_OPTIONS, STATE_OPTIONS } from '@constants/constants';
+import {
+  STATE_ABBREVIATED_OPTIONS,
+  STATE_OPTIONS
+} from '@/constants/constants';
 
 export function capitalize(str: string | null): string | null {
   if (!str) return str;

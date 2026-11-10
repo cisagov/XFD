@@ -1,10 +1,16 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-import { FilterDrawer } from '@components/FilterDrawer/FilterDrawerV2';
+// Components
+import { FilterDrawer } from '@/components/FilterDrawer/FilterDrawerV2';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 
 // ----------------------
@@ -74,22 +80,22 @@ vi.mock('@mui/material/Button', () => {
 
 const mockMatchPath = vi.fn();
 
-vi.mock('utils/stringUtils', () => ({
+vi.mock('@/utils/stringUtils', () => ({
   matchPath: (routesToMatch: string[], pathname: string) =>
     mockMatchPath(routesToMatch, pathname)
 }));
 
-vi.mock('@components/FilterDrawer/DrawerInterior', () => ({
+vi.mock('@/components/FilterDrawer/DrawerInterior', () => ({
   DrawerInterior: () => <div data-testid="drawer-interior">DrawerInterior</div>
 }));
 
-vi.mock('@components/FilterDrawer/RegionAndOrganizationFilters', () => ({
+vi.mock('@/components/FilterDrawer/RegionAndOrganizationFilters', () => ({
   RegionAndOrganizationFilters: () => (
     <div data-testid="region-org-filters">RegionAndOrganizationFilters</div>
   )
 }));
 
-vi.mock('@components/FilterDrawer/VSDashRegionAndOrgFilters', () => ({
+vi.mock('@/components/FilterDrawer/VSDashRegionAndOrgFilters', () => ({
   VSDashRegionAndOrgFilters: () => (
     <div data-testid="vsdash-region-org-filters">VSDashRegionAndOrgFilters</div>
   )
@@ -104,7 +110,7 @@ vi.mock('@/hooks/useAreFiltersDefault', () => ({
 
 const mockSetActiveSearchId = vi.fn();
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useSavedSearchContext: () => ({
     setActiveSearchId: mockSetActiveSearchId
   })

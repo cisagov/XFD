@@ -1,7 +1,13 @@
 import React from 'react';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
-import InfoLabel from 'components/Dashboard/InfoLabel';
-import { Subnav } from 'components';
+
+// Components
+import InfoLabel from '@/components/Dashboard/InfoLabel';
+import { Subnav } from '@/components';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 
 const tooltipContentJson = [

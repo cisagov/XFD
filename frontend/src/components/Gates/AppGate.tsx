@@ -1,15 +1,22 @@
 import React from 'react';
-import { BoxProps } from '@mui/material/Box';
-// Context & hooks
-import { useAuthContext } from 'context';
-import { useCheckUserState } from 'hooks/useCheckUserState';
-import { useMaintenanceNotifications } from '@/hooks/useMaintenanceNotifications';
 
-// Shared components
-import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
+// Material-UI Components
+import { BoxProps } from '@mui/material/Box';
+
+// Components
+import InvitePendingCard from '@/components/Dialog/InvitePendingCard';
+import { LoginBlockedDialog } from '@/components/LoginBlockedDialog';
 import { UpdateStateForm } from '@/components/UpdateUserStateForm';
-import InvitePendingCard from 'components/Dialog/InvitePendingCard';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import { useCheckUserState } from '@/hooks/useCheckUserState';
+import { useMaintenanceNotifications } from '@/hooks/useMaintenanceNotifications';
 
 export interface VulnSeverities {
   label: string;

@@ -1,17 +1,21 @@
+// React
 import React from 'react';
-import { render, screen } from 'test-utils';
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
-import { useAuthContext } from '@/context';
-import { authCtx } from '@/test-utils/authCtx';
-import { Logs } from '../../../components/Logs/Logs';
-import {
-  regionalAdminUser,
-  globalViewUser,
-  globalAdminUser,
-  testUser
-} from '@/test-utils';
-import { formatTimestamp } from '@/components/Logs/Logs';
+
+// Testing Library
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+
+// Testing Utilities
+import { authCtx } from '@/test-utils/authCtx';
+import { render, screen } from '@/test-utils';
+import { globalAdminUser } from '@/test-utils';
+
+// Components
+import { Logs } from '@/components/Logs/Logs';
+import { formatTimestamp } from '@/components/Logs/Logs';
+
+// Context
+import { useAuthContext } from '@/context';
 
 //Mock hooks
 vi.mock('@/context/AuthContext');

@@ -13,22 +13,22 @@ import RemoveCircleOutline from '@mui/icons-material/RemoveCircleOutline';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Components
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import InfoDialog from 'components/Dialog/InfoDialog';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import InfoDialog from '@/components/Dialog/InfoDialog';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Hooks
-import { useUserLevel, STANDARD_USER, GLOBAL_VIEW } from 'hooks/useUserLevel';
+import { useUserLevel, STANDARD_USER, GLOBAL_VIEW } from '@/hooks/useUserLevel';
 
 // Types
-import { Organization as OrganizationType, Role } from 'types';
+import { Organization as OrganizationType, Role } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';

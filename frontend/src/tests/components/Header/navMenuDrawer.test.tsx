@@ -1,21 +1,28 @@
-// adjust path as needed
+// React
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
+
+// Testing Library
 import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { MemoryRouter } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
 
-import { NavMenuDrawer } from '../../../components/Header/NavMenuDrawer';
+// Components
+import { Header } from '@/components/Header/Header';
+import { NavMenuDrawer } from '@/components/Header/NavMenuDrawer';
+
+// Hooks
 import {
   useUserLevel,
   STANDARD_USER,
   REGIONAL_ADMIN,
   GLOBAL_ADMIN,
   GLOBAL_VIEW
-} from '../../../hooks/useUserLevel';
-import { Header } from '../../../components/Header/Header';
+} from '@/hooks/useUserLevel';
+
+// MUI Styles
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 
 type MenuItemType = any;
 
@@ -80,14 +87,14 @@ const baseMenuItems: { [section: string]: MenuItemType[] }[] = [
   }
 ];
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: () => ({
     apiPost: vi.fn(),
     logout: vi.fn()
   })
 }));
 
-vi.mock('../../../hooks/useUserLevel', () => ({
+vi.mock('@/hooks/useUserLevel', () => ({
   useUserLevel: vi.fn(),
   GLOBAL_ADMIN: 4,
   GLOBAL_VIEW: 3,

@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
-import { ORGANIZATION_FILTER_KEY } from 'components/FilterDrawer/VSDashRegionAndOrgFilters';
-import { OrganizationShallow } from 'components/FilterDrawer/RegionAndOrganizationFilters';
+
+// Constants
+import { ORGANIZATION_FILTER_KEY } from '@/components/FilterDrawer/VSDashRegionAndOrgFilters';
+import { OrganizationShallow } from '@/components/FilterDrawer/RegionAndOrganizationFilters';
 
 export function useOrgInfo(filters: any[], currentOrganization: any) {
   const orgId = useMemo(() => {

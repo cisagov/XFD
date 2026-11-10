@@ -1,24 +1,40 @@
 // frontend/src/App.tsx
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
-import { AuthContextProvider, CFThemeProvider, SearchProvider } from 'context';
-import { ROUTES } from '@/constants/routes';
+
+// Matomo Tracker
 import {
   MatomoProvider,
   createInstance,
   useMatomo
 } from '@jonkoops/matomo-tracker-react';
-import { LayoutWithSearch, Routes, MatomoTracker } from 'components';
+
+// Components
+import { LayoutWithSearch, Routes, MatomoTracker } from '@/components';
+import AppGate from '@/components/Gates/AppGate';
+import TermsGate from '@/components/Gates/TermsGate';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Context
+import {
+  AuthContextProvider,
+  CFThemeProvider,
+  SearchProvider
+} from '@/context';
+import { FilterDrawerContextProvider } from '@/context/FilterDrawerContextProvider';
+import { MuiGlobalStyles } from '@/context/MuiGlobalStyles';
+import { NavigationProvider } from '@/context/NavigationContextProvider';
+import { SavedSearchContextProvider } from '@/context/SavedSearchContextProvider';
+import { StaticsContextProvider } from '@/context/StaticsContextProvider';
+
+// Styles
 import './styles.scss';
-import { StaticsContextProvider } from 'context/StaticsContextProvider';
-import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
-import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
-import { NavigationProvider } from 'context/NavigationContextProvider';
-import { DevInspector } from './utils/devInspector';
-import { openInVSCode } from './utils/openInVSCode';
-import AppGate from './components/Gates/AppGate';
-import TermsGate from './components/Gates/TermsGate';
-import { MuiGlobalStyles } from 'context/MuiGlobalStyles';
+
+// Utils
+import { DevInspector } from '@/utils/devInspector';
+import { openInVSCode } from '@/utils/openInVSCode';
 
 const instance = createInstance({
   urlBase: `${import.meta.env.VITE_API_URL}${ROUTES.MATOMO}`,

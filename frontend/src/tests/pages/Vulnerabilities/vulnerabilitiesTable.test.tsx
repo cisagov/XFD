@@ -1,10 +1,19 @@
+// React
 import React from 'react';
-import { render, screen, testUser, waitFor } from 'test-utils';
-import { makeVulnResponse } from '@/test-utils/vulnerabilities';
+
+// Testing Library
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
-import type { AuthUser } from '../../../context/';
-import Vulnerabilities from '../../../pages/Vulnerabilities/Vulnerabilities';
 import userEvent from '@testing-library/user-event';
+
+// Test Utils
+import { makeVulnResponse } from '@/test-utils/vulnerabilities';
+import { render, screen, testUser, waitFor } from '@/test-utils';
+
+// Context
+import type { AuthUser } from '@/context/';
+
+// Pages
+import Vulnerabilities from '@/pages/Vulnerabilities/Vulnerabilities';
 
 const titlePool = [
   'CVE-2013-4041 Risky Vuln',

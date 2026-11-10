@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
-import type { Organization } from 'types';
-import { useAuthContext } from 'context';
+import type { Organization } from '@/types';
+import { useAuthContext } from '@/context';
 import { ApiError } from '@/hooks/useApi';
 import { jsonResponse } from '@/test-utils/jsonResponse';
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 

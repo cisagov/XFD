@@ -1,15 +1,27 @@
 import React, { useEffect } from 'react';
-import { logger } from '@/utils/logger';
-import { useAuthContext } from 'context';
-import Button from '@mui/material/Button';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
-import { CrossfeedWarning } from 'components/WarningBanner';
+
+// Components
+import { CrossfeedWarning } from '@/components/WarningBanner';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
-import { MaintenanceNotification } from 'types';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { MaintenanceNotification } from '@/types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 const MaintenanceAlert: React.FC<any> = ({ notification }) => {
   if (!notification) return null;

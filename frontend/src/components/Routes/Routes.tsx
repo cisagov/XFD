@@ -1,6 +1,14 @@
 import React from 'react';
 import { Route, Switch } from 'react-router-dom';
-import { RouteGuard } from 'components/Routes/RouteGuard';
+
+// Components
+import { RouteGuard } from '@/components/Routes/RouteGuard';
+import { VulnerabilityScanWithSearch } from '@/components/Gates/VSDashboardGate';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Pages
 import {
   AdminTools,
   AuthLogin,
@@ -16,9 +24,7 @@ import {
   Vulnerability,
   Forbidden,
   NotFound
-} from 'pages';
-import { VulnerabilityScanWithSearch } from '../Gates/VSDashboardGate';
-import { ROUTES } from '@/constants/routes';
+} from '@/pages';
 
 export const Routes: React.FC = () => {
   return (
