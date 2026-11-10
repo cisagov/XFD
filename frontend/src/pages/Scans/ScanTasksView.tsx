@@ -235,6 +235,7 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksCols: GridColDef[] = [
     {
       field: 'id',
+      filterable: false,
       headerName: 'ID',
       minWidth: 100,
       flex: 2,
@@ -521,6 +522,7 @@ export const ScanTasksView: React.FC = () => {
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: []
     }));
   }, []);
