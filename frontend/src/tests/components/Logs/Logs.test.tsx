@@ -8,7 +8,7 @@ const contextMocks = vi.hoisted(() => ({
   useAuthContext: vi.fn()
 }));
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   AuthContext: {
     Provider: ({ children }: { children: React.ReactNode }) => children
   },
@@ -21,7 +21,7 @@ const renderLogs = (apiPost: any) =>
     return render(<Logs />);
   })();
 
-vi.mock('components/DataGrid/CustomToolbar', () => ({
+vi.mock('@/components/DataGrid/CustomToolbar', () => ({
   default: ({ hasActiveFilters }: { hasActiveFilters?: boolean }) => (
     <span data-testid="logs-filter-badge">{String(hasActiveFilters)}</span>
   )
