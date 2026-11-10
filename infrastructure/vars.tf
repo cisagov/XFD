@@ -868,6 +868,79 @@ variable "was_reporting_reports_kms_key_arn" {
   }
 }
 
+variable "techops_reports" {
+  description = "Reviewed settings for sharing the existing WAS reports bucket with CyHy. Producer uploads can be enabled without reader roles; add approved reader roles separately when analyst downloads are needed."
+  type = object({
+    enabled                                         = bool
+    kms_key_arn                                     = string
+    producer_role_arns                              = set(string)
+    reader_role_arns                                = set(string)
+    existing_bucket_policy_json                     = string
+    manage_retention                                = bool
+    existing_lifecycle_configuration_reviewed_empty = bool
+  })
+
+  default = {
+    enabled                                         = false
+    kms_key_arn                                     = ""
+    producer_role_arns                              = []
+    reader_role_arns                                = []
+    existing_bucket_policy_json                     = ""
+    manage_retention                                = false
+    existing_lifecycle_configuration_reviewed_empty = false
+  }
+
+  # Keeping these dependent inputs together permits fail-closed validation
+  # with the Terraform 1.0.7 version used by the existing pipeline.
+  validation {
+    condition = try(var.techops_reports.enabled ? (
+      substr(var.techops_reports.kms_key_arn, 0, length("arn:aws:kms:us-east-1:957221700844:key/")) == "arn:aws:kms:us-east-1:957221700844:key/" &&
+      length(split("/", var.techops_reports.kms_key_arn)) == 2 &&
+      length(split("/", var.techops_reports.kms_key_arn)[1]) > 0 &&
+      replace(var.techops_reports.kms_key_arn, "*", "") == var.techops_reports.kms_key_arn &&
+      replace(var.techops_reports.kms_key_arn, "?", "") == var.techops_reports.kms_key_arn &&
+      length(var.techops_reports.producer_role_arns) > 0 &&
+      alltrue([
+        for role_arn in concat(tolist(var.techops_reports.producer_role_arns), tolist(var.techops_reports.reader_role_arns)) : try(
+          length(split(":", role_arn)) == 6 &&
+          substr(role_arn, 0, 13) == "arn:aws:iam::" &&
+          length(split(":", role_arn)[4]) == 12 &&
+          alltrue([
+            for account_digit in split("", split(":", role_arn)[4]) :
+            contains(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], account_digit)
+          ]) &&
+          substr(split(":", role_arn)[5], 0, 5) == "role/" &&
+          length(split(":", role_arn)[5]) > 5 &&
+          replace(role_arn, "*", "") == role_arn &&
+          replace(role_arn, "?", "") == role_arn, false
+        )
+      ]) &&
+      jsondecode(var.techops_reports.existing_bucket_policy_json).Version == "2012-10-17" &&
+      alltrue([
+        for statement in flatten([jsondecode(var.techops_reports.existing_bucket_policy_json).Statement]) : try(
+          contains(["Allow", "Deny"], statement.Effect) &&
+          can(statement.Principal) != can(statement.NotPrincipal) &&
+          can(statement.Action) != can(statement.NotAction) &&
+          can(statement.Resource) != can(statement.NotResource) &&
+          length(flatten([try(statement.Action, statement.NotAction)])) > 0 &&
+          alltrue([
+            for action in flatten([try(statement.Action, statement.NotAction)]) :
+            action == "*" || substr(action, 0, 3) == "s3:"
+          ]) &&
+          length(flatten([try(statement.Resource, statement.NotResource)])) > 0 &&
+          alltrue([
+            for resource_arn in flatten([try(statement.Resource, statement.NotResource)]) :
+            resource_arn == "*" || substr(resource_arn, 0, 13) == "arn:aws:s3:::"
+          ]) &&
+          try(substr(statement.Sid, 0, length("TechOpsReports")) != "TechOpsReports", true), false
+        )
+      ]) &&
+      (!var.techops_reports.manage_retention || var.techops_reports.existing_lifecycle_configuration_reviewed_empty)
+    ) : true, false)
+    error_message = "Enabling TechOps sharing requires the exact us-east-1 CMK in account 957221700844, exact producer role ARNs, and the original valid S3 bucket policy (not a KMS or generated TechOps policy). Reader roles are optional but must be exact role ARNs when supplied. Retention additionally requires confirmation that there are no existing lifecycle rules to replace."
+  }
+}
+
 variable "was_reporting_ses_role_arn" {
   description = "Exact IAM role ARN the WAS reporting instance may assume for SES delivery."
   type        = string
