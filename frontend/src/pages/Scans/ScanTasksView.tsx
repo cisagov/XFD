@@ -160,13 +160,15 @@ export const ScanTasksView: React.FC = () => {
     items: []
   });
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
-
+  const requestIdRef = useRef(0);
   const fetchScanTasks = useCallback(
     async (query: OrgQuery<ScanTask>) => {
       const { page, sort, filters } = query;
       setIsLoading(true);
       setErrors({});
+      const requestId = ++requestIdRef.current;
       try {
+        if (requestId !== requestIdRef.current) return;
         const tableFilters: {
           [key: string]: string | boolean | undefined;
         } = filters
@@ -215,7 +217,9 @@ export const ScanTasksView: React.FC = () => {
           filters: query.filters
         });
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -240,6 +244,7 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksCols: GridColDef[] = [
     {
       field: 'id',
+      filterable: false,
       headerName: 'ID',
       minWidth: 150,
       flex: 2,
@@ -357,7 +362,7 @@ export const ScanTasksView: React.FC = () => {
   useEffect(() => {
     fetchScanTasks({
       page: 1,
-      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
+      pageSize: paginationModel.pageSize,
       sort: paginationModel.sort,
       filters: paginationModel.filters
     });
@@ -526,6 +531,7 @@ export const ScanTasksView: React.FC = () => {
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: []
     }));
   }, []);
@@ -537,79 +543,78 @@ export const ScanTasksView: React.FC = () => {
           {errors.global}
         </Alert>
       )}
-      {isLoading ? (
-        <Paper elevation={2}>
+      {isLoading && (
+        <Paper elevation={2} sx={{ mb: 2 }}>
           <Alert severity="info">Loading Scan History...</Alert>
         </Paper>
-      ) : (
-        <Paper elevation={2} sx={{ width: '100%' }}>
-          <CustomDataGrid
-            rows={scansTasksRows}
-            rowCount={totalResults}
-            columns={scansTasksCols}
-            loading={isLoading}
-            slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
-            slotProps={{
-              toolbar: {
-                children: [scanNameDropdown, scanStatusDropdown].map(
-                  (child, index) => <Box key={index}>{child}</Box>
-                ),
-                exportTitle: 'Scans',
-                hasActiveFilters
-              } as any,
-              basePopper: {
-                placement: 'bottom-start'
-              }
-            }}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            onPaginationModelChange={(model) => {
-              fetchScanTasks({
-                page: model.page + 1,
-                pageSize: model.pageSize,
-                sort: paginationModel.sort,
-                filters: paginationModel.filters
-              });
-            }}
-            filterMode="server"
-            filterModel={filterModel}
-            onFilterModelChange={(model) => {
-              const cleanedModel = cleanFilterModelItems(model, filterModel);
-              const emptyModel = isFilterModelEmpty(cleanedModel);
-              const dropdownFilters = paginationModel.filters.filter(
-                (filter) => filter.id === 'name' || filter.id === 'status'
-              );
-              const nextFilters = [
-                ...dropdownFilters,
-                ...cleanedModel.items.map((item) => ({
-                  id: item.field,
-                  value: item.value
-                }))
-              ];
-
-              setFilterModel(cleanedModel);
-              setHasActiveFilters(!emptyModel || dropdownFilters.length > 0);
-
-              if (filterTimerRef.current) {
-                clearTimeout(filterTimerRef.current);
-                filterTimerRef.current = null;
-              }
-
-              filterTimerRef.current = window.setTimeout(() => {
-                setPaginationModel((prev) => ({
-                  ...prev,
-                  page: 0,
-                  filters: nextFilters
-                }));
-                filterTimerRef.current = null;
-              }, SERVER_FILTER_DEBOUNCE_MS);
-            }}
-            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
-            disableRowSelectionOnClick
-            showToolbar
-          />
-        </Paper>
       )}
+      <Paper elevation={2} sx={{ width: '100%' }}>
+        <CustomDataGrid
+          rows={scansTasksRows}
+          rowCount={totalResults}
+          columns={scansTasksCols}
+          loading={isLoading}
+          slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
+          slotProps={{
+            toolbar: {
+              children: [scanNameDropdown, scanStatusDropdown].map(
+                (child, index) => <Box key={index}>{child}</Box>
+              ),
+              exportTitle: 'Scans',
+              hasActiveFilters
+            } as any,
+            basePopper: {
+              placement: 'bottom-start'
+            }
+          }}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={(model) => {
+            fetchScanTasks({
+              page: model.page + 1,
+              pageSize: model.pageSize,
+              sort: paginationModel.sort,
+              filters: paginationModel.filters
+            });
+          }}
+          filterMode="server"
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            const emptyModel = isFilterModelEmpty(cleanedModel);
+            const dropdownFilters = paginationModel.filters.filter(
+              (filter) => filter.id === 'name' || filter.id === 'status'
+            );
+            const nextFilters = [
+              ...dropdownFilters,
+              ...cleanedModel.items.map((item) => ({
+                id: item.field,
+                value: item.value
+              }))
+            ];
+
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!emptyModel || dropdownFilters.length > 0);
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+              filterTimerRef.current = null;
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: 0,
+                filters: nextFilters
+              }));
+              filterTimerRef.current = null;
+            }, SERVER_FILTER_DEBOUNCE_MS);
+          }}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+          disableRowSelectionOnClick
+          showToolbar
+        />
+      </Paper>
       {scanTasks?.length === 0 && !isLoading && (
         <MuiButton
           aria-label="Reset scan table"
