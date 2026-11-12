@@ -328,6 +328,7 @@ export const ScanTasksView: React.FC = () => {
     },
     {
       field: 'details',
+      filterable: false,
       headerName: 'Details',
       minWidth: 50,
       flex: 0.5,
@@ -359,13 +360,14 @@ export const ScanTasksView: React.FC = () => {
 
   useEffect(() => {
     fetchScanTasks({
-      page: 1,
+      page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
       sort: paginationModel.sort,
       filters: paginationModel.filters
     });
   }, [
     fetchScanTasks,
+    paginationModel.page,
     paginationModel.sort,
     paginationModel.filters,
     paginationModel.pageSize
@@ -398,6 +400,7 @@ export const ScanTasksView: React.FC = () => {
   const handleNameSelect = (name: string) => {
     setPaginationModel((prev) => ({
       ...prev,
+      page: 0,
       filters: [
         ...prev.filters.filter((f) => f.id !== 'name'),
         { id: 'name', value: name }
@@ -410,6 +413,7 @@ export const ScanTasksView: React.FC = () => {
   const handleStatusSelect = (status: string) => {
     setPaginationModel((prev) => ({
       ...prev,
+      page: 0,
       filters: [
         ...prev.filters.filter((f) => f.id !== 'status'),
         { id: 'status', value: status }
@@ -573,12 +577,11 @@ export const ScanTasksView: React.FC = () => {
           paginationMode="server"
           paginationModel={paginationModel}
           onPaginationModelChange={(model) => {
-            fetchScanTasks({
-              page: model.page + 1,
-              pageSize: model.pageSize,
-              sort: paginationModel.sort,
-              filters: paginationModel.filters
-            });
+            setPaginationModel((prev) => ({
+              ...prev,
+              page: model.page,
+              pageSize: model.pageSize
+            }));
           }}
           filterMode="server"
           filterModel={filterModel}
