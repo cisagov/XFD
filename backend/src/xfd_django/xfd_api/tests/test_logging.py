@@ -113,6 +113,21 @@ class LoggingTestCase(SimpleTestCase):
         self.assertEqual(data["organization_name"], "Example Org")
         self.assertEqual(data["organization_id"], "org-1")
 
+    def test_log_context_clearing_organization_removes_fields(self):
+        """Verify clearing org context stops it leaking into later logs."""
+        context = install_log_context(loggers=[self.logger], scan_name="shodan")
+        context.update(organization_name="Example Org", organization_id="org-1")
+        self.task_logger.info("Processing organization")
+
+        context.update(organization_name=None, organization_id=None)
+        self.logger.info("No more messages in the queue.")
+
+        org_log, queue_log = self._records()
+        self.assertEqual(org_log["organization_name"], "Example Org")
+        self.assertNotIn("organization_name", queue_log)
+        self.assertNotIn("organization_id", queue_log)
+        self.assertEqual(queue_log["scan_name"], "shodan")
+
     def test_explicit_extra_overrides_context(self):
         """Verify fields passed via extra= take precedence over the filter."""
         self.handler.addFilter(LogContextFilter(scan_name="shodan"))

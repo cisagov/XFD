@@ -257,6 +257,10 @@ def main():
         return
 
     while True:
+        # Clear the previous organization so queue-level logs (SQS errors,
+        # malformed messages, "no more messages") aren't tagged with it.
+        log_context.update(organization_name=None, organization_id=None)
+
         message_data = get_message(full_queue_path_name)
         if not message_data:
             LOGGER.info("No more messages in the queue.")
