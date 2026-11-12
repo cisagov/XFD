@@ -60,8 +60,8 @@ describe('Vulnerabilities component', () => {
       }
     });
 
-    const loadingText = await screen.findByText(/loading vulnerabilities../i);
-    expect(loadingText).toBeInTheDocument();
+    const gridWhileLoading = await screen.findByRole('grid');
+    expect(gridWhileLoading).toBeInTheDocument();
 
     resolveApi!(sampleResponse);
 

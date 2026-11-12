@@ -261,11 +261,12 @@ describe('useApi hook tests', () => {
     });
 
     it('returns blob data and response headers when requested', async () => {
-      const csv = new Blob(['name\nexample'], { type: 'text/csv' });
-
       vi.mocked(global.fetch).mockResolvedValueOnce(
-        new Response(csv, {
-          headers: { 'Content-Disposition': 'attachment; filename="data.csv"' }
+        new Response('name\nexample', {
+          headers: {
+            'Content-Disposition': 'attachment; filename="data.csv"',
+            'Content-Type': 'text/csv'
+          }
         })
       );
 

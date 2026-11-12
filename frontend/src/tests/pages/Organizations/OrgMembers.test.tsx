@@ -38,10 +38,11 @@ vi.mock('@/context/AuthContext');
 
 // Mock CustomToolbar to check if disableExport prop is passed correctly
 vi.mock('@/components/DataGrid/CustomToolbar', () => ({
-  default: ({ disableExport, exportTitle }: any) => (
+  default: ({ disableExport, exportTitle, hasActiveFilters }: any) => (
     <div data-testid="custom-toolbar">
       <span data-testid="disable-export">{String(disableExport)}</span>
       <span data-testid="export-title">{exportTitle}</span>
+      <span data-testid="has-active-filters">{String(hasActiveFilters)}</span>
       {!disableExport && <button data-testid="export-button">Export</button>}
     </div>
   )
@@ -259,6 +260,20 @@ describe('OrgMembers Component', () => {
 
       const exportTitle = screen.getByTestId('export-title');
       expect(exportTitle.textContent).toBe('Test Organization Members');
+    });
+
+    it('should render the filter badge as inactive initially', () => {
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      expect(screen.getByTestId('has-active-filters').textContent).toBe(
+        'false'
+      );
     });
 
     it('should render remove buttons for each member if Global Admin', () => {
