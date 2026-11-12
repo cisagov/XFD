@@ -49,15 +49,8 @@ import {
   DEFAULT_DATA_GRID_PAGE_SIZE,
   SERVER_FILTER_DEBOUNCE_MS
 } from '@/constants/dataGrid';
-// Constants & Utils
-import {
-  DATA_GRID_PAGE_SIZE_OPTIONS,
-  DEFAULT_DATA_GRID_PAGE_SIZE,
-  SERVER_FILTER_DEBOUNCE_MS
-} from '@/constants/dataGrid';
 import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
-import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 // Third Party libraries
@@ -197,7 +190,6 @@ export const ScanTasksView: React.FC = () => {
           {
             body: {
               page,
-              pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
               pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
               sort: sort[0]?.id ?? 'created_at',
               order: 'DESC',
@@ -363,7 +355,6 @@ export const ScanTasksView: React.FC = () => {
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
-    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
     pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
     sort: [],
     filters: [] as { id: string; value: any }[]
