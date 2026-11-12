@@ -1,6 +1,6 @@
 -e external/pshtt
 aiohappyeyeballs==2.5.0
-cryptography==46.0.5
+cryptography==50.0.0
 h11==0.16.0
 mitmproxy==12.2.2
 nested_lookup==0.2.25
