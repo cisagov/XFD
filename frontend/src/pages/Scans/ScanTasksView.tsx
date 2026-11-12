@@ -411,7 +411,6 @@ export const ScanTasksView: React.FC = () => {
     setAnchorElName(null);
     setSelectedName(name);
     setHasActiveFilters(true);
-    setHasActiveFilters(true);
   };
   const handleStatusSelect = (status: string) => {
     setPaginationModel((prev) => ({
@@ -424,7 +423,6 @@ export const ScanTasksView: React.FC = () => {
     }));
     setAnchorElStatus(null);
     setSelectedStatus(status);
-    setHasActiveFilters(true);
     setHasActiveFilters(true);
   };
   const scanNameValues = [
