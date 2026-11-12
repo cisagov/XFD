@@ -70,6 +70,7 @@ export interface ScansTaskRow {
   id: string;
   status: string;
   name: string;
+  concurrency_index: number | Int16Array<ArrayBufferLike>;
   input: string;
   output: string;
   created_at: string;
@@ -196,6 +197,7 @@ export const ScanTasksView: React.FC = () => {
         );
         if (requestId !== requestIdRef.current) return;
         setScanTasks(result);
+        console.log(result);
         setTotalResults(count);
         setPaginationModel((prev) => ({
           ...prev,
@@ -225,7 +227,8 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksRows: ScansTaskRow[] = scanTasks.map((scanTask) => ({
     id: scanTask.id,
     status: scanTask.status,
-    name: `${scanTask.scan?.name ?? 'None'}-${scanTask.concurrency_index ?? 1}`,
+    name: `${scanTask.scan?.name ?? 'None'}`,
+    concurrency_index: scanTask.concurrency_index ?? 1,
     input: scanTask.input,
     output: scanTask.output,
     created_at: dateAccessor(scanTask.created_at),
@@ -242,7 +245,7 @@ export const ScanTasksView: React.FC = () => {
       filterable: false,
       headerName: 'ID',
       minWidth: 150,
-      flex: 2,
+      flex: 1.5,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
@@ -258,7 +261,7 @@ export const ScanTasksView: React.FC = () => {
     {
       field: 'status',
       headerName: 'Status',
-      minWidth: 100,
+      minWidth: 80,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -275,7 +278,7 @@ export const ScanTasksView: React.FC = () => {
     {
       field: 'name',
       headerName: 'Name',
-      minWidth: 150,
+      minWidth: 100,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -290,9 +293,28 @@ export const ScanTasksView: React.FC = () => {
       }
     },
     {
+      field: 'concurrency_index',
+      headerName: 'Concurrency',
+      filterable: false,
+      minWidth: 80,
+      flex: 0.5,
+      filterOperators: textFilterOperators,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Concurrency Index for Scan Task ${cellValues.row.id}: ${cellValues.row.concurrency_index}`}
+          >
+            {cellValues.row.concurrency_index}
+          </Box>
+        );
+      }
+    },
+    {
       field: 'created_at',
+      filterable: false,
       headerName: 'Created At',
-      minWidth: 150,
+      minWidth: 100,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -308,8 +330,9 @@ export const ScanTasksView: React.FC = () => {
     },
     {
       field: 'finished_at',
+      filterable: false,
       headerName: 'Finished At',
-      minWidth: 150,
+      minWidth: 100,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
