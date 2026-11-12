@@ -73,7 +73,11 @@ import {
   shouldTriggerFilterUpdate
 } from '@/utils/tableUtils';
 
-const PAGE_SIZE = 15;
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 
 interface VulnerabilitiesProps {
   group_by?: string;
@@ -110,7 +114,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
-    pageSize: PAGE_SIZE
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
   });
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
@@ -127,6 +131,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       const extracted = extractInitialFilters(state);
       setFilters(extracted);
       setPreloadedFiltersActive(extracted.length > 0);
+      setHasActiveFilters(extracted.length > 0);
     }
   }, [state]);
 
@@ -134,7 +139,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     async ({
       filters,
       page,
-      pageSize = PAGE_SIZE,
+      pageSize = DEFAULT_DATA_GRID_PAGE_SIZE,
       order,
       sort,
       doExport = false,
@@ -192,7 +197,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
           page: query.page,
-          pageSize: query.pageSize ?? PAGE_SIZE,
+          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
           order: query.order,
           sort: query.sort,
           group_by,
@@ -206,7 +211,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE
+            pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -216,7 +221,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         setPaginationModel((prevState) => ({
           ...prevState,
           page: query.page - 1,
-          pageSize: query.pageSize ?? PAGE_SIZE
+          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE
         }));
         setLoadingError(false);
       } catch (e) {
@@ -239,6 +244,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     setPreloadedFiltersActive(false);
     setFilters([]);
     setFilterModel({ items: [] });
+    setHasActiveFilters(false);
     if (filterTimerRef.current) {
       clearTimeout(filterTimerRef.current);
       filterTimerRef.current = null;
@@ -246,11 +252,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      pageSize: PAGE_SIZE
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
     }));
     fetchVulnerabilities({
       page: 1,
-      pageSize: PAGE_SIZE,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: [],
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
@@ -677,12 +683,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           </Stack>
         </Box>
       )}
-      <Box mb={3} display="flex" justifyContent="center">
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Vulnerabilities..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
+      <Box mb={3} display="flex" flexDirection="column" alignItems="center">
+        {loadingError && (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Vulnerabilities!</Alert>
@@ -705,105 +707,105 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               Retry
             </Button>
           </Stack>
-        ) : isLoading === false && loadingError === false ? (
-          <Paper
-            elevation={2}
-            sx={{ width: '100%', minHeight: 500 }}
-            aria-label="Vulnerabilities Table"
-          >
-            <CustomDataGrid<VulnerabilityRow>
-              rows={vulRows}
-              rowCount={totalResults}
-              columns={vulCols}
-              loading={isLoading}
-              columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={(model) =>
-                setColumnVisibilityModel(model)
+        )}
+        <Paper
+          elevation={2}
+          sx={{ width: '100%', minHeight: 200 }}
+          aria-label="Vulnerabilities Table"
+        >
+          <CustomDataGrid<VulnerabilityRow>
+            rows={vulRows}
+            rowCount={totalResults}
+            columns={vulCols}
+            loading={isLoading}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(model) =>
+              setColumnVisibilityModel(model)
+            }
+            filterMode="server"
+            filterModel={filterModel}
+            onFilterModelChange={(model) => {
+              const cleanedModel = cleanFilterModelItems(model, filterModel);
+              const emptyModel = isFilterModelEmpty(cleanedModel);
+              setFilterModel(cleanedModel);
+              setHasActiveFilters(!emptyModel);
+
+              const shouldUpdate = shouldTriggerFilterUpdate(
+                cleanedModel.items,
+                filterModel.items
+              );
+
+              if (!shouldUpdate) {
+                return;
               }
-              filterMode="server"
-              filterModel={filterModel}
-              onFilterModelChange={(model) => {
-                const cleanedModel = cleanFilterModelItems(model, filterModel);
-                const emptyModel = isFilterModelEmpty(cleanedModel);
-                setFilterModel(cleanedModel);
-                setHasActiveFilters(!emptyModel);
 
-                const shouldUpdate = shouldTriggerFilterUpdate(
-                  cleanedModel.items,
-                  filterModel.items
-                );
+              if (filterTimerRef.current) {
+                clearTimeout(filterTimerRef.current);
+                filterTimerRef.current = null;
+              }
 
-                if (!shouldUpdate) {
-                  return;
-                }
-
-                if (filterTimerRef.current) {
-                  clearTimeout(filterTimerRef.current);
-                  filterTimerRef.current = null;
-                }
-
-                if (emptyModel) {
-                  setFilters([]);
-                  return;
-                }
-
-                filterTimerRef.current = window.setTimeout(() => {
-                  setIsLoading(true);
-                  setFilters(cleanedModel.items);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  filterTimerRef.current = null;
-                }, 500);
-              }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                setPaginationModel((prev) => ({
-                  ...prev,
-                  page: model.page,
-                  pageSize: model.pageSize
-                }));
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
-              sortModel={sortModel}
-              sortingMode="server"
-              onSortModelChange={(model) => {
-                setSortModel(model);
+              if (emptyModel) {
+                setFilters([]);
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              slots={{
-                toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay,
-                pagination: CustomPagination
-              }}
-              slotProps={{
-                toolbar: {
-                  children: onlyOpenVulns
-                    ? showAllVulnsButton
-                    : showOpenVulnsButton,
-                  exportTitle: 'Vulnerabilities',
-                  hasActiveFilters: hasActiveFilters
-                } as any,
-                noRowsOverlay: { children: noRowsOverlay },
-                basePopper: {
-                  placement: 'bottom-start'
-                },
-                columnsManagement: {
-                  disableResetButton: true,
-                  getTogglableColumns: (columns) => {
-                    const alwaysVisible = ['title'];
-                    return columns
-                      .filter(
-                        (col) => col.field && !alwaysVisible.includes(col.field)
-                      )
-                      .map((col) => col.field as string);
-                  }
+                return;
+              }
+
+              filterTimerRef.current = window.setTimeout(() => {
+                setIsLoading(true);
+                setFilters(cleanedModel.items);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                filterTimerRef.current = null;
+              }, SERVER_FILTER_DEBOUNCE_MS);
+            }}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: model.page,
+                pageSize: model.pageSize
+              }));
+            }}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+            sortModel={sortModel}
+            sortingMode="server"
+            onSortModelChange={(model) => {
+              setSortModel(model);
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+            }}
+            slots={{
+              toolbar: CustomToolbar,
+              noRowsOverlay: CustomNoRowsOverlay,
+              pagination: CustomPagination
+            }}
+            slotProps={{
+              toolbar: {
+                children: onlyOpenVulns
+                  ? showAllVulnsButton
+                  : showOpenVulnsButton,
+                exportTitle: 'Vulnerabilities',
+                hasActiveFilters: hasActiveFilters
+              } as any,
+              noRowsOverlay: { children: noRowsOverlay },
+              basePopper: {
+                placement: 'bottom-start'
+              },
+              columnsManagement: {
+                disableResetButton: true,
+                getTogglableColumns: (columns) => {
+                  const alwaysVisible = ['title'];
+                  return columns
+                    .filter(
+                      (col) => col.field && !alwaysVisible.includes(col.field)
+                    )
+                    .map((col) => col.field as string);
                 }
-              }}
-              disableRowSelectionOnClick
-              showToolbar
-            />
-          </Paper>
-        ) : null}
+              }
+            }}
+            disableRowSelectionOnClick
+            showToolbar
+          />
+        </Paper>
       </Box>
     </Box>
   );

@@ -1,5 +1,5 @@
 // React
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 // Date utilities
 import { toZonedTime } from 'date-fns-tz';
@@ -15,9 +15,11 @@ import Paper from '@mui/material/Paper';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import {
+import type {
   GridColDef,
   GridFilterItem,
+  GridFilterModel,
+  GridPaginationModel,
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 
@@ -30,8 +32,14 @@ import { useAuthContext } from '@/context';
 
 // Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 interface LogsProps {}
 
@@ -42,8 +50,6 @@ interface LogDetails {
   result: string;
   payload: any;
 }
-
-const PAGE_SIZE = 15;
 
 export const formatTimestamp = (timestamp: string): string | null => {
   if (!timestamp) return 'N/A';
@@ -64,6 +70,17 @@ export const formatTimestamp = (timestamp: string): string | null => {
 export const Logs: FC<LogsProps> = () => {
   const { apiPost } = useAuthContext();
   const [filters, setFilters] = useState<Array<GridFilterItem>>([]);
+  const filterTimerRef = useRef<number | null>(null);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingError, setLoadingError] = useState(false);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
+  });
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogDetails, setDialogDetails] = useState<LogDetails | null>(null);
   const [logs, setLogs] = useState<{
@@ -107,16 +124,15 @@ export const Logs: FC<LogsProps> = () => {
       {} as { [key: string]: { value: any; operator: any } }
     );
 
-    const endpoint =
-      Object.keys(tableFilters).length > 0
-        ? ENDPOINTS.LOGS_FILTERED_SEARCH
-        : ENDPOINTS.LOGS_SEARCH;
-
+    setIsLoading(true);
+    setLoadingError(false);
     try {
-      const body =
-        endpoint === ENDPOINTS.LOGS_FILTERED_SEARCH
-          ? { page: 1, page_size: PAGE_SIZE, filters: tableFilters }
-          : {};
+      const endpoint = ENDPOINTS.LOGS_FILTERED_SEARCH;
+      const body = {
+        page: paginationModel.page + 1,
+        page_size: paginationModel.pageSize,
+        filters: tableFilters
+      };
       const results = await apiPost<{ count: number; result: LogDetails[] }>(
         endpoint,
         { body }
@@ -127,7 +143,7 @@ export const Logs: FC<LogsProps> = () => {
           endpoint,
           results
         });
-        setLogs({ count: 0, result: [] });
+        setLoadingError(true);
         return;
       }
 
@@ -140,14 +156,28 @@ export const Logs: FC<LogsProps> = () => {
 
       setLogs({ count: results.count, result: rowsWithId });
     } catch (e) {
-      logger.error('Logs.fetchLogs: Fetch failed', { error: e, endpoint });
-      setLogs({ count: 0, result: [] });
+      logger.error('Logs.fetchLogs: Fetch failed', {
+        error: e,
+        endpoint: ENDPOINTS.LOGS_FILTERED_SEARCH
+      });
+      setLoadingError(true);
+    } finally {
+      setIsLoading(false);
     }
-  }, [apiPost, filters]);
+  }, [apiPost, filters, paginationModel.page, paginationModel.pageSize]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const logCols: GridColDef[] = [
     {
@@ -460,10 +490,30 @@ export const Logs: FC<LogsProps> = () => {
   return (
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
+        {loadingError && <Alert severity="warning">Error Loading Logs!</Alert>}
         <CustomDataGrid
           rows={logs.result}
+          rowCount={logs.count}
           columns={logCols}
           filterMode="server"
+          loading={isLoading}
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!isFilterModelEmpty(cleanedModel));
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+              filterTimerRef.current = null;
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              setFilters(cleanedModel.items);
+              filterTimerRef.current = null;
+            }, SERVER_FILTER_DEBOUNCE_MS);
+          }}
           slots={{
             toolbar: CustomToolbar
           }}
@@ -472,14 +522,15 @@ export const Logs: FC<LogsProps> = () => {
               placement: 'bottom-start'
             },
             toolbar: {
-              disableExport: true
+              disableExport: true,
+              exportTitle: 'User Logs',
+              hasActiveFilters
             } as any
           }}
-          onFilterModelChange={(model) => {
-            setFilters(model.items);
-          }}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
           initialState={{
-            pagination: { paginationModel: { pageSize: PAGE_SIZE } },
             sorting: {
               sortModel: [{ field: 'created_at', sort: 'desc' }]
             },
@@ -493,7 +544,7 @@ export const Logs: FC<LogsProps> = () => {
               }
             }
           }}
-          pageSizeOptions={[15, 30, 50, 100]}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
           disableRowSelectionOnClick
           showToolbar
         />

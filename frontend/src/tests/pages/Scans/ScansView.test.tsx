@@ -41,6 +41,9 @@ vi.mock('@/components/DataGrid/CustomDataGrid', () => ({
   default: ({ rows, columns, slotProps }: any) => (
     <div data-testid="custom-data-grid">
       <div data-testid="grid-toolbar">{slotProps?.toolbar?.children}</div>
+      <span data-testid="has-active-filters">
+        {String(slotProps?.toolbar?.hasActiveFilters)}
+      </span>
       {rows.map((row: Record<string, unknown>) => (
         <div key={String(row.id)} data-testid={`scan-row-${row.id}`}>
           {columns.map((column: any) => (
@@ -211,6 +214,7 @@ describe('ScansView', () => {
     expect(
       screen.getByLabelText('Description for test-scan scan: A test scan')
     ).toBeInTheDocument();
+    expect(screen.getByTestId('has-active-filters').textContent).toBe('false');
   });
   it('shows an empty-state message and allows a user to create a scan when no scans exist', async () => {
     const user = userEvent.setup();

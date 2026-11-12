@@ -56,7 +56,11 @@ import { logger } from '@/utils/logger';
 import { extractInitialFilters } from '@/utils/tableUtils';
 import { formatDisplayValue } from '@/utils/stringUtils';
 
-const PAGE_SIZE = 15;
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 
 export interface DomainRow {
   id: string;
@@ -123,10 +127,11 @@ export const Domains: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
   const filterTimerRef = useRef<number | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
-    pageSize: PAGE_SIZE
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
@@ -135,6 +140,7 @@ export const Domains: React.FC = () => {
       const extracted = extractInitialFilters(state);
       setFilters(extracted);
       setPreloadedFiltersActive(extracted.length > 0);
+      setHasActiveFilters(extracted.length > 0);
     }
   }, [state]);
 
@@ -150,7 +156,7 @@ export const Domains: React.FC = () => {
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE
+            pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -160,7 +166,7 @@ export const Domains: React.FC = () => {
         setPaginationModel((prevState) => ({
           ...prevState,
           page: q.page - 1,
-          pageSize: q.pageSize ?? PAGE_SIZE
+          pageSize: q.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE
         }));
       } catch (e) {
         logger.error('Domains.fetchDomains failed:', {
@@ -210,15 +216,20 @@ export const Domains: React.FC = () => {
     setPreloadedFiltersActive(false);
     setFilters([]);
     setFilterModel({ items: [] });
+    setHasActiveFilters(false);
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
+      filterTimerRef.current = null;
+    }
     setSortModel([]);
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      pageSize: PAGE_SIZE
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
     }));
     fetchDomains({
       page: 1,
-      pageSize: PAGE_SIZE,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: [],
       order: undefined,
       sort: undefined
@@ -506,12 +517,8 @@ export const Domains: React.FC = () => {
           </Stack>
         </Box>
       )}
-      <Box mb={3} display="flex" justifyContent="center">
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Domains..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
+      <Box mb={3} display="flex" flexDirection="column" alignItems="center">
+        {loadingError && (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Domains!</Alert>
@@ -533,107 +540,110 @@ export const Domains: React.FC = () => {
               Retry
             </Button>
           </Stack>
-        ) : isLoading === false && loadingError === false ? (
-          <Paper
-            elevation={2}
-            sx={{ width: '100%', minHeight: 500 }}
-            aria-label="Domains Table"
-          >
-            <CustomDataGrid<DomainRow>
-              rows={domRows}
-              rowCount={totalResults}
-              columns={domCols}
-              columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={(model) =>
-                setColumnVisibilityModel(model)
+        )}
+        <Paper
+          elevation={2}
+          sx={{ width: '100%', minHeight: 200 }}
+          aria-label="Domains Table"
+        >
+          <CustomDataGrid<DomainRow>
+            rows={domRows}
+            rowCount={totalResults}
+            columns={domCols}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(model) =>
+              setColumnVisibilityModel(model)
+            }
+            loading={isLoading}
+            filterMode="server"
+            filterModel={filterModel}
+            onFilterModelChange={(model) => {
+              const mappedModel = model.items.map((item) => ({
+                ...item,
+                value:
+                  typeof item.value === 'string'
+                    ? item.value.trim()
+                    : item.value
+              }));
+              const modelWithTrimmedValues = {
+                ...model,
+                items: mappedModel
+              };
+              setFilterModel(modelWithTrimmedValues);
+              const mappedFilters = modelWithTrimmedValues.items
+                .map((item) => ({
+                  field: item.field,
+                  operator: item.operator,
+                  value: item.value
+                }))
+                .filter(
+                  (item) =>
+                    item.value !== undefined &&
+                    item.value !== null &&
+                    String(item.value).trim() !== ''
+                );
+              setHasActiveFilters(mappedFilters.length > 0);
+              const mappedKeys = JSON.stringify(mappedFilters);
+              if (mappedKeys === lastFiltersKeyRef.current) {
+                return;
               }
-              loading={isLoading}
-              filterMode="server"
-              filterModel={filterModel}
-              onFilterModelChange={(model) => {
-                const mappedModel = model.items.map((item) => ({
-                  ...item,
-                  value:
-                    typeof item.value === 'string'
-                      ? item.value.trim()
-                      : item.value
-                }));
-                const modelWithTrimmedValues = {
-                  ...model,
-                  items: mappedModel
-                };
-                setFilterModel(modelWithTrimmedValues);
-                const mappedFilters = modelWithTrimmedValues.items
-                  .map((item) => ({
-                    field: item.field,
-                    operator: item.operator,
-                    value: item.value
-                  }))
-                  .filter(
-                    (item) =>
-                      item.value !== undefined &&
-                      item.value !== null &&
-                      String(item.value).trim() !== ''
-                  );
-                const mappedKeys = JSON.stringify(mappedFilters);
-                if (mappedKeys === lastFiltersKeyRef.current) {
-                  return;
-                }
-                if (filterTimerRef.current) {
-                  clearTimeout(filterTimerRef.current);
-                }
-                filterTimerRef.current = window.setTimeout(() => {
-                  setIsLoading(true);
-                  setFilters(mappedFilters);
-                  lastFiltersKeyRef.current = mappedKeys;
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  filterTimerRef.current = null;
-                }, 1000);
-              }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                setPaginationModel((prev) => ({
-                  ...prev,
-                  page: model.page,
-                  pageSize: model.pageSize
-                }));
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
-              sortingMode="server"
-              sortModel={sortModel}
-              onSortModelChange={(model) => {
-                setSortModel(model);
+              if (filterTimerRef.current) {
+                clearTimeout(filterTimerRef.current);
+              }
+              filterTimerRef.current = window.setTimeout(() => {
+                setIsLoading(true);
+                setFilters(mappedFilters);
+                lastFiltersKeyRef.current = mappedKeys;
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              slots={{
-                toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay,
-                pagination: CustomPagination
-              }}
-              slotProps={{
-                noRowsOverlay: { children: noRowsOverlay },
-                toolbar: { exportTitle: 'Domains' } as any,
-                basePopper: {
-                  placement: 'bottom-start'
-                },
-                columnsManagement: {
-                  disableResetButton: true,
-                  getTogglableColumns: (columns) => {
-                    const alwaysVisible = ['name'];
-                    return columns
-                      .filter(
-                        (col) => col.field && !alwaysVisible.includes(col.field)
-                      )
-                      .map((col) => col.field as string);
-                  }
+                filterTimerRef.current = null;
+              }, SERVER_FILTER_DEBOUNCE_MS);
+            }}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: model.page,
+                pageSize: model.pageSize
+              }));
+            }}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+            sortingMode="server"
+            sortModel={sortModel}
+            onSortModelChange={(model) => {
+              setSortModel(model);
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+            }}
+            slots={{
+              toolbar: CustomToolbar,
+              noRowsOverlay: CustomNoRowsOverlay,
+              pagination: CustomPagination
+            }}
+            slotProps={{
+              noRowsOverlay: { children: noRowsOverlay },
+              toolbar: {
+                exportTitle: 'Domains',
+                hasActiveFilters
+              } as any,
+              basePopper: {
+                placement: 'bottom-start'
+              },
+              columnsManagement: {
+                disableResetButton: true,
+                getTogglableColumns: (columns) => {
+                  const alwaysVisible = ['name'];
+                  return columns
+                    .filter(
+                      (col) => col.field && !alwaysVisible.includes(col.field)
+                    )
+                    .map((col) => col.field as string);
                 }
-              }}
-              disableRowSelectionOnClick
-              showToolbar
-            />
-          </Paper>
-        ) : null}
+              }
+            }}
+            disableRowSelectionOnClick
+            showToolbar
+          />
+        </Paper>
       </Box>
     </Box>
   );

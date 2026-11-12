@@ -1,5 +1,5 @@
 // React
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // Material-UI Components
 import Alert from '@mui/material/Alert';
@@ -16,7 +16,11 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import type {
+  GridColDef,
+  GridFilterModel,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
 
 // Node Packages
 // @ts-ignore:next-line
@@ -36,9 +40,15 @@ import { useAuthContext } from '@/context';
 // Types
 import { OrgQuery, Scan, ScanTask } from '@/types';
 
-// Utils
+// Constants & Utils
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 // Todo: Refactor with Material-UI
 import classes from './Scans.module.scss';
@@ -139,11 +149,18 @@ export const ScanTasksView: React.FC = () => {
     }
   };
 
-  const PAGE_SIZE = 15;
+  const filterTimerRef = useRef<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const fetchScanTasks = useCallback(
     async (query: OrgQuery<ScanTask>) => {
       const { page, sort, filters } = query;
+      setIsLoading(true);
+      setErrors({});
       try {
         const tableFilters: {
           [key: string]: string | boolean | undefined;
@@ -167,7 +184,7 @@ export const ScanTasksView: React.FC = () => {
           {
             body: {
               page,
-              pageSize: query.pageSize ?? PAGE_SIZE,
+              pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
               sort: sort[0]?.id ?? 'created_at',
               order: 'DESC',
               filters: tableFilters
@@ -180,15 +197,20 @@ export const ScanTasksView: React.FC = () => {
         setPaginationModel((prev) => ({
           ...prev,
           page: query.page - 1,
-          pageSize: query.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
+          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
+          pageCount: Math.ceil(
+            count / (query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE)
+          )
         }));
       } catch (e) {
+        setErrors({ global: 'Failed to fetch scan task data.' });
         logger.error('ScanTasksView.fetchScanTasks failed:', {
           error: e,
           page: query.page,
           filters: query.filters
         });
+      } finally {
+        setIsLoading(false);
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -322,7 +344,7 @@ export const ScanTasksView: React.FC = () => {
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
-    pageSize: PAGE_SIZE,
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
     sort: [],
     filters: [] as { id: string; value: any }[]
   });
@@ -330,11 +352,20 @@ export const ScanTasksView: React.FC = () => {
   useEffect(() => {
     fetchScanTasks({
       page: 1,
-      pageSize: PAGE_SIZE,
+      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       sort: paginationModel.sort,
       filters: paginationModel.filters
     });
   }, [fetchScanTasks, paginationModel.sort, paginationModel.filters]);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const [anchorElName, setAnchorElName] = useState<null | HTMLElement>(null);
   const [anchorElStatus, setAnchorElStatus] = useState<null | HTMLElement>(
@@ -361,6 +392,7 @@ export const ScanTasksView: React.FC = () => {
     }));
     setAnchorElName(null);
     setSelectedName(name);
+    setHasActiveFilters(true);
   };
   const handleStatusSelect = (status: string) => {
     setPaginationModel((prev) => ({
@@ -372,6 +404,7 @@ export const ScanTasksView: React.FC = () => {
     }));
     setAnchorElStatus(null);
     setSelectedStatus(status);
+    setHasActiveFilters(true);
   };
   const scanNameValues = [
     'censys',
@@ -477,20 +510,27 @@ export const ScanTasksView: React.FC = () => {
   );
 
   const resetScans = useCallback(() => {
-    fetchScanTasks({
-      page: 1,
-      pageSize: PAGE_SIZE,
-      sort: [],
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
+      filterTimerRef.current = null;
+    }
+    setFilterModel({ items: [] });
+    setHasActiveFilters(false);
+    setSelectedName('');
+    setSelectedStatus('');
+    setPaginationModel((prev) => ({
+      ...prev,
+      page: 0,
       filters: []
-    });
-  }, [fetchScanTasks]);
+    }));
+  }, []);
 
   return (
     <>
       {errors.global && <p className={classes.error}>{errors.global}</p>}
-      <Box mb={3} display="flex" justifyContent="center">
-        {scanTasks?.length === 0 ? (
-          <Stack direction="row" spacing={2}>
+      <Box mb={3} display="flex" flexDirection="column" alignItems="center">
+        {scanTasks?.length === 0 && !isLoading && (
+          <Stack direction="row" spacing={2} mb={2}>
             <Paper elevation={2}>
               <Alert severity="warning">No results found.</Alert>
             </Paper>
@@ -504,52 +544,74 @@ export const ScanTasksView: React.FC = () => {
               Reset
             </MuiButton>
           </Stack>
-        ) : (
-          <Paper elevation={2} sx={{ width: '100%' }}>
-            <CustomDataGrid
-              rows={scansTasksRows}
-              rowCount={totalResults}
-              columns={scansTasksCols}
-              slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
-              slotProps={{
-                toolbar: {
-                  children: [scanNameDropdown, scanStatusDropdown].map(
-                    (child, index) => <Box key={index}>{child}</Box>
-                  ),
-                  exportTitle: 'Scans'
-                } as any,
-                basePopper: {
-                  placement: 'bottom-start'
-                }
-              }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                fetchScanTasks({
-                  page: model.page + 1,
-                  pageSize: model.pageSize,
-                  sort: paginationModel.sort,
-                  filters: paginationModel.filters
-                });
-              }}
-              filterMode="server"
-              onFilterModelChange={(model) => {
-                fetchScanTasks({
-                  page: 1,
-                  pageSize: paginationModel.pageSize,
-                  sort: paginationModel.sort,
-                  filters: model.items.map((item) => ({
-                    id: item.field,
-                    value: item.value
-                  }))
-                });
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
-              disableRowSelectionOnClick
-              showToolbar
-            />
-          </Paper>
         )}
+        <Paper elevation={2} sx={{ width: '100%' }}>
+          <CustomDataGrid
+            rows={scansTasksRows}
+            rowCount={totalResults}
+            columns={scansTasksCols}
+            loading={isLoading}
+            slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
+            slotProps={{
+              toolbar: {
+                children: [scanNameDropdown, scanStatusDropdown].map(
+                  (child, index) => <Box key={index}>{child}</Box>
+                ),
+                exportTitle: 'Scans',
+                hasActiveFilters
+              } as any,
+              basePopper: {
+                placement: 'bottom-start'
+              }
+            }}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              fetchScanTasks({
+                page: model.page + 1,
+                pageSize: model.pageSize,
+                sort: paginationModel.sort,
+                filters: paginationModel.filters
+              });
+            }}
+            filterMode="server"
+            filterModel={filterModel}
+            onFilterModelChange={(model) => {
+              const cleanedModel = cleanFilterModelItems(model, filterModel);
+              const emptyModel = isFilterModelEmpty(cleanedModel);
+              const dropdownFilters = paginationModel.filters.filter(
+                (filter) => filter.id === 'name' || filter.id === 'status'
+              );
+              const nextFilters = [
+                ...dropdownFilters,
+                ...cleanedModel.items.map((item) => ({
+                  id: item.field,
+                  value: item.value
+                }))
+              ];
+
+              setFilterModel(cleanedModel);
+              setHasActiveFilters(!emptyModel || dropdownFilters.length > 0);
+
+              if (filterTimerRef.current) {
+                clearTimeout(filterTimerRef.current);
+                filterTimerRef.current = null;
+              }
+
+              filterTimerRef.current = window.setTimeout(() => {
+                setPaginationModel((prev) => ({
+                  ...prev,
+                  page: 0,
+                  filters: nextFilters
+                }));
+                filterTimerRef.current = null;
+              }, SERVER_FILTER_DEBOUNCE_MS);
+            }}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+            disableRowSelectionOnClick
+            showToolbar
+          />
+        </Paper>
       </Box>
       <Dialog
         open={openDialog}

@@ -22,7 +22,11 @@ import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import type {
+  GridColDef,
+  GridFilterModel,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
 
 // Local Components & Context
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
@@ -37,7 +41,12 @@ import {
 import { useAuthContext } from '@/context';
 import { ScanForm, ScanFormValues } from '@/components/ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE
+} from '@/constants/dataGrid';
 import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -71,6 +80,11 @@ const ScansView: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState('');
   const [newScanDialogOpen, setNewScanDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const [values] = useState<ScanFormValues>({
     name: 'censys',
@@ -87,6 +101,7 @@ const ScansView: React.FC = () => {
   });
 
   const fetchScans = useCallback(async () => {
+    setIsLoading(true);
     try {
       const { scans, organizations, schema } = await apiGet<{
         scans: Scan[];
@@ -104,6 +119,8 @@ const ScansView: React.FC = () => {
       setTags(tags);
     } catch (e) {
       logger.error('ScansView.fetchScans failed:', { error: e });
+    } finally {
+      setIsLoading(false);
     }
   }, [apiGet]);
 
@@ -500,13 +517,21 @@ const ScansView: React.FC = () => {
           <CustomDataGrid
             rows={scansRows}
             columns={scansCols}
+            loading={isLoading}
+            filterModel={filterModel}
+            onFilterModelChange={(model) => {
+              const cleanedModel = cleanFilterModelItems(model, filterModel);
+              setFilterModel(cleanedModel);
+              setHasActiveFilters(!isFilterModelEmpty(cleanedModel));
+            }}
             showToolbar
             slots={{ toolbar: CustomToolbar }}
             slotProps={{
               basePopper: { placement: 'bottom-start' },
               toolbar: {
                 children: addNewScan,
-                exportTitle: 'Scans'
+                exportTitle: 'Scans',
+                hasActiveFilters
               } as any,
               columnsManagement: {
                 disableResetButton: true,
@@ -520,6 +545,12 @@ const ScansView: React.FC = () => {
                 }
               }
             }}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: DEFAULT_DATA_GRID_PAGE_SIZE }
+              }
+            }}
+            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
           />
         </Paper>
         {scans?.length === 0 && (

@@ -524,7 +524,24 @@ export const RegionUsers: React.FC = () => {
             columns={pendingCols}
             rows={pendingUsers}
             disableRowSelectionOnClick
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{
+              toolbar: {
+                csvOptions: { disableToolbarButton: true },
+                printOptions: { disableToolbarButton: true },
+                showQuickFilter: false
+              }
+            }}
             autoPageSize
+            showToolbar
+            sx={{
+              '& .MuiDataGrid-toolbarContainer': {
+                minHeight: 48,
+                overflow: 'visible',
+                paddingTop: 1.5,
+                paddingBottom: 1
+              }
+            }}
           />
         </Paper>
         {errorStates.getUsersError && (
@@ -555,6 +572,14 @@ export const RegionUsers: React.FC = () => {
             }}
             autoPageSize
             showToolbar
+            sx={{
+              '& .MuiDataGrid-toolbarContainer': {
+                minHeight: 48,
+                overflow: 'visible',
+                paddingTop: 1.5,
+                paddingBottom: 1
+              }
+            }}
           />
         </Paper>
       </Box>
