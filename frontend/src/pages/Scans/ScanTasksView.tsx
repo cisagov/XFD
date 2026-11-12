@@ -134,14 +134,10 @@ export const ScanTasksView: React.FC = () => {
       await apiPost(ENDPOINTS.SCAN_TASKS_KILL.replace('{scan_task_id}', id), {
         body: {}
       });
-      const index = scanTasks.findIndex((task) => task.id === id);
-      setScanTasks(
-        Object.assign([], scanTasks, {
-          [index]: {
-            ...scanTasks[index],
-            status: 'failed'
-          }
-        })
+      setScanTasks((previousTasks) =>
+        previousTasks.map((task) =>
+          task.id === id ? { ...task, status: 'failed' } : task
+        )
       );
     } catch (e: any) {
       setErrors({
@@ -393,7 +389,6 @@ export const ScanTasksView: React.FC = () => {
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
       filters: []
     }));
   }, []);
