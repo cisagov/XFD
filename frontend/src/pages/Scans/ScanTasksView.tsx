@@ -202,13 +202,12 @@ export const ScanTasksView: React.FC = () => {
         setTotalResults(count);
         setPaginationModel((prev) => ({
           ...prev,
-          page: query.page - 1,
-          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
           pageCount: Math.ceil(
             count / (query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE)
           )
         }));
       } catch (e) {
+        if (requestId !== requestIdRef.current) return;
         setErrors({ global: 'Failed to fetch scan task data.' });
         logger.error('ScanTasksView.fetchScanTasks failed:', {
           error: e,
