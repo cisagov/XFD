@@ -168,7 +168,6 @@ export const ScanTasksView: React.FC = () => {
       setErrors({});
       const requestId = ++requestIdRef.current;
       try {
-        if (requestId !== requestIdRef.current) return;
         const tableFilters: {
           [key: string]: string | boolean | undefined;
         } = filters
@@ -198,7 +197,7 @@ export const ScanTasksView: React.FC = () => {
             }
           }
         );
-        // if (result.length === 0) return;
+        if (requestId !== requestIdRef.current) return;
         setScanTasks(result);
         setTotalResults(count);
         setPaginationModel((prev) => ({
@@ -366,7 +365,12 @@ export const ScanTasksView: React.FC = () => {
       sort: paginationModel.sort,
       filters: paginationModel.filters
     });
-  }, [fetchScanTasks, paginationModel.sort, paginationModel.filters]);
+  }, [
+    fetchScanTasks,
+    paginationModel.sort,
+    paginationModel.filters,
+    paginationModel.pageSize
+  ]);
 
   useEffect(() => {
     return () => {
