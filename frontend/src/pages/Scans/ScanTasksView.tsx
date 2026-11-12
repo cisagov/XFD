@@ -197,7 +197,6 @@ export const ScanTasksView: React.FC = () => {
         );
         if (requestId !== requestIdRef.current) return;
         setScanTasks(result);
-        console.log(result);
         setTotalResults(count);
         setPaginationModel((prev) => ({
           ...prev,
