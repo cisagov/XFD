@@ -32,7 +32,6 @@ src/hooks/             ↔ tests/hooks/
 - **jsdom** (`^26.1.0`) - Browser environment simulation
 - **@testing-library/react** (`^14.3.1`) - Component testing utilities
 - **@testing-library/user-event** (`^13.5.0`) - User interaction simulation
-- **@testing-library/jest-dom** (`^6.6.3`) - DOM matchers (toBeInTheDocument, etc.)
 
 ### Custom Test Utilities
 
