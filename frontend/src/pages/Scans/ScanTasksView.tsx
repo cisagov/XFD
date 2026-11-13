@@ -8,19 +8,19 @@ import MuiButton from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import Icon from '@mui/material/Icon';
 import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import type {
   GridColDef,
   GridFilterModel,
   GridRenderCellParams
 } from '@mui/x-data-grid';
+
+// Material-UI Icons
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 // Node Packages
 // @ts-ignore:next-line
@@ -48,13 +48,14 @@ import {
 } from '@/constants/dataGrid';
 import { logger } from '@/utils/logger';
 import { textFilterOperators } from '@/utils/transformTableData';
-import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
+import {
+  cleanFilterModelItems,
+  isFilterModelEmpty,
+  shouldTriggerFilterUpdate
+} from '@/utils/tableUtils';
 
-// Todo: Refactor with Material-UI
-import classes from './Scans.module.scss';
-import { FaSyncAlt } from 'react-icons/fa';
+// Third Party libraries
 import { LazyLog as MellowareLazyLog } from '@melloware/react-logviewer';
-import { Button } from '@trussworks/react-uswds';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -69,6 +70,7 @@ export interface ScansTaskRow {
   id: string;
   status: string;
   name: string;
+  concurrency_index: number | Int16Array<ArrayBufferLike>;
   input: string;
   output: string;
   created_at: string;
@@ -88,7 +90,7 @@ const dateAccessor = (date?: string) => {
 const Log = ({ url, token }: { url: string; token: string }) => {
   const [logKey, setLogKey] = useState(0);
   return (
-    <div className={classes.logContainer}>
+    <Box sx={{ position: 'relative', width: '100%', height: '60vh' }}>
       <MellowareLazyLog
         aria-label="Log readout"
         key={'lazylog-' + logKey}
@@ -100,16 +102,21 @@ const Log = ({ url, token }: { url: string; token: string }) => {
         fetchOptions={{ headers: { Authorization: token } }}
         selectableLines={true}
       />
-      <Button
-        aria-label="Refresh log "
-        type="button"
-        outline
-        size={'small' as any}
+      <IconButton
+        aria-label="Refresh log"
+        size="small"
+        sx={{
+          backgroundColor: 'neutrals.white',
+          '&:hover': { backgroundColor: 'neutrals.light' },
+          position: 'absolute',
+          bottom: '25px',
+          right: '20px'
+        }}
         onClick={() => setLogKey(Math.random())}
       >
-        <FaSyncAlt />
-      </Button>
-    </div>
+        <RefreshIcon />
+      </IconButton>
+    </Box>
   );
 };
 
@@ -128,14 +135,10 @@ export const ScanTasksView: React.FC = () => {
       await apiPost(ENDPOINTS.SCAN_TASKS_KILL.replace('{scan_task_id}', id), {
         body: {}
       });
-      const index = scanTasks.findIndex((task) => task.id === id);
-      setScanTasks(
-        Object.assign([], scanTasks, {
-          [index]: {
-            ...scanTasks[index],
-            status: 'failed'
-          }
-        })
+      setScanTasks((previousTasks) =>
+        previousTasks.map((task) =>
+          task.id === id ? { ...task, status: 'failed' } : task
+        )
       );
     } catch (e: any) {
       setErrors({
@@ -155,12 +158,13 @@ export const ScanTasksView: React.FC = () => {
     items: []
   });
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
-
+  const requestIdRef = useRef(0);
   const fetchScanTasks = useCallback(
     async (query: OrgQuery<ScanTask>) => {
       const { page, sort, filters } = query;
       setIsLoading(true);
       setErrors({});
+      const requestId = ++requestIdRef.current;
       try {
         const tableFilters: {
           [key: string]: string | boolean | undefined;
@@ -191,18 +195,17 @@ export const ScanTasksView: React.FC = () => {
             }
           }
         );
-        // if (result.length === 0) return;
+        if (requestId !== requestIdRef.current) return;
         setScanTasks(result);
         setTotalResults(count);
         setPaginationModel((prev) => ({
           ...prev,
-          page: query.page - 1,
-          pageSize: query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE,
           pageCount: Math.ceil(
             count / (query.pageSize ?? DEFAULT_DATA_GRID_PAGE_SIZE)
           )
         }));
       } catch (e) {
+        if (requestId !== requestIdRef.current) return;
         setErrors({ global: 'Failed to fetch scan task data.' });
         logger.error('ScanTasksView.fetchScanTasks failed:', {
           error: e,
@@ -210,7 +213,9 @@ export const ScanTasksView: React.FC = () => {
           filters: query.filters
         });
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -221,7 +226,8 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksRows: ScansTaskRow[] = scanTasks.map((scanTask) => ({
     id: scanTask.id,
     status: scanTask.status,
-    name: `${scanTask.scan?.name ?? 'None'}-${scanTask.concurrency_index ?? 1}`,
+    name: `${scanTask.scan?.name ?? 'None'}`,
+    concurrency_index: scanTask.concurrency_index ?? 1,
     input: scanTask.input,
     output: scanTask.output,
     created_at: dateAccessor(scanTask.created_at),
@@ -235,9 +241,10 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksCols: GridColDef[] = [
     {
       field: 'id',
+      filterable: false,
       headerName: 'ID',
-      minWidth: 100,
-      flex: 2,
+      minWidth: 150,
+      flex: 1.5,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
@@ -253,7 +260,7 @@ export const ScanTasksView: React.FC = () => {
     {
       field: 'status',
       headerName: 'Status',
-      minWidth: 100,
+      minWidth: 80,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -285,9 +292,28 @@ export const ScanTasksView: React.FC = () => {
       }
     },
     {
+      field: 'concurrency_index',
+      headerName: 'Concurrency',
+      filterable: false,
+      minWidth: 80,
+      flex: 0.5,
+      filterOperators: textFilterOperators,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Concurrency Index for Scan Task ${cellValues.row.id}: ${cellValues.row.concurrency_index}`}
+          >
+            {cellValues.row.concurrency_index}
+          </Box>
+        );
+      }
+    },
+    {
       field: 'created_at',
+      filterable: false,
       headerName: 'Created At',
-      minWidth: 200,
+      minWidth: 100,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -303,8 +329,9 @@ export const ScanTasksView: React.FC = () => {
     },
     {
       field: 'finished_at',
+      filterable: false,
       headerName: 'Finished At',
-      minWidth: 200,
+      minWidth: 100,
       flex: 1,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
@@ -320,9 +347,10 @@ export const ScanTasksView: React.FC = () => {
     },
     {
       field: 'details',
+      filterable: false,
       headerName: 'Details',
-      minWidth: 100,
-      flex: 1,
+      minWidth: 50,
+      flex: 0.5,
       filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
@@ -335,7 +363,7 @@ export const ScanTasksView: React.FC = () => {
               setDetailsParams(cellValues);
             }}
           >
-            <Icon>info</Icon>
+            <InfoOutlinedIcon />
           </IconButton>
         );
       }
@@ -351,12 +379,18 @@ export const ScanTasksView: React.FC = () => {
 
   useEffect(() => {
     fetchScanTasks({
-      page: 1,
-      pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
       sort: paginationModel.sort,
       filters: paginationModel.filters
     });
-  }, [fetchScanTasks, paginationModel.sort, paginationModel.filters]);
+  }, [
+    fetchScanTasks,
+    paginationModel.page,
+    paginationModel.sort,
+    paginationModel.filters,
+    paginationModel.pageSize
+  ]);
 
   useEffect(() => {
     return () => {
@@ -367,148 +401,6 @@ export const ScanTasksView: React.FC = () => {
     };
   }, []);
 
-  const [anchorElName, setAnchorElName] = useState<null | HTMLElement>(null);
-  const [anchorElStatus, setAnchorElStatus] = useState<null | HTMLElement>(
-    null
-  );
-  const openNameMenu = Boolean(anchorElName);
-  const openStatusMenu = Boolean(anchorElStatus);
-  const [selectedName, setSelectedName] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
-  const handleStatusClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElStatus(event.currentTarget);
-  };
-  const handleNameClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElName(event.currentTarget);
-  };
-
-  const handleNameSelect = (name: string) => {
-    setPaginationModel((prev) => ({
-      ...prev,
-      filters: [
-        ...prev.filters.filter((f) => f.id !== 'name'),
-        { id: 'name', value: name }
-      ]
-    }));
-    setAnchorElName(null);
-    setSelectedName(name);
-    setHasActiveFilters(true);
-  };
-  const handleStatusSelect = (status: string) => {
-    setPaginationModel((prev) => ({
-      ...prev,
-      filters: [
-        ...prev.filters.filter((f) => f.id !== 'status'),
-        { id: 'status', value: status }
-      ]
-    }));
-    setAnchorElStatus(null);
-    setSelectedStatus(status);
-    setHasActiveFilters(true);
-  };
-  const scanNameValues = [
-    'censys',
-    'amass',
-    'asm_sync',
-    'credential_sync',
-    'cybersixgill',
-    'findomain',
-    'intel_x_identity',
-    'portscanner',
-    'wappalyzer',
-    'censysIpv4',
-    'censysCertificates',
-    'refresh_vs_summaries',
-    'sslyze',
-    'searchSync',
-    'shodan_sync',
-    'sync_asm_sync',
-    'cve',
-    'cisakev',
-    'nist',
-    'dotgov',
-    'intrigueIdent',
-    'shodan',
-    'lookingGlass',
-    'dnstwist',
-    'databricks',
-    'rootDomainSync',
-    'was_sync',
-    'was',
-    'xpanse_sync'
-  ];
-
-  const statusValues = [
-    'created',
-    'queued',
-    'requested',
-    'started',
-    'finished',
-    'failed'
-  ];
-
-  const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
-
-  const filteredScanNameValues = isLocal
-    ? scanNameValues.filter((name) => name !== 'databricks')
-    : scanNameValues;
-
-  const scanNameDropdown = (
-    <>
-      <MuiButton
-        size="small"
-        sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-        endIcon={<KeyboardArrowDown />}
-        onClick={handleNameClick}
-      >
-        Name: {selectedName! || ('Select' as any)}
-      </MuiButton>
-      <Menu
-        anchorEl={anchorElName}
-        open={openNameMenu}
-        onClose={() => setAnchorElName(null)}
-      >
-        {filteredScanNameValues.map((name, index) => (
-          <MenuItem
-            key={index + name}
-            value={name}
-            onClick={handleNameSelect.bind(null, name)}
-          >
-            {name}
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
-  );
-
-  const scanStatusDropdown = (
-    <>
-      <MuiButton
-        size="small"
-        sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-        endIcon={<KeyboardArrowDown />}
-        onClick={handleStatusClick}
-      >
-        Status: {selectedStatus! || ('Select' as any)}
-      </MuiButton>
-      <Menu
-        anchorEl={anchorElStatus}
-        open={openStatusMenu}
-        onClose={() => setAnchorElStatus(null)}
-      >
-        {statusValues.map((status, index) => (
-          <MenuItem
-            key={index + status}
-            value={status}
-            onClick={handleStatusSelect.bind(null, status)}
-          >
-            {status}
-          </MenuItem>
-        ))}
-      </Menu>
-    </>
-  );
-
   const resetScans = useCallback(() => {
     if (filterTimerRef.current) {
       clearTimeout(filterTimerRef.current);
@@ -516,8 +408,6 @@ export const ScanTasksView: React.FC = () => {
     }
     setFilterModel({ items: [] });
     setHasActiveFilters(false);
-    setSelectedName('');
-    setSelectedStatus('');
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
@@ -526,93 +416,97 @@ export const ScanTasksView: React.FC = () => {
   }, []);
 
   return (
-    <>
-      {errors.global && <p className={classes.error}>{errors.global}</p>}
-      <Box mb={3} display="flex" flexDirection="column" alignItems="center">
-        {scanTasks?.length === 0 && !isLoading && (
-          <Stack direction="row" spacing={2} mb={2}>
-            <Paper elevation={2}>
-              <Alert severity="warning">No results found.</Alert>
-            </Paper>
-            <MuiButton
-              aria-label="Reset scan table"
-              onClick={resetScans}
-              variant="contained"
-              color="primary"
-              sx={{ width: 'fit-content' }}
-            >
-              Reset
-            </MuiButton>
-          </Stack>
-        )}
-        <Paper elevation={2} sx={{ width: '100%' }}>
-          <CustomDataGrid
-            rows={scansTasksRows}
-            rowCount={totalResults}
-            columns={scansTasksCols}
-            loading={isLoading}
-            slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
-            slotProps={{
-              toolbar: {
-                children: [scanNameDropdown, scanStatusDropdown].map(
-                  (child, index) => <Box key={index}>{child}</Box>
-                ),
-                exportTitle: 'Scans',
-                hasActiveFilters
-              } as any,
-              basePopper: {
-                placement: 'bottom-start'
-              }
-            }}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            onPaginationModelChange={(model) => {
-              fetchScanTasks({
-                page: model.page + 1,
-                pageSize: model.pageSize,
-                sort: paginationModel.sort,
-                filters: paginationModel.filters
-              });
-            }}
-            filterMode="server"
-            filterModel={filterModel}
-            onFilterModelChange={(model) => {
-              const cleanedModel = cleanFilterModelItems(model, filterModel);
-              const emptyModel = isFilterModelEmpty(cleanedModel);
-              const dropdownFilters = paginationModel.filters.filter(
-                (filter) => filter.id === 'name' || filter.id === 'status'
-              );
-              const nextFilters = [
-                ...dropdownFilters,
-                ...cleanedModel.items.map((item) => ({
+    <Box width="100%">
+      {errors.global && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errors.global}
+        </Alert>
+      )}
+      <Paper elevation={2} sx={{ width: '100%' }}>
+        <CustomDataGrid
+          rows={scansTasksRows}
+          rowCount={totalResults}
+          columns={scansTasksCols}
+          loading={isLoading}
+          slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
+          slotProps={{
+            toolbar: {
+              exportTitle: 'Scans',
+              hasActiveFilters
+            } as any,
+            basePopper: {
+              placement: 'bottom-start'
+            }
+          }}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={(model) => {
+            setPaginationModel((prev) => ({
+              ...prev,
+              page: model.page,
+              pageSize: model.pageSize
+            }));
+          }}
+          filterMode="server"
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            const emptyModel = isFilterModelEmpty(cleanedModel);
+
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!emptyModel);
+
+            const shouldUpdate = shouldTriggerFilterUpdate(
+              cleanedModel.items,
+              filterModel.items
+            );
+
+            if (!shouldUpdate) {
+              return;
+            }
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+              filterTimerRef.current = null;
+            }
+
+            if (emptyModel) {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: 0,
+                filters: []
+              }));
+              return;
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setPaginationModel((prev) => ({
+                ...prev,
+                page: 0,
+                filters: cleanedModel.items.map((item) => ({
                   id: item.field,
                   value: item.value
                 }))
-              ];
-
-              setFilterModel(cleanedModel);
-              setHasActiveFilters(!emptyModel || dropdownFilters.length > 0);
-
-              if (filterTimerRef.current) {
-                clearTimeout(filterTimerRef.current);
-                filterTimerRef.current = null;
-              }
-
-              filterTimerRef.current = window.setTimeout(() => {
-                setPaginationModel((prev) => ({
-                  ...prev,
-                  page: 0,
-                  filters: nextFilters
-                }));
-                filterTimerRef.current = null;
-              }, SERVER_FILTER_DEBOUNCE_MS);
-            }}
-            pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
-            disableRowSelectionOnClick
-            showToolbar
-          />
-        </Paper>
-      </Box>
+              }));
+              filterTimerRef.current = null;
+            }, SERVER_FILTER_DEBOUNCE_MS);
+          }}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
+          disableRowSelectionOnClick
+          showToolbar
+        />
+      </Paper>
+      {scanTasks?.length === 0 && !isLoading && (
+        <MuiButton
+          aria-label="Reset scan table"
+          onClick={resetScans}
+          variant="contained"
+          color="primary"
+          sx={{ width: 'fit-content', mt: 2 }}
+        >
+          Refresh Scan History
+        </MuiButton>
+      )}
       <Dialog
         open={openDialog}
         onClose={() => setOpenDialog(false)}
@@ -620,9 +514,9 @@ export const ScanTasksView: React.FC = () => {
         aria-describedby="alert-dialog-description"
         scroll="paper"
         fullWidth
-        maxWidth="lg"
+        maxWidth="xl"
       >
-        <DialogTitle id="alert-dialog-title">{'Scan Details'}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Scan Details</DialogTitle>
         <DialogContent>
           {detailsParams?.row?.fargate_task_arn && (
             <Box pb={2}>
@@ -732,7 +626,7 @@ export const ScanTasksView: React.FC = () => {
           </Stack>
         </DialogContent>
       </Dialog>
-    </>
+    </Box>
   );
 };
 

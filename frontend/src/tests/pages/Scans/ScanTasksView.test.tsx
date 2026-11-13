@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -97,7 +96,45 @@ describe('ScanTasksView', () => {
     expect(screen.getByTestId('scan-task-loading').textContent).toBe('true');
   });
 
-  it('waits 500 ms before sending a server-side filter request', async () => {
+  it('sends a server-side filter request after the debounce delay', async () => {
+    const apiPost = vi.fn().mockResolvedValue(scanTaskResponse);
+    vi.mocked(useAuthContext).mockReturnValue({
+      ...authCtx,
+      apiPost
+    });
+
+    const user = userEvent.setup();
+
+    render(<ScanTasksView />);
+
+    // Wait for initial load and rendered state, rather than assuming one request.
+    await waitFor(() => {
+      expect(screen.getByText('task-1')).toBeInTheDocument();
+    });
+
+    // Ignore initial-load requests but retain the mock's resolved-value behavior.
+    apiPost.mockClear();
+
+    await user.click(screen.getByTestId('apply-scan-task-filter'));
+
+    // The request must not be immediate.
+    expect(apiPost).not.toHaveBeenCalled();
+
+    // Assert the debounced request is eventually made with the intended filter.
+    await waitFor(
+      () => {
+        expect(apiPost).toHaveBeenCalledWith(ENDPOINTS.SCANS_TASK_SEARCH, {
+          body: expect.objectContaining({
+            filters: {
+              status: 'failed'
+            }
+          })
+        });
+      },
+      { timeout: 1500 }
+    );
+  });
+  it('clears the server-side filter and active-filter badge immediately', async () => {
     const apiPost = vi.fn().mockResolvedValue(scanTaskResponse);
     vi.mocked(useAuthContext).mockReturnValue({
       ...authCtx,
@@ -106,28 +143,37 @@ describe('ScanTasksView', () => {
     const user = userEvent.setup();
 
     render(<ScanTasksView />);
+
     await waitFor(() => {
       expect(apiPost).toHaveBeenCalledWith(
         ENDPOINTS.SCANS_TASK_SEARCH,
         expect.anything()
       );
     });
-    const initialCallCount = apiPost.mock.calls.length;
-
     await user.click(screen.getByTestId('apply-scan-task-filter'));
-    expect(apiPost).toHaveBeenCalledTimes(initialCallCount);
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    expect(apiPost).toHaveBeenCalledTimes(initialCallCount);
-
     await waitFor(
       () => {
-        expect(apiPost.mock.calls.length).toBeGreaterThan(initialCallCount);
+        expect(apiPost.mock.calls.at(-1)?.[1]?.body?.filters).toEqual({
+          status: 'failed'
+        });
       },
       { timeout: 1000 }
     );
-    expect(apiPost.mock.calls.at(-1)?.[1]?.body?.filters).toEqual({
-      status: 'failed'
+
+    expect(screen.getByTestId('scan-task-filter-badge')).toHaveTextContent(
+      'true'
+    );
+
+    const callCountBeforeClear = apiPost.mock.calls.length;
+
+    await user.click(screen.getByTestId('clear-scan-task-filter'));
+    await waitFor(() => {
+      expect(apiPost).toHaveBeenCalledTimes(callCountBeforeClear + 1);
     });
+
+    expect(apiPost.mock.calls.at(-1)?.[1]?.body?.filters).toEqual({});
+    expect(screen.getByTestId('scan-task-filter-badge')).toHaveTextContent(
+      'false'
+    );
   });
 });
