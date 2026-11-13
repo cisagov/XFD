@@ -372,10 +372,9 @@ def create_summary(
     # Read existing PDF template and merge overlay
     with open(BASE_DIR + "/assets_asm/empty_asm_2024-11-19.pdf", "rb") as template_file:
         existing_pdf = PdfReader(template_file)
-        page = existing_pdf.pages[0]
-        page.merge_page(new_pdf.pages[0])
         output = PdfWriter()
-        output.add_page(page)
+        page = output.add_page(existing_pdf.pages[0])
+        page.merge_page(new_pdf.pages[0])
         with open(file_name, "wb") as output_stream:
             output.write(output_stream)
 
