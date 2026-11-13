@@ -189,7 +189,7 @@ def test_sync_missing_checksum_should_return_500():
     )
     headers = {"Authorization": "Bearer {}".format(create_jwt_token(user))}
     response = client.post(
-        "/pshtt_sync", data=json.dumps({"data": dummy_pshtt_data}), headers=headers
+        "/pshtt_sync", json={"data": dummy_pshtt_data}, headers=headers
     )
 
     assert response.status_code == 500
