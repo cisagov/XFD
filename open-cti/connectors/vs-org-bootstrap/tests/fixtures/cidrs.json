@@ -1,0 +1,18 @@
+[
+  {
+    "cidr_retired": false,
+    "current": true,
+    "first_seen": "2025-01-01",
+    "last_seen": "2026-08-20",
+    "network": "198.51.100.0/24",
+    "organization_acronym": "TESTORG1"
+  },
+  {
+    "cidr_retired": true,
+    "current": false,
+    "first_seen": "2024-06-01",
+    "last_seen": "2025-02-01",
+    "network": "2001:db8::/32",
+    "organization_acronym": "TESTORG1"
+  }
+]

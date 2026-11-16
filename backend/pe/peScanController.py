@@ -250,7 +250,11 @@ def fetch_orgs_from_db(*, report_on: bool = False, demo: bool = False) -> List[s
     else:
         raise ValueError("fetch_orgs_from_db requires report_on=True or demo=True")
 
-    with psycopg2.connect(**pe_db_connection_params()) as conn:
+    # mypy can't resolve **dict unpacking against connect()'s overloads even though this is
+    # valid, standard psycopg2 usage at runtime -- a known typeshed/mypy limitation with
+    # unpacking a plain Mapping into an @overload'd function (no overload's signature is a
+    # verifiable match for an arbitrary Dict[str, str] spread, even the **kwargs: Any catch-all).
+    with psycopg2.connect(**pe_db_connection_params()) as conn:  # type: ignore[call-overload]
         with conn.cursor() as cur:
             cur.execute(query)
             names = [row[0] for row in cur.fetchall()]
