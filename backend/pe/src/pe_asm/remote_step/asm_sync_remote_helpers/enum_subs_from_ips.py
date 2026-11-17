@@ -5,7 +5,7 @@ import datetime
 import hashlib
 import ipaddress
 import logging
-import socket
+import os
 import threading
 import time
 
@@ -17,6 +17,7 @@ from pe_asm.remote_step.asm_sync_remote_query import (
     query_cidrs_by_org,
     upsert_ips,
 )
+import requests
 import tldextract
 
 # Setup logging
@@ -24,8 +25,12 @@ LOGGER = logging.getLogger(__name__)
 
 DATE = datetime.datetime.today().date()
 
-QPS_MAX = 100
-QPS_DELAY = 1 / QPS_MAX
+WHOISXML_QPS_MAX = 10  # WhoisXML API endpoint capped at 10 QPS
+WHOISXML_MAX_RETRIES = 10
+WHOISXML_CONNECT_TIMEOUT = 10
+WHOISXML_READ_TIMEOUT = 30
+WHOISXML_RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+QPS_DELAY = 1 / WHOISXML_QPS_MAX
 QPS_RATE_LOCK = threading.Lock()
 NEXT_LOOKUP = 0.0
 
@@ -33,9 +38,8 @@ TLD_EXTRACTOR = tldextract.TLDExtract(suffix_list_urls=())
 
 
 def limit_lookup_rate():
-    """Limit all threads in this process to a combined 100 lookups/second."""
+    """Limit WhoisXML total request rate across all threads in this process."""
     global NEXT_LOOKUP
-
     with QPS_RATE_LOCK:
         now = time.monotonic()
         if now < NEXT_LOOKUP:
@@ -43,53 +47,111 @@ def limit_lookup_rate():
         NEXT_LOOKUP = max(now, NEXT_LOOKUP) + QPS_DELAY
 
 
+def whoisxml_reverse_endpoint(ip_address, thread):
+    """Call WhoisXM's DNS A based reverse lookup endpoint, return None on failure."""
+    # Get API key from env variable
+    api_key = os.environ.get("WHOIS_XML_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("Missing required environment variable: WHOIS_XML_KEY")
+    # Request params
+    params = {
+        "apiKey": api_key,
+        "searchType": "reverse",
+        "recordType": "a",
+        "ipAddress": ip_address,
+    }
+    # Begin retry loop
+    for attempt in range(1, WHOISXML_MAX_RETRIES + 1):
+        limit_lookup_rate()
+        # Attempt to call WhoisXML API
+        try:
+            response = requests.post(
+                "https://dns-history.whoisxmlapi.com/api/v1",
+                json=params,
+                timeout=(10, 30),
+            )
+            # If good response, return result
+            if response.status_code == 200:
+                result = response.json()
+                # Ensure result is a dictionary
+                if not isinstance(result.get("result", {}), dict):
+                    raise ValueError("WhoisXML response was not a dictionary")
+                return result
+            # If non-retryable response, log error and return None
+            if response.status_code not in WHOISXML_RETRYABLE_STATUS_CODES:
+                LOGGER.error(
+                    "%s: Non-retryable WhoisXML response for %s: HTTP %d",
+                    thread,
+                    ip_address,
+                    response.status_code,
+                )
+                return None
+            # Capture error code
+            error = f"HTTP {response.status_code}"
+        except (requests.exceptions.RequestException, ValueError) as exception:
+            # Capture error code
+            error = str(exception)
+        # If retries remaining, log warning and sleep before retrying
+        if attempt < WHOISXML_MAX_RETRIES:
+            delay = min(2 ** (attempt - 1), 30)
+            LOGGER.warning(
+                "%s: WhoisXML lookup failed for %s: %s; "
+                "retrying in %d seconds (%d/%d)",
+                thread,
+                ip_address,
+                error,
+                delay,
+                attempt,
+                WHOISXML_MAX_RETRIES,
+            )
+            time.sleep(delay)
+    # If max retries reached, log error and return None
+    LOGGER.error(
+        "%s: WhoisXML lookup failed for %s after %d attempts",
+        thread,
+        ip_address,
+        WHOISXML_MAX_RETRIES,
+    )
+    return None
+
+
 def reverseLookup(ip_obj, failed_ips, thread):
-    """Perform a PTR-based reverse lookup on IP and return the associated domain."""
-    # Enforce rate limit across all threads
-    limit_lookup_rate()
-    # Perform PTR-based reverse lookup on IP
-    try:
-        hostname, aliases, _ = socket.gethostbyaddr(ip_obj["ip"])
-        hostnames = {hostname, *aliases}
-    except socket.herror as e:
-        # HOST_NOT_FOUND (1) and NO_DATA (4) = no PTR exists
-        if e.errno in (1, 4):
-            return [], failed_ips
-        # TRY_AGAIN (2) and NO_RECOVERY (3) = resolver error
-        LOGGER.error(
-            "%s: PTR reverse lookup failed for %s: %s",
-            thread,
-            ip_obj["ip"],
-            e,
-        )
+    """Reverse lookup IP using WhoisXML A/AAAA-based endpoint."""
+    # Call WhoisXML reverse lookup endpoint for IP
+    response = whoisxml_reverse_endpoint(ip_obj["ip"], thread)
+    # If overall response is None, API call failed
+    if response is None:
         failed_ips.append(ip_obj["ip"])
         return [], failed_ips
-    except (socket.gaierror, TimeoutError, OSError) as e:
-        LOGGER.error(
-            "%s: PTR reverse lookup failed for %s: %s", thread, ip_obj["ip"], e
-        )
-        failed_ips.append(ip_obj["ip"])
+    # If records field is None, no results for this IP
+    response_records = response.get("result", {}).get("records", [])
+    if response_records is None:
         return [], failed_ips
-    # Parse out root and subdomains
+    # Otherwise begin parsing response
+    response_latest = max(response_records, key=lambda item: item["date"])
+    response_domains = response_latest.get("domains", [])
     found_domains = []
-    for hostname in hostnames:
-        hostname = hostname.rstrip(".").lower()
+    for domain in response_domains:
+        # Isolate the hostname
+        hostname = domain.get("domain", "").rstrip(".").lower()
         if not hostname:
             continue
+        # Extract the root domain/suffix from the hostname
         extracted = TLD_EXTRACTOR(hostname)
         if not extracted.domain or not extracted.suffix:
             LOGGER.warning(
-                "Unable to determine root domain for hostname %s during reverse lookup",
+                "Unable to determine root domain for hostname %s",
                 hostname,
             )
             continue
+        # Append parsed domain results
         found_domains.append(
             {
                 "sub_domain": hostname,
                 "root": f"{extracted.domain}.{extracted.suffix}",
             }
         )
-    # If any domains found, ensure the IP they came from exists in the DB (upsert)
+    # If any domains found, upsert to DB
     if found_domains:
         upsert_ips(ip_obj)
     # Return results
@@ -138,7 +200,7 @@ def run_ip_chunk(org_name, org_uid, ips_df, thread):
             )
             last_chunk = time.time()
         # Get domain from IP and link them in the database
-        link_domain_from_ip(ip, org_uid, "Python Socket", failed_ips, conn, thread)
+        link_domain_from_ip(ip, org_uid, "WhoisXML", failed_ips, conn, thread)
     conn.close()
 
 
