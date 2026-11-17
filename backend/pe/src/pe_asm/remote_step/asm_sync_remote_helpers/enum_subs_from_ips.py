@@ -48,7 +48,7 @@ def limit_lookup_rate():
 
 
 def whoisxml_reverse_endpoint(ip_address, thread):
-    """Call WhoisXM's DNS A based reverse lookup endpoint, return None on failure."""
+    """Call WhoisXML's DNS A based reverse lookup endpoint, return None on failure."""
     # Get API key from env variable
     api_key = os.environ.get("WHOIS_XML_KEY", "").strip()
     if not api_key:
@@ -68,14 +68,22 @@ def whoisxml_reverse_endpoint(ip_address, thread):
             response = requests.post(
                 "https://dns-history.whoisxmlapi.com/api/v1",
                 json=params,
-                timeout=(10, 30),
+                timeout=(
+                    WHOISXML_CONNECT_TIMEOUT,
+                    WHOISXML_READ_TIMEOUT,
+                ),
             )
             # If good response, return result
             if response.status_code == 200:
                 result = response.json()
-                # Ensure result is a dictionary
-                if not isinstance(result.get("result", {}), dict):
-                    raise ValueError("WhoisXML response was not a dictionary")
+                # Ensure response is correctly structured
+                if not isinstance(result, dict) or not isinstance(
+                    result.get("result"), dict
+                ):
+                    raise ValueError("WhoisXML response had an unexpected structure")
+                records = result["result"].get("records", [])
+                if records is not None and not isinstance(records, list):
+                    raise ValueError("WhoisXML response's records field was not a list")
                 return result
             # If non-retryable response, log error and return None
             if response.status_code not in WHOISXML_RETRYABLE_STATUS_CODES:
@@ -116,20 +124,34 @@ def whoisxml_reverse_endpoint(ip_address, thread):
 
 
 def reverseLookup(ip_obj, failed_ips, thread):
-    """Reverse lookup IP using WhoisXML A/AAAA-based endpoint."""
+    """Reverse lookup IPv4 address using WhoisXML's historical A records."""
     # Call WhoisXML reverse lookup endpoint for IP
     response = whoisxml_reverse_endpoint(ip_obj["ip"], thread)
     # If overall response is None, API call failed
     if response is None:
         failed_ips.append(ip_obj["ip"])
         return [], failed_ips
-    # If records field is None, no results for this IP
+    # If records field is none/empty, no results for this IP
     response_records = response.get("result", {}).get("records", [])
-    if response_records is None:
+    if not response_records:
         return [], failed_ips
-    # Otherwise begin parsing response
-    response_latest = max(response_records, key=lambda item: item["date"])
-    response_domains = response_latest.get("domains", [])
+    # Ensure list of records has date field
+    dated_records = [
+        record
+        for record in response_records
+        if isinstance(record, dict) and record.get("date")
+    ]
+    if not dated_records:
+        return [], failed_ips
+    # Grab the domains from the most recent dated record
+    latest_date = max(record["date"] for record in dated_records)
+    response_domains = [
+        domain
+        for record in dated_records
+        if record["date"] == latest_date
+        for domain in record.get("domains", [])
+    ]
+    # Begin parsing each domain
     found_domains = []
     for domain in response_domains:
         # Isolate the hostname
@@ -206,6 +228,9 @@ def run_ip_chunk(org_name, org_uid, ips_df, thread):
 
 def enum_subs_from_ips(orgs_df):
     """Enumerate subdomains from an org's IPs and create link in the ip_subs table."""
+    # Ensure WhoisXML API key present
+    if not os.environ.get("WHOIS_XML_KEY", "").rstrip():
+        raise RuntimeError("Missing required environment variable: WHOIS_XML_KEY")
     num_orgs = len(orgs_df.index)
     # Iterate over each organization
     org_count = 1
