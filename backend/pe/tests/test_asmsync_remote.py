@@ -5,7 +5,6 @@ from contextlib import ExitStack
 import ipaddress
 import os
 from pathlib import Path
-import socket
 import sys
 import unittest
 from unittest.mock import MagicMock, call, patch
@@ -18,6 +17,7 @@ os.environ.setdefault("PE_DB_PASSWORD", "_".join(("test", "value")))
 os.environ.setdefault("DATABASE_NAME", "test_cyhy")
 os.environ.setdefault("DATABASE_USER", "test_user")
 os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
+os.environ.setdefault("WHOIS_XML_KEY", "test-key")
 # Third-Party Libraries
 import pandas as pd
 
@@ -323,21 +323,33 @@ class RunAsmSyncRemoteTests(unittest.TestCase):
 class EnumSubsFromIpsTests(unittest.TestCase):
     """Verify reverse DNS enumeration and IP chunk processing."""
 
-    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips, "whoisxml_reverse_endpoint")
     @patch.object(enum_subs_from_ips, "upsert_ips")
-    @patch.object(enum_subs_from_ips.socket, "gethostbyaddr")
-    def test_reverse_lookup_returns_ptr_domains_and_upserts_ip(
+    def test_reverse_lookup_returns_latest_whoisxml_domains(
         self,
-        resolver_mock,
         upsert_mock,
-        _rate_mock,
+        endpoint_mock,
     ):
-        """Return PTR hostnames with correctly extracted root domains."""
-        resolver_mock.return_value = (
-            "host.example.co.uk",
-            ["mail.example.gov"],
-            ["192.0.2.1"],
-        )
+        """Return domains from the most recent WhoisXML observation."""
+        endpoint_mock.return_value = {
+            "result": {
+                "records": [
+                    {
+                        "date": "2026-01-01",
+                        "domains": [
+                            {"domain": "old.example.gov"},
+                        ],
+                    },
+                    {
+                        "date": "2026-02-01",
+                        "domains": [
+                            {"domain": "host.example.co.uk"},
+                            {"domain": "mail.example.gov"},
+                        ],
+                    },
+                ]
+            }
+        }
         ip_object = {"ip": "192.0.2.1", "ip_hash": "hash"}
 
         domains, failures = enum_subs_from_ips.reverseLookup(
@@ -360,23 +372,23 @@ class EnumSubsFromIpsTests(unittest.TestCase):
             ],
         )
         self.assertEqual(failures, [])
-        resolver_mock.assert_called_once_with("192.0.2.1")
+        endpoint_mock.assert_called_once_with("192.0.2.1", "Thread 1")
         upsert_mock.assert_called_once_with(ip_object)
 
-    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips, "whoisxml_reverse_endpoint")
     @patch.object(enum_subs_from_ips, "upsert_ips")
-    @patch.object(
-        enum_subs_from_ips.socket,
-        "gethostbyaddr",
-        side_effect=socket.herror(1, "Host not found"),
-    )
-    def test_reverse_lookup_treats_missing_ptr_as_negative_result(
+    def test_reverse_lookup_handles_empty_records(
         self,
-        _resolver_mock,
         upsert_mock,
-        _rate_mock,
+        endpoint_mock,
     ):
-        """Treat HOST_NOT_FOUND as a valid missing-PTR response."""
+        """Treat an empty records list as a valid zero-result response."""
+        endpoint_mock.return_value = {
+            "result": {
+                "records": [],
+            }
+        }
+
         domains, failures = enum_subs_from_ips.reverseLookup(
             {"ip": "192.0.2.2"},
             [],
@@ -387,18 +399,16 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         self.assertEqual(failures, [])
         upsert_mock.assert_not_called()
 
-    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
-    @patch.object(
-        enum_subs_from_ips.socket,
-        "gethostbyaddr",
-        side_effect=socket.herror(2, "Try again"),
-    )
-    def test_reverse_lookup_records_temporary_resolver_failure(
+    @patch.object(enum_subs_from_ips, "whoisxml_reverse_endpoint")
+    @patch.object(enum_subs_from_ips, "upsert_ips")
+    def test_reverse_lookup_records_api_failure(
         self,
-        _resolver_mock,
-        _rate_mock,
+        upsert_mock,
+        endpoint_mock,
     ):
-        """Record TRY_AGAIN as a failed lookup."""
+        """Record an IP when the WhoisXML request fails."""
+        endpoint_mock.return_value = None
+
         domains, failures = enum_subs_from_ips.reverseLookup(
             {"ip": "192.0.2.3"},
             [],
@@ -407,6 +417,166 @@ class EnumSubsFromIpsTests(unittest.TestCase):
 
         self.assertEqual(domains, [])
         self.assertEqual(failures, ["192.0.2.3"])
+        upsert_mock.assert_not_called()
+
+    @patch.object(enum_subs_from_ips, "whoisxml_reverse_endpoint")
+    @patch.object(enum_subs_from_ips, "upsert_ips")
+    def test_reverse_lookup_combines_latest_date_records(
+        self,
+        upsert_mock,
+        endpoint_mock,
+    ):
+        """Include domains from every record sharing the latest date."""
+        endpoint_mock.return_value = {
+            "result": {
+                "records": [
+                    {
+                        "date": "2026-01-01",
+                        "domains": [{"domain": "old.example.gov"}],
+                    },
+                    {
+                        "date": "2026-02-01",
+                        "domains": [{"domain": "one.example.gov"}],
+                    },
+                    {
+                        "date": "2026-02-01",
+                        "domains": [{"domain": "two.example.gov"}],
+                    },
+                ]
+            }
+        }
+        ip_object = {"ip": "192.0.2.4", "ip_hash": "hash"}
+
+        domains, failures = enum_subs_from_ips.reverseLookup(
+            ip_object,
+            [],
+            "Thread 4",
+        )
+
+        self.assertCountEqual(
+            domains,
+            [
+                {
+                    "sub_domain": "one.example.gov",
+                    "root": "example.gov",
+                },
+                {
+                    "sub_domain": "two.example.gov",
+                    "root": "example.gov",
+                },
+            ],
+        )
+        self.assertEqual(failures, [])
+        upsert_mock.assert_called_once_with(ip_object)
+
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips.requests, "post")
+    def test_whoisxml_endpoint_returns_successful_response(
+        self,
+        post_mock,
+        rate_mock,
+    ):
+        """Return parsed JSON from a successful WhoisXML request."""
+        response = MagicMock(status_code=200)
+        response.json.return_value = {
+            "result": {
+                "count": 0,
+                "records": [],
+            }
+        }
+        post_mock.return_value = response
+
+        result = enum_subs_from_ips.whoisxml_reverse_endpoint(
+            "192.0.2.1",
+            "Thread 1",
+        )
+
+        self.assertEqual(result, response.json.return_value)
+        rate_mock.assert_called_once_with()
+        post_mock.assert_called_once_with(
+            "https://dns-history.whoisxmlapi.com/api/v1",
+            json={
+                "apiKey": "test-key",
+                "searchType": "reverse",
+                "recordType": "a",
+                "ipAddress": "192.0.2.1",
+            },
+            timeout=(
+                enum_subs_from_ips.WHOISXML_CONNECT_TIMEOUT,
+                enum_subs_from_ips.WHOISXML_READ_TIMEOUT,
+            ),
+        )
+
+    @patch.object(enum_subs_from_ips.time, "sleep")
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips.requests, "post")
+    def test_whoisxml_endpoint_retries_temporary_failure(
+        self,
+        post_mock,
+        rate_mock,
+        sleep_mock,
+    ):
+        """Retry a temporary API failure and return the later success."""
+        failed_response = MagicMock(status_code=429)
+        successful_response = MagicMock(status_code=200)
+        successful_response.json.return_value = {
+            "result": {
+                "count": 0,
+                "records": [],
+            }
+        }
+        post_mock.side_effect = [
+            failed_response,
+            successful_response,
+        ]
+
+        result = enum_subs_from_ips.whoisxml_reverse_endpoint(
+            "192.0.2.1",
+            "Thread 1",
+        )
+
+        self.assertEqual(result, successful_response.json.return_value)
+        self.assertEqual(post_mock.call_count, 2)
+        self.assertEqual(rate_mock.call_count, 2)
+        sleep_mock.assert_called_once_with(1)
+
+    @patch.object(enum_subs_from_ips.time, "sleep")
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips.requests, "post")
+    def test_whoisxml_endpoint_does_not_retry_permanent_failure(
+        self,
+        post_mock,
+        rate_mock,
+        sleep_mock,
+    ):
+        """Do not retry permanent authentication or request errors."""
+        post_mock.return_value = MagicMock(status_code=401)
+
+        result = enum_subs_from_ips.whoisxml_reverse_endpoint(
+            "192.0.2.1",
+            "Thread 1",
+        )
+
+        self.assertIsNone(result)
+        post_mock.assert_called_once()
+        rate_mock.assert_called_once_with()
+        sleep_mock.assert_not_called()
+
+    def test_whoisxml_endpoint_requires_api_key(self):
+        """Fail immediately when the WhoisXML API key is missing."""
+        with patch.dict(
+            os.environ,
+            {"WHOIS_XML_KEY": ""},
+            clear=False,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Missing required environment variable: WHOIS_XML_KEY",
+            ):
+                enum_subs_from_ips.whoisxml_reverse_endpoint(
+                    "192.0.2.1",
+                    "Thread 1",
+                )
 
     @patch.object(enum_subs_from_ips, "reverseLookup")
     def test_link_domain_from_ip_links_each_found_domain(self, reverse_mock):
@@ -425,7 +595,7 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         domains = enum_subs_from_ips.link_domain_from_ip(
             ip_object,
             "org-uid",
-            "Python Socket",
+            "WhoisXML",
             [],
             connection,
             "Thread 1",
@@ -456,7 +626,7 @@ class EnumSubsFromIpsTests(unittest.TestCase):
 
         self.assertEqual(link_mock.call_count, 2)
         for invocation in link_mock.call_args_list:
-            self.assertEqual(invocation.args[1:3], ("org-uid", "Python Socket"))
+            self.assertEqual(invocation.args[1:3], ("org-uid", "WhoisXML"))
             self.assertIs(invocation.args[4], connection)
         connection.close.assert_called_once_with()
 
@@ -553,6 +723,34 @@ class EnumSubsFromIpsTests(unittest.TestCase):
             enum_subs_from_ips.enum_subs_from_ips(organizations)
 
         query_mock.assert_called_once_with("org-uid")
+        thread_mock.assert_not_called()
+
+    @patch.object(enum_subs_from_ips.threading, "Thread")
+    def test_enum_subs_requires_whoisxml_api_key(
+        self,
+        thread_mock,
+    ):
+        """Abort before starting workers when the API key is missing."""
+        organizations = pd.DataFrame(
+            [
+                {
+                    "organizations_uid": "org-uid",
+                    "cyhy_db_name": "ORG",
+                }
+            ]
+        )
+
+        with patch.dict(
+            os.environ,
+            {"WHOIS_XML_KEY": ""},
+            clear=False,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Missing required environment variable: WHOIS_XML_KEY",
+            ):
+                enum_subs_from_ips.enum_subs_from_ips(organizations)
+
         thread_mock.assert_not_called()
 
 

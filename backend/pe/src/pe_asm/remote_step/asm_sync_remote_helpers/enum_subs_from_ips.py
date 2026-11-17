@@ -149,7 +149,7 @@ def reverseLookup(ip_obj, failed_ips, thread):
         domain
         for record in dated_records
         if record["date"] == latest_date
-        for domain in record.get("domains", [])
+        for domain in record.get("domains") or []
     ]
     # Begin parsing each domain
     found_domains = []
