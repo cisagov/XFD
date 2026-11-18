@@ -153,14 +153,14 @@ def upload_backup_to_s3(file_name, datestring, bucket):
         )
     except ClientError:
         LOGGER.exception("Failed uploading %s to S3", file_name)
+        raise
 
 
 def run_db_backup():
     """Create database backup files and upload them to S3."""
     # Create backup files
     if create_backup_files():
-        LOGGER.error("Database backup failed; files will not be uploaded")
-        return
+        raise RuntimeError("Database backup failed; files will not be uploaded")
     backup_folder = BACKUP_ROOT / f"backups_{DATE}"
     backup_files = [
         backup_folder / "pedb_dump.sql",

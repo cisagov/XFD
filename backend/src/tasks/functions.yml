@@ -215,7 +215,7 @@ peScanController:
         name: pe-db-backup-semi-monthly
         description: "Semi-monthly database backup script"
         # Runs the 4th and 19th of every month at 12:00 AM EST/EDT
-        rate: cron(0 4 4,19 * ? *)
+        rate: cron(0 5 4,19 * ? *)
         enabled: true
         input:
           scans: ["db_backup"]
@@ -267,7 +267,7 @@ peScanController:
         name: pe-flare-ident-prune-semi-monthly
         description: "Semi-monthly flare identifier pruning script"
         # Runs the 5th and 20th of every month at 12:00 AM EST/EDT
-        rate: cron(0 4 5,20 * ? *)
+        rate: cron(0 5 5,20 * ? *)
         enabled: true
         input:
           scans: ["flare_ident_prune"]
