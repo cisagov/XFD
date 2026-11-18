@@ -101,8 +101,8 @@ resource "aws_ecs_task_definition" "pe_worker" {
       },
       {
         "name": "DB_BACKUP_BUCKET_NAME",
-        "value": "$var.pe_db_backups_bucket_name}"
-      }
+        "value": "${var.pe_db_backups_bucket_name}"
+      },
       {
         "name": "DB_PORT",
         "value": "${var.db_port}"
