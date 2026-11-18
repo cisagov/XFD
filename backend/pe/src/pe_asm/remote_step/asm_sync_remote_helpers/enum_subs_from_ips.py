@@ -48,7 +48,7 @@ def limit_lookup_rate():
 
 
 def whoisxml_reverse_endpoint(ip_address, thread):
-    """Call WhoisXML's DNS A based reverse lookup endpoint, return None on failure."""
+    """Retrieve IP results from WhoisXML's paginated DNS A reverse lookup endpoint."""
     # Get API key from env variable
     api_key = os.environ.get("WHOIS_XML_KEY", "").strip()
     if not api_key:
@@ -60,67 +60,96 @@ def whoisxml_reverse_endpoint(ip_address, thread):
         "recordType": "a",
         "ipAddress": ip_address,
     }
-    # Begin retry loop
-    for attempt in range(1, WHOISXML_MAX_RETRIES + 1):
-        limit_lookup_rate()
-        # Attempt to call WhoisXML API
-        try:
-            response = requests.post(
-                "https://dns-history.whoisxmlapi.com/api/v1",
-                json=params,
-                timeout=(
-                    WHOISXML_CONNECT_TIMEOUT,
-                    WHOISXML_READ_TIMEOUT,
-                ),
-            )
-            # If good response, return result
-            if response.status_code == 200:
-                result = response.json()
-                # Ensure response is correctly structured
-                if not isinstance(result, dict) or not isinstance(
-                    result.get("result"), dict
-                ):
-                    raise ValueError("WhoisXML response had an unexpected structure")
-                records = result["result"].get("records", [])
-                if records is not None and not isinstance(records, list):
-                    raise ValueError("WhoisXML response's records field was not a list")
-                return result
-            # If non-retryable response, log error and return None
-            if response.status_code not in WHOISXML_RETRYABLE_STATUS_CODES:
-                LOGGER.error(
-                    "%s: Non-retryable WhoisXML response for %s: HTTP %d",
+    all_records = []
+    # Loop for paginated retrieval
+    while True:
+        # Attempt to call WhoisXML API w/ retries
+        for attempt in range(1, WHOISXML_MAX_RETRIES + 1):
+            # Call WhoisXML API
+            limit_lookup_rate()
+            try:
+                response = requests.post(
+                    "https://dns-history.whoisxmlapi.com/api/v1",
+                    json=params,
+                    timeout=(
+                        WHOISXML_CONNECT_TIMEOUT,
+                        WHOISXML_READ_TIMEOUT,
+                    ),
+                )
+                # If good 200 response
+                if response.status_code == 200:
+                    result = response.json()
+                    result_data = result.get("result")
+                    # Check that response is properly structured
+                    if not isinstance(result, dict) or not isinstance(
+                        result_data,
+                        dict,
+                    ):
+                        raise ValueError(
+                            "WhoisXML response had an unexpected structure"
+                        )
+                    # Check that records field is properly structured
+                    records = result_data.get("records", [])
+                    if records is None:
+                        records = []
+                    elif not isinstance(records, list):
+                        raise ValueError(
+                            "WhoisXML response's records field was not a list"
+                        )
+                    # Append the results from this page
+                    all_records.extend(records)
+                    after = result_data.get("after")
+                    # If no more pages to retrieve, return full list of results
+                    if not after:
+                        result_data["records"] = all_records
+                        return result
+                    # Otherwise update after variable for next page
+                    if not isinstance(after, dict):
+                        raise ValueError(
+                            "WhoisXML response's after field was not an object"
+                        )
+                    params["after"] = after
+                    break
+                # If non-retryable response, log error and return None
+                if response.status_code not in WHOISXML_RETRYABLE_STATUS_CODES:
+                    LOGGER.error(
+                        "%s: Non-retryable WhoisXML response for %s: HTTP %d",
+                        thread,
+                        ip_address,
+                        response.status_code,
+                    )
+                    return None
+                # Capture error code
+                error = f"HTTP {response.status_code}"
+            except (
+                requests.exceptions.RequestException,
+                ValueError,
+            ) as exception:
+                # Capture error code
+                error = str(exception)
+            # If retries remaining, log warning and sleep before retrying
+            if attempt < WHOISXML_MAX_RETRIES:
+                delay = min(2 ** (attempt - 1), 30)
+                LOGGER.warning(
+                    "%s: WhoisXML lookup failed for %s: %s; "
+                    "retrying in %d seconds (%d/%d)",
                     thread,
                     ip_address,
-                    response.status_code,
+                    error,
+                    delay,
+                    attempt,
+                    WHOISXML_MAX_RETRIES,
                 )
-                return None
-            # Capture error code
-            error = f"HTTP {response.status_code}"
-        except (requests.exceptions.RequestException, ValueError) as exception:
-            # Capture error code
-            error = str(exception)
-        # If retries remaining, log warning and sleep before retrying
-        if attempt < WHOISXML_MAX_RETRIES:
-            delay = min(2 ** (attempt - 1), 30)
-            LOGGER.warning(
-                "%s: WhoisXML lookup failed for %s: %s; "
-                "retrying in %d seconds (%d/%d)",
+                time.sleep(delay)
+        else:
+            # If max retries reached, log error and return None
+            LOGGER.error(
+                "%s: WhoisXML lookup failed for %s after %d attempts",
                 thread,
                 ip_address,
-                error,
-                delay,
-                attempt,
                 WHOISXML_MAX_RETRIES,
             )
-            time.sleep(delay)
-    # If max retries reached, log error and return None
-    LOGGER.error(
-        "%s: WhoisXML lookup failed for %s after %d attempts",
-        thread,
-        ip_address,
-        WHOISXML_MAX_RETRIES,
-    )
-    return None
+            return None
 
 
 def reverseLookup(ip_obj, failed_ips, thread):

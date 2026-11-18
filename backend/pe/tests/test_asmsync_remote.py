@@ -578,6 +578,62 @@ class EnumSubsFromIpsTests(unittest.TestCase):
                     "Thread 1",
                 )
 
+    @patch.object(enum_subs_from_ips, "limit_lookup_rate")
+    @patch.object(enum_subs_from_ips.requests, "post")
+    def test_whoisxml_reverse_endpoint_retrieves_all_pages(
+        self,
+        post_mock,
+        rate_mock,
+    ):
+        """Combine records from every WhoisXML response page."""
+        first_response = MagicMock(status_code=200)
+        first_response.json.return_value = {
+            "result": {
+                "count": 2,
+                "records": [
+                    {
+                        "date": "2026-01-01",
+                        "domains": [{"domain": "first.example.gov"}],
+                    }
+                ],
+                "after": {
+                    "date": "2026-01-01",
+                    "domain": "first.example.gov",
+                },
+            }
+        }
+
+        second_response = MagicMock(status_code=200)
+        second_response.json.return_value = {
+            "result": {
+                "count": 1,
+                "records": [
+                    {
+                        "date": "2026-02-01",
+                        "domains": [{"domain": "second.example.gov"}],
+                    }
+                ],
+            }
+        }
+
+        post_mock.side_effect = [first_response, second_response]
+
+        result = enum_subs_from_ips.whoisxml_reverse_endpoint(
+            "192.0.2.1",
+            "Thread 1",
+        )
+
+        self.assertEqual(len(result["result"]["records"]), 2)
+        self.assertEqual(post_mock.call_count, 2)
+        self.assertEqual(rate_mock.call_count, 2)
+        self.assertEqual(
+            post_mock.call_args_list[1].kwargs["json"]["after"],
+            {
+                "date": "2026-01-01",
+                "domain": "first.example.gov",
+            },
+        )
+
     @patch.object(enum_subs_from_ips, "reverseLookup")
     def test_link_domain_from_ip_links_each_found_domain(self, reverse_mock):
         """Call the link procedure for every reverse-lookup domain."""
