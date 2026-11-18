@@ -494,7 +494,7 @@ const ScansView: React.FC = () => {
           scanSchema={scanSchema}
         />
       }
-      screenWidth="xs"
+      screenWidth="sm"
     />
   );
   const addNewScan = (
