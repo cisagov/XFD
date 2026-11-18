@@ -1,16 +1,29 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from 'test-utils';
-import { useAuthContext } from '@/context';
-import { authCtx } from 'test-utils/authCtx';
+
+// Test Utils
+import { authCtx } from '@/test-utils/authCtx';
+import { render, screen, fireEvent, waitFor } from '@/test-utils';
 import {
   globalAdminUser,
   regionalAdminUser,
   globalViewUser,
   testUser
 } from '@/test-utils';
-import OrgMembers from '../../../pages/Organization/OrgMembers';
-import { Organization, Role } from 'types';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Pages
+import OrgMembers from '@/pages/Organization/OrgMembers';
+
+// Types
+import { Organization, Role } from '@/types';
+
+// Utils
 import * as logger from '@/utils/logger';
 
 // Mock the logger
@@ -21,21 +34,22 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 //Mock hooks
-vi.mock('context/AuthContext');
+vi.mock('@/context/AuthContext');
 
 // Mock CustomToolbar to check if disableExport prop is passed correctly
-vi.mock('components/DataGrid/CustomToolbar', () => ({
-  default: ({ disableExport, exportTitle }: any) => (
+vi.mock('@/components/DataGrid/CustomToolbar', () => ({
+  default: ({ disableExport, exportTitle, hasActiveFilters }: any) => (
     <div data-testid="custom-toolbar">
       <span data-testid="disable-export">{String(disableExport)}</span>
       <span data-testid="export-title">{exportTitle}</span>
+      <span data-testid="has-active-filters">{String(hasActiveFilters)}</span>
       {!disableExport && <button data-testid="export-button">Export</button>}
     </div>
   )
 }));
 
 // Mock the dialogs
-vi.mock('components/Dialog/ConfirmDialog', () => ({
+vi.mock('@/components/Dialog/ConfirmDialog', () => ({
   default: ({ isOpen, onConfirm, onCancel, title }: any) =>
     isOpen ? (
       <div data-testid="confirm-dialog">
@@ -50,7 +64,7 @@ vi.mock('components/Dialog/ConfirmDialog', () => ({
     ) : null
 }));
 
-vi.mock('components/Dialog/InfoDialog', () => ({
+vi.mock('@/components/Dialog/InfoDialog', () => ({
   default: ({ isOpen, handleClick, title }: any) =>
     isOpen ? (
       <div data-testid="info-dialog">
@@ -246,6 +260,20 @@ describe('OrgMembers Component', () => {
 
       const exportTitle = screen.getByTestId('export-title');
       expect(exportTitle.textContent).toBe('Test Organization Members');
+    });
+
+    it('should render the filter badge as inactive initially', () => {
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      expect(screen.getByTestId('has-active-filters').textContent).toBe(
+        'false'
+      );
     });
 
     it('should render remove buttons for each member if Global Admin', () => {

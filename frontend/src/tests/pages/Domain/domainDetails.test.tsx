@@ -1,22 +1,37 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { createMemoryHistory } from 'history';
+// React
+import React from 'react';
 import { Router } from 'react-router-dom';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+
+// Node Packages
+import { createMemoryHistory } from 'history';
+
+// Context
+import { useAuthContext } from '@/context';
+import { CFThemeProvider } from '@/context/Theme';
+
+// Hooks
 import { ApiError } from '@/hooks/useApi';
-import { useAuthContext } from 'context';
-import { CFThemeProvider } from 'context/Theme';
-import { useDomainApi } from 'hooks';
-import { DomainDetails, generateWebpageTree } from 'pages/Domain/DomainDetails';
+import { useDomainApi } from '@/hooks';
+
+// Pages
+import {
+  DomainDetails,
+  generateWebpageTree
+} from '@/pages/Domain/DomainDetails';
 
 const { mockGetDomain } = vi.hoisted(() => ({
   mockGetDomain: vi.fn()
 }));
 
-vi.mock('hooks', () => ({
+vi.mock('@/hooks', () => ({
   useDomainApi: vi.fn()
 }));
 
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 

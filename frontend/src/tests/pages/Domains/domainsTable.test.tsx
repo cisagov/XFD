@@ -1,10 +1,19 @@
+// React
 import React from 'react';
-import { render, screen, testUser, waitFor } from 'test-utils';
-import { makeDomainResponse } from '@/test-utils/domains';
-import type { AuthUser } from '../../../context/';
+
+// Testing Library
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
-import { Domains } from '../../../pages/Domains/Domains';
 import userEvent from '@testing-library/user-event';
+
+// Test Utils
+import { makeDomainResponse } from '@/test-utils/domains';
+import { render, screen, testUser, waitFor } from '@/test-utils';
+
+// Context
+import type { AuthUser } from '@/context/';
+
+// Pages
+import { Domains } from '@/pages/Domains/Domains';
 
 const namePool = [
   'example.com',
@@ -50,8 +59,8 @@ describe('Domains component', () => {
       }
     });
 
-    const loadingText = await screen.findByText(/loading domains../i);
-    expect(loadingText).toBeInTheDocument();
+    const gridWhileLoading = await screen.findByRole('grid');
+    expect(gridWhileLoading).toBeInTheDocument();
 
     resolveApi!(sampleResponse);
 
@@ -273,6 +282,7 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Should have header row + data rows
+      await screen.findByText(/^192\.0\.2\.1$/i);
       const rows = await screen.findAllByRole('row');
       expect(rows.length).toBe(sampleResponse.result.length + 1); // +1 for header
     });
@@ -297,6 +307,7 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Should have header row + 1 data row
+      await screen.findByText(/^192\.0\.2\.1$/i);
       const rows = await screen.findAllByRole('row');
       expect(rows.length).toBe(2);
 

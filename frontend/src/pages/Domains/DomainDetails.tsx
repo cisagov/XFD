@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { styled } from '@mui/material/styles';
 import { useHistory } from 'react-router-dom';
+
+// Material-UI Components
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -13,18 +13,38 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import KeyboardBackspace from '@mui/icons-material/KeyboardBackspace';
-import { Domain } from 'types';
-import { useDomainApi } from 'hooks';
-import { DefinitionList } from 'components/DefinitionList';
+
+// Material-UI Theme
+import { styled } from '@mui/material/styles';
+
+// Node Packages
 // @ts-ignore:next-line
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { Webpage } from 'types';
-import { useAuthContext } from 'context';
-import { getSeverityColor } from 'utils/getSeverityColor';
+
+// Components
+import { DefinitionList } from '@/components/DefinitionList';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import { useDomainApi } from '@/hooks';
+
+// Types
+import { Domain } from '@/types';
+import { Webpage } from '@/types';
+
+// Utils
+import { logger } from '@/utils/logger';
+import { getSeverityColor } from '@/utils/getSeverityColor';
 
 const PREFIX = 'DomainDetails';
 

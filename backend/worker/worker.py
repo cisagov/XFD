@@ -22,6 +22,7 @@ from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.scan import SCAN_SCHEMA
 from xfd_api.tasks.helpers.log_scan_result import log_scan_result
 from xfd_api.tasks.shodan import FatalScanError
+from xfd_django.helpers.log_helpers import install_log_context
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
@@ -116,8 +117,18 @@ def main():
     scan_name = command_options.get("scanName", "test")
     scan_schema = SCAN_SCHEMA.get(scan_name)
     if not scan_schema:
-        LOGGER.exception("No schema found for scan name: %s", scan_name)
+        LOGGER.error("No schema found for scan name: %s", scan_name)
         raise ValueError
+
+    # Stamp scan context onto every log record from the worker and its tasks.
+    # Attached to handlers (not a LoggerAdapter) so task-module loggers get it too.
+    scan_id = command_options.get("scanId")
+    log_context = install_log_context(
+        scan_name=scan_name,
+        scan_id=scan_id,
+        is_global=scan_schema.global_scan,
+    )
+    LOGGER.info("Executing scan %s with ID %s", scan_name, scan_id)
 
     try:
         task_module = importlib.import_module("xfd_api.tasks.{}".format(scan_name))
@@ -246,6 +257,10 @@ def main():
         return
 
     while True:
+        # Clear the previous organization so queue-level logs (SQS errors,
+        # malformed messages, "no more messages") aren't tagged with it.
+        log_context.update(organization_name=None, organization_id=None)
+
         message_data = get_message(full_queue_path_name)
         if not message_data:
             LOGGER.info("No more messages in the queue.")
@@ -258,6 +273,7 @@ def main():
             LOGGER.error("Invalid message format. Skipping.")
             continue
 
+        log_context.update(organization_name=org, organization_id=org_id)
         LOGGER.info("Processing organization: %s", org)
         task_options = dict(command_options)
         task_options.update(

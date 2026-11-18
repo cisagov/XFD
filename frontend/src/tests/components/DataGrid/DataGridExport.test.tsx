@@ -11,14 +11,14 @@
 import React from 'react';
 
 // Testing utilities
-import { render, screen } from 'test-utils/test-utils';
+import { render, screen } from '@/test-utils/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 
 // MUI DataGrid
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Utils
-import { formatDisplayValue } from 'utils/stringUtils';
+import { formatDisplayValue } from '@/utils/stringUtils';
 
 // Mock data with large numbers that would be formatted
 const mockQueueData = [

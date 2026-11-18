@@ -23,7 +23,7 @@ from typing import Any, Dict, Optional
 from django.contrib.messages import constants as messages
 
 from .helpers.load_env_variables import load_django_env_config
-from .helpers.log_helpers import install_xfd_prefix
+from .helpers.log_helpers import JsonFormatter, install_xfd_prefix
 
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
@@ -187,7 +187,7 @@ handlers: Dict[str, Any] = {
     "console": {
         "level": LOGGING_LEVEL,
         "class": "logging.StreamHandler",
-        "formatter": "standard",
+        "formatter": "json",
     }
 }
 
@@ -246,6 +246,9 @@ LOGGING = {
         "standard": {
             "format": "%(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "json": {
+            "()": JsonFormatter,
         },
     },
     "handlers": handlers,

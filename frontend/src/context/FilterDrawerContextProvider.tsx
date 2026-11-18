@@ -1,6 +1,10 @@
 import React from 'react';
-import { FilterDrawerContext } from 'context/FilterDrawerContext';
-import { usePersistentState } from 'hooks';
+
+// Context
+import { FilterDrawerContext } from '@/context/FilterDrawerContext';
+
+// Hooks
+import { usePersistentState } from '@/hooks';
 
 interface FilterDrawerContextProviderProps {
   children: React.ReactNode;

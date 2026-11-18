@@ -1,7 +1,14 @@
+// React
 import React from 'react';
-import { TermsOfUse } from '../../../../components/Dialog/TermsOfUse/TermsOfUse';
-import { render, fireEvent, waitFor } from 'test-utils';
+
+// Testing utilities
+import { render, fireEvent, waitFor } from '@/test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+
+// Components
+import { TermsOfUse } from '@/components/Dialog/TermsOfUse/TermsOfUse';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 
 vi.mock('@mui/x-data-grid', () => ({

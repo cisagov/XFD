@@ -28,6 +28,9 @@ const plugins: PluginOption[] = [
 ];
 
 export default defineConfig({
+  build: {
+    target: 'es2022'
+  },
   define: { global: 'window' },
   plugins,
   server: {

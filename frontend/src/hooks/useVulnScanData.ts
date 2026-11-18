@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
-import { logger } from '@/utils/logger';
-import { VulnScanDataTransformed } from 'types/vuln-scan-stats';
-import { transformVulnScanData } from 'utils/transformVulnScanData';
-import { useAuthContext } from 'context';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 import { InitialVSData } from '@/constants/vsdashdata';
 import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { VulnScanDataTransformed } from '@/types/vuln-scan-stats';
+
+// Utils
+import { logger } from '@/utils/logger';
+import { transformVulnScanData } from '@/utils/transformVulnScanData';
 
 export function useVulnScanData(orgId: string) {
   const { apiPost } = useAuthContext();

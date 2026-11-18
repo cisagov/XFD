@@ -1,6 +1,10 @@
 import React from 'react';
-import { useAuthContext } from 'context/AuthContext';
-import { TermsOfUse } from 'components/Dialog/TermsOfUse/TermsOfUse';
+
+// Components
+import { TermsOfUse } from '@/components/Dialog/TermsOfUse/TermsOfUse';
+
+// Context
+import { useAuthContext } from '@/context/AuthContext';
 
 interface TermsGateProps {
   children: React.ReactNode;

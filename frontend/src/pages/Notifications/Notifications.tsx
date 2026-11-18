@@ -24,13 +24,13 @@ import {
 } from '@mui/x-data-grid';
 
 // Components
-import InfoDialog from 'components/Dialog/InfoDialog';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
-import NotificationForm from 'components/Notifications/NotificationForm';
-import NotificationTable from 'components/Notifications/NotificationTable';
+import InfoDialog from '@/components/Dialog/InfoDialog';
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
+import NotificationForm from '@/components/Notifications/NotificationForm';
+import NotificationTable from '@/components/Notifications/NotificationTable';
 
 // Context & Hooks
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 import { useSubmitForm } from '@/hooks/Notifications/useNotificationSubmit';
 import { useNotificationApiCall } from '@/hooks/Notifications/useNotificationApiCall';
 import { useNotificationAction } from '@/hooks/Notifications/useNotificationAction';
@@ -38,8 +38,8 @@ import { useDeleteNotification } from '@/hooks/Notifications/useDeleteNotificati
 import { useFetchNotification } from '@/hooks/Notifications/useFetchNotification';
 
 // Types & Utils
-import { initialNotificationValues, MaintenanceNotification } from 'types';
-import { formReadableDate, humanReadableDate, toEST } from 'utils/dateUtils';
+import { initialNotificationValues, MaintenanceNotification } from '@/types';
+import { formReadableDate, humanReadableDate, toEST } from '@/utils/dateUtils';
 import { textFilterOperators } from '@/utils/transformTableData';
 
 const dateValidator = (

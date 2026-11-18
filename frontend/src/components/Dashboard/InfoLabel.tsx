@@ -1,16 +1,24 @@
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import { SxProps } from '@mui/system';
 import Typography, { TypographyProps } from '@mui/material/Typography';
+
+// Components
 import InfoTooltipIcon from './InfoTooltipIcon';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+
+// Context
 import {
   useNavigationContext,
   isVSDashboard,
   isDrillDownDestination
-} from 'context/NavigationContext';
-import { ROUTES } from '@/constants/routes';
+} from '@/context/NavigationContext';
 
 type InfoLabelProps = {
   label: string;

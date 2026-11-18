@@ -1,24 +1,36 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+// Material-UI Components
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import { useAuthContext } from 'context';
-import { useStaticsContext } from 'context/StaticsContext';
-import { useNavigationContext } from 'context/NavigationContext';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+import { useStaticsContext } from '@/context/StaticsContext';
+import { useNavigationContext } from '@/context/NavigationContext';
+import { useFilterDrawerContext } from '@/context';
+
+// Hooks
 import {
   useUserLevel,
   GLOBAL_ADMIN,
   GLOBAL_VIEW,
   REGIONAL_ADMIN,
   STANDARD_USER
-} from 'hooks/useUserLevel';
-import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
+} from '@/hooks/useUserLevel';
+import { ORGANIZATION_EXCLUSIONS } from '@/hooks/useUserTypeFilters';
 import { OrganizationShallow } from './RegionAndOrganizationFilters';
-import { Organization } from 'types';
-import { ENDPOINTS } from '@/constants/endpoints';
+
+// Types
+import { Organization } from '@/types';
+
+// Utils
 import { logger } from '@/utils/logger';
-import { useFilterDrawerContext } from 'context';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = false;

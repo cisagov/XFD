@@ -30,6 +30,80 @@ make plan
 make apply
 ```
 
+##### CyHy report sharing
+
+Report-sharing resources are in `infrastructure/s3.tf`, with inputs in
+`vars.tf`, environment settings in `stage-cd.tfvars`, and IAM/key-policy
+outputs in `output.tf`. They use the existing provider, backend, and deployment
+process. The existing `cisa-was-reports` bucket and manually created customer
+managed KMS key are referenced; they are not created or replaced.
+
+`stage-cd.tfvars` enables ME uploads and 14-day retention in the same change and
+contains the supplied CMK, two ME producer roles, and confirmed existing
+HTTPS-only bucket policy. The existing lifecycle configuration was confirmed
+empty for this change. Bucket ownership is unchanged and no ownership
+confirmation flag is required. ME uploads use
+`reader_role_arns = []`; analyst roles do not block producer access. The grouped
+input permits dependent settings to be validated with the Terraform 1.0.7
+version used by the existing pipeline. Other environments default to disabled.
+
+Before enabling it, preserve the complete current bucket policy in
+`existing_bucket_policy_json`. This is the **S3 bucket policy**, not the KMS key
+policy. Use an empty
+Statement array only after confirming there is no current policy, and retain
+the original policy as the input for later changes. This change does not modify
+ownership, ACLs, public-access settings, or the bucket's default encryption.
+Confirm that
+no other Terraform state owns its bucket policy or lifecycle configuration;
+adopt existing controls into the current environment's state where necessary.
+
+The new grants and CMK upload requirements cover only `cybex_scorecard/`,
+`cyhy_ad-hoc_notifications/`, `cyhy_vs_reports/`, `https_reports/`, and
+`trustymail_reports/`. They exclude existing `was_reports/` and `capacity/`
+objects, including customer CSV exports. All configured readers can access all
+five prefixes, so every reader must be approved for that scope. Existing grants
+are preserved rather than revoked. The new TLS object denial covers only ME
+objects; secure transport is required on the new bucket-level grants without
+adding a bucket-wide denial affecting WAS operations. Confirm the bucket
+account/region, ATO approval, audit coverage, and organizational restrictions
+before deployment.
+
+Producers must request `aws:kms` and the exact CMK ARN on uploads. The external
+role owners must attach the generated producer IAM policy. When analyst access
+is ready, add approved roles to `reader_role_arns`. Only then are analyst
+download/list grants and reader IAM/key-policy outputs generated. Analyst role
+owners and the CMK owner must review those policies. Append the reader
+key-policy statement to the existing key policy, preserving its administrator
+and producer statements. This configuration does not change the shared bucket's
+default encryption or re-encrypt existing objects.
+Ownership of newly uploaded ME objects follows the bucket's existing ownership
+mode. Upload access does not require changing that mode. Any later analyst
+download setup must account for the actual object ownership and permissions.
+
+`manage_retention` is enabled in `stage-cd.tfvars`, and
+`existing_lifecycle_configuration_reviewed_empty` records confirmation that no
+existing lifecycle rules are configured. Confirm no other Terraform state owns
+the configuration. If rules are subsequently added, preserve them in the
+complete lifecycle configuration before deployment.
+The retention rules use a separate fixed list containing only the five ME
+prefixes. No expiration, version cleanup, delete-marker cleanup, or incomplete
+upload cleanup rule added by this change matches `was_reports/` or `capacity/`.
+Changing access permissions does not expand the retention scope. Existing WAS
+lifecycle rules must not be removed or replaced; if any exist, the current
+ME-only lifecycle resource remains blocked until preservation is addressed.
+The optional rules expire reports after 14 days, noncurrent versions one day
+after becoming noncurrent, and incomplete uploads after one day, with separate
+delete-marker cleanup. Versioning, Object Lock, replication, backups, and
+asynchronous S3 processing mean this is not a strict 14-day permanent-deletion
+guarantee. Review old matching objects before activation.
+
+Terraform tests and validation tooling stay local, outside the repository.
+Do not access AWS, run a live plan, import resources, or deploy from the
+development environment. The existing workflow can apply this infrastructure
+after a merge; enablement requires deployment review. COOL organization access
+and possible long-term copying require separate source/destination details and
+are not configured by these report-sharing resources.
+
 #### Backend
 
 The backend API is managed by the Serverless Framework. To deploy, run:

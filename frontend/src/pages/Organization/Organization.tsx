@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { logger } from '@/utils/logger';
 import { useParams } from 'react-router-dom';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Grid from '@mui/material/Grid';
@@ -12,17 +13,28 @@ import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import ChevronRight from '@mui/icons-material/ChevronRight';
-import { useAuthContext } from 'context';
+
+// Components
+import OrgMembers from './OrgMembers';
+import OrgSettings from './OrgSettings';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
 import {
   Organization as OrganizationType,
   Role,
   ScanTask,
   OrganizationTag
-} from 'types';
-import OrgMembers from './OrgMembers';
-import OrgSettings from './OrgSettings';
-import { ENDPOINTS } from '@/constants/endpoints';
-import { ROUTES } from '@/constants/routes';
+} from '@/types';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;

@@ -59,3 +59,8 @@ export interface OrganizationTag {
   organizations: Organization[];
   scans: Scan[];
 }
+
+export interface OrganizationOption {
+  label: string;
+  value: string;
+}

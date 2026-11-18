@@ -1,6 +1,11 @@
-import { Organization, OrganizationTag } from 'types';
-import { AuthUser, CurrentOrganization } from './AuthContext';
-import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
+// Context
+import { AuthUser, CurrentOrganization } from '@/context/AuthContext';
+
+// Hooks
+import { ORGANIZATION_EXCLUSIONS } from '@/hooks/useUserTypeFilters';
+
+// Types
+import { Organization, OrganizationTag } from '@/types';
 
 const currentTermsVersion = import.meta.env.VITE_TERMS_VERSION;
 

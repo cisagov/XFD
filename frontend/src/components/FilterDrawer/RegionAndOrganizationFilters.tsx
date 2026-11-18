@@ -1,4 +1,6 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
+
+// Material-UI Components
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -12,24 +14,34 @@ import ListItem from '@mui/material/ListItem';
 import Stack from '@mui/system/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons and Styles
 import { useTheme } from '@mui/material/styles';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
-import { logger } from '@/utils/logger';
-import { useAuthContext } from 'context';
-import { useStaticsContext } from 'context/StaticsContext';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+import { useStaticsContext } from '@/context/StaticsContext';
+
+// Hooks
 import {
   ORGANIZATION_EXCLUSIONS
   // REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS
-} from 'hooks/useUserTypeFilters';
+} from '@/hooks/useUserTypeFilters';
 import {
   useUserLevel,
   GLOBAL_ADMIN,
   GLOBAL_VIEW,
   REGIONAL_ADMIN,
   STANDARD_USER
-} from 'hooks/useUserLevel';
-import { ENDPOINTS } from '@/constants/endpoints';
+} from '@/hooks/useUserLevel';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = false;

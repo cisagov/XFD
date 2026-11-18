@@ -1,7 +1,14 @@
+// React
 import React from 'react';
-import { usePersistentState } from '../../hooks';
-import { render, fireEvent, waitFor } from 'test-utils';
+
+// Testing Library
 import { vi, it, expect, afterAll, afterEach } from 'vitest';
+
+// Testing Utils
+import { render, fireEvent, waitFor } from '@/test-utils';
+
+// Hooks
+import { usePersistentState } from '@/hooks';
 
 vi.spyOn(Storage.prototype, 'setItem');
 const setItemMock = vi.mocked(localStorage.setItem);

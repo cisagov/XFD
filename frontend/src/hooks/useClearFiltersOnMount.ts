@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { useNavigationContext } from 'context/NavigationContext';
+
+// Context
+import { useNavigationContext } from '@/context/NavigationContext';
 
 export function useClearFiltersOnMount(filters: any[], removeFilter: Function) {
   const { isDrillDown, clearDrillDown } = useNavigationContext();

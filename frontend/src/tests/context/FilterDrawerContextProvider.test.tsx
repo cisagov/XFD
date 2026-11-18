@@ -1,18 +1,22 @@
+// React
 import React from 'react';
+
+// Testing Library
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
-import { FilterDrawerContext } from 'context/FilterDrawerContext';
+// Context
+import { FilterDrawerContextProvider } from '@/context/FilterDrawerContextProvider';
+import { FilterDrawerContext } from '@/context/FilterDrawerContext';
 
 // ----------------------
 // Mock
 // ----------------------
 const mockUsePersistentState = vi.fn();
 
-vi.mock('hooks', async () => {
+vi.mock('@/hooks', async () => {
   const ReactModule = await vi.importActual<typeof React>('react');
 
   function usePersistentState<TValue>(

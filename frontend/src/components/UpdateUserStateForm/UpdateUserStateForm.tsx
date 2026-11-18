@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -10,10 +12,16 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import Save from '@mui/icons-material/Save';
 import { SelectChangeEvent } from '@mui/material/Select';
+
+// Material-UI Icons
+import Save from '@mui/icons-material/Save';
+
+// Constants
 import { STATE_OPTIONS } from '@/constants/constants';
-import { useAuthContext } from 'context';
+
+// Context
+import { useAuthContext } from '@/context';
 
 export interface UpdateStateFormValues {
   state: string;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { logger } from '@/utils/logger';
-import { User } from 'types/user';
+import { User } from '@/types/user';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 export default function useFirstLoginPopup(

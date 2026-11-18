@@ -1,7 +1,13 @@
 import React, { useContext } from 'react';
-import { useApi } from 'hooks';
-import { User, Organization, OrganizationTag } from 'types';
+
+// Material-UI Components
 import { AlertProps } from '@mui/material/Alert';
+
+// Hooks
+import { useApi } from '@/hooks';
+
+// Types
+import { User, Organization, OrganizationTag } from '@/types';
 
 export interface AuthUser extends User {
   isRegistered: boolean;

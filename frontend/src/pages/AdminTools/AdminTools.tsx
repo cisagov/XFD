@@ -1,16 +1,22 @@
 import React from 'react';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Tab from '@mui/material/Tab';
 import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
-import Notifications from 'pages/Notifications';
-import ScansView from 'pages/Scans/ScansView';
-import ScanTasksView from 'pages/Scans/ScanTasksView';
-import Metrics from '../../components/Metrics/MetricsDashboard';
-import QueueMonitorView from 'pages/Scans/QueueMonitorView';
-import { Logs } from 'components/Logs/Logs';
+
+// Components
+import { Logs } from '@/components/Logs/Logs';
+import Metrics from '@/components/Metrics/MetricsDashboard';
+
+// Pages
+import Notifications from '@/pages/Notifications';
+import QueueMonitorView from '@/pages/Scans/QueueMonitorView';
+import ScansView from '@/pages/Scans/ScansView';
+import ScanTasksView from '@/pages/Scans/ScanTasksView';
 
 export const AdminTools: React.FC = () => {
   const [value, setValue] = React.useState('1');

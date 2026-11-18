@@ -1,22 +1,35 @@
 import React from 'react';
-import { withSearch } from '@elastic/react-search-ui';
+
+// Material-UI Components
 import { BoxProps } from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Link from '@mui/material/Link';
-// Context & hooks
-import { ContextType, useAuthContext } from 'context';
-import { useVulnScanData } from 'hooks/useVulnScanData';
-import { useClearFiltersOnMount } from 'hooks/useClearFiltersOnMount';
-import { useOrgInfo } from 'hooks/useOrgInfo';
-// Shared components
-import NoDataMessage from 'components/Dashboard/NoDataMessage';
-import PageSection from 'components/Dashboard/PageSection';
-import { VulnerabilityScan } from 'pages/VulnerabilityScanDash/VulnerabilityScan';
-// Internal imports
-import isDataEmpty from 'utils/transformVulnScanData';
-import { isEmptyAfterScans } from 'utils/transformVulnScanData';
-import { MAILTO_INQUIRY } from '@/constants/emailLinks';
+
+// Node Packages
+import { withSearch } from '@elastic/react-search-ui';
+
+// Components
 import CustomAlert from '@/components/Dashboard/CustomAlert';
+import NoDataMessage from '@/components/Dashboard/NoDataMessage';
+import PageSection from '@/components/Dashboard/PageSection';
+
+// Constants
+import { MAILTO_INQUIRY } from '@/constants/emailLinks';
+
+// Context
+import { ContextType, useAuthContext } from '@/context';
+import { useClearFiltersOnMount } from '@/hooks/useClearFiltersOnMount';
+
+// Hooks
+import { useOrgInfo } from '@/hooks/useOrgInfo';
+import { useVulnScanData } from '@/hooks/useVulnScanData';
+
+// Pages
+import { VulnerabilityScan } from '@/pages/VulnerabilityScanDash/VulnerabilityScan';
+
+// Utils
+import isDataEmpty from '@/utils/transformVulnScanData';
+import { isEmptyAfterScans } from '@/utils/transformVulnScanData';
 
 export interface VulnSeverities {
   label: string;

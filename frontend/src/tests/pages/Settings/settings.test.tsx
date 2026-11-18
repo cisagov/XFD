@@ -1,10 +1,17 @@
+// React
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import Settings from '../../../pages/Settings';
-import { useAuthContext } from 'context';
 
-vi.mock('context', () => ({
+// Testing Library
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+
+// Pages
+import Settings from '@/pages/Settings';
+
+// Context
+import { useAuthContext } from '@/context';
+
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { logger } from '@/utils/logger';
-import * as orgFormStyles from './orgFormStyle';
-import { Organization, OrganizationTag } from 'types';
+
+// Material-UI Components
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -14,10 +13,23 @@ import Select, { SelectChangeEvent } from '@mui/material/Select';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { STATE_OPTIONS } from '@/constants/constants';
-import { getStateAbbreviation } from '@/utils/stringUtils';
-import { useAuthContext } from 'context';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+import { STATE_OPTIONS } from '@/constants/constants';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Styles
+import * as orgFormStyles from './orgFormStyle';
+
+// Types
+import { Organization, OrganizationTag } from '@/types';
+
+// Utils
+import { logger } from '@/utils/logger';
+import { getStateAbbreviation } from '@/utils/stringUtils';
 
 const StyledDialog = orgFormStyles.StyledDialog;
 

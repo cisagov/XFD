@@ -52,3 +52,87 @@ output "was_reporting_private_ip" {
   description = "Private IP address of the WAS reporting EC2 instance when enabled."
   value       = try(aws_instance.was_reporting[0].private_ip, null)
 }
+
+output "techops_reports_producer_iam_policy_json" {
+  description = "Identity policy for the external producer-role owners to review and attach."
+  value = var.techops_reports.enabled ? jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "UploadCyHyReports"
+        Effect   = "Allow"
+        Action   = local.techops_reports_producer_actions
+        Resource = local.techops_reports_object_arns
+      },
+      {
+        Sid      = "LocateReportsBucket"
+        Effect   = "Allow"
+        Action   = "s3:GetBucketLocation"
+        Resource = local.techops_reports_bucket_arn
+        Condition = {
+          Bool = { "aws:SecureTransport" = "true" }
+        }
+      },
+      {
+        Sid       = "UseReportKeyThroughS3"
+        Effect    = "Allow"
+        Action    = ["kms:GenerateDataKey", "kms:Decrypt"]
+        Resource  = var.techops_reports.kms_key_arn
+        Condition = local.techops_reports_kms_conditions
+      },
+    ]
+  }) : null
+}
+
+output "techops_reports_reader_iam_policy_json" {
+  description = "Identity policy for the approved analyst-role owners to review and attach."
+  value = var.techops_reports.enabled && length(var.techops_reports.reader_role_arns) > 0 ? jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "DownloadCyHyReports"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = local.techops_reports_object_arns
+      },
+      {
+        Sid      = "ListCyHyReportPrefixes"
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = local.techops_reports_bucket_arn
+        Condition = {
+          StringLike = { "s3:prefix" = [for prefix in local.techops_reports_prefixes : "${prefix}*"] }
+          Bool       = { "aws:SecureTransport" = "true" }
+        }
+      },
+      {
+        Sid      = "LocateReportsBucket"
+        Effect   = "Allow"
+        Action   = "s3:GetBucketLocation"
+        Resource = local.techops_reports_bucket_arn
+        Condition = {
+          Bool = { "aws:SecureTransport" = "true" }
+        }
+      },
+      {
+        Sid       = "DecryptReportsThroughS3"
+        Effect    = "Allow"
+        Action    = "kms:Decrypt"
+        Resource  = var.techops_reports.kms_key_arn
+        Condition = local.techops_reports_kms_conditions
+      },
+    ]
+  }) : null
+}
+
+output "techops_reports_reader_kms_key_policy_statement_json" {
+  description = "Statement for the key owner to append to the existing CMK policy, preserving administration and producer access."
+  value = var.techops_reports.enabled && length(var.techops_reports.reader_role_arns) > 0 ? jsonencode({
+    Sid       = "AllowCyHyReportReadersThroughS3"
+    Effect    = "Allow"
+    Principal = { AWS = sort(tolist(var.techops_reports.reader_role_arns)) }
+    Action    = "kms:Decrypt"
+    Resource  = "*"
+    Condition = local.techops_reports_kms_conditions
+  }) : null
+}

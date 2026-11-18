@@ -1,10 +1,20 @@
 import React from 'react';
-import { logger } from '@/utils/logger';
+
+// Material-UI Components
 import Button from '@mui/material/Button';
-import FileDownload from '@mui/icons-material/FileDownload';
 import Tooltip from '@mui/material/Tooltip';
-import { useAuthContext } from 'context';
+
+// Material-UI Icons
+import FileDownload from '@mui/icons-material/FileDownload';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Utils
+import { logger } from '@/utils/logger';
 
 export const ExportCustomerMetricsButton: React.FC = () => {
   const { apiGet, user } = useAuthContext();

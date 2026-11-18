@@ -1,13 +1,22 @@
+// Testing Library
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useVulnScanData } from '../../hooks/useVulnScanData';
-import { useAuthContext } from 'context';
+
+// Constants
 import { InitialVSData } from '@/constants/vsdashdata';
 import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Hooks
+import { useVulnScanData } from '@/hooks/useVulnScanData';
+
+// Utils
 import { transformVulnScanData } from '@/utils/transformVulnScanData';
 
 // -------------------- Mocks --------------------
-vi.mock('context', () => ({
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 

@@ -35,6 +35,7 @@ HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"]
 routes_to_test_auth = [
     (method, route.path)
     for route in api_router.routes
+    if isinstance(route, APIRoute)
     for method in HTTP_METHODS
     if (method, route.path) not in PUBLIC_ENDPOINTS
 ]

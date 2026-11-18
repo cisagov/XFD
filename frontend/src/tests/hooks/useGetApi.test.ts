@@ -1,10 +1,14 @@
+// Testing Library
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
-import { useGetApi } from '@/hooks/useGetApi';
-import { useAuthContext } from 'context';
+// Context
+import { useAuthContext } from '@/context';
 
-vi.mock('context', () => ({
+// Hooks
+import { useGetApi } from '@/hooks/useGetApi';
+
+vi.mock('@/context', () => ({
   useAuthContext: vi.fn()
 }));
 

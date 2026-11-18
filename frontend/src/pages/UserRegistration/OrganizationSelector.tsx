@@ -23,11 +23,11 @@ import { ENDPOINTS } from '@/constants/endpoints';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Types
-import { Organization as OrganizationType } from 'types';
-import { User } from 'types';
+import { Organization as OrganizationType } from '@/types';
+import { User } from '@/types';
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (organization: OrganizationType | null) => void;
@@ -258,7 +258,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
             '& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer':
               {
                 display: 'none'
-              }
+              },
+            '& .MuiDataGrid-toolbarContainer': {
+              minHeight: 48,
+              overflow: 'visible',
+              paddingTop: 1.5,
+              paddingBottom: 1
+            }
           }}
           disableRowSelectionOnClick
           showToolbar

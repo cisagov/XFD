@@ -1,19 +1,30 @@
+// React
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+
+// Testing Library
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+// Components
 import { SaveSearchModal } from '@/components/SaveSearchModal/SaveSearchModal';
+
+// Context
+import { useSavedSearchContext } from '@/context/SavedSearchContext';
+
+// Hooks
 import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
-import { useSavedSearchContext } from 'context/SavedSearchContext';
+
+// Types
 import { SavedSearch } from '@/types';
 
 // Mock hooks
 vi.mock('@/hooks/useAreFiltersDefault');
-vi.mock('context/SavedSearchContext');
+vi.mock('@/context/SavedSearchContext');
 
 // Mock auth context hook
-vi.mock('context', async () => {
-  const actual = await vi.importActual('context');
+vi.mock('@/context', async () => {
+  const actual = await vi.importActual('@/context');
   return {
     ...actual,
     useAuthContext: () => ({

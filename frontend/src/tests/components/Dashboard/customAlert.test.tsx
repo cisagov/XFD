@@ -1,7 +1,12 @@
+// React
 import React from 'react';
 import { describe, it, expect } from 'vitest';
+
+// Testing Utilities
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+// Components
 import CustomAlert from '@/components/Dashboard/CustomAlert';
 
 describe('CustomAlert', () => {

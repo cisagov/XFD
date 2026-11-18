@@ -1,7 +1,11 @@
 import React from 'react';
 import { RouteProps, Redirect, Route } from 'react-router-dom';
-import { useAuthContext } from 'context';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
+
+// Context
+import { useAuthContext } from '@/context';
 
 interface AuthRedirectRouteProps extends RouteProps {
   redirectUrl?: string;

@@ -1,15 +1,24 @@
+// React
 import React from 'react';
-import { render } from 'test-utils/test-utils';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Testing Library
 import { act } from '@testing-library/react';
-import { Layout } from '../../components/Layout';
-import { StaticsContext, StaticsContextType } from 'context/StaticsContext';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Test Utilities
+import { render } from '@/test-utils/test-utils';
+
+// Components
+import { Layout } from '@/components/Layout';
+
+// Context
+import { StaticsContext, StaticsContextType } from '@/context/StaticsContext';
 import {
   ContextType,
   FilterDrawerContextProvider,
   SearchProvider
-} from 'context';
-import { NavigationProvider } from 'context/NavigationContextProvider';
+} from '@/context';
+import { NavigationProvider } from '@/context/NavigationContextProvider';
 
 class ResizeObserver {
   observe = vi.fn();
@@ -54,10 +63,10 @@ const value: StaticsContextType = {
   setRegions: (regions: string[]) => {}
 };
 
-vi.mock('components/Header/Header', () => ({
+vi.mock('@/components/Header/Header', () => ({
   Header: () => <div>HEADER</div>
 }));
-vi.mock('components/GovBanner', () => ({
+vi.mock('@/components/GovBanner', () => ({
   GovBanner: () => <div>GOV_BANNER</div>
 }));
 vi.mock('@mui/x-data-grid', async (importOriginal) => {
@@ -67,7 +76,7 @@ vi.mock('@mui/x-data-grid', async (importOriginal) => {
     DataGrid: () => <div>DATA_GRID</div>
   };
 });
-vi.mock('components/FilterDrawer/FilterDrawerV2', () => ({
+vi.mock('@/components/FilterDrawer/FilterDrawerV2', () => ({
   FilterDrawerV2: () => <div>FILTER_DRAWER</div>
 }));
 afterAll(() => {

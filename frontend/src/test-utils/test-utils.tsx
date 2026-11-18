@@ -1,10 +1,17 @@
+// React
 import React from 'react';
-import { render, RenderOptions } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AuthContext, AuthContextType } from '../context/AuthContext';
-import { NavigationProvider } from 'context/NavigationContextProvider';
-import { CFThemeProvider } from 'context';
-import { authCtx } from './authCtx';
+
+// Testing Library
+import { render, RenderOptions } from '@testing-library/react';
+
+// Testing Utilities
+import { authCtx } from '@/test-utils/authCtx';
+
+// Context
+import { AuthContext, AuthContextType } from '@/context/AuthContext';
+import { NavigationProvider } from '@/context/NavigationContextProvider';
+import { CFThemeProvider } from '@/context';
 
 interface CustomRenderOptions extends RenderOptions {
   initialHistory?: string[];

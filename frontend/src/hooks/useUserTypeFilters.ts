@@ -1,11 +1,11 @@
-import { AuthContextType } from 'context';
+import { AuthContextType } from '@/context';
 import {
   GLOBAL_ADMIN,
   GLOBAL_VIEW,
   REGIONAL_ADMIN,
   STANDARD_USER
 } from './useUserLevel';
-import { OrganizationShallow } from 'components/FilterDrawer/RegionAndOrganizationFilters';
+import { OrganizationShallow } from '@/components/FilterDrawer/RegionAndOrganizationFilters';
 
 export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = true;
 

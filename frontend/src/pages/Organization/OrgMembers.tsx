@@ -10,28 +10,37 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import RemoveCircleOutline from '@mui/icons-material/RemoveCircleOutline';
 
 // DataGrid Components
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import type {
+  GridColDef,
+  GridFilterModel,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
 
 // Components
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import InfoDialog from 'components/Dialog/InfoDialog';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import InfoDialog from '@/components/Dialog/InfoDialog';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE
+} from '@/constants/dataGrid';
 
 // Context
-import { useAuthContext } from 'context';
+import { useAuthContext } from '@/context';
 
 // Hooks
-import { useUserLevel, STANDARD_USER, GLOBAL_VIEW } from 'hooks/useUserLevel';
+import { useUserLevel, STANDARD_USER, GLOBAL_VIEW } from '@/hooks/useUserLevel';
 
 // Types
-import { Organization as OrganizationType, Role } from 'types';
+import { Organization as OrganizationType, Role } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';
+import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 type OrgMemberProps = {
   organization: OrganizationType;
@@ -66,6 +75,10 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<Role>();
   const [hasError, setHasError] = useState('');
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const flatUserRoles = flattenUserRoles(userRoles);
 
@@ -159,20 +172,29 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
         <CustomDataGrid
           rows={flatUserRoles}
           columns={userRoleColumns}
+          filterModel={filterModel}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!isFilterModelEmpty(cleanedModel));
+          }}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
             toolbar: {
               disableExport: true,
-              exportTitle: organization?.name + ' Members'
+              exportTitle: organization?.name + ' Members',
+              hasActiveFilters
             } as any,
             basePopper: {
               placement: 'bottom-start'
             }
           }}
           initialState={{
-            pagination: { paginationModel: { pageSize: 15 } }
+            pagination: {
+              paginationModel: { pageSize: DEFAULT_DATA_GRID_PAGE_SIZE }
+            }
           }}
-          pageSizeOptions={[15, 30, 50, 100]}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
           disableRowSelectionOnClick={user?.user_type === 'globalView'}
           showToolbar
         />

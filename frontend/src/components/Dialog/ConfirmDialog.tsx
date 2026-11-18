@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -8,7 +8,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 type DialogComponentProps = {
   isOpen: boolean;
   onClose?: (...args: any[]) => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onCancel: () => void;
   onSave?: () => void;
   title: string;
@@ -28,10 +28,20 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
   disabled = false,
   screenWidth = 'sm'
 }) => {
+  const titleId = useId();
+  const contentId = useId();
   return (
-    <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth={screenWidth}>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>{content}</DialogContent>
+    <Dialog
+      open={isOpen}
+      onClose={onClose ?? onCancel}
+      fullWidth
+      maxWidth={screenWidth}
+      aria-labelledby={`dialog-title-${titleId}`}
+    >
+      <DialogTitle id={`dialog-title-${titleId}`}>{title}</DialogTitle>
+      <DialogContent id={`dialog-content-${contentId}`}>
+        {content}
+      </DialogContent>
       <DialogActions sx={{ pb: 3, pr: 3 }}>
         <Button size="large" variant="text" onClick={onCancel}>
           Cancel
@@ -46,14 +56,16 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
             Save
           </Button>
         )}
-        <Button
-          size="large"
-          variant="contained"
-          onClick={onConfirm}
-          disabled={disabled}
-        >
-          Confirm
-        </Button>
+        {onConfirm && (
+          <Button
+            size="large"
+            variant="contained"
+            onClick={onConfirm}
+            disabled={disabled}
+          >
+            Confirm
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

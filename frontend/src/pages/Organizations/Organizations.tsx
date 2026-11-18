@@ -18,19 +18,22 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 // DataGrid Components
 import { GridFilterModel, GridSortModel } from '@mui/x-data-grid';
 
-// Types
-import { Organization } from 'types';
-
-// Context
-import { useAuthContext } from 'context';
-
 // Components
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomPagination from 'components/DataGrid/CustomPagination';
-import InfoDialog from 'components/Dialog/InfoDialog';
+import CustomToolbar from '@/components/DataGrid/CustomToolbar';
+import CustomPagination from '@/components/DataGrid/CustomPagination';
+import InfoDialog from '@/components/Dialog/InfoDialog';
 import { OrganizationForm } from './OrganizationForm';
 import { useOrgsColumns } from './useOrgsColumns';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { Organization } from '@/types';
 
 // Utils
 import { logger } from '@/utils/logger';
@@ -41,9 +44,11 @@ import {
   isFilterModelEmpty
 } from '@/utils/tableUtils';
 
-// Constants
-import { ENDPOINTS } from '@/constants/endpoints';
-
+import {
+  DATA_GRID_PAGE_SIZE_OPTIONS,
+  DEFAULT_DATA_GRID_PAGE_SIZE,
+  SERVER_FILTER_DEBOUNCE_MS
+} from '@/constants/dataGrid';
 type OrgsApiResponse = {
   result: Organization[];
   count: number;
@@ -61,7 +66,7 @@ export const Organizations: React.FC = () => {
   const [chosenTags, setChosenTags] = useState<string[]>([]);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
-    pageSize: 15
+    pageSize: DEFAULT_DATA_GRID_PAGE_SIZE
   });
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
@@ -238,6 +243,7 @@ export const Organizations: React.FC = () => {
 
             if (emptyModel) {
               setFilters({ items: [] });
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
               return;
             }
 
@@ -246,7 +252,7 @@ export const Organizations: React.FC = () => {
               setFilters({ items: cleanedModel.items });
               setPaginationModel((prev) => ({ ...prev, page: 0 }));
               filterTimerRef.current = null;
-            }, 500);
+            }, SERVER_FILTER_DEBOUNCE_MS);
           }}
           sortingMode="server"
           sortModel={sortModel}
@@ -255,9 +261,14 @@ export const Organizations: React.FC = () => {
             setPaginationModel((prev) => ({ ...prev, page: 0 }));
           }}
           initialState={{
-            pagination: { paginationModel: { pageSize: 15, page: 0 } }
+            pagination: {
+              paginationModel: {
+                pageSize: DEFAULT_DATA_GRID_PAGE_SIZE,
+                page: 0
+              }
+            }
           }}
-          pageSizeOptions={[15, 30, 50, 100]}
+          pageSizeOptions={DATA_GRID_PAGE_SIZE_OPTIONS}
           disableRowSelectionOnClick
           showToolbar
         />

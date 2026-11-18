@@ -1,21 +1,37 @@
 import React, { FC } from 'react';
 import { useLocation } from 'react-router-dom';
-import { withSearch } from '@elastic/react-search-ui';
-import { useTheme } from '@mui/material/styles';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/system/Stack';
 import Typography from '@mui/material/Typography';
+
+// Material-UI Icons and Styles
 import CloseIcon from '@mui/icons-material/Close';
-import { ContextType, useSavedSearchContext } from 'context';
-import { DrawerInterior } from './DrawerInterior';
-import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
-import { matchPath } from 'utils/stringUtils';
-import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
-import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
+import { useTheme } from '@mui/material/styles';
+
+// Node Packages
+import { withSearch } from '@elastic/react-search-ui';
+
+// Components
+import { DrawerInterior } from '@/components/FilterDrawer/DrawerInterior';
+import { RegionAndOrganizationFilters } from '@/components/FilterDrawer/RegionAndOrganizationFilters';
+import { VSDashRegionAndOrgFilters } from '@/components/FilterDrawer/VSDashRegionAndOrgFilters';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
+
+// Context
+import { ContextType, useSavedSearchContext } from '@/context';
+
+// Hooks
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
+
+// Utils
+import { matchPath } from '@/utils/stringUtils';
 
 export const drawerWidth = 278;
 

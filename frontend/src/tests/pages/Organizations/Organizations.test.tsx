@@ -1,10 +1,18 @@
+// React
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, render } from 'test-utils';
-import userEvent from '@testing-library/user-event';
 import { Router } from 'react-router-dom';
+
+// Testing Library
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import userEvent from '@testing-library/user-event';
+
+// Test Utilities
+import { screen, waitFor, render } from '@/test-utils';
+
+// Node Packages
 import { createMemoryHistory } from 'history';
 
+// Pages
 import Organizations from '@/pages/Organizations';
 
 // -----------------------
@@ -13,8 +21,8 @@ import Organizations from '@/pages/Organizations';
 const mockApiPost = vi.fn();
 const mockSetFeedbackMessage = vi.fn();
 
-vi.mock('context', async () => {
-  const actual = await vi.importActual('context');
+vi.mock('@/context', async () => {
+  const actual = await vi.importActual('@/context');
   return {
     ...(actual as Record<string, unknown>),
     useAuthContext: () => ({
@@ -45,11 +53,11 @@ vi.mock('@/utils/logger', () => ({
   }
 }));
 
-vi.mock('components/DataGrid/CustomToolbar', () => ({
+vi.mock('@/components/DataGrid/CustomToolbar', () => ({
   default: () => <div data-testid="mock-toolbar">Toolbar</div>
 }));
 
-vi.mock('components/Dialog/InfoDialog', () => ({
+vi.mock('@/components/Dialog/InfoDialog', () => ({
   default: ({
     isOpen,
     title,

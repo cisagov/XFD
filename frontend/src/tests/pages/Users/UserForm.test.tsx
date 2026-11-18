@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from 'test-utils';
+import { render, screen, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
-import type { Organization } from 'types';
+import type { Organization } from '@/types';
 import UserForm from '@/pages/Users/UserForm';
 
 // ---- mock handles ----
@@ -12,8 +12,8 @@ const mockUpdateUser = vi.fn();
 const mockAddUserToOrganization = vi.fn();
 const mockRemoveUserFromOrganization = vi.fn();
 
-vi.mock('context', async () => {
-  const actual = await vi.importActual<any>('context');
+vi.mock('@/context', async () => {
+  const actual = await vi.importActual<any>('@/context');
 
   return {
     ...actual,
@@ -42,7 +42,7 @@ vi.mock('@/hooks/useRemoveUserFromOrganization', () => ({
   })
 }));
 
-vi.mock('components/Dialog/AnimatedConfirmDialog', () => ({
+vi.mock('@/components/Dialog/AnimatedConfirmDialog', () => ({
   __esModule: true,
   default: ({
     isOpen,

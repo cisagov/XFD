@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { logger } from '@/utils/logger';
 
-import { usePersistentState } from 'hooks';
-import { StaticsContext } from './StaticsContext';
-import { useAuthContext } from './AuthContext';
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 
+// Context
+import { StaticsContext } from '@/context/StaticsContext';
+import { useAuthContext } from '@/context/AuthContext';
+
+// Hooks
+import { usePersistentState } from '@/hooks';
+
+// Utils
+import { logger } from '@/utils/logger';
 interface StaticsContextProviderProps {
   children: React.ReactNode;
 }
