@@ -55,7 +55,7 @@ def run_dump_cmd(command, output_file, error_file, environment):
 
 
 def create_backup_files():
-    """Create PostgreSQL globals, database, and ZIP backups."""
+    """Create PostgreSQL globals and database backup files."""
     # Determine file paths
     backup_folder = BACKUP_ROOT / f"backups_{DATE}"
     globals_file = backup_folder / "pedb_globals.sql"
