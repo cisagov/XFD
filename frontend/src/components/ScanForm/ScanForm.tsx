@@ -69,12 +69,12 @@ function getUTCDateMidnight(daysAgo: number): string {
 }
 
 // Helper: get current UTC datetime trimmed to minutes for datetime-local max attribute
-// function getUTCNowString(): string {
-//   const now = new Date();
-//   // zero-out seconds & ms so it matches datetime-local precision
-//   now.setUTCSeconds(0, 0);
-//   return now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
-// }
+function getUTCNowString(): string {
+  const now = new Date();
+  // zero-out seconds & ms so it matches datetime-local precision
+  now.setUTCSeconds(0, 0);
+  return now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+}
 
 export const ScanForm: React.FC<{
   propValues: ScanFormValues;
@@ -88,7 +88,7 @@ export const ScanForm: React.FC<{
 }> = ({
   propValues,
   organizationOption,
-  tags,
+  // tags,
   global,
   onSubmit,
   // type,
@@ -169,7 +169,7 @@ export const ScanForm: React.FC<{
       propValues.frequencyUnit,
       propValues.organizations,
       propValues.tags,
-      tags,
+      // tags,
       scan,
       scanSchema,
       values.name
@@ -511,10 +511,11 @@ export const ScanForm: React.FC<{
               <Autocomplete
                 multiple
                 size="small"
-                getOptionLabel={(option) => option.label}
                 options={organizationOptions}
+                value={propValues.organizations}
+                getOptionLabel={(option) => option.label}
                 isOptionEqualToValue={(option, value) => option.value === value.value}
-                onChange={() => setValues({ ...values, organizations: values.organizations })}
+                onChange={(_, newValue) => onChange('organizations', newValue)}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -577,6 +578,11 @@ export const ScanForm: React.FC<{
                       type="datetime-local"
                       value={values.startDate}
                       onChange={(e) => onChange('startDate', e.target.value)}
+                      slotProps={{
+                        htmlInput: {
+                          max: getUTCNowString()
+                        }
+                      }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -591,10 +597,18 @@ export const ScanForm: React.FC<{
                       type="datetime-local"
                       value={values.endDate}
                       onChange={(e) => onChange('endDate', e.target.value)}
+                      slotProps={{
+                        htmlInput: {
+                          max: getUTCNowString()
+                        }
+                      }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12 }}>
                     <Typography variant="caption" color="red">Must run once while limiting to a date range</Typography>
+                    {dateRangeError && (
+                      <Typography variant="caption" color="red">{dateRangeError}</Typography>
+                    )}
                   </Grid>
                 </Grid>
               )}
