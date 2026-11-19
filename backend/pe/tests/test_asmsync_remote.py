@@ -528,6 +528,57 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         self.assertEqual(failures, [])
         upsert_mock.assert_called_once_with(ip_object)
 
+    @patch.object(enum_subs_from_ips, "whoisxml_reverse_endpoint")
+    @patch.object(enum_subs_from_ips, "upsert_ips")
+    def test_reverse_lookup_skips_malformed_domain_entries(
+        self,
+        upsert_mock,
+        endpoint_mock,
+    ):
+        """Skip malformed nested WhoisXML domain entries."""
+        endpoint_mock.return_value = {
+            "result": {
+                "records": [
+                    {
+                        "date": "2026-01-01",
+                        "domains": [
+                            None,
+                            "not-a-domain-object",
+                            {"domain": None, "wildcard": False},
+                            {"domain": ["example.gov"], "wildcard": False},
+                            {"domain": 123, "wildcard": False},
+                            {
+                                "domain": "valid.example.gov",
+                                "wildcard": False,
+                            },
+                        ],
+                    }
+                ]
+            }
+        }
+        ip_object = {
+            "ip": "192.0.2.1",
+            "ip_hash": "hash",
+        }
+
+        domains, failures = enum_subs_from_ips.reverseLookup(
+            ip_object,
+            [],
+            "Thread 1",
+        )
+
+        self.assertEqual(
+            domains,
+            [
+                {
+                    "sub_domain": "valid.example.gov",
+                    "root": "example.gov",
+                }
+            ],
+        )
+        self.assertEqual(failures, [])
+        upsert_mock.assert_called_once_with(ip_object)
+
     @patch.object(enum_subs_from_ips, "limit_lookup_rate")
     @patch.object(enum_subs_from_ips.requests, "post")
     def test_whoisxml_endpoint_returns_successful_response(

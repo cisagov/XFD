@@ -182,14 +182,18 @@ def reverseLookup(ip_obj, failed_ips, thread):
     response_domains = [
         domain
         for record in dated_records
-        if record["date"] == latest_date
-        for domain in record.get("domains") or []
+        if record["date"] == latest_date and isinstance(record.get("domains"), list)
+        for domain in record["domains"]
     ]
     # Begin parsing each domain
     found_domains = []
     for domain in response_domains:
         # Skip malformed/wildcard DNS results
         if not isinstance(domain, dict) or domain.get("wildcard") is True:
+            continue
+        # Skip if domain field is not a string
+        domain_name = domain.get("domain")
+        if not isinstance(domain_name, str):
             continue
         # Isolate the hostname
         hostname = domain.get("domain", "").rstrip(".").lower()
