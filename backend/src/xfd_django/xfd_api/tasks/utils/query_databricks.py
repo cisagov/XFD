@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import os
+import random
 import time
 from typing import Any, List, Optional, Tuple
 
@@ -26,11 +27,7 @@ from xfd_api.utils.scan_utils.alerting import QueryError
 
 SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s",
-    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
-)
+
 LOGGER = logging.getLogger(__name__)
 
 # --- Databricks Shared Client Management ---
@@ -40,27 +37,40 @@ _WAREHOUSE_ID = os.environ.get("DATABRICKS_WAREHOUSE_ID")
 _CATALOG = os.environ.get("DATABRICKS_CATALOG") or None
 _SCHEMA = os.environ.get("DATABRICKS_SCHEMA") or None
 
-# Max time to wait between poll attempts, and how many attempts before giving up.
-_POLL_INTERVAL_SECONDS = 5
-_MAX_POLL_ATTEMPTS = 120  # ~10 minutes total at 5s intervals
+# --- Databricks Retry and Timeout Configuration ---
+#
+# Defaults preserve the prior behavior as closely as practical while adding
+# retries for external-result downloads and configurable settings.
+
+DATABRICKS_MAX_RETRIES = int(os.getenv("DATABRICKS_MAX_RETRIES", "5"))
+
+DATABRICKS_RETRY_BASE_SECONDS = float(os.getenv("DATABRICKS_RETRY_BASE_SECONDS", "2"))
+
+DATABRICKS_RETRY_MAX_SECONDS = float(os.getenv("DATABRICKS_RETRY_MAX_SECONDS", "30"))
+
+DATABRICKS_EXTERNAL_LINK_TIMEOUT_SECONDS = int(
+    os.getenv("DATABRICKS_EXTERNAL_LINK_TIMEOUT_SECONDS", "120")
+)
+
+DATABRICKS_POLL_INTERVAL_SECONDS = int(
+    os.getenv("DATABRICKS_POLL_INTERVAL_SECONDS", "5")
+)
+
+DATABRICKS_MAX_POLL_ATTEMPTS = int(os.getenv("DATABRICKS_MAX_POLL_ATTEMPTS", "120"))
+
+_POLL_INTERVAL_SECONDS = DATABRICKS_POLL_INTERVAL_SECONDS
+_MAX_POLL_ATTEMPTS = DATABRICKS_MAX_POLL_ATTEMPTS
 
 
 def _get_client():
     """Create or return a reusable Databricks WorkspaceClient instance."""
     global _CLIENT
+
     if _CLIENT is None:
         server_hostname = os.environ.get("DATABRICKS_SERVER_HOSTNAME")
         client_id = os.environ.get("DATABRICKS_CLIENT_ID")
         client_secret = os.environ.get("DATABRICKS_CLIENT_SECRET")
-        # MODIFIED: fail fast with a clear message instead of letting a
-        # missing value reach WorkspaceClient(). When one of these (or
-        # DATABRICKS_WAREHOUSE_ID, checked here too since query_databricks()
-        # needs it right after client init) is unset, the SDK's own config
-        # resolution falls through to a different auth/host source instead
-        # of using the explicit `host=` string below, and eventually raises
-        # requests.exceptions.MissingSchema: "Invalid URL 'None': No scheme
-        # supplied" - an opaque error that never names which env var is
-        # actually missing. This check surfaces that immediately.
+
         missing = [
             name
             for name, value in (
@@ -71,129 +81,213 @@ def _get_client():
             )
             if not value
         ]
+
         if missing:
             raise QueryError(
                 SCAN_NAME,
                 "Missing required Databricks environment variable(s): "
                 + ", ".join(missing),
             )
-        LOGGER.info("[Databricks] Initializing WorkspaceClient...")
+
+        LOGGER.info("[Databricks] Initializing WorkspaceClient.")
+
         _CLIENT = WorkspaceClient(
-            host="https://{}".format(server_hostname),
+            host=f"https://{server_hostname}",
             client_id=client_id,
             client_secret=client_secret,
         )
+
     return _CLIENT
 
 
 def _reset_client():
-    """Safely clear out a stale client so the next call rebuilds it."""
+    """Clear the cached Databricks client so the next call creates a new one."""
     global _CLIENT
     _CLIENT = None
 
 
-def _infer_statement_param(name: str, value: Any) -> StatementParameterListItem:
-    """Best-effort mapping of a Python value to a Databricks named statement parameter.
+def _retry_delay_seconds(attempt: int) -> float:
+    """Calculate exponential-backoff delay with bounded jitter."""
+    delay = min(
+        DATABRICKS_RETRY_MAX_SECONDS,
+        DATABRICKS_RETRY_BASE_SECONDS * (2 ** (attempt - 1)),
+    )
 
-    Type strings follow Databricks SQL type names (INT, STRING, TIMESTAMP,
-    BOOLEAN, DECIMAL(p,s), ...). If a value's type isn't recognized here it's
-    passed as a plain string, matching Databricks' own default when no `type`
-    is given.
-    """
+    # Add up to 25% jitter so concurrent workers do not retry together.
+    return delay + random.uniform(0, delay * 0.25)
+
+
+def _is_retryable_databricks_error(error: Exception) -> bool:
+    """Return True when an error is likely transient and safe to retry."""
+    if isinstance(
+        error,
+        (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+            requests.exceptions.ReadTimeout,
+            requests.exceptions.Timeout,
+        ),
+    ):
+        return True
+
+    if isinstance(error, requests.exceptions.HTTPError):
+        response = error.response
+        status_code = response.status_code if response is not None else None
+        return status_code in {408, 425, 429, 500, 502, 503, 504}
+
+    message = str(error).lower()
+
+    retryable_markers = (
+        "connection reset",
+        "connection aborted",
+        "connection refused",
+        "connection error",
+        "connect timeout",
+        "read timeout",
+        "timed out",
+        "temporarily unavailable",
+        "service unavailable",
+        "gateway timeout",
+        "bad gateway",
+        "internal server error",
+        "too many requests",
+        "rate limit",
+        "http 408",
+        "http 429",
+        "http 500",
+        "http 502",
+        "http 503",
+        "http 504",
+        "status code 408",
+        "status code 429",
+        "status code 500",
+        "status code 502",
+        "status code 503",
+        "status code 504",
+    )
+
+    return any(marker in message for marker in retryable_markers)
+
+
+def _infer_statement_param(name: str, value: Any) -> StatementParameterListItem:
+    """Map a Python value to a Databricks named statement parameter."""
     if value is None:
         return StatementParameterListItem(name=name, value=None)
+
     if isinstance(value, bool):
-        return StatementParameterListItem(name=name, value=str(value), type="BOOLEAN")
+        return StatementParameterListItem(
+            name=name,
+            value=str(value),
+            type="BOOLEAN",
+        )
+
     if isinstance(value, int):
-        return StatementParameterListItem(name=name, value=str(value), type="INT")
+        return StatementParameterListItem(
+            name=name,
+            value=str(value),
+            type="INT",
+        )
+
     if isinstance(value, float):
-        return StatementParameterListItem(name=name, value=str(value), type="DOUBLE")
+        return StatementParameterListItem(
+            name=name,
+            value=str(value),
+            type="DOUBLE",
+        )
+
     if isinstance(value, (datetime.datetime, datetime.date)):
-        # MODIFIED: naive datetimes are treated as UTC explicitly before
-        # calling isoformat(). to_utc_naive() (datetime_utils.py) deliberately
-        # strips tzinfo after converting to UTC - that contract made sense for
-        # the old databricks-sql-connector's typed-param binding, but a naive
-        # .isoformat() string sent as a Databricks TIMESTAMP parameter has no
-        # UTC offset in it, leaving it ambiguous whether the warehouse
-        # interprets it as UTC or session-local time. This is the one place
-        # that actually serializes datetimes for the API, so the UTC
-        # assumption is made explicit right here rather than changing
-        # to_utc_naive()'s contract for every other caller.
         if isinstance(value, datetime.datetime) and value.tzinfo is None:
             value = value.replace(tzinfo=datetime.timezone.utc)
+
         return StatementParameterListItem(
-            name=name, value=value.isoformat(), type="TIMESTAMP"
+            name=name,
+            value=value.isoformat(),
+            type="TIMESTAMP",
         )
-    # MODIFIED: explicit type="STRING" instead of leaving `type` unset.
-    # Per Databricks' own docs an omitted type is "interpreted as a string"
-    # anyway, so this shouldn't change behavior - but it removes any
-    # ambiguity around how an empty string (e.g. the CVE sync's keyset
-    # last_key="" on its first page) is typed/serialized, which was raised
-    # while debugging why a query returns rows manually but not via the app.
-    return StatementParameterListItem(name=name, value=str(value), type="STRING")
+
+    return StatementParameterListItem(
+        name=name,
+        value=str(value),
+        type="STRING",
+    )
 
 
 def _build_parameters(
     params: Optional[List[Any]],
 ) -> Optional[List[StatementParameterListItem]]:
-    """Convert a positional params list into :p0, :p1, ... named parameters.
-
-    Caller's query text must already reference :p0, :p1, ... in the same
-    order as this list - params[i] always maps to marker :p{i}.
-    """
+    """Convert positional values to Databricks named :p0, :p1 parameters."""
     if not params:
         return None
+
     return [_infer_statement_param(f"p{i}", value) for i, value in enumerate(params)]
 
 
 def _download_external_rows(external_links) -> List[list]:
-    """Download and parse rows from Databricks Statement Execution API external links."""
+    """Download Databricks external result chunks with bounded retries."""
     rows: List[list] = []
 
     for link_info in external_links or []:
         external_link = link_info.external_link
 
-        try:
-            response = requests.get(external_link, timeout=120)
-            response.raise_for_status()
+        for attempt in range(1, DATABRICKS_MAX_RETRIES + 1):
+            try:
+                response = requests.get(
+                    external_link,
+                    timeout=DATABRICKS_EXTERNAL_LINK_TIMEOUT_SECONDS,
+                )
+                response.raise_for_status()
 
-            chunk_rows = response.json()
+                chunk_rows = response.json()
 
-            if not isinstance(chunk_rows, list):
-                raise ValueError(
-                    "Expected JSON_ARRAY response from Databricks external link, "
-                    f"received {type(chunk_rows).__name__}."
+                if not isinstance(chunk_rows, list):
+                    raise ValueError(
+                        "Expected JSON_ARRAY response from Databricks external "
+                        f"link, received {type(chunk_rows).__name__}."
+                    )
+
+                rows.extend(chunk_rows)
+                break
+
+            except Exception as error:
+                should_retry = (
+                    _is_retryable_databricks_error(error)
+                    and attempt < DATABRICKS_MAX_RETRIES
                 )
 
-            rows.extend(chunk_rows)
+                if not should_retry:
+                    raise QueryError(
+                        SCAN_NAME,
+                        "Unable to download Databricks external result chunk "
+                        f"after {attempt} attempt(s): {error}",
+                    ) from error
 
-        except Exception as e:
-            raise QueryError(
-                SCAN_NAME,
-                f"Unable to download Databricks external result chunk: {e}",
-            ) from e
+                delay = _retry_delay_seconds(attempt)
+
+                LOGGER.warning(
+                    "[Databricks] External result download failed; retrying | "
+                    "attempt=%d | max_attempts=%d | delay_seconds=%.2f | "
+                    "error=%s",
+                    attempt,
+                    DATABRICKS_MAX_RETRIES,
+                    delay,
+                    error,
+                )
+
+                time.sleep(delay)
 
     return rows
 
 
 def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
-    """
-    Fetch all Databricks result chunks.
-
-    Supports both INLINE and EXTERNAL_LINKS result dispositions. The CVE scan
-    normally uses EXTERNAL_LINKS to avoid Statement Execution API inline-size
-    limits.
-    """
+    """Fetch all Databricks result chunks from inline or external links."""
     if first_result is None:
         return []
 
     rows: List[list] = []
 
-    # INLINE response handling, retained for compatibility.
     if first_result.data_array:
         rows.extend(first_result.data_array)
 
-    # EXTERNAL_LINKS response handling.
     if first_result.external_links:
         rows.extend(_download_external_rows(first_result.external_links))
 
@@ -218,27 +312,19 @@ def _fetch_all_rows(client, statement_id: str, first_result) -> List[list]:
 
 @cloudwatch_metric()
 def query_databricks(query, params=None):
-    """Execute a query on Databricks via the Statement Execution API and return results as list of dicts.
-
-    IMPORTANT: `query` must use Databricks named parameter markers (:p0, :p1,
-    ...) - NOT `?`. See module-level note at the top of this file for why.
-    `params` is still passed positionally as a list, matching every existing
-    call site; params[i] is bound to marker :p{i}.
-    """
+    """Execute a Databricks statement and return results as dictionaries."""
     query_name = str(query)[:120].replace("\n", " ")
     rows_returned = 0
+    last_error = None
 
-    for attempt in range(5):  # retry up to 5 times
-        start = time.perf_counter()
+    for attempt in range(1, DATABRICKS_MAX_RETRIES + 1):
+        started_at = time.perf_counter()
         success = True
+
         try:
             client = _get_client()
             parameter_items = _build_parameters(params)
 
-            # Matches the working pattern from the verified test script:
-            # wait_timeout="0s" (don't block server-side) + explicit client-side
-            # polling loop via get_statement(), rather than relying on the
-            # server's synchronous-with-fallback behavior at a longer timeout.
             response = client.statement_execution.execute_statement(
                 statement=query,
                 warehouse_id=_WAREHOUSE_ID,
@@ -246,84 +332,109 @@ def query_databricks(query, params=None):
                 catalog=_CATALOG,
                 schema=_SCHEMA,
                 wait_timeout="0s",
-                disposition=Disposition.EXTERNAL_LINKS,  # avoid inline-size limits
+                disposition=Disposition.EXTERNAL_LINKS,
                 format=Format.JSON_ARRAY,
             )
 
             statement_id = response.statement_id
             state = response.status.state
-
             poll_attempt = 0
+
             while state in (StatementState.PENDING, StatementState.RUNNING):
                 poll_attempt += 1
+
                 if poll_attempt > _MAX_POLL_ATTEMPTS:
                     raise QueryError(
                         SCAN_NAME,
-                        f"Statement {statement_id} did not complete within "
-                        f"{_MAX_POLL_ATTEMPTS * _POLL_INTERVAL_SECONDS}s",
+                        f"Databricks statement {statement_id} did not complete "
+                        f"within {_MAX_POLL_ATTEMPTS * _POLL_INTERVAL_SECONDS}s.",
                     )
+
                 time.sleep(_POLL_INTERVAL_SECONDS)
+
                 response = client.statement_execution.get_statement(statement_id)
                 state = response.status.state
 
             if state != StatementState.SUCCEEDED:
                 error = response.status.error
                 error_message = getattr(error, "message", None) if error else None
+
                 raise QueryError(
                     SCAN_NAME,
-                    f"Statement {statement_id} ended in state {state}: "
-                    f"{error_message or 'no error message provided'}",
+                    f"Databricks statement {statement_id} ended in state "
+                    f"{state}: {error_message or 'no error message provided'}",
                 )
 
-            columns = [c.name for c in response.manifest.schema.columns]
+            columns = [column.name for column in response.manifest.schema.columns]
             raw_rows = _fetch_all_rows(client, statement_id, response.result)
-            dict_results = [dict(zip(columns, row)) for row in raw_rows]
 
+            dict_results = [dict(zip(columns, row)) for row in raw_rows]
             rows_returned = len(dict_results)
-            return dict_results  # success -> return immediately
+
+            return dict_results
 
         except QueryError:
-            # Already a terminal, well-formed error (bad SQL, statement failed,
-            # timed out waiting) - don't retry, don't re-wrap.
             success = False
             raise
 
-        except Exception as e:
+        except Exception as error:
             success = False
-            # Best-effort heuristic for transient/retryable errors, mirroring
-            # the previous connector-based version. The exact exception types
-            # raised by databricks-sdk for network/auth-token issues were not
-            # verified against a live SDK install here - treat this check as
-            # approximate and revisit once real error behavior is observed.
-            if "connection" in str(e).lower() or "timeout" in str(e).lower():
-                sleep = 2**attempt
-                LOGGER.warning(
-                    "[Databricks] Transient error (%s). Retrying in %ss (attempt %d/5)",
-                    e,
-                    sleep,
-                    attempt + 1,
-                )
-                time.sleep(sleep)
-                _reset_client()
-                continue  # retry loop
-            raise QueryError(SCAN_NAME, str(e)) from e
+            last_error = error
+
+            should_retry = (
+                _is_retryable_databricks_error(error)
+                and attempt < DATABRICKS_MAX_RETRIES
+            )
+
+            if not should_retry:
+                raise QueryError(
+                    SCAN_NAME,
+                    f"Databricks query failed after {attempt} attempt(s): {error}",
+                ) from error
+
+            delay = _retry_delay_seconds(attempt)
+
+            LOGGER.warning(
+                "[Databricks] Transient query failure; retrying | "
+                "attempt=%d | max_attempts=%d | delay_seconds=%.2f | error=%s",
+                attempt,
+                DATABRICKS_MAX_RETRIES,
+                delay,
+                error,
+            )
+
+            _reset_client()
+            time.sleep(delay)
 
         finally:
-            duration = time.perf_counter() - start
-            emit_databricks_metric(query_name, duration, rows_returned, success)
-            LOGGER.info(
-                "[Databricks] [%0.3fs] [%d rows] success=%s",
+            duration = time.perf_counter() - started_at
+
+            emit_databricks_metric(
+                query_name,
                 duration,
                 rows_returned,
                 success,
             )
 
-    # if we exhausted retries
-    raise QueryError(SCAN_NAME, "Max Databricks retries exceeded")
+            LOGGER.info(
+                "[Databricks] query_duration_seconds=%.3f | rows=%d | "
+                "success=%s | attempt=%d/%d",
+                duration,
+                rows_returned,
+                success,
+                attempt,
+                DATABRICKS_MAX_RETRIES,
+            )
+
+    raise QueryError(
+        SCAN_NAME,
+        "Databricks query failed after all retry attempts: "
+        f"{last_error or 'unknown error'}",
+    )
 
 
 def detect_data_set(query):
-    """Detect the data set from the query."""
+    """Detect the local test-data set associated with a query."""
     if "requests" in query:
         return "requests"
     if "vuln_scans" in query:
@@ -340,34 +451,31 @@ def detect_data_set(query):
 def fetch_from_databricks(query):
     """Fetch data from Databricks and log execution time."""
     if IS_LOCAL:
-        data_set = detect_data_set(query)
-        return load_test_data(data_set)
+        return load_test_data(detect_data_set(query))
+
     try:
-        start_time = datetime.datetime.now()
+        started_at = datetime.datetime.now()
         result = query_databricks(query)
-        end_time = datetime.datetime.now()
-        duration_seconds = (end_time - start_time).total_seconds()
+        duration_seconds = (datetime.datetime.now() - started_at).total_seconds()
+
         LOGGER.info(
-            f"[Databricks] [{duration_seconds}s] [{len(result)} records] {query}"
+            "[Databricks] duration_seconds=%.3f | record_count=%d",
+            duration_seconds,
+            len(result),
         )
+
         return result
-    except Exception as e:
-        # MODIFIED: was LOGGER.info(...) - a real query_databricks() failure
-        # (permissions, catalog/schema access, param binding, etc.) was being
-        # logged at INFO with no traceback and then silently turned into an
-        # empty list, indistinguishable from "genuinely zero matching rows"
-        # to every caller. LOGGER.exception() captures the real traceback so
-        # the actual cause shows up in the logs instead of disappearing.
-        LOGGER.exception("Error fetching data from Databricks: %s", e)
+
+    except Exception as error:
+        LOGGER.exception("Error fetching data from Databricks: %s", error)
         LOGGER.info("Erroneous query: %s", query)
-        return []
+        raise
 
 
 def fetch_from_databricks_with_params(query: str, params: Tuple[Any, ...]):
     """Fetch parameterized data from Databricks."""
     if IS_LOCAL:
-        data_set = detect_data_set(query)
-        return load_test_data(data_set)
+        return load_test_data(detect_data_set(query))
 
     try:
         return query_databricks(query, params=params)
@@ -387,13 +495,7 @@ def fetch_in_chunks_keyset_frozen(
     chunk_size: int = 500_000,
     owners: list[str] | None = None,
 ):
-    """
-    Keyset pagination over a fixed window with ORDER BY (time_col, _id).
-
-    Databricks equivalent of the Redshift version's `owner = ANY(%s)` filter,
-    expressed as an `owner IN (:pN, :pN, ...)` clause - the Statement
-    Execution API has no array-parameter equivalent to Postgres' ANY(array).
-    """
+    """Retrieve Databricks rows using keyset pagination over a fixed window."""
     last_time = None
     last_id = None
     start_param = to_utc_naive(start_dt)
@@ -406,16 +508,19 @@ def fetch_in_chunks_keyset_frozen(
         params: List[Any] = []
 
         def add_param(value):
-            """Append a value and return its :pN marker, keeping params/markers in sync."""
             params.append(value)
             return f":p{len(params) - 1}"
 
-        where = f"WHERE {q_time} >= {add_param(start_param)} AND {q_time} < {add_param(end_param)}"
+        where = (
+            f"WHERE {q_time} >= {add_param(start_param)} "
+            f"AND {q_time} < {add_param(end_param)}"
+        )
 
         if last_time is not None and last_id is not None:
             gt_marker = add_param(last_time)
             eq_marker = add_param(last_time)
             id_marker = add_param(last_id)
+
             where += (
                 f" AND ({q_time} > {gt_marker} "
                 f"OR ({q_time} = {eq_marker} AND {q_id} > {id_marker}))"
@@ -436,6 +541,7 @@ def fetch_in_chunks_keyset_frozen(
         """  # nosec B608
 
         chunk = query_databricks(query, params=params)
+
         if not chunk:
             break
 
@@ -454,21 +560,13 @@ def fetch_in_chunks_keyset_frozen_bulk(
     chunk_size: int = 500_000,
     org_acronyms: list[str] | None = None,
 ):
-    """
-    Keyset pagination over a fixed window with ORDER BY (time_col, _id).
-
-    Filters by multiple org acronyms using an IN clause, built with named
-    :pN parameter markers (see fetch_in_chunks_keyset_frozen's note on why -
-    the Statement Execution API doesn't support `?` or array parameters).
-    """
+    """Retrieve multiple organizations' Databricks rows via keyset pagination."""
     last_time = None
     last_id = None
     start_param = to_utc_naive(start_dt)
     end_param = to_utc_naive(end_dt)
 
-    # Handle schema-qualified table names (e.g. "catalog.schema.table")
     table_ident = ".".join(f"`{part}`" for part in table.split("."))
-
     q_time = f"`{time_col}`"
     q_id = "`_id`"
 
@@ -476,7 +574,6 @@ def fetch_in_chunks_keyset_frozen_bulk(
         params: List[Any] = []
 
         def add_param(value):
-            """Append a value and return its :pN marker, keeping params/markers in sync."""
             params.append(value)
             return f":p{len(params) - 1}"
 
@@ -489,8 +586,10 @@ def fetch_in_chunks_keyset_frozen_bulk(
             gt_marker = add_param(last_time)
             eq_marker = add_param(last_time)
             id_marker = add_param(last_id)
+
             where_clauses.append(
-                f"({q_time} > {gt_marker} OR ({q_time} = {eq_marker} AND {q_id} > {id_marker}))"
+                f"({q_time} > {gt_marker} OR "
+                f"({q_time} = {eq_marker} AND {q_id} > {id_marker}))"
             )
 
         if org_acronyms:
@@ -509,6 +608,7 @@ def fetch_in_chunks_keyset_frozen_bulk(
         """  # nosec B608
 
         chunk = query_databricks(query, params=params)
+
         if not chunk:
             break
 
@@ -519,20 +619,8 @@ def fetch_in_chunks_keyset_frozen_bulk(
         yield chunk
 
 
-# Used for loading test data from file for vuln_scans, port_scans, hosts, tickets
 def load_test_data(data_set: str) -> list:
-    """Load test data from local files for scanning simulations.
-
-    Args:
-        data_set (str): The type of data set to load (e.g., "requests", "vuln_scan").
-
-    Returns:
-        list: The parsed JSON data from the file.
-
-    Raises:
-        ValueError: If an unknown data_set is provided.
-        FileNotFoundError: If the specified file does not exist.
-    """
+    """Load local JSON test data for scan simulations."""
     file_paths = {
         "requests": "~/Downloads/requests_full_redshift.json",
         "vuln_scan": "~/Downloads/vuln_scan_sample.json",
