@@ -110,6 +110,11 @@ def whoisxml_reverse_endpoint(ip_address, thread):
                         )
                     params["after"] = after
                     break
+                # Immediately raise if authentication/authorization error
+                if response.status_code in (401, 403):
+                    raise PermissionError(
+                        f"WhoisXML authent./authoriz. failed: HTTP {response.status_code}"
+                    )
                 # If non-retryable response, log error and return None
                 if response.status_code not in WHOISXML_RETRYABLE_STATUS_CODES:
                     LOGGER.error(
@@ -235,24 +240,40 @@ def link_domain_from_ip(ip_obj, org_uid, data_source, failed_ips, conn, thread):
     return found_domains
 
 
-def run_ip_chunk(org_name, org_uid, ips_df, thread):
+def run_ip_chunk(
+    org_name, org_uid, ips_df, thread, failed_ips, worker_errors, stop_event
+):
     """Run the provided chunk through the linking process."""
-    conn = connect()
-    count = 0
-    last_chunk = time.time()
-    failed_ips = []
-    # Iterate over each IP in the chunk
-    for ip_index, ip in ips_df.iterrows():
-        # Log progress
-        count += 1
-        if count % 1000 == 0:
-            LOGGER.info(
-                f"{thread}: Running {org_name} IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk"
-            )
-            last_chunk = time.time()
-        # Get domain from IP and link them in the database
-        link_domain_from_ip(ip, org_uid, "WhoisXML", failed_ips, conn, thread)
-    conn.close()
+    conn = None
+    try:
+        conn = connect()
+        count = 0
+        last_chunk = time.time()
+        # Iterate over each IP in the chunk
+        for ip_index, ip in ips_df.iterrows():
+            # Exit if stop event encountered
+            if stop_event.is_set():
+                break
+            # Log progress
+            count += 1
+            if count % 1000 == 0:
+                LOGGER.info(
+                    f"{thread}: Running {org_name} IPs: {count}/{len(ips_df)}, {time.time() - last_chunk} seconds for the last IP chunk"
+                )
+                last_chunk = time.time()
+            # Get domain from IP and link them in the database
+            link_domain_from_ip(ip, org_uid, "WhoisXML", failed_ips, conn, thread)
+    except PermissionError as exception:
+        # Propagate authentication/authorization error
+        worker_errors.append(exception)
+        stop_event.set()
+    except Exception as exception:
+        # Propagate unexpected worker failures
+        worker_errors.append(exception)
+        stop_event.set()
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def enum_subs_from_ips(orgs_df):
@@ -309,12 +330,23 @@ def enum_subs_from_ips(orgs_df):
         ips_split = [ips_df.iloc[row_indexes].copy() for row_indexes in row_chunks]
         thread_num = 0
         thread_list = []
+        failed_ips = []
+        worker_errors = []
+        stop_event = threading.Event()
         while thread_num < len(ips_split):
             # Start thread
             thread_name = f"Thread {thread_num + 1}: "
             t = threading.Thread(
                 target=run_ip_chunk,
-                args=(org_name, org_uid, ips_split[thread_num], thread_name),
+                args=(
+                    org_name,
+                    org_uid,
+                    ips_split[thread_num],
+                    thread_name,
+                    failed_ips,
+                    worker_errors,
+                    stop_event,
+                ),
             )
             t.start()
             thread_list.append(t)
@@ -322,5 +354,15 @@ def enum_subs_from_ips(orgs_df):
         # Wait for all threads to finish
         for thread in thread_list:
             thread.join()
+        # Raise any fatal worker errors
+        if worker_errors:
+            raise RuntimeError(
+                f"Worker failed while performing WhoisXML lookups for {org_name}"
+            ) from worker_errors[0]
+        # Raise error if all IP lookups fail for an org
+        if len(failed_ips) == len(ips_df):
+            raise RuntimeError(
+                f"All {len(ips_df)} WhoisXML lookups failed for {org_name}"
+            )
         LOGGER.info("All threads have finished.")
         org_count += 1

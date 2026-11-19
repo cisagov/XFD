@@ -6,6 +6,7 @@ import ipaddress
 import os
 from pathlib import Path
 import sys
+import threading
 import unittest
 from unittest.mock import MagicMock, call, patch
 
@@ -549,15 +550,18 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         rate_mock,
         sleep_mock,
     ):
-        """Do not retry permanent authentication or request errors."""
+        """Raise immediately without retrying authentication failures."""
         post_mock.return_value = MagicMock(status_code=401)
 
-        result = enum_subs_from_ips.whoisxml_reverse_endpoint(
-            "192.0.2.1",
-            "Thread 1",
-        )
+        with self.assertRaisesRegex(
+            PermissionError,
+            r"WhoisXML authent./authoriz. failed: HTTP 401",
+        ):
+            enum_subs_from_ips.whoisxml_reverse_endpoint(
+                "192.0.2.1",
+                "Thread 1",
+            )
 
-        self.assertIsNone(result)
         post_mock.assert_called_once()
         rate_mock.assert_called_once_with()
         sleep_mock.assert_not_called()
@@ -671,6 +675,9 @@ class EnumSubsFromIpsTests(unittest.TestCase):
     ):
         """Pass every IP row to the linking helper using one connection."""
         connection = connect_mock.return_value
+        failed_ips = []
+        worker_errors = []
+        stop_event = threading.Event()
         ips = pd.DataFrame(
             [
                 {"ip": "192.0.2.1", "ip_hash": "hash-1"},
@@ -678,13 +685,173 @@ class EnumSubsFromIpsTests(unittest.TestCase):
             ]
         )
 
-        enum_subs_from_ips.run_ip_chunk("ORG", "org-uid", ips, "Thread 1")
+        enum_subs_from_ips.run_ip_chunk(
+            "ORG",
+            "org-uid",
+            ips,
+            "Thread 1",
+            failed_ips,
+            worker_errors,
+            stop_event,
+        )
 
         self.assertEqual(link_mock.call_count, 2)
         for invocation in link_mock.call_args_list:
-            self.assertEqual(invocation.args[1:3], ("org-uid", "WhoisXML"))
+            self.assertEqual(
+                invocation.args[1:3],
+                ("org-uid", "WhoisXML"),
+            )
+            self.assertIs(invocation.args[3], failed_ips)
             self.assertIs(invocation.args[4], connection)
+
+        self.assertEqual(worker_errors, [])
+        self.assertFalse(stop_event.is_set())
         connection.close.assert_called_once_with()
+
+    @patch.object(enum_subs_from_ips, "link_domain_from_ip")
+    @patch.object(enum_subs_from_ips, "connect")
+    def test_run_ip_chunk_stops_on_authentication_failure(
+        self,
+        connect_mock,
+        link_mock,
+    ):
+        """Stop workers and propagate WhoisXML authentication failures."""
+        connection = connect_mock.return_value
+        authentication_error = PermissionError(
+            "WhoisXML authentication/authorization failed: HTTP 401"
+        )
+        link_mock.side_effect = authentication_error
+
+        ips = pd.DataFrame(
+            [
+                {"ip": "192.0.2.1"},
+                {"ip": "192.0.2.2"},
+            ]
+        )
+        failed_ips = []
+        worker_errors = []
+        stop_event = threading.Event()
+
+        enum_subs_from_ips.run_ip_chunk(
+            "ORG",
+            "org-uid",
+            ips,
+            "Thread 1",
+            failed_ips,
+            worker_errors,
+            stop_event,
+        )
+
+        link_mock.assert_called_once()
+        self.assertEqual(worker_errors, [authentication_error])
+        self.assertTrue(stop_event.is_set())
+        connection.close.assert_called_once_with()
+
+    @patch.object(enum_subs_from_ips, "link_domain_from_ip")
+    @patch.object(enum_subs_from_ips, "connect")
+    def test_run_ip_chunk_propagates_unexpected_worker_failure(
+        self,
+        connect_mock,
+        link_mock,
+    ):
+        """Capture unexpected exceptions raised inside a worker thread."""
+        connection = connect_mock.return_value
+        worker_error = RuntimeError("Database operation failed")
+        link_mock.side_effect = worker_error
+
+        ips = pd.DataFrame([{"ip": "192.0.2.1"}])
+        failed_ips = []
+        worker_errors = []
+        stop_event = threading.Event()
+
+        enum_subs_from_ips.run_ip_chunk(
+            "ORG",
+            "org-uid",
+            ips,
+            "Thread 1",
+            failed_ips,
+            worker_errors,
+            stop_event,
+        )
+
+        self.assertEqual(worker_errors, [worker_error])
+        self.assertTrue(stop_event.is_set())
+        connection.close.assert_called_once_with()
+
+    @patch.object(enum_subs_from_ips.threading, "Thread")
+    @patch.object(enum_subs_from_ips, "query_cidrs_by_org")
+    def test_enum_subs_propagates_worker_failure(
+        self,
+        query_mock,
+        thread_mock,
+    ):
+        """Raise after a worker reports an unexpected exception."""
+        query_mock.return_value = pd.DataFrame(
+            [{"network": "192.0.2.0/30", "cidr_uid": "cidr-uid"}]
+        )
+        organizations = pd.DataFrame(
+            [{"organizations_uid": "org-uid", "cyhy_db_name": "ORG"}]
+        )
+
+        added_error = False
+
+        def create_thread(*args, **kwargs):
+            nonlocal added_error
+            thread = MagicMock()
+            worker_arguments = kwargs["args"]
+
+            def start():
+                nonlocal added_error
+                if not added_error:
+                    worker_arguments[5].append(RuntimeError("Worker database failure"))
+                    worker_arguments[6].set()
+                    added_error = True
+
+            thread.start.side_effect = start
+            return thread
+
+        thread_mock.side_effect = create_thread
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Worker failed while performing WhoisXML lookups for ORG",
+        ):
+            enum_subs_from_ips.enum_subs_from_ips(organizations)
+
+    @patch.object(enum_subs_from_ips.threading, "Thread")
+    @patch.object(enum_subs_from_ips, "query_cidrs_by_org")
+    def test_enum_subs_propagates_accumulated_lookup_failures(
+        self,
+        query_mock,
+        thread_mock,
+    ):
+        """Raise when every WhoisXML lookup for an org fails."""
+        query_mock.return_value = pd.DataFrame(
+            [{"network": "192.0.2.0/30", "cidr_uid": "cidr-uid"}]
+        )
+        organizations = pd.DataFrame(
+            [{"organizations_uid": "org-uid", "cyhy_db_name": "ORG"}]
+        )
+
+        def create_thread(*args, **kwargs):
+            thread = MagicMock()
+            worker_arguments = kwargs["args"]
+            ips_chunk = worker_arguments[2]
+            failed_ips = worker_arguments[4]
+
+            def start():
+                failed_ips.extend(ips_chunk["ip"].tolist())
+
+            thread.start.side_effect = start
+            return thread
+
+        thread_mock.side_effect = create_thread
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"All 2 WhoisXML lookups failed for ORG",
+        ):
+            enum_subs_from_ips.enum_subs_from_ips(organizations)
 
     @patch.object(enum_subs_from_ips.threading, "Thread")
     @patch.object(enum_subs_from_ips, "query_cidrs_by_org")
