@@ -197,6 +197,8 @@ def test_invite_by_organization_admin_should_work():
     assert data["roles"][0]["approved"] is True
     assert data["roles"][0]["role"] == "user"
     assert data["roles"][0]["organization"]["id"] == str(organization.id)
+    invited_user = User.objects.get(email=email)
+    assert invited_user.date_approved is not None
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -574,6 +576,7 @@ def test_register_approve_success(mock_email):
     assert user_to_approve.state == "Virginia"
     assert user_to_approve.region_id == "3"
     assert user_to_approve.invite_pending is False
+    assert user_to_approve.date_approved is not None
     assert Role.objects.filter(
         user=user_to_approve, organization=organization, approved=True, role="user"
     ).exists()

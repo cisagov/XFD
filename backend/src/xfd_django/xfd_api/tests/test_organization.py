@@ -878,6 +878,8 @@ def test_approve_role_by_global_admin_succeeds():
     assert response.status_code == 200
     role.refresh_from_db()
     assert role.approved is True
+    user2.refresh_from_db()
+    assert user2.date_approved is not None
 
 
 # Test: Approving a role by global view should fail
@@ -1636,6 +1638,8 @@ def test_add_user_to_org_v2_success():
     assert data["role"] == "member"
     assert data["approved"] is True
     assert data["approved_by"]["id"] == str(admin.id)
+    user.refresh_from_db()
+    assert user.date_approved is not None
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
