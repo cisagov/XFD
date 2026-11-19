@@ -349,11 +349,8 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
               sx={{ width: '100%' }}
             />
             {values.useDateRange && (
-              <Grid container spacing={1} sx={{ mb: 1 }}>
+              <Grid container spacing={1} sx={{ my: 1 }}>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body1" pb={1}>
-                    Start Date (UTC)
-                  </Typography>
                   <TextField
                     label="Start date and time (UTC)"
                     id="start_datetime"
@@ -378,9 +375,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="body1" pb={1}>
-                    End Date and Time
-                  </Typography>
                   <TextField
                     label="End date and time (UTC)"
                     id="end_datetime"
@@ -410,14 +404,17 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                       variant="caption"
                       color="error"
                       id="date-range-error"
+                      role="alert"
                     >
                       {dateRangeError}
                     </Typography>
                   </Grid>
                 )}
-                <FormHelperText>
-                  Must run once while limiting to a date range
-                </FormHelperText>
+                <Grid size={{ xs: 12 }}>
+                  <FormHelperText>
+                    Must run once while limiting to a date range
+                  </FormHelperText>
+                </Grid>
               </Grid>
             )}
           </Box>
@@ -434,11 +431,11 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
           sx={{ width: '100%' }}
         />
         {!values.is_single_scan && (
-          <Grid container spacing={2} mb={3}>
-            <Grid size={{ xs: 12, sm: 3 }} sx={{ alignSelf: 'center' }}>
-              <Typography>Run every</Typography>
+          <Grid container spacing={2} mb={2}>
+            <Grid size={{ xs: 12 }}>
+              <FormHelperText>Run scan every</FormHelperText>
             </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 size="small"
                 fullWidth
@@ -462,7 +459,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 }
               />
             </Grid>
-            <Grid size={{ xs: 12, sm: 5 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 size="small"
                 fullWidth
@@ -486,12 +483,14 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
           </Grid>
         )}
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 6 }} sx={{ alignSelf: 'center' }}>
-            <Typography sx={{ overflow: 'visible' }}>
-              Number of Concurrent Tasks
-            </Typography>
+          <Grid size={{ xs: 12 }}>
+            <FormHelperText>
+              {maxConcurrentTasks != null
+                ? `This scan allows a maximum of ${maxConcurrentTasks} concurrent scans`
+                : 'This scan allows no limit of concurrent tasks'}
+            </FormHelperText>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          <Grid size={{ xs: 12, sm: 7 }}>
             <TextField
               size="small"
               fullWidth
@@ -516,13 +515,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                   : undefined
               }
             />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <FormHelperText>
-              {maxConcurrentTasks != null
-                ? `This scan allows a maximum of ${maxConcurrentTasks} concurrent scans`
-                : 'This scan allows no limit of concurrent tasks'}
-            </FormHelperText>
           </Grid>
         </Grid>
       </Box>

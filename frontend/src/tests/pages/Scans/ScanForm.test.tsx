@@ -104,8 +104,6 @@ describe('ScanForm', () => {
 
     expect(screen.getByLabelText('Run scan once')).toBeInTheDocument();
 
-    expect(screen.getByText('Number of Concurrent Tasks')).toBeInTheDocument();
-
     expect(
       screen.getByText('This scan allows a maximum of 5 concurrent scans')
     ).toBeInTheDocument();
@@ -266,10 +264,6 @@ describe('ScanForm', () => {
     await user.click(
       screen.getByLabelText('Limit scan to specific date range')
     );
-
-    expect(screen.getByText('Start Date (UTC)')).toBeInTheDocument();
-
-    expect(screen.getByText('End Date and Time')).toBeInTheDocument();
 
     expect(screen.getByLabelText('Run scan once')).toBeChecked();
 
