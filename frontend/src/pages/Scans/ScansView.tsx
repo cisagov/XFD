@@ -242,7 +242,7 @@ const ScansView: React.FC = () => {
       frequency: scan.frequency,
       last_run:
         !scan.last_run ||
-          new Date(scan.last_run).getTime() === new Date(0).getTime()
+        new Date(scan.last_run).getTime() === new Date(0).getTime()
           ? 'None'
           : `${formatDistanceToNow(parseISO(scan.last_run))} ago`,
       description: scanSchema[scan.name]?.description,
