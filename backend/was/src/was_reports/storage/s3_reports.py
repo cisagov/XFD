@@ -3,11 +3,14 @@
 # Standard Python Libraries
 from contextlib import contextmanager
 from datetime import date
+import hashlib
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Iterator, Optional, Tuple
 
 # Third-Party Libraries
+from pikepdf import PasswordError, Pdf, PdfError
+
 # First-Party Libraries
 from was_reports.reporting.latex_renderer import validate_filename_component
 from was_reports.utils.env import getenv, require_env
@@ -253,6 +256,51 @@ def materialize_report(
         if not local_path.is_file():
             raise FileNotFoundError("S3 download did not create a WAS report file.")
         yield local_path
+
+
+def validate_archived_pdf(
+    report_path: Path,
+    report_password: str | None,
+    *,
+    require_password_match: bool = False,
+    expected_sha256: str | None = None,
+) -> str:
+    """Validate an encrypted PDF and return its content digest.
+
+    Initial delivery requires a matching password and readable pages before
+    the digest is recorded. Later retry may use that digest when the current
+    stakeholder password has changed since report generation.
+    """
+    if not report_path.is_file() or report_path.stat().st_size == 0:
+        raise ValueError("Archived WAS report PDF is missing or empty.")
+    if require_password_match and not report_password:
+        raise ValueError("Archived WAS report password is unavailable.")
+    try:
+        with Pdf.open(
+            report_path,
+            password=report_password if isinstance(report_password, str) else "",
+        ) as report_document:
+            if not report_document.is_encrypted or not report_document.pages:
+                raise ValueError("Archived WAS report PDF is invalid.")
+    except PasswordError as error:
+        if require_password_match:
+            raise ValueError(
+                "Archived WAS report PDF could not be verified."
+            ) from error
+        # The original digest proves these encrypted bytes were validated
+        # before their initial send, even if the current password has rotated.
+    except (PdfError, OSError) as error:
+        raise ValueError(
+            "Archived WAS report PDF is invalid or inaccessible."
+        ) from error
+    digest = hashlib.sha256()
+    with report_path.open("rb") as report_file:
+        for report_chunk in iter(lambda: report_file.read(1024 * 1024), b""):
+            digest.update(report_chunk)
+    actual_sha256 = digest.hexdigest()
+    if expected_sha256 is not None and actual_sha256 != expected_sha256:
+        raise ValueError("Archived WAS report PDF differs from the validated file.")
+    return actual_sha256
 
 
 def delete_report(

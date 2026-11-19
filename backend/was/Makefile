@@ -63,7 +63,7 @@ HOST_SOFTWARE_SINCE ?=
 HOST_SOFTWARE_BASELINE ?=
 
 
-.PHONY: install test lint build menu help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports recover-interrupted-batch reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
+.PHONY: install test lint build menu delivery-retention-cleanup help report-help xml-help inventory admin-help mailer-help stakeholders-help special-cases stakeholder-export stakeholder-import tracker-csv tracker-import tracker-table tracker-mark-sent report-errors update-tracker update-tracker-delete-apps assignee-digests recent-scan-batch recent-scan-batch-assignee-test recent-scan-batch-test single-report manual-report recover-manual-reports recover-interrupted-batch reconcile-email-delivery logs-latest logs-summary logs-errors logs-tag host-software-capture host-software-preview host-software-apply host-software-verify host-shell-preview host-shell-install host-operator-scripts-preview host-operator-scripts-install
 
 
 export APPLY BATCH_DAYS_BACK BATCH_RUN_ID BATCH_TEST_RECIPIENTS BATCH_WORKERS
@@ -104,6 +104,10 @@ build:
 menu:
 	mkdir -p $(OUTPUT_DIR)
 	docker run --rm -it $(DOCKER_HOST_USER) --env-file $(ENV_FILE) -v $(OUTPUT_DIR):/output -v $(IMPORT_DIR):/backend/was:ro $(IMAGE) was-menu
+
+delivery-retention-cleanup:
+	@if [ "$(APPLY)" = "1" ]; then set -- --apply; else set --; fi; \
+	  docker run --rm $(DOCKER_HOST_USER) --env-file $(ENV_FILE) $(IMAGE) was-delivery-retention "$$@"
 
 help:
 	docker run --rm $(IMAGE) --help

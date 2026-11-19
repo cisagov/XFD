@@ -8,7 +8,8 @@ import select
 import signal
 import sys
 from threading import Event, Thread
-from typing import Callable
+from typing import Any, Callable
+from uuid import uuid4
 
 # Third-Party Libraries
 from pyfiglet import Figlet
@@ -28,7 +29,8 @@ from was_reports.data.report_runs import (
     HeldEmailReconciliationPreview,
     list_held_report_email_reconciliations_from_db,
 )
-from was_reports.utils.logging_config import configure_logging
+from was_reports.delivery import service as delivery_service
+from was_reports.utils.logging_config import configure_logging, exception_details
 from was_reports.utils.operation_cancellation import (
     OperationCancelledError,
     clear_operation_cancellation,
@@ -45,6 +47,7 @@ InputFunction = Callable[[str], str]
 OutputFunction = Callable[[str], None]
 SecretInputFunction = Callable[[str], str]
 CUSTOMER_EMAIL_RETRY_MENU_CONFIRMATION = "RETRY CUSTOMER EMAIL"
+CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION = "RETRY FAILED DELIVERY"
 
 
 class OperationCancellationMonitor:
@@ -755,6 +758,7 @@ class WasOperatorMenu:
                 "Reconcile a held customer email delivery",
                 self.reconcile_held_customer_email,
             ),
+            ("Review failed report deliveries", self.review_delivery_failures),
         ]
         while True:
             self.print_menu(
@@ -991,6 +995,250 @@ class WasOperatorMenu:
             "held customer email reconciliation",
             lambda: reconcile_email_delivery.main(arguments),
         )
+        self.pause()
+
+    def _delivery_action(
+        self,
+        operation_name: str,
+        action: Callable[[str], Any],
+    ) -> Any | None:
+        """Authorize a menu action and suppress sensitive failure details."""
+        try:
+            actor_id = delivery_service.authenticate_operator()
+            return action(actor_id)
+        except PermissionError:
+            self.output("Access denied for this delivery operation.")
+        except LookupError:
+            self.output("Delivery failure was not found or is not accessible.")
+        except ValueError:
+            self.output("Invalid delivery information. No email was sent.")
+        except FileNotFoundError:
+            self.output("Archived report is unavailable. No email was sent.")
+        except RuntimeError:
+            self.output(
+                "Delivery action could not complete. Review the attempt history "
+                "before another send."
+            )
+        except Exception as error:
+            LOGGER.error(
+                "WAS delivery %s failed: %s",
+                operation_name,
+                exception_details(error),
+            )
+            self.output("Delivery operation failed. Review private WAS logs.")
+        return None
+
+    def _delivery_filters(self) -> dict[str, str]:
+        """Collect optional report-delivery failure filters from the operator."""
+        filters: dict[str, str] = {}
+        prompts = (
+            ("stakeholder_tag", "Stakeholder tag [all]: "),
+            ("recipient", "Recipient address [all]: "),
+            ("date", "Failure date YYYY-MM-DD [all]: "),
+        )
+        for field_name, prompt in prompts:
+            value = self.prompt_optional(prompt)
+            if value:
+                filters[field_name] = value
+        if "date" not in filters:
+            for field_name, prompt in (
+                ("date_from", "Failure date from YYYY-MM-DD [all]: "),
+                ("date_to", "Failure date to YYYY-MM-DD [all]: "),
+            ):
+                value = self.prompt_optional(prompt)
+                if value:
+                    filters[field_name] = value
+        for field_name, prompt in (
+            ("bounce_type", "Bounce type [all]: "),
+            ("delivery_status", "Delivery status [all]: "),
+            ("report_id", "Report run ID [all]: "),
+        ):
+            value = self.prompt_optional(prompt)
+            if value:
+                filters[field_name] = value
+        return filters
+
+    @staticmethod
+    def _safe_delivery_text(value: object) -> str:
+        """Bound terminal output and remove control characters from record data."""
+        if isinstance(value, (list, tuple)):
+            text = ", ".join(str(item) for item in value)
+        else:
+            text = str(value)
+        return "".join(
+            character if character.isprintable() else "?"
+            for character in text[:512]
+        )
+
+    def _display_delivery_detail(self, failure: dict[str, Any]) -> None:
+        """Show allowlisted association, diagnostic, and history fields."""
+        self.output("Delivery failure detail:")
+        for field_name, label in (
+            ("id", "Attempt ID"),
+            ("report_run_id", "Report run ID"),
+            ("stakeholder_tag", "Stakeholder tag"),
+            ("delivery_purpose", "Delivery purpose"),
+            ("recipient_addresses", "Original message recipients"),
+            ("status", "Delivery status"),
+            ("failure_classification", "Failure classification"),
+            ("sanitized_diagnostic", "Sanitized diagnostic"),
+            ("confirmed_failed_at", "Confirmed failure time"),
+        ):
+            if field_name in failure:
+                self.output(
+                    "{}: {}".format(
+                        label, self._safe_delivery_text(failure[field_name])
+                    )
+                )
+        for section_name, label, fields in (
+            (
+                "attempt_history", "Delivery attempts",
+                (
+                    "id", "status", "failed_recipient", "recipient_addresses",
+                    "requested_by_principal_key", "ses_message_id", "created_at",
+                    "sanitized_diagnostic",
+                ),
+            ),
+            (
+                "ses_events", "SES events",
+                (
+                    "event_type", "affected_recipients", "bounce_type",
+                    "smtp_status_code", "occurred_at",
+                ),
+            ),
+        ):
+            self.output("{}:".format(label))
+            for record in failure.get(section_name, []):
+                self.output(
+                    "  {}".format(
+                        " | ".join(
+                            "{}={}".format(
+                                field_name,
+                                self._safe_delivery_text(record[field_name]),
+                            )
+                            for field_name in fields
+                            if field_name in record
+                        )
+                    )
+                )
+
+    def review_delivery_failures(self) -> None:
+        """Review failed deliveries and offer controlled correction and retry."""
+        self.output(
+            "Delivery access is attributed to the current host UID. "
+            "Shared UIDs share audit attribution."
+        )
+        filters = self._delivery_filters()
+        failures = self._delivery_action(
+            "list",
+            lambda actor_id: delivery_service.list_failures(
+                filters=filters, actor_id=actor_id
+            ),
+        )
+        if failures is None:
+            self.pause()
+            return
+        if not failures:
+            self.output("No delivery failures matched the selected filters.")
+            self.pause()
+            return
+        self.output("Matching delivery failures:")
+        for selection_number, failure in enumerate(failures, start=1):
+            self.output(
+                "{}) Attempt ID={} | Tag={} | Run ID={} | Status={} | "
+                "Bounce type={} | Failure time={}".format(
+                    selection_number,
+                    self._safe_delivery_text(failure.get("id", "-")),
+                    self._safe_delivery_text(failure.get("stakeholder_tag", "-")),
+                    self._safe_delivery_text(failure.get("report_run_id", "-")),
+                    self._safe_delivery_text(failure.get("status", "-")),
+                    self._safe_delivery_text(failure.get("bounce_type", "-")),
+                    self._safe_delivery_text(
+                        failure.get("failure_occurred_at", "-")
+                    ),
+                )
+            )
+        selection = self.input("Select a failure [0 = cancel]: ").strip()
+        if selection == "0":
+            self.pause()
+            return
+        try:
+            selection_number = int(selection)
+        except ValueError:
+            self.output("Invalid selection. No state was changed.")
+            self.pause()
+            return
+        if not 1 <= selection_number <= len(failures):
+            self.output("Invalid selection. No state was changed.")
+            self.pause()
+            return
+        attempt_id = failures[selection_number - 1]["id"]
+        failure = self._delivery_action(
+            "detail",
+            lambda actor_id: delivery_service.get_failure(
+                attempt_id=attempt_id, actor_id=actor_id
+            ),
+        )
+        if failure is None:
+            self.output("Delivery failure was not found or is not accessible.")
+            self.pause()
+            return
+        self._display_delivery_detail(failure)
+        if failure.get("retry_window_open") is False:
+            self.output("The 14-day delivery retry window has expired.")
+            self.pause()
+            return
+        if (
+            failure.get("delivery_purpose") != "customer"
+            or failure.get("status") != "confirmed_failure"
+        ):
+            self.output("This delivery can be reviewed but is not eligible for retry.")
+            self.pause()
+            return
+        self.output("1) Retry one confirmed failed recipient")
+        self.output("0) Return")
+        action = self.input("Select delivery action [0 = return]: ").strip()
+        if action == "1":
+            failed_recipient = self.prompt_required("Failed recipient address: ")
+            corrected_recipient = self.prompt_optional(
+                "Retry recipient address [Enter = same address]: "
+            ) or failed_recipient
+            self.output(
+                "Retry failed recipient {} to recipient {}.".format(
+                    self._safe_delivery_text(failed_recipient),
+                    self._safe_delivery_text(corrected_recipient),
+                )
+            )
+            if corrected_recipient.casefold() == failed_recipient.casefold():
+                self.output("Recipient unchanged; this resends a confirmed failure.")
+            confirmation = self.input(
+                "Type {} to continue: ".format(
+                    CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION
+                )
+            ).strip()
+            if confirmation != CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION:
+                self.output("Delivery retry cancelled. No email was sent.")
+                self.pause()
+                return
+            retry = self._delivery_action(
+                "retry",
+                lambda actor_id: delivery_service.retry_failure(
+                    attempt_id=attempt_id,
+                    actor_id=actor_id,
+                    idempotency_key="was-delivery-retry-{}".format(uuid4()),
+                    expected_failed_recipient=failed_recipient,
+                    expected_recipient=corrected_recipient,
+                ),
+            )
+            if retry is not None:
+                self.output(
+                    "Retry attempt ID={} | Status={}.".format(
+                        self._safe_delivery_text(retry.get("id", "-")),
+                        self._safe_delivery_text(retry.get("status", "-")),
+                    )
+                )
+        elif action != "0":
+            self.output("Invalid delivery action. No state was changed.")
         self.pause()
 
     def record_manual_sent_date(self) -> None:

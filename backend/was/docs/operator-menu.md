@@ -73,6 +73,13 @@ remain. Additional actions:
   non-delivery to the stored customer recipients after a non-sensitive evidence
   reference and exact customer-send confirmation. A successful retry updates the
   report run, linked tracker sent date, and batch attempt together.
+- **Review failed report deliveries** filters persisted SES delivery failures
+  and shows one attempt's report, recipient, event, and retry history. A
+  confirmed failed recipient can be retried at the same address or sent to a
+  corrected address using the archived PDF after exact confirmation. A
+  correction does not change the saved stakeholder contact. See
+  [Delivery failure review and retry](delivery-failure-review.md)
+  for authorization, event ingestion, schema, and deployment prerequisites.
 
 Customer report delivery automatically retries once only when the returned AWS
 error code conclusively identifies a transient non-delivery, such as throttling

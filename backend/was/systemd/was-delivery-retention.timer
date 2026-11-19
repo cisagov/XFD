@@ -1,0 +1,13 @@
+[Unit]
+Description=Apply WAS delivery-review retention hourly
+
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+AccuracySec=1min
+Persistent=true
+Unit=was-delivery-retention.service
+
+[Install]
+WantedBy=timers.target
