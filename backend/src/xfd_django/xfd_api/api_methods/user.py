@@ -12,6 +12,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Prefetch
 from django.forms import model_to_dict
+from django.utils.timezone import now
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import Organization, Role, User, UserType
 
@@ -704,7 +705,7 @@ def approve_user_registration(user_id, approval_data, current_user):
         user.can_select_own_state = False
         if requested_user_type:
             user.user_type = requested_user_type
-        user.date_approved = datetime.now()
+        user.date_approved = now()
         user.approved_by = current_user
         user.first_login = True
         user.save()
@@ -861,6 +862,10 @@ def invite(new_user_data, current_user):
                     "role": "admin" if new_user_data.organization_admin else "user",
                 },
             )
+            if user.date_approved is None:
+                user.date_approved = now()
+                user.approved_by = current_user
+                user.save(update_fields=["date_approved", "approved_by"])
         # Return the updated user with relevant details
         return {
             "id": str(user.id),
