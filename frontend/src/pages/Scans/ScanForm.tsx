@@ -122,8 +122,10 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
     const maxConcurrentTasks = hasSchema
       ? scanSchemaEntry.max_concurrent_tasks
       : 10;
-    const isFrequencyValid = values.frequency >= 1;
+    const isFrequencyValid =
+      Number.isInteger(values.frequency) && values.frequency >= 1;
     const isConcurrentTasksValid =
+      Number.isInteger(values.concurrent_tasks) &&
       values.concurrent_tasks > 0 &&
       (maxConcurrentTasks == null ||
         values.concurrent_tasks <= maxConcurrentTasks);
@@ -369,6 +371,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                           max: getUTCNowString()
                         }
                       }}
+                      error={!!dateRangeError}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -391,18 +394,19 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                           max: getUTCNowString()
                         }
                       }}
+                      error={!!dateRangeError}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="caption" color="red">
-                      Must run once while limiting to a date range
-                    </Typography>
-                    {dateRangeError && (
+                  {dateRangeError && (
+                    <Grid size={{ xs: 12 }}>
                       <Typography variant="caption" color="red">
                         {dateRangeError}
                       </Typography>
-                    )}
-                  </Grid>
+                    </Grid>
+                  )}
+                  <FormHelperText>
+                    Must run once while limiting to a date range
+                  </FormHelperText>
                 </Grid>
               )}
             </Box>
@@ -440,11 +444,11 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                       min: 1
                     }
                   }}
-                  error={values.frequency < 1}
+                  error={!isFrequencyValid}
                   helperText={
-                    values.frequency < 1 && (
+                    !isFrequencyValid && (
                       <Typography variant="caption" color="error.main">
-                        Minimum value is 1
+                        Positive integer expected
                       </Typography>
                     )
                   }
@@ -497,15 +501,11 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                     })
                   }
                 }}
-                error={
-                  maxConcurrentTasks != null &&
-                  values.concurrent_tasks > maxConcurrentTasks
-                }
+                error={!isConcurrentTasksValid}
                 helperText={
-                  maxConcurrentTasks != null &&
-                  values.concurrent_tasks > maxConcurrentTasks && (
+                  !isConcurrentTasksValid && (
                     <Typography variant="caption" color="error.main">
-                      Maximum exceeded
+                      Positive integer within range expected
                     </Typography>
                   )
                 }
