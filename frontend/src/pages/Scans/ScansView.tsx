@@ -35,7 +35,6 @@ import {
   Scan,
   Organization,
   ScanSchema,
-  OrganizationTag,
   OrganizationOption
 } from '@/types';
 import { useAuthContext } from '@/context';
@@ -72,7 +71,8 @@ const ScansView: React.FC = () => {
   const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
   >([]);
-  const [tags, setTags] = useState<OrganizationTag[]>([]);
+  // Tag selection is currently unused. This code is retained for potential future restoration.
+  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
   const [deleteScanDialogOpen, setDeleteScanDialogOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -93,9 +93,8 @@ const ScansView: React.FC = () => {
     frequency: 1,
     frequencyUnit: 'minute',
     is_granular: false,
-    is_user_modifiable: false,
     is_single_scan: false,
-    tags: [],
+    // tags: [],
     concurrent_tasks: 1,
     useDateRange: false
   });
@@ -108,15 +107,15 @@ const ScansView: React.FC = () => {
         organizations: Organization[];
         schema: ScanSchema;
       }>(ENDPOINTS.SCANS);
-      const tags = await apiGet<OrganizationTag[]>(
-        ENDPOINTS.ORGANIZATIONS_TAGS
-      );
+      // const tags = await apiGet<OrganizationTag[]>(
+      //   ENDPOINTS.ORGANIZATIONS_TAGS
+      // );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
         organizations.map((e) => ({ label: e.name, value: e.id }))
       );
-      setTags(tags);
+      // setTags(tags);
     } catch (e) {
       logger.error('ScansView.fetchScans failed:', { error: e });
     } finally {
@@ -158,7 +157,7 @@ const ScansView: React.FC = () => {
           organizations: body.organizations
             ? body.organizations.map((e) => e.value)
             : [],
-          tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
+          // tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
         }
       });
 
@@ -245,7 +244,7 @@ const ScansView: React.FC = () => {
       frequency: scan.frequency,
       last_run:
         !scan.last_run ||
-        new Date(scan.last_run).getTime() === new Date(0).getTime()
+          new Date(scan.last_run).getTime() === new Date(0).getTime()
           ? 'None'
           : `${formatDistanceToNow(parseISO(scan.last_run))} ago`,
       description: scanSchema[scan.name]?.description,
@@ -487,7 +486,7 @@ const ScansView: React.FC = () => {
       content={
         <ScanForm
           organizationOption={organizationOptions}
-          tags={tags}
+          // tags={tags}
           propValues={values}
           onSubmit={onSubmit}
           type="create"

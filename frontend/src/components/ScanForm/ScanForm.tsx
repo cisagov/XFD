@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 // Material-UI Components
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
-import MuiButton from '@mui/material/Button';
-import MuiCheckbox from '@mui/material/Checkbox';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormHelperText from '@mui/material/FormHelperText';
 import Grid from '@mui/material/Grid';
@@ -104,6 +104,9 @@ export const ScanForm: React.FC<{
     const scanSchemaEntry = scanSchema[values.name];
     const hasSchema = Boolean(scanSchemaEntry);
     const maxConcurrentTasks = hasSchema ? scanSchemaEntry.max_concurrent_tasks : 10;
+    const isFrequencyValid = values.frequency >= 1;
+    const isConcurrentTasksValid = values.concurrent_tasks > 0 && (maxConcurrentTasks == null || values.concurrent_tasks <= maxConcurrentTasks)
+    const isSubmitDisabled = !isFrequencyValid || !isConcurrentTasksValid;
 
     const onChange = (name: string, value: any) => {
       setValues((values) => ({
@@ -154,12 +157,74 @@ export const ScanForm: React.FC<{
       setDefaultValues();
     }, [setDefaultValues]);
 
-    // Clear date error when user adjusts start or end date
-    useEffect(() => {
-      if (values.useDateRange && dateRangeError) {
+    const handleSubmit = async () => {
+      // Validate date range if used
+      if (values.useDateRange) {
+        if (!values.startDate || !values.endDate) {
+          setDateRangeError('Please select both start and end date.');
+          return;
+        }
+
+        const start = new Date(values.startDate);
+        const end = new Date(values.endDate);
+        const now = new Date();
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          setDateRangeError('Invalid date format.');
+          return;
+        }
+
+        if (start >= end) {
+          setDateRangeError('Start date must be before end date.');
+          return;
+        }
+
+        // Prevent future dates (end and start must be <= now)
+        // Compare as UTC-aware dates: inputs are in local time but ISO strings created earlier are UTC
+        // Here, we compare timestamps directly.
+        if (
+          start.getTime() > now.getTime() ||
+          end.getTime() > now.getTime()
+        ) {
+          setDateRangeError('Dates cannot be in the future.');
+          return;
+        }
+
+        // Ensure that (end - start) <= 365 days (align with backend)
+        const diffDays =
+          (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays > MAX_SCAN_DAYS) {
+          setDateRangeError(
+            `Date range cannot exceed ${MAX_SCAN_DAYS} days.`
+          );
+          return;
+        }
+      } else {
         setDateRangeError('');
       }
-    }, [values.startDate, values.endDate, dateRangeError, values.useDateRange]);
+
+      await onSubmit({
+        name: values.name,
+        arguments: JSON.stringify({
+          ...values.arguments,
+          ...(values.useDateRange && {
+            start_datetime: values.startDate
+              ? new Date(values.startDate).toISOString()
+              : null,
+            end_datetime: values.endDate
+              ? new Date(values.endDate).toISOString()
+              : null
+          })
+        }),
+        organizations: values.organizations,
+        // tags: values.tags,
+        frequency: values.frequency,
+        frequencyUnit: values.frequencyUnit,
+        is_granular: values.is_granular,
+        is_single_scan: values.is_single_scan,
+        concurrent_tasks: values.concurrent_tasks
+      })
+    };
 
     return (
       <>
@@ -186,7 +251,7 @@ export const ScanForm: React.FC<{
             (schemaUpdated && !scanSchema[values.name].global) ||
             !global) && (
               <FormControlLabel
-                control={<MuiCheckbox
+                control={<Checkbox
                   onChange={(e) => onChange('is_granular', e.target.checked)}
                   checked={values.is_granular}
                 />}
@@ -227,7 +292,7 @@ export const ScanForm: React.FC<{
             <Box>
               <FormControlLabel
                 control={
-                  <MuiCheckbox
+                  <Checkbox
                     checked={values.useDateRange}
                     onChange={(e) => {
                       onChange('useDateRange', e.target.checked);
@@ -265,7 +330,10 @@ export const ScanForm: React.FC<{
                       fullWidth
                       type="datetime-local"
                       value={values.startDate}
-                      onChange={(e) => onChange('startDate', e.target.value)}
+                      onChange={(e) => {
+                        onChange('startDate', e.target.value);
+                        setDateRangeError(``);
+                      }}
                       slotProps={{
                         htmlInput: {
                           max: getUTCNowString()
@@ -284,7 +352,10 @@ export const ScanForm: React.FC<{
                       fullWidth
                       type="datetime-local"
                       value={values.endDate}
-                      onChange={(e) => onChange('endDate', e.target.value)}
+                      onChange={(e) => {
+                        onChange('endDate', e.target.value);
+                        setDateRangeError(``);
+                      }}
                       slotProps={{
                         htmlInput: {
                           max: getUTCNowString()
@@ -302,7 +373,7 @@ export const ScanForm: React.FC<{
               )}
             </Box>
           )}
-          <FormControlLabel control={<MuiCheckbox checked={values.is_single_scan}
+          <FormControlLabel control={<Checkbox checked={values.is_single_scan}
             disabled={values.useDateRange}
             onChange={(e) => onChange('is_single_scan', e.target.checked)} />} label="Run scan once" sx={{ width: '100%' }} />
           {!values.is_single_scan && (
@@ -325,6 +396,14 @@ export const ScanForm: React.FC<{
                       min: 1
                     },
                   }}
+                  error={values.frequency < 1}
+                  helperText={
+                    values.frequency < 1 && (
+                      <Typography variant="caption" color="error.main">
+                        Minimum value is 1
+                      </Typography>
+                    )
+                  }
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 5 }}>
@@ -365,6 +444,14 @@ export const ScanForm: React.FC<{
                     ...(maxConcurrentTasks != null && { max: maxConcurrentTasks })
                   },
                 }}
+                error={maxConcurrentTasks != null && values.concurrent_tasks > maxConcurrentTasks}
+                helperText={
+                  maxConcurrentTasks != null && values.concurrent_tasks > maxConcurrentTasks && (
+                    <Typography variant="caption" color="error.main">
+                      Maximum exceeded
+                    </Typography>
+                  )
+                }
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
@@ -377,76 +464,9 @@ export const ScanForm: React.FC<{
             </Grid>
           </Grid>
         </Box>
-        <MuiButton onClick={async (e) => {
-          e.preventDefault();
-
-          // Validate date range if used
-          if (values.useDateRange) {
-            if (!values.startDate || !values.endDate) {
-              setDateRangeError('Please select both start and end date.');
-              return;
-            }
-
-            const start = new Date(values.startDate);
-            const end = new Date(values.endDate);
-            const now = new Date();
-
-            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-              setDateRangeError('Invalid date format.');
-              return;
-            }
-
-            if (start >= end) {
-              setDateRangeError('Start date must be before end date.');
-              return;
-            }
-
-            // Prevent future dates (end and start must be <= now)
-            // Compare as UTC-aware dates: inputs are in local time but ISO strings created earlier are UTC
-            // Here, we compare timestamps directly.
-            if (
-              start.getTime() > now.getTime() ||
-              end.getTime() > now.getTime()
-            ) {
-              setDateRangeError('Dates cannot be in the future.');
-              return;
-            }
-
-            // Ensure that (end - start) <= 365 days (align with backend)
-            const diffDays =
-              (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-            if (diffDays > MAX_SCAN_DAYS) {
-              setDateRangeError(
-                `Date range cannot exceed ${MAX_SCAN_DAYS} days.`
-              );
-              return;
-            }
-          } else {
-            setDateRangeError('');
-          }
-
-          await onSubmit({
-            name: values.name,
-            arguments: JSON.stringify({
-              ...values.arguments,
-              ...(values.useDateRange && {
-                start_datetime: values.startDate
-                  ? new Date(values.startDate).toISOString()
-                  : null,
-                end_datetime: values.endDate
-                  ? new Date(values.endDate).toISOString()
-                  : null
-              })
-            }),
-            organizations: values.organizations,
-            // tags: values.tags,
-            frequency: values.frequency,
-            frequencyUnit: values.frequencyUnit,
-            is_granular: values.is_granular,
-            is_single_scan: values.is_single_scan,
-            concurrent_tasks: values.concurrent_tasks
-          });
-        }}>Submit</MuiButton>
+        <Button
+          disabled={isSubmitDisabled}
+          onClick={handleSubmit}>Submit</Button>
       </>
     );
   };
