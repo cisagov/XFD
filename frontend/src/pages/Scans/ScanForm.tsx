@@ -9,7 +9,6 @@ import React, {
 // Material-UI Components
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
-// import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormHelperText from '@mui/material/FormHelperText';
@@ -28,6 +27,7 @@ import { Scan, ScanSchema } from '@/types';
 export interface ScanFormProps {
   propValues: ScanFormValues;
   organizationOption: OrganizationOption[];
+  // Tag selection is currently unused. This code is retained for potential future restoration.
   // tags: OrganizationTag[];
   global?: any;
   onSubmit: (values: any) => Promise<void>;
@@ -39,7 +39,6 @@ export interface ScanFormProps {
 export interface ScanFormValues {
   name: string;
   organizations: OrganizationOption[];
-  // Tag selection is currently unused. This code is retained for potential future restoration.
   // tags: OrganizationOption[];
   arguments: any;
   frequency: number;
@@ -126,7 +125,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
       Number.isInteger(values.frequency) && values.frequency >= 1;
     const isConcurrentTasksValid =
       Number.isInteger(values.concurrent_tasks) &&
-      values.concurrent_tasks > 0 &&
+      values.concurrent_tasks >= 1 &&
       (maxConcurrentTasks == null ||
         values.concurrent_tasks <= maxConcurrentTasks);
     const isSubmitDisabled = !isFrequencyValid || !isConcurrentTasksValid;
@@ -185,6 +184,9 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
     }, [setDefaultValues]);
 
     const handleSubmit = async () => {
+      if (isSubmitDisabled) {
+        return;
+      }
       // Validate date range if used
       if (values.useDateRange) {
         if (!values.startDate || !values.endDate) {
@@ -253,64 +255,61 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
     }));
 
     return (
-      <>
-        <Box sx={{ mt: 1 }}>
-          <Autocomplete
-            disableClearable
-            value={values.name}
-            options={Object.keys(scanSchema).sort()}
-            size="small"
-            fullWidth
-            onChange={(_, newValue) => onChange('name', newValue)}
-            renderInput={(params) => (
-              <TextField {...params} label="Scan Name" />
-            )}
-          />
-          <Box sx={{ m: 1 }}>
-            <FormHelperText sx={{ fontSize: '0.7rem' }}>
-              Scan Description
-            </FormHelperText>
-            <Typography variant="caption">
-              {scanSchema[values.name]?.description ||
-                'No description available.'}
-            </Typography>
-          </Box>
-          {(values.name === 'censysIpv4' ||
-            values.name === 'censysCertificates' ||
-            (schemaUpdated && !scanSchema[values.name].global) ||
-            !global) && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  onChange={(e) => onChange('is_granular', e.target.checked)}
-                  checked={values.is_granular}
-                />
-              }
-              label="Limit enabled organizations"
-            />
-          )}
-          {values.is_granular && (
-            <Stack spacing={2} my={1}>
-              <Autocomplete
-                multiple
-                size="small"
-                options={organizationOptions}
-                value={values.organizations}
-                getOptionLabel={(option) => option.label}
-                isOptionEqualToValue={(option, value) =>
-                  option.value === value.value
-                }
-                onChange={(_, newValue) => onChange('organizations', newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Enabled Organizations"
-                    placeholder="Organizations"
-                  />
-                )}
+      <Box sx={{ mt: 1 }}>
+        <Autocomplete
+          disableClearable
+          value={values.name}
+          options={Object.keys(scanSchema).sort()}
+          size="small"
+          fullWidth
+          onChange={(_, newValue) => onChange('name', newValue)}
+          renderInput={(params) => <TextField {...params} label="Scan Name" />}
+        />
+        <Box sx={{ m: 1 }}>
+          <FormHelperText sx={{ fontSize: '0.7rem' }}>
+            Scan Description
+          </FormHelperText>
+          <Typography variant="caption">
+            {scanSchema[values.name]?.description ||
+              'No description available.'}
+          </Typography>
+        </Box>
+        {(values.name === 'censysIpv4' ||
+          values.name === 'censysCertificates' ||
+          (schemaUpdated && !scanSchema[values.name].global) ||
+          !global) && (
+          <FormControlLabel
+            control={
+              <Checkbox
+                onChange={(e) => onChange('is_granular', e.target.checked)}
+                checked={values.is_granular}
               />
-              {/* Tag selection is currently unused. This code is retained for potential future restoration. */}
-              {/* <Autocomplete
+            }
+            label="Limit enabled organizations"
+          />
+        )}
+        {values.is_granular && (
+          <Stack spacing={2} my={1}>
+            <Autocomplete
+              multiple
+              size="small"
+              options={organizationOptions}
+              value={values.organizations}
+              getOptionLabel={(option) => option.label}
+              isOptionEqualToValue={(option, value) =>
+                option.value === value.value
+              }
+              onChange={(_, newValue) => onChange('organizations', newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Enabled Organizations"
+                  placeholder="Organizations"
+                />
+              )}
+            />
+            {/* Tag selection is currently unused. This code is retained for potential future restoration. */}
+            {/* <Autocomplete
                 // value={values.tags}
                 options={tagOptions.sort()}
                 size="small"
@@ -318,212 +317,200 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 isOptionEqualToValue={(option, value) => option.value === value.value}
                 renderInput={(params) => <TextField {...params} label="Enabled Organization Tags" />}
               /> */}
-            </Stack>
-          )}
-          {values.name === 'vulnScanningSync' && (
-            <Box>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={values.useDateRange}
-                    onChange={(e) => {
-                      onChange('useDateRange', e.target.checked);
+          </Stack>
+        )}
+        {values.name === 'vulnScanningSync' && (
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={values.useDateRange}
+                  onChange={(e) => {
+                    onChange('useDateRange', e.target.checked);
 
-                      if (e.target.checked) {
-                        onChange('is_single_scan', true);
+                    if (e.target.checked) {
+                      onChange('is_single_scan', true);
 
-                        // Default to 2 days ago → today (UTC midnight)
-                        const defaultStart = getUTCDateMidnight(2);
-                        const defaultEnd = getUTCDateMidnight(0);
-                        onChange('startDate', defaultStart);
-                        onChange('endDate', defaultEnd);
-                      } else {
-                        // Clear values when unchecked so they are not accidentally kept in state
-                        onChange('startDate', '');
-                        onChange('endDate', '');
-                        setDateRangeError('');
-                      }
-                    }}
-                  />
-                }
-                label="Limit scan to specific date range"
-                sx={{ width: '100%' }}
-              />
-              {values.useDateRange && (
-                <Grid container spacing={1} sx={{ mb: 1 }}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="body1" pb={1}>
-                      Start Date (UTC)
-                    </Typography>
-                    <TextField
-                      id="start_datetime"
-                      name="start_datetime"
-                      size="small"
-                      fullWidth
-                      type="datetime-local"
-                      value={values.startDate}
-                      onChange={(e) => {
-                        onChange('startDate', e.target.value);
-                        setDateRangeError(``);
-                      }}
-                      slotProps={{
-                        htmlInput: {
-                          max: getUTCNowString()
-                        }
-                      }}
-                      error={!!dateRangeError}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="body1" pb={1}>
-                      End Date and Time
-                    </Typography>
-                    <TextField
-                      id="end_datetime"
-                      name="end_datetime"
-                      size="small"
-                      fullWidth
-                      type="datetime-local"
-                      value={values.endDate}
-                      onChange={(e) => {
-                        onChange('endDate', e.target.value);
-                        setDateRangeError(``);
-                      }}
-                      slotProps={{
-                        htmlInput: {
-                          max: getUTCNowString()
-                        }
-                      }}
-                      error={!!dateRangeError}
-                    />
-                  </Grid>
-                  {dateRangeError && (
-                    <Grid size={{ xs: 12 }}>
-                      <Typography variant="caption" color="red">
-                        {dateRangeError}
-                      </Typography>
-                    </Grid>
-                  )}
-                  <FormHelperText>
-                    Must run once while limiting to a date range
-                  </FormHelperText>
-                </Grid>
-              )}
-            </Box>
-          )}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={values.is_single_scan}
-                disabled={values.useDateRange}
-                onChange={(e) => onChange('is_single_scan', e.target.checked)}
-              />
-            }
-            label="Run scan once"
-            sx={{ width: '100%' }}
-          />
-          {!values.is_single_scan && (
-            <Grid container spacing={2} mb={3}>
-              <Grid size={{ xs: 12, sm: 3 }} sx={{ alignSelf: 'center' }}>
-                <Typography>Run every</Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  size="small"
-                  fullWidth
-                  sx={{ minWidth: 120 }}
-                  id="frequency"
-                  name="frequency"
-                  type="number"
-                  value={values.frequency}
-                  onChange={(e) =>
-                    onChange(e.target.name, Number(e.target.value))
-                  }
-                  slotProps={{
-                    htmlInput: {
-                      min: 1
+                      // Default to 2 days ago → today (UTC midnight)
+                      const defaultStart = getUTCDateMidnight(2);
+                      const defaultEnd = getUTCDateMidnight(0);
+                      onChange('startDate', defaultStart);
+                      onChange('endDate', defaultEnd);
+                    } else {
+                      // Clear values when unchecked so they are not accidentally kept in state
+                      onChange('startDate', '');
+                      onChange('endDate', '');
+                      setDateRangeError('');
                     }
                   }}
-                  error={!isFrequencyValid}
-                  helperText={
-                    !isFrequencyValid && (
-                      <Typography variant="caption" color="error.main">
-                        Positive integer expected
-                      </Typography>
-                    )
-                  }
                 />
+              }
+              label="Limit scan to specific date range"
+              sx={{ width: '100%' }}
+            />
+            {values.useDateRange && (
+              <Grid container spacing={1} sx={{ mb: 1 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="body1" pb={1}>
+                    Start Date (UTC)
+                  </Typography>
+                  <TextField
+                    id="start_datetime"
+                    name="start_datetime"
+                    size="small"
+                    fullWidth
+                    type="datetime-local"
+                    value={values.startDate}
+                    onChange={(e) => {
+                      onChange('startDate', e.target.value);
+                      setDateRangeError(``);
+                    }}
+                    slotProps={{
+                      htmlInput: {
+                        max: getUTCNowString()
+                      }
+                    }}
+                    error={!!dateRangeError}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="body1" pb={1}>
+                    End Date and Time
+                  </Typography>
+                  <TextField
+                    id="end_datetime"
+                    name="end_datetime"
+                    size="small"
+                    fullWidth
+                    type="datetime-local"
+                    value={values.endDate}
+                    onChange={(e) => {
+                      onChange('endDate', e.target.value);
+                      setDateRangeError(``);
+                    }}
+                    slotProps={{
+                      htmlInput: {
+                        max: getUTCNowString()
+                      }
+                    }}
+                    error={!!dateRangeError}
+                  />
+                </Grid>
+                {dateRangeError && (
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="caption" color="red">
+                      {dateRangeError}
+                    </Typography>
+                  </Grid>
+                )}
+                <FormHelperText>
+                  Must run once while limiting to a date range
+                </FormHelperText>
               </Grid>
-              <Grid size={{ xs: 12, sm: 5 }}>
-                <TextField
-                  size="small"
-                  fullWidth
-                  sx={{ minWidth: 120 }}
-                  select
-                  aria-label="Select frequency unit dropdown"
-                  id="frequencyUnit"
-                  name="frequencyUnit"
-                  onChange={(e) => onChange(e.target.name, e.target.value)}
-                  value={values.frequencyUnit}
-                >
-                  <MenuItem value="hour" key="hour">
-                    Hour(s)
-                  </MenuItem>
-                  <MenuItem value="day" key="day">
-                    Day(s)
-                  </MenuItem>
-                </TextField>
-              </Grid>
+            )}
+          </Box>
+        )}
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={values.is_single_scan}
+              disabled={values.useDateRange}
+              onChange={(e) => onChange('is_single_scan', e.target.checked)}
+            />
+          }
+          label="Run scan once"
+          sx={{ width: '100%' }}
+        />
+        {!values.is_single_scan && (
+          <Grid container spacing={2} mb={3}>
+            <Grid size={{ xs: 12, sm: 3 }} sx={{ alignSelf: 'center' }}>
+              <Typography>Run every</Typography>
             </Grid>
-          )}
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6 }} sx={{ alignSelf: 'center' }}>
-              <Typography sx={{ overflow: 'visible' }}>
-                Number of Concurrent Tasks
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 size="small"
                 fullWidth
-                id="concurrent_tasks"
-                name="concurrent_tasks"
+                sx={{ minWidth: 120 }}
+                id="frequency"
+                name="frequency"
                 type="number"
-                value={values.concurrent_tasks}
+                value={values.frequency}
                 onChange={(e) =>
                   onChange(e.target.name, Number(e.target.value))
                 }
                 slotProps={{
                   htmlInput: {
-                    min: 1,
-                    ...(maxConcurrentTasks != null && {
-                      max: maxConcurrentTasks
-                    })
+                    min: 1
                   }
                 }}
-                error={!isConcurrentTasksValid}
+                error={!isFrequencyValid}
                 helperText={
-                  !isConcurrentTasksValid && (
-                    <Typography variant="caption" color="error.main">
-                      Positive integer within range expected
-                    </Typography>
-                  )
+                  !isFrequencyValid ? 'Positive integer expected' : undefined
                 }
               />
             </Grid>
-            <Grid size={{ xs: 12 }}>
-              <FormHelperText>
-                {maxConcurrentTasks != null
-                  ? `This scan allows a maximum of ${maxConcurrentTasks} concurrent scans`
-                  : 'This scan allows no limit of concurrent tasks'}
-              </FormHelperText>
+            <Grid size={{ xs: 12, sm: 5 }}>
+              <TextField
+                size="small"
+                fullWidth
+                sx={{ minWidth: 120 }}
+                select
+                aria-label="Select frequency unit dropdown"
+                id="frequencyUnit"
+                name="frequencyUnit"
+                onChange={(e) => onChange(e.target.name, e.target.value)}
+                value={values.frequencyUnit}
+              >
+                <MenuItem value="hour" key="hour">
+                  Hour(s)
+                </MenuItem>
+                <MenuItem value="day" key="day">
+                  Day(s)
+                </MenuItem>
+              </TextField>
             </Grid>
           </Grid>
-        </Box>
-        {/* <Button disabled={isSubmitDisabled} onClick={handleSubmit}>
-                Submit
-            </Button> */}
-      </>
+        )}
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6 }} sx={{ alignSelf: 'center' }}>
+            <Typography sx={{ overflow: 'visible' }}>
+              Number of Concurrent Tasks
+            </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              size="small"
+              fullWidth
+              id="concurrent_tasks"
+              name="concurrent_tasks"
+              type="number"
+              value={values.concurrent_tasks}
+              onChange={(e) => onChange(e.target.name, Number(e.target.value))}
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  ...(maxConcurrentTasks != null && {
+                    max: maxConcurrentTasks
+                  })
+                }
+              }}
+              error={!isConcurrentTasksValid}
+              helperText={
+                !isConcurrentTasksValid
+                  ? 'Positive integer within range expected'
+                  : undefined
+              }
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <FormHelperText>
+              {maxConcurrentTasks != null
+                ? `This scan allows a maximum of ${maxConcurrentTasks} concurrent scans`
+                : 'This scan allows no limit of concurrent tasks'}
+            </FormHelperText>
+          </Grid>
+        </Grid>
+      </Box>
     );
   }
 );
