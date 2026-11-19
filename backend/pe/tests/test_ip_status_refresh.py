@@ -15,7 +15,6 @@ os.environ.setdefault("DATABASE_PASSWORD", "_".join(("test", "value")))
 
 # Third-Party Libraries
 import pandas as pd
-
 from pe_source.ip_status_refresh.ip_status_refresh import run_ip_status_refresh
 
 
@@ -54,8 +53,7 @@ class IPStatusRefreshTests(unittest.TestCase):
 
     @patch("pe_source.ip_status_refresh.ip_status_refresh.update_ip_statuses")
     @patch(
-        "pe_source.ip_status_refresh.ip_status_refresh."
-        "get_current_ips_cidrs_by_org"
+        "pe_source.ip_status_refresh.ip_status_refresh." "get_current_ips_cidrs_by_org"
     )
     @patch("pe_source.ip_status_refresh.ip_status_refresh.get_orgs")
     def test_run_ip_status_refresh_all_filters_report_on_orgs(
@@ -82,8 +80,7 @@ class IPStatusRefreshTests(unittest.TestCase):
 
     @patch("pe_source.ip_status_refresh.ip_status_refresh.update_ip_statuses")
     @patch(
-        "pe_source.ip_status_refresh.ip_status_refresh."
-        "get_current_ips_cidrs_by_org"
+        "pe_source.ip_status_refresh.ip_status_refresh." "get_current_ips_cidrs_by_org"
     )
     @patch("pe_source.ip_status_refresh.ip_status_refresh.get_orgs")
     def test_run_ip_status_refresh_demo_filters_demo_orgs(
@@ -110,8 +107,7 @@ class IPStatusRefreshTests(unittest.TestCase):
 
     @patch("pe_source.ip_status_refresh.ip_status_refresh.update_ip_statuses")
     @patch(
-        "pe_source.ip_status_refresh.ip_status_refresh."
-        "get_current_ips_cidrs_by_org"
+        "pe_source.ip_status_refresh.ip_status_refresh." "get_current_ips_cidrs_by_org"
     )
     @patch("pe_source.ip_status_refresh.ip_status_refresh._requested_org_names")
     @patch("pe_source.ip_status_refresh.ip_status_refresh.get_orgs")
@@ -141,8 +137,7 @@ class IPStatusRefreshTests(unittest.TestCase):
 
     @patch("pe_source.ip_status_refresh.ip_status_refresh.update_ip_statuses")
     @patch(
-        "pe_source.ip_status_refresh.ip_status_refresh."
-        "get_current_ips_cidrs_by_org"
+        "pe_source.ip_status_refresh.ip_status_refresh." "get_current_ips_cidrs_by_org"
     )
     @patch("pe_source.ip_status_refresh.ip_status_refresh.get_orgs")
     def test_run_ip_status_refresh_updates_ips_outside_network(
@@ -151,7 +146,7 @@ class IPStatusRefreshTests(unittest.TestCase):
         mock_get_current_ips_cidrs_by_org,
         mock_update_ip_statuses,
     ):
-        """IPs not contained by their associated network should be updated."""
+        """Ips not contained by their associated network should be updated."""
         mock_get_orgs.return_value = [
             {
                 "cyhy_db_name": "org_report_1",
@@ -192,8 +187,7 @@ class IPStatusRefreshTests(unittest.TestCase):
 
     @patch("pe_source.ip_status_refresh.ip_status_refresh.update_ip_statuses")
     @patch(
-        "pe_source.ip_status_refresh.ip_status_refresh."
-        "get_current_ips_cidrs_by_org"
+        "pe_source.ip_status_refresh.ip_status_refresh." "get_current_ips_cidrs_by_org"
     )
     @patch("pe_source.ip_status_refresh.ip_status_refresh.get_orgs")
     def test_run_ip_status_refresh_does_not_update_ips_inside_network(
@@ -202,7 +196,7 @@ class IPStatusRefreshTests(unittest.TestCase):
         mock_get_current_ips_cidrs_by_org,
         mock_update_ip_statuses,
     ):
-        """IPs contained by their associated network should not be updated."""
+        """Ips contained by their associated network should not be updated."""
         mock_get_orgs.return_value = [
             {
                 "cyhy_db_name": "org_report_1",
@@ -232,8 +226,7 @@ class IPStatusRefreshTests(unittest.TestCase):
 
     @patch("pe_source.ip_status_refresh.ip_status_refresh.update_ip_statuses")
     @patch(
-        "pe_source.ip_status_refresh.ip_status_refresh."
-        "get_current_ips_cidrs_by_org"
+        "pe_source.ip_status_refresh.ip_status_refresh." "get_current_ips_cidrs_by_org"
     )
     @patch("pe_source.ip_status_refresh.ip_status_refresh._requested_org_names")
     @patch("pe_source.ip_status_refresh.ip_status_refresh.get_orgs")
