@@ -336,6 +336,8 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                       const defaultEnd = getUTCDateMidnight(0);
                       onChange('startDate', defaultStart);
                       onChange('endDate', defaultEnd);
+                      onChange('is_single_scan', true);
+                      onChange('frequency', 1);
                     } else {
                       // Clear values when unchecked so they are not accidentally kept in state
                       onChange('startDate', '');
@@ -424,7 +426,14 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
             <Checkbox
               checked={values.is_single_scan}
               disabled={values.useDateRange}
-              onChange={(e) => onChange('is_single_scan', e.target.checked)}
+              onChange={(e) => {
+                const isSingleScan = e.target.checked;
+                onChange('is_single_scan', isSingleScan);
+                if (isSingleScan) {
+                  onChange('is_single_scan', true);
+                  onChange('frequency', 1);
+                }
+              }}
             />
           }
           label="Run scan once"
