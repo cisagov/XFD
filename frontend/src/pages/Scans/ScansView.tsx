@@ -38,7 +38,7 @@ import {
   OrganizationOption
 } from '@/types';
 import { useAuthContext } from '@/context';
-import { ScanForm, ScanFormValues } from '@/components/ScanForm';
+import { ScanForm, ScanFormValues } from './ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
