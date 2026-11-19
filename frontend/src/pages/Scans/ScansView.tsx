@@ -33,7 +33,7 @@ import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from '@/components/DataGrid/CustomToolbar';
 import { Scan, Organization, ScanSchema, OrganizationOption } from '@/types';
 import { useAuthContext } from '@/context';
-import { ScanForm, ScanFormValues } from './ScanForm';
+import { ScanForm, ScanFormValues, ScanFormRef } from './ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
@@ -80,6 +80,9 @@ const ScansView: React.FC = () => {
     items: []
   });
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
+  const [isScanFormValid, setIsScanFormValid] = useState(false);
+
+  const scanFormRef = useRef<ScanFormRef>(null);
 
   const [values] = useState<ScanFormValues>({
     name: 'censys',
@@ -239,7 +242,7 @@ const ScansView: React.FC = () => {
       frequency: scan.frequency,
       last_run:
         !scan.last_run ||
-        new Date(scan.last_run).getTime() === new Date(0).getTime()
+          new Date(scan.last_run).getTime() === new Date(0).getTime()
           ? 'None'
           : `${formatDistanceToNow(parseISO(scan.last_run))} ago`,
       description: scanSchema[scan.name]?.description,
@@ -477,14 +480,17 @@ const ScansView: React.FC = () => {
     <ConfirmDialog
       isOpen={newScanDialogOpen}
       onCancel={() => setNewScanDialogOpen(false)}
+      onConfirm={() => scanFormRef.current?.submit()}
+      disabled={!isScanFormValid}
       title={'Add a Scan'}
       content={
         <ScanForm
+          ref={scanFormRef}
           organizationOption={organizationOptions}
           // tags={tags}
           propValues={values}
           onSubmit={onSubmit}
-          type="create"
+          onValidityChange={setIsScanFormValid}
           scanSchema={scanSchema}
         />
       }
