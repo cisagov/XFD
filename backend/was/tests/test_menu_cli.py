@@ -864,8 +864,17 @@ class WasOperatorMenuTests(unittest.TestCase):
         }
         menu = self.build_menu(
             [
-                "TAG1", "", "", "2026-11-01", "2026-11-18", "Permanent",
-                "confirmed_failure", "123", "1", "0", "",
+                "TAG1",
+                "",
+                "",
+                "2026-11-01",
+                "2026-11-18",
+                "Permanent",
+                "confirmed_failure",
+                "123",
+                "1",
+                "0",
+                "",
             ]
         )
 
@@ -932,9 +941,20 @@ class WasOperatorMenuTests(unittest.TestCase):
         retry_failure.return_value = {"id": 43, "status": "accepted"}
         menu = self.build_menu(
             [
-                "", "", "", "", "", "", "", "", "1", "1",
-                "old@example.gov", "new@example.gov",
-                menu_cli.CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION, "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "1",
+                "1",
+                "old@example.gov",
+                "new@example.gov",
+                menu_cli.CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION,
+                "",
             ]
         )
 
@@ -950,8 +970,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         self.assertEqual(authenticate_operator.call_count, 3)
         request_id.assert_called_once_with()
         menu.output.assert_any_call(
-            "Retry failed recipient old@example.gov to recipient "
-            "new@example.gov."
+            "Retry failed recipient old@example.gov to recipient " "new@example.gov."
         )
 
     @patch("was_reports.commands.menu_cli.uuid4", return_value="same-address")
@@ -978,9 +997,20 @@ class WasOperatorMenuTests(unittest.TestCase):
         retry_failure.return_value = {"id": 43, "status": "accepted"}
         menu = self.build_menu(
             [
-                "", "", "", "", "", "", "", "", "1", "1",
-                "old@example.gov", "",
-                menu_cli.CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION, "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "1",
+                "1",
+                "old@example.gov",
+                "",
+                menu_cli.CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION,
+                "",
             ]
         )
 
@@ -1015,8 +1045,20 @@ class WasOperatorMenuTests(unittest.TestCase):
         }
         menu = self.build_menu(
             [
-                "", "", "", "", "", "", "", "", "1", "1",
-                "old@example.gov", "new@example.gov", "cancel", "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "1",
+                "1",
+                "old@example.gov",
+                "new@example.gov",
+                "cancel",
+                "",
             ]
         )
 
@@ -1070,9 +1112,7 @@ class WasOperatorMenuTests(unittest.TestCase):
         menu.review_delivery_failures()
 
         retry_failure.assert_not_called()
-        menu.output.assert_any_call(
-            "The 14-day delivery retry window has expired."
-        )
+        menu.output.assert_any_call("The 14-day delivery retry window has expired.")
 
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
     def test_manual_sent_date_displays_manual_rows_before_id(

@@ -54,8 +54,7 @@ setup(
             "was-export-xml=was_reports.commands.xml_export_cli:main",
             "was-inventory=was_reports.commands.inventory_cli:main",
             "was-menu=was_reports.commands.menu_cli:main",
-            "was-delivery-retention="
-            "was_reports.commands.delivery_retention:main",
+            "was-delivery-retention=" "was_reports.commands.delivery_retention:main",
             "was-special-cases=was_reports.commands.special_cases_cli:main",
             "was-stakeholders=was_reports.commands.stakeholders_cli:main",
             "was-tracker=was_reports.commands.tracker_cli:main",

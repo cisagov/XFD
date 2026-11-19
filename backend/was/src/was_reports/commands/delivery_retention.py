@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+# Standard Python Libraries
 import argparse
 
+# Third-Party Libraries
 from was_reports.data.delivery_retention import (
     apply_retention,
     retention_counts,
@@ -15,7 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     """Report eligible row counts; apply expiry only with an explicit flag."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--apply", action="store_true",
+        "--apply",
+        action="store_true",
         help="delete expired retry detail and redact expired recipient copies",
     )
     arguments = parser.parse_args(argv)

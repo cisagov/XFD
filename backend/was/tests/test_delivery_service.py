@@ -1,13 +1,15 @@
 """Exercise safe, idempotent retry of archived WAS delivery failures."""
 
+# Standard Python Libraries
 from contextlib import nullcontext
 from pathlib import Path
+from typing import Any
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 from botocore.exceptions import EndpointConnectionError
 from s3transfer.exceptions import RetriesExceededError
-
 from was_reports.delivery import service
 
 
@@ -43,7 +45,7 @@ def retry_context() -> dict:
 class DeliveryRetryServiceTests(TestCase):
     """Protect the original attempt and suppress duplicate or uncertain sends."""
 
-    def _patch(self, target: object, attribute: str, **options: object) -> Mock:
+    def _patch(self, target: object, attribute: str, **options: Any) -> Mock:
         """Start one boundary mock and stop it after the current test."""
         patcher = patch.object(target, attribute, **options)
         mocked_attribute = patcher.start()
@@ -54,7 +56,8 @@ class DeliveryRetryServiceTests(TestCase):
         """Patch external boundaries while retaining real retry orchestration."""
         self.context = retry_context()
         self.recover_stale = self._patch(
-            service.delivery_attempts, "recover_stale_delivery_attempts",
+            service.delivery_attempts,
+            "recover_stale_delivery_attempts",
             return_value=0,
         )
         self.get_context = self._patch(
@@ -211,8 +214,11 @@ class DeliveryRetryServiceTests(TestCase):
     def test_confirmed_failure_can_retry_the_same_address(self) -> None:
         """Resend a confirmed failure when the original mailbox is now clear."""
         result = service.retry_failure(
-            15, "os-uid:1001", "request-15",
-            "old@example.gov", "old@example.gov",
+            15,
+            "os-uid:1001",
+            "request-15",
+            "old@example.gov",
+            "old@example.gov",
         )
 
         self.assertEqual(result["status"], "accepted")
@@ -229,8 +235,11 @@ class DeliveryRetryServiceTests(TestCase):
     def test_selected_failed_recipient_is_bound_to_the_send(self) -> None:
         """Send only the address explicitly confirmed by the operator."""
         service.retry_failure(
-            15, "os-uid:1001", "request-15",
-            "old@example.gov", "new@example.gov",
+            15,
+            "os-uid:1001",
+            "request-15",
+            "old@example.gov",
+            "new@example.gov",
         )
 
         self.assertEqual(

@@ -1066,8 +1066,7 @@ class WasOperatorMenu:
         else:
             text = str(value)
         return "".join(
-            character if character.isprintable() else "?"
-            for character in text[:512]
+            character if character.isprintable() else "?" for character in text[:512]
         )
 
     def _display_delivery_detail(self, failure: dict[str, Any]) -> None:
@@ -1092,18 +1091,28 @@ class WasOperatorMenu:
                 )
         for section_name, label, fields in (
             (
-                "attempt_history", "Delivery attempts",
+                "attempt_history",
+                "Delivery attempts",
                 (
-                    "id", "status", "failed_recipient", "recipient_addresses",
-                    "requested_by_principal_key", "ses_message_id", "created_at",
+                    "id",
+                    "status",
+                    "failed_recipient",
+                    "recipient_addresses",
+                    "requested_by_principal_key",
+                    "ses_message_id",
+                    "created_at",
                     "sanitized_diagnostic",
                 ),
             ),
             (
-                "ses_events", "SES events",
+                "ses_events",
+                "SES events",
                 (
-                    "event_type", "affected_recipients", "bounce_type",
-                    "smtp_status_code", "occurred_at",
+                    "event_type",
+                    "affected_recipients",
+                    "bounce_type",
+                    "smtp_status_code",
+                    "occurred_at",
                 ),
             ),
         ):
@@ -1153,9 +1162,7 @@ class WasOperatorMenu:
                     self._safe_delivery_text(failure.get("report_run_id", "-")),
                     self._safe_delivery_text(failure.get("status", "-")),
                     self._safe_delivery_text(failure.get("bounce_type", "-")),
-                    self._safe_delivery_text(
-                        failure.get("failure_occurred_at", "-")
-                    ),
+                    self._safe_delivery_text(failure.get("failure_occurred_at", "-")),
                 )
             )
         selection = self.input("Select a failure [0 = cancel]: ").strip()
@@ -1200,9 +1207,10 @@ class WasOperatorMenu:
         action = self.input("Select delivery action [0 = return]: ").strip()
         if action == "1":
             failed_recipient = self.prompt_required("Failed recipient address: ")
-            corrected_recipient = self.prompt_optional(
-                "Retry recipient address [Enter = same address]: "
-            ) or failed_recipient
+            corrected_recipient = (
+                self.prompt_optional("Retry recipient address [Enter = same address]: ")
+                or failed_recipient
+            )
             self.output(
                 "Retry failed recipient {} to recipient {}.".format(
                     self._safe_delivery_text(failed_recipient),

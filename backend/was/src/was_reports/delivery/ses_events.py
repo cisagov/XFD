@@ -9,7 +9,6 @@ import os
 from typing import Callable, Mapping
 from uuid import UUID
 
-
 EVENT_STATUSES = {
     "Send": "accepted",
     "Delivery": "delivered",
@@ -283,6 +282,7 @@ def handler(lambda_event: Mapping[str, object], context: object) -> dict[str, in
     expected_topic_arn = os.environ.get("WAS_SES_EVENTS_TOPIC_ARN", "")
     if not expected_topic_arn:
         raise ValueError("WAS_SES_EVENTS_TOPIC_ARN is required.")
+    # Third-Party Libraries
     from was_reports.data.delivery_attempts import record_ses_event
 
     recorded_count = ingest_sns_event(

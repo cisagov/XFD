@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+# Standard Python Libraries
 from datetime import date, datetime, timedelta, timezone
 from email.headerregistry import Address
 import hashlib
@@ -9,9 +10,9 @@ import os
 from pathlib import PurePosixPath
 from typing import Mapping
 
+# Third-Party Libraries
 from botocore.exceptions import BotoCoreError, ClientError
 from s3transfer.exceptions import RetriesExceededError
-
 from was_mailer.email_reports import send_message
 from was_mailer.message import build_report_email
 from was_mailer.ses_client import create_ses_client
@@ -46,8 +47,7 @@ def _validated_address(value: str) -> str:
         not address_value
         or len(address_value) > 254
         or any(
-            character.isspace() or ord(character) < 33
-            for character in address_value
+            character.isspace() or ord(character) < 33 for character in address_value
         )
         or "," in address_value
         or ";" in address_value
@@ -98,6 +98,10 @@ def _data_filters(filters: Mapping[str, object]) -> dict[str, object]:
         raise ValueError("Use one date or a date range.")
     first_day = filters.get("date") or filters.get("date_from")
     last_day = filters.get("date") or filters.get("date_to")
+    if isinstance(first_day, datetime):
+        first_day = first_day.date()
+    if isinstance(last_day, datetime):
+        last_day = last_day.date()
     try:
         if first_day:
             converted["from_date"] = (
@@ -114,10 +118,12 @@ def _data_filters(filters: Mapping[str, object]) -> dict[str, object]:
             converted["to_date"] = parsed_last_day + timedelta(days=1)
     except (TypeError, ValueError, OverflowError) as error:
         raise ValueError("Dates must use YYYY-MM-DD format.") from error
+    from_date_value = converted.get("from_date")
+    to_date_value = converted.get("to_date")
     if (
-        "from_date" in converted
-        and "to_date" in converted
-        and converted["from_date"] >= converted["to_date"]
+        isinstance(from_date_value, date)
+        and isinstance(to_date_value, date)
+        and from_date_value >= to_date_value
     ):
         raise ValueError("The date range is reversed.")
     return converted
@@ -161,9 +167,8 @@ def _verified_report_reference(context: Mapping[str, object]) -> str:
     ):
         raise ValueError("Delivery failure is not eligible for report retry.")
     report_reference = context.get("archived_report_s3_uri")
-    if (
-        not isinstance(report_reference, str)
-        or report_reference != context.get("output_path")
+    if not isinstance(report_reference, str) or report_reference != context.get(
+        "output_path"
     ):
         raise ValueError("The archived report reference is invalid.")
     bucket, key = parse_s3_uri(report_reference)
@@ -258,9 +263,7 @@ def retry_failure(
         OSError,
         ValueError,
     ) as error:
-        delivery_attempts.mark_pre_send_failure(
-            retry_attempt_id, "archive_unavailable"
-        )
+        delivery_attempts.mark_pre_send_failure(retry_attempt_id, "archive_unavailable")
         raise FileNotFoundError(
             "The archived report is missing, inaccessible, or invalid."
         ) from error
@@ -270,9 +273,7 @@ def retry_failure(
         delivery_attempts.mark_pre_send_failure(
             retry_attempt_id, "ses_client_unavailable"
         )
-        raise RuntimeError(
-            "SES could not be prepared; no email was sent."
-        ) from error
+        raise RuntimeError("SES could not be prepared; no email was sent.") from error
     try:
         delivery_attempts.mark_sending(retry_attempt_id)
     except ValueError:

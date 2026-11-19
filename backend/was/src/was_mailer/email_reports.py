@@ -26,6 +26,10 @@ from was_mailer.message import (
     unique_addresses,
 )
 from was_mailer.ses_client import create_ses_client
+from was_reports.data.daily_report_tracker import (
+    claim_assignee_digest_rows,
+    finish_assignee_digest_rows,
+)
 from was_reports.data.delivery_attempts import (
     create_initial_attempt,
     mark_accepted,
@@ -33,10 +37,6 @@ from was_reports.data.delivery_attempts import (
     mark_sending,
     mark_uncertain,
     record_archive_sha256,
-)
-from was_reports.data.daily_report_tracker import (
-    claim_assignee_digest_rows,
-    finish_assignee_digest_rows,
 )
 from was_reports.data.report_runs import (
     claim_report_run_email_by_id,
@@ -126,14 +126,15 @@ def send_message(
     if configuration_set and (
         len(configuration_set) > 64
         or not all(
-            character.isalnum() or character in "_-"
-            for character in configuration_set
+            character.isalnum() or character in "_-" for character in configuration_set
         )
     ):
         raise ValueError("WAS_SES_CONFIGURATION_SET is invalid.")
     for attempt_number in range(1, attempt_limit + 1):
         try:
-            send_arguments = {"RawMessage": {"Data": message.as_bytes()}}
+            send_arguments: dict[str, object] = {
+                "RawMessage": {"Data": message.as_bytes()}
+            }
             if configuration_set:
                 send_arguments["ConfigurationSetName"] = configuration_set
             response = ses_client.send_raw_email(**send_arguments)

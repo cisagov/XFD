@@ -1,13 +1,14 @@
 """Behavioral tests for scoped WAS delivery-attempt persistence."""
 
+# Standard Python Libraries
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
+# Third-Party Libraries
 from was_reports.data import delivery_attempts
-
 
 ACTOR_ID = "os-uid:1001"
 
@@ -221,9 +222,7 @@ class DeliveryAttemptTests(unittest.TestCase):
         )
 
         self.assertEqual(claimed["recipient_addresses"], ["old@example.gov"])
-        executed_queries = [
-            call.args[0] for call in self.cursor.execute.call_args_list
-        ]
+        executed_queries = [call.args[0] for call in self.cursor.execute.call_args_list]
         self.assertEqual(len(executed_queries), 7)
         self.assertFalse(any("'correction'" in query for query in executed_queries))
         self.assertIn("'retry_requested'", executed_queries[-1])
@@ -293,9 +292,7 @@ class DeliveryAttemptTests(unittest.TestCase):
         """Correlate an event that arrived before the SES message ID was stored."""
         self.cursor.fetchone.return_value = (900,)
         delivery_attempts.mark_accepted(900, "ses-id")
-        executed_queries = [
-            call.args[0] for call in self.cursor.execute.call_args_list
-        ]
+        executed_queries = [call.args[0] for call in self.cursor.execute.call_args_list]
         self.assertEqual(len(executed_queries), 4)
         self.assertIn(
             "cardinality(events.affected_recipients) = 0",

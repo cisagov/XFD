@@ -1,11 +1,13 @@
 """Checks for the delivery-review retention command and safe row selection."""
 
+# Standard Python Libraries
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 import unittest
 from unittest.mock import patch
 
+# Third-Party Libraries
 from was_reports.commands import delivery_retention as retention_command
 from was_reports.data import delivery_retention
 

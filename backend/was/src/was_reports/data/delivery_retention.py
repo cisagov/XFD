@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+# Standard Python Libraries
 from datetime import datetime, timedelta, timezone
 
+# Third-Party Libraries
 from was_reports.data.delivery_attempts import DELIVERY_RETENTION_DAYS
 from was_reports.utils.database import close, connect
-
 
 BATCH_SIZE = 500
 
@@ -93,14 +94,16 @@ def apply_retention(cutoff: datetime) -> dict[str, int]:
                 raise
         for table_name, count_name, condition, assignment in (
             (
-                "was_delivery_attempts", "recipient_copies",
+                "was_delivery_attempts",
+                "recipient_copies",
                 "original_failed_attempt_id IS NULL AND created_at <= %s "
                 "AND recipient_redacted_at IS NULL",
                 "recipient_addresses = ARRAY[]::text[], "
                 "recipient_redacted_at = NOW()",
             ),
             (
-                "was_ses_delivery_events", "event_recipient_copies",
+                "was_ses_delivery_events",
+                "event_recipient_copies",
                 "received_at <= %s AND cardinality(affected_recipients) > 0",
                 "affected_recipients = ARRAY[]::text[]",
             ),

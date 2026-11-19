@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+# Standard Python Libraries
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from email.headerregistry import Address
 from typing import Iterator, Mapping, Protocol
 
+# Third-Party Libraries
 from psycopg2.extras import RealDictCursor
-
 from was_reports.utils.database import close, connect
 from was_reports.utils.logging_config import positive_integer
-
 
 FAILURE_STATUSES = frozenset({"confirmed_failure", "held", "failed_pre_send"})
 EVENT_STATUSES = frozenset({"accepted", "delivered", "confirmed_failure", "held"})
@@ -141,7 +141,7 @@ def list_failures(
             parameters.extend((filter_value, filter_value))
             continue
         if filter_name == "report_id":
-            filter_value = int(filter_value)
+            filter_value = int(str(filter_value))
             if filter_value < 1:
                 raise ValueError("Report identifier must be positive.")
         if filter_name in {"from_date", "to_date"} and not isinstance(
@@ -188,7 +188,9 @@ def list_failures(
         WHERE {}
         ORDER BY attempts.created_at DESC, attempts.id DESC
         LIMIT %s OFFSET %s
-    """.format(" AND ".join(conditions))
+    """.format(
+        " AND ".join(conditions)
+    )
     parameters.extend([limit, offset])
     with _database_connection() as database_connection:
         with database_connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -381,7 +383,9 @@ def recover_stale_delivery_attempts(actor_id: str) -> int:
 
 
 def create_initial_attempt(
-    report_run_id: int, recipients: list[str], artifact_s3_uri: str | None,
+    report_run_id: int,
+    recipients: list[str],
+    artifact_s3_uri: str | None,
     claim_token: str,
 ) -> int:
     """Record one initial send exactly once for a report-run email claim."""
@@ -444,8 +448,11 @@ def record_archive_sha256(attempt_id: int, archive_sha256: str) -> None:
 
 
 def claim_retry(
-    attempt_id: int, actor_id: str, failed_recipient: str,
-    corrected_recipient: str, idempotency_key: str,
+    attempt_id: int,
+    actor_id: str,
+    failed_recipient: str,
+    corrected_recipient: str,
+    idempotency_key: str,
 ) -> dict:
     """Atomically claim an audited same-address or corrected retry request."""
     original = _validated_recipient(failed_recipient)
@@ -455,8 +462,9 @@ def claim_retry(
         not isinstance(idempotency_key, str)
         or not idempotency_key
         or len(idempotency_key) > 128
-        or any(ord(character) < 33 or ord(character) > 126
-               for character in idempotency_key)
+        or any(
+            ord(character) < 33 or ord(character) > 126 for character in idempotency_key
+        )
     ):
         raise ValueError("A bounded retry idempotency key is required.")
     with _database_connection() as database_connection:
@@ -571,9 +579,14 @@ def claim_retry(
                     RETURNING id, status, recipient_addresses
                     """,
                     (
-                        parent["report_run_id"], attempt_id, original, [corrected],
-                        parent["output_path"], parent["archive_sha256"],
-                        actor_principal, idempotency_key,
+                        parent["report_run_id"],
+                        attempt_id,
+                        original,
+                        [corrected],
+                        parent["output_path"],
+                        parent["archive_sha256"],
+                        actor_principal,
+                        idempotency_key,
                     ),
                 )
                 created = dict(cursor.fetchone())
@@ -602,7 +615,9 @@ def claim_retry(
 
 
 def _update_attempt(
-    attempt_id: int, from_status: str, to_status: str,
+    attempt_id: int,
+    from_status: str,
+    to_status: str,
     diagnostic: str | None = None,
 ) -> None:
     """Apply one compare-and-swap delivery state transition."""
@@ -624,8 +639,13 @@ def _update_attempt(
                     RETURNING id, requested_by_principal_key
                     """,
                     (
-                        to_status, diagnostic, to_status, attempt_id,
-                        from_status, to_status, DELIVERY_RETENTION_DAYS,
+                        to_status,
+                        diagnostic,
+                        to_status,
+                        attempt_id,
+                        from_status,
+                        to_status,
+                        DELIVERY_RETENTION_DAYS,
                     ),
                 )
                 row = cursor.fetchone()
@@ -748,10 +768,7 @@ def record_ses_event(event: SesEvent) -> bool:
     """Dedupe a sanitized SES event and associate its message with an attempt."""
     if event.delivery_status not in EVENT_STATUSES:
         raise ValueError("Unknown SES delivery status.")
-    if (
-        not isinstance(event.occurred_at, datetime)
-        or event.occurred_at.tzinfo is None
-    ):
+    if not isinstance(event.occurred_at, datetime) or event.occurred_at.tzinfo is None:
         raise ValueError("SES event timestamp must include a time zone.")
     recipients = [_validated_recipient(value) for value in event.affected_recipients]
     if event.occurred_at <= datetime.now(timezone.utc) - timedelta(
@@ -785,12 +802,20 @@ def record_ses_event(event: SesEvent) -> bool:
                     RETURNING id, delivery_attempt_id
                     """,
                     (
-                        event.sns_message_id, event.ses_message_id,
-                        event.event_type, event.delivery_status, recipients,
-                        event.bounce_type, event.bounce_subtype,
-                        event.smtp_status_code, event.occurred_at,
-                        event.ses_message_id, event.delivery_status,
-                        recipients, recipients, recipients,
+                        event.sns_message_id,
+                        event.ses_message_id,
+                        event.event_type,
+                        event.delivery_status,
+                        recipients,
+                        event.bounce_type,
+                        event.bounce_subtype,
+                        event.smtp_status_code,
+                        event.occurred_at,
+                        event.ses_message_id,
+                        event.delivery_status,
+                        recipients,
+                        recipients,
+                        recipients,
                     ),
                 )
                 inserted = cursor.fetchone()
@@ -826,13 +851,16 @@ def record_ses_event(event: SesEvent) -> bool:
                           AND %s <@ recipient_addresses
                         """,
                         (
-                            event.delivery_status, event.delivery_status,
+                            event.delivery_status,
+                            event.delivery_status,
                             event.delivery_status,
                             event.bounce_type or event.event_type,
                             event.delivery_status,
                             event.smtp_status_code,
                             event.delivery_status,
-                            event.occurred_at, matched_attempt_id, recipients,
+                            event.occurred_at,
+                            matched_attempt_id,
+                            recipients,
                         ),
                     )
             database_connection.commit()

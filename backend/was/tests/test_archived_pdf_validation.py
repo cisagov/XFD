@@ -51,9 +51,7 @@ class ArchivedPdfValidationTests(TestCase):
                     require_password_match=True,
                 )
             with self.assertRaises(ValueError):
-                validate_archived_pdf(
-                    report_path, None, expected_sha256="0" * 64
-                )
+                validate_archived_pdf(report_path, None, expected_sha256="0" * 64)
 
     def test_invalid_or_unencrypted_report_is_rejected(self) -> None:
         """Reject arbitrary bytes and an unprotected PDF before SES is called."""
@@ -91,9 +89,7 @@ class ArchivedPdfValidationTests(TestCase):
             original_digest = validate_archived_pdf(
                 report_path, report_password, require_password_match=True
             )
-            validate_archived_pdf(
-                report_path, None, expected_sha256=original_digest
-            )
+            validate_archived_pdf(report_path, None, expected_sha256=original_digest)
 
     def test_zero_page_encrypted_report_is_rejected_before_initial_send(self) -> None:
         """Require a readable page before recording an initial archive digest."""

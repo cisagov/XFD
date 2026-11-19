@@ -6,9 +6,9 @@ import json
 import unittest
 from unittest.mock import Mock, patch
 
+# Third-Party Libraries
 # First-Party Libraries
 from was_reports.delivery import ses_events
-
 
 TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:was-ses-events"
 SNS_MESSAGE_ID = "76d9b097-bc2a-409a-9c88-294788248e17"
@@ -133,9 +133,9 @@ class SesEventTests(unittest.TestCase):
     def test_invalid_address_is_rejected_without_echo(self) -> None:
         """Never persist or expose malformed SES recipient data."""
         notification = bounce_notification()
-        notification["bounce"]["bouncedRecipients"][0]["emailAddress"] = (
-            "victim@example.gov\r\nBCC: attacker@example.gov"
-        )
+        notification["bounce"]["bouncedRecipients"][0][
+            "emailAddress"
+        ] = "victim@example.gov\r\nBCC: attacker@example.gov"
         with self.assertRaises(ValueError) as error_context:
             ses_events.parse_sns_record(sns_record(notification), TOPIC_ARN)
         self.assertIn("SES event recipient is invalid", str(error_context.exception))
