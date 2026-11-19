@@ -31,6 +31,7 @@ from pe_source.flare_creds.flare_creds_script import run_flare_creds
 from pe_source.flare_events import run_flare_events
 from pe_source.flare_ident_prune.flare_ident_prune import run_flare_ident_prune
 from pe_source.flare_ident_refresh.flare_ident_refresh import run_flare_ident_refresh
+from pe_source.ip_status_refresh.ip_status_refresh import run_ip_status_refresh
 from pe_source.shodan.shodan_script import Get_shodan
 from pe_source.shodan.shodan_top_cves import run_top_cves_shodan
 from schema import And, Schema, SchemaError, Use
@@ -88,6 +89,8 @@ def run_pe_script(source, orgs_list):
         shodan.run_shodan()
     elif source == "shodan_top_cves":
         run_top_cves_shodan()
+    elif source == "ip_status_refresh":
+        run_ip_status_refresh(orgs_list)
     else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)

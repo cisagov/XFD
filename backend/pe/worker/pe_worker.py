@@ -155,6 +155,8 @@ def build_command(service_type: str, org: str) -> list[str]:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
     if "xpanse" in service_type:
         return ["pe-source", "xpanse", "--org={}".format(org)]
+    if "ip_status_refresh" in service_type:
+        return ["pe-source", "ip_status_refresh", "--orgs={}".format(org)]
     if "qualys" in service_type:
         return []
     raise ValueError("Unsupported SERVICE_TYPE: {}".format(service_type))
