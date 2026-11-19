@@ -355,6 +355,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                     Start Date (UTC)
                   </Typography>
                   <TextField
+                    label="Start date and time (UTC)"
                     id="start_datetime"
                     name="start_datetime"
                     size="small"
@@ -367,7 +368,10 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                     }}
                     slotProps={{
                       htmlInput: {
-                        max: getUTCNowString()
+                        max: getUTCNowString(),
+                        'aria-describedby': dateRangeError
+                          ? 'date-range-error'
+                          : undefined
                       }
                     }}
                     error={!!dateRangeError}
@@ -378,6 +382,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                     End Date and Time
                   </Typography>
                   <TextField
+                    label="End date and time (UTC)"
                     id="end_datetime"
                     name="end_datetime"
                     size="small"
@@ -390,7 +395,10 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                     }}
                     slotProps={{
                       htmlInput: {
-                        max: getUTCNowString()
+                        max: getUTCNowString(),
+                        'aria-describedby': dateRangeError
+                          ? 'date-range-error'
+                          : undefined
                       }
                     }}
                     error={!!dateRangeError}
@@ -398,7 +406,11 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 </Grid>
                 {dateRangeError && (
                   <Grid size={{ xs: 12 }}>
-                    <Typography variant="caption" color="red">
+                    <Typography
+                      variant="caption"
+                      color="error"
+                      id="date-range-error"
+                    >
                       {dateRangeError}
                     </Typography>
                   </Grid>
@@ -431,6 +443,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 size="small"
                 fullWidth
                 sx={{ minWidth: 120 }}
+                label="Frequency"
                 id="frequency"
                 name="frequency"
                 type="number"
@@ -456,6 +469,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 sx={{ minWidth: 120 }}
                 select
                 aria-label="Select frequency unit dropdown"
+                label="Frequency unit"
                 id="frequencyUnit"
                 name="frequencyUnit"
                 onChange={(e) => onChange(e.target.name, e.target.value)}
@@ -481,6 +495,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
             <TextField
               size="small"
               fullWidth
+              label="Number of Concurrent Tasks"
               id="concurrent_tasks"
               name="concurrent_tasks"
               type="number"

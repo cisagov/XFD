@@ -1,7 +1,13 @@
 import React, { createRef } from 'react';
 
 // Testing Library
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +35,6 @@ const scanSchema: ScanSchema = {
     max_concurrent_tasks: 5,
     type: 'fargate',
     is_passive: false
-
   },
   vulnScanningSync: {
     description: 'Synchronizes vulnerability data',
@@ -99,9 +104,7 @@ describe('ScanForm', () => {
 
     expect(screen.getByLabelText('Run scan once')).toBeInTheDocument();
 
-    expect(
-      screen.getByText('Number of Concurrent Tasks')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Number of Concurrent Tasks')).toBeInTheDocument();
 
     expect(
       screen.getByText('This scan allows a maximum of 5 concurrent scans')
@@ -138,9 +141,8 @@ describe('ScanForm', () => {
   it('does not submit when frequency is less than one', async () => {
     const { container, ref, onSubmit, onValidityChange } = renderScanForm();
 
-    const frequencyInput = container.querySelector<HTMLInputElement>(
-      '#frequency'
-    );
+    const frequencyInput =
+      container.querySelector<HTMLInputElement>('#frequency');
 
     expect(frequencyInput).not.toBeNull();
 
@@ -164,9 +166,8 @@ describe('ScanForm', () => {
   it('does not submit when frequency is not a whole number', async () => {
     const { container, ref, onSubmit } = renderScanForm();
 
-    const frequencyInput = container.querySelector<HTMLInputElement>(
-      '#frequency'
-    );
+    const frequencyInput =
+      container.querySelector<HTMLInputElement>('#frequency');
 
     fireEvent.change(frequencyInput!, {
       target: { value: '1.5' }
@@ -184,9 +185,8 @@ describe('ScanForm', () => {
   it('does not submit when concurrent tasks exceeds the scan maximum', async () => {
     const { container, ref, onSubmit, onValidityChange } = renderScanForm();
 
-    const concurrentTasksInput = container.querySelector<HTMLInputElement>(
-      '#concurrent_tasks'
-    );
+    const concurrentTasksInput =
+      container.querySelector<HTMLInputElement>('#concurrent_tasks');
 
     expect(concurrentTasksInput).not.toBeNull();
 
@@ -221,9 +221,8 @@ describe('ScanForm', () => {
       screen.getByText('This scan allows no limit of concurrent tasks')
     ).toBeInTheDocument();
 
-    const concurrentTasksInput = container.querySelector<HTMLInputElement>(
-      '#concurrent_tasks'
-    );
+    const concurrentTasksInput =
+      container.querySelector<HTMLInputElement>('#concurrent_tasks');
 
     fireEvent.change(concurrentTasksInput!, {
       target: { value: '100' }
@@ -248,9 +247,7 @@ describe('ScanForm', () => {
 
     await user.click(screen.getByLabelText('Limit enabled organizations'));
 
-    expect(
-      screen.getByLabelText('Enabled Organizations')
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Enabled Organizations')).toBeInTheDocument();
   });
 
   it('enables a date range and forces the scan to run once', async () => {
@@ -270,13 +267,9 @@ describe('ScanForm', () => {
       screen.getByLabelText('Limit scan to specific date range')
     );
 
-    expect(
-      screen.getByText('Start Date (UTC)')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Start Date (UTC)')).toBeInTheDocument();
 
-    expect(
-      screen.getByText('End Date and Time')
-    ).toBeInTheDocument();
+    expect(screen.getByText('End Date and Time')).toBeInTheDocument();
 
     expect(screen.getByLabelText('Run scan once')).toBeChecked();
 
@@ -299,12 +292,10 @@ describe('ScanForm', () => {
       screen.getByLabelText('Limit scan to specific date range')
     );
 
-    const startDateInput = container.querySelector<HTMLInputElement>(
-      '#start_datetime'
-    );
-    const endDateInput = container.querySelector<HTMLInputElement>(
-      '#end_datetime'
-    );
+    const startDateInput =
+      container.querySelector<HTMLInputElement>('#start_datetime');
+    const endDateInput =
+      container.querySelector<HTMLInputElement>('#end_datetime');
 
     expect(startDateInput).not.toBeNull();
     expect(endDateInput).not.toBeNull();
@@ -340,12 +331,10 @@ describe('ScanForm', () => {
       screen.getByLabelText('Limit scan to specific date range')
     );
 
-    const startDateInput = container.querySelector<HTMLInputElement>(
-      '#start_datetime'
-    );
-    const endDateInput = container.querySelector<HTMLInputElement>(
-      '#end_datetime'
-    );
+    const startDateInput =
+      container.querySelector<HTMLInputElement>('#start_datetime');
+    const endDateInput =
+      container.querySelector<HTMLInputElement>('#end_datetime');
 
     fireEvent.change(startDateInput!, {
       target: { value: '2026-01-01T00:00' }
