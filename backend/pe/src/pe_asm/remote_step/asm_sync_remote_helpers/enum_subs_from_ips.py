@@ -188,6 +188,9 @@ def reverseLookup(ip_obj, failed_ips, thread):
     # Begin parsing each domain
     found_domains = []
     for domain in response_domains:
+        # Skip malformed/wildcard DNS results
+        if not isinstance(domain, dict) or domain.get("wildcard") is True:
+            continue
         # Isolate the hostname
         hostname = domain.get("domain", "").rstrip(".").lower()
         if not hostname:

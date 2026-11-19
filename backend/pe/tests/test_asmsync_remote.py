@@ -470,6 +470,64 @@ class EnumSubsFromIpsTests(unittest.TestCase):
         self.assertEqual(failures, [])
         upsert_mock.assert_called_once_with(ip_object)
 
+    @patch.object(enum_subs_from_ips, "whoisxml_reverse_endpoint")
+    @patch.object(enum_subs_from_ips, "upsert_ips")
+    def test_reverse_lookup_filters_wildcard_domains(
+        self,
+        upsert_mock,
+        endpoint_mock,
+    ):
+        """Exclude confirmed wildcard domains while retaining false and null."""
+        endpoint_mock.return_value = {
+            "result": {
+                "records": [
+                    {
+                        "date": "2026-01-01",
+                        "domains": [
+                            {
+                                "domain": "wildcard.example.gov",
+                                "wildcard": True,
+                            },
+                            {
+                                "domain": "explicit.example.gov",
+                                "wildcard": False,
+                            },
+                            {
+                                "domain": "unchecked.example.gov",
+                                "wildcard": None,
+                            },
+                        ],
+                    }
+                ]
+            }
+        }
+        ip_object = {
+            "ip": "192.0.2.1",
+            "ip_hash": "hash",
+        }
+
+        domains, failures = enum_subs_from_ips.reverseLookup(
+            ip_object,
+            [],
+            "Thread 1",
+        )
+
+        self.assertCountEqual(
+            domains,
+            [
+                {
+                    "sub_domain": "explicit.example.gov",
+                    "root": "example.gov",
+                },
+                {
+                    "sub_domain": "unchecked.example.gov",
+                    "root": "example.gov",
+                },
+            ],
+        )
+        self.assertEqual(failures, [])
+        upsert_mock.assert_called_once_with(ip_object)
+
     @patch.object(enum_subs_from_ips, "limit_lookup_rate")
     @patch.object(enum_subs_from_ips.requests, "post")
     def test_whoisxml_endpoint_returns_successful_response(
