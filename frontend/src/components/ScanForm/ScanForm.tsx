@@ -22,12 +22,12 @@ import { Scan, ScanSchema } from '@/types';
 export interface ScanFormValues {
   name: string;
   organizations: OrganizationOption[];
+  // Tag selection is currently unused. This code is retained for potential future restoration.
   // tags: OrganizationOption[];
   arguments: any;
   frequency: number;
   frequencyUnit: string;
   is_granular: boolean;
-  is_user_modifiable: boolean;
   is_single_scan: boolean;
   concurrent_tasks: number;
   useDateRange: boolean;
@@ -84,7 +84,6 @@ export const ScanForm: React.FC<{
       frequency: scan ? scan.frequency : 1,
       frequencyUnit: scan ? propValues.frequencyUnit : 'day',
       is_granular: scan ? scan.is_granular : false,
-      is_user_modifiable: scan ? scan.is_user_modifiable : false,
       is_single_scan: scan ? scan.is_single_scan : false,
       organizations: scan ? propValues.organizations : [],
       // tags: scan ? propValues.tags : [],
@@ -102,6 +101,9 @@ export const ScanForm: React.FC<{
     const [values, setValues] = useState<ScanFormValues>(setDefault());
     const [schemaUpdated, setSchemaUpdated] = useState<boolean>(false);
     const [dateRangeError, setDateRangeError] = useState<string>('');
+    const scanSchemaEntry = scanSchema[values.name];
+    const hasSchema = Boolean(scanSchemaEntry);
+    const maxConcurrentTasks = hasSchema ? scanSchemaEntry.max_concurrent_tasks : 10;
 
     const onChange = (name: string, value: any) => {
       setValues((values) => ({
@@ -123,7 +125,6 @@ export const ScanForm: React.FC<{
           frequency: propValues.frequency,
           frequencyUnit: propValues.frequencyUnit,
           is_granular: scan.is_granular,
-          is_user_modifiable: scan.is_user_modifiable,
           is_single_scan:
             scan.is_single_scan ||
             !!(scan.arguments?.start_datetime || scan.arguments?.end_datetime),
@@ -211,7 +212,7 @@ export const ScanForm: React.FC<{
                   />
                 )}
               />
-              {/* Organization tags are hidden due to lack of use. */}
+              {/* Tag selection is currently unused. This code is retained for potential future restoration. */}
               {/* <Autocomplete
                 // value={values.tags}
                 options={tagOptions.sort()}
@@ -361,19 +362,17 @@ export const ScanForm: React.FC<{
                 slotProps={{
                   htmlInput: {
                     min: 1,
-                    max: scanSchema[values.name]?.max_concurrent_tasks
+                    ...(maxConcurrentTasks != null && { max: maxConcurrentTasks })
                   },
                 }}
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
               <FormHelperText>
-                {schemaUpdated
-                  ? scanSchema[values.name].max_concurrent_tasks
-                    ? `This scan allows a maximum of ${scanSchema[values.name].max_concurrent_tasks
-                    } concurrent scans`
-                    : 'This scan allows no limit of concurrent tasks'
-                  : 'This scan allows a maximum of 10 concurrent scans'}
+                {maxConcurrentTasks != null
+                  ? `This scan allows a maximum of ${maxConcurrentTasks} concurrent scans`
+                  : 'This scan allows no limit of concurrent tasks'
+                }
               </FormHelperText>
             </Grid>
           </Grid>
@@ -444,7 +443,6 @@ export const ScanForm: React.FC<{
             frequency: values.frequency,
             frequencyUnit: values.frequencyUnit,
             is_granular: values.is_granular,
-            is_user_modifiable: values.is_user_modifiable,
             is_single_scan: values.is_single_scan,
             concurrent_tasks: values.concurrent_tasks
           });
