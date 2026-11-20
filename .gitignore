@@ -41,6 +41,7 @@ tmp/*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+backend/pe/src/pe_source/db_backup/backups_*/
 backend/src/xfd_django/vuln_scanning_sync.log
 backend/WAS Automation Export 2026-05-06.zip
 backend/was/schema/updates/

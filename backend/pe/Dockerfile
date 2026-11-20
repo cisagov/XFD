@@ -3,7 +3,16 @@ FROM python:3.12-slim-trixie
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends jq curl unzip fontconfig \
+  && apt-get install -y --no-install-recommends \
+  jq \
+  curl \
+  unzip \
+  fontconfig \
+  postgresql-client-17 \
+  && command -v pg_dump \
+  && command -v pg_dumpall \
+  && pg_dump --version \
+  && pg_dumpall --version \
   && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o awscliv2.zip \

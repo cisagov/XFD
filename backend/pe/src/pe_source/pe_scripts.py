@@ -4,7 +4,7 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan", "flare_events", "flare_ident_prune", "flare_ident_refresh", "flare_creds.
+    DATA_SOURCE  Source to collect data from. Valid values: "db_backup", "dnsmonitor", "dnstwist", "flare_creds", "flare_events", "flare_ident_prune", "flare_ident_refresh", "shodan", "shodan_top_cves".
 
 Options:
     -h --help                       Show this message.
@@ -25,6 +25,7 @@ from typing import Any, Dict
 import docopt
 import pe_reports
 from pe_source._version import __version__
+from pe_source.db_backup.db_backup import run_db_backup
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
 from pe_source.flare_creds.flare_creds_script import run_flare_creds
@@ -41,18 +42,12 @@ LOGGER = logging.getLogger(__name__)
 def run_pe_script(source, orgs_list):
     """Collect data from the source specified."""
     # Run the specified script
-    if source == "dnsmonitor":
+    if source == "db_backup":
+        run_db_backup()
+    elif source == "dnsmonitor":
         run_dnsmonitor(orgs_list)
     elif source == "dnstwist":
         run_dnstwist(orgs_list)
-    elif source == "flare_events":
-        if not os.environ.get("FLARE_API_KEY", "").strip():
-            LOGGER.error(
-                "FLARE_API_KEY is not set. peScanController assigns one validated "
-                "key per flare_events worker container."
-            )
-            sys.exit(1)
-        run_flare_events(orgs_list)
     elif source == "flare_creds":
         if not os.environ.get("FLARE_API_KEY", "").strip():
             LOGGER.error(
@@ -61,6 +56,14 @@ def run_pe_script(source, orgs_list):
             )
             sys.exit(1)
         run_flare_creds(orgs_list)
+    elif source == "flare_events":
+        if not os.environ.get("FLARE_API_KEY", "").strip():
+            LOGGER.error(
+                "FLARE_API_KEY is not set. peScanController assigns one validated "
+                "key per flare_events worker container."
+            )
+            sys.exit(1)
+        run_flare_events(orgs_list)
     elif source == "flare_ident_prune":
         if not os.environ.get("FLARE_API_KEY", "").strip():
             LOGGER.error(

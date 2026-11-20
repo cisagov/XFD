@@ -211,7 +211,16 @@ peScanController:
         # Creates a queue of tasks, one for each PE customer/organization.
         # Worker containers then work through that queue together.
         # Ensures load balancing and working in parallel until all tasks are complete.
-
+    - schedule:
+        name: pe-db-backup-semi-monthly
+        description: "Semi-monthly database backup script"
+        # Runs the 4th and 19th of every month at 12:00 AM EST / 1:00 AM EDT
+        rate: cron(0 5 4,19 * ? *)
+        enabled: true
+        input:
+          scans: ["db_backup"]
+          orgs: ["all"]
+          taskCount: 1
     - schedule:
         name: pe-dnsmonitor-semi-monthly
         description: "Semi-monthly dnsmonitor scan for all orgs"
@@ -254,6 +263,16 @@ peScanController:
           scans: ["flare_creds"]
           orgs: ["all-orgs"]
           taskCount: 2
+    - schedule:
+        name: pe-flare-ident-prune-semi-monthly
+        description: "Semi-monthly flare identifier pruning script"
+        # Runs the 5th and 20th of every month at 12:00 AM EST / 1:00 AM EDT
+        rate: cron(0 5 5,20 * ? *)
+        enabled: true
+        input:
+          scans: ["flare_ident_prune"]
+          orgs: ["all"]
+          taskCount: 1
     - schedule:
         name: pe-shodan-semi-monthly
         description: "Semi-monthly shodan scan"
