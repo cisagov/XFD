@@ -81,7 +81,6 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
     } catch (e: any) {
       logger.error('AuthLogin.fetchNotifications failed:', { error: e });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiGet]);
   useEffect(() => {
     fetchNotifications();
