@@ -12,6 +12,10 @@ test Make commands, troubleshooting, updates, and rollback guidance.
   rebuild, verify, cut over, and retain rollback evidence for Ubuntu 24.04.
 - [Operator menu workflows](docs/operator-menu.md): current interactive menu
   choices and their safeguards.
+- [Delivery failure review and retry](docs/delivery-failure-review.md):
+  SES event prerequisites, scoped CLI review, same-address resend or recipient
+  correction, archived
+  report retry, auditing, and deployment gates.
 - [Capacity testing](docs/capacity-testing.md): isolated database reset,
   parallel test execution, continuation, evidence, and interpretation.
 - [Manual report recovery](docs/manual-report-recovery.md): guarded recovery for

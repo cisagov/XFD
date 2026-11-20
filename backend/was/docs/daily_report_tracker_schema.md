@@ -85,6 +85,20 @@ workbook:
 
 ## Canonical Schema And Deployment State
 
+Delivery-failure review adds `was_delivery_stakeholder_grants`,
+`was_delivery_attempts`, `was_ses_delivery_events`, and
+`was_delivery_audit_events` to the canonical schema. Initial sends and retries
+have distinct attempt rows; the
+original attempt and SES events are preserved. Existing databases need a
+DBA-reviewed additive migration before the updated mailer is deployed. The
+tracked one-time migration is
+[`20261118_delivery_failure_review.sql`](../schema/migrations/20261118_delivery_failure_review.sql);
+it must be compared with the actual target schema before use. No
+historical event or recipient backfill can be inferred from the prior mutable
+`was_report_runs` email columns. See
+[Delivery failure review and retry](delivery-failure-review.md) for event,
+authorization, retention, and rollout requirements.
+
 [`schema/stakeholders_table_creation.sql`](../schema/stakeholders_table_creation.sql)
 is the authoritative desired-state schema for a new, empty database. It defines
 the current stakeholder, standalone target, report-run, assignee, tracker,
@@ -100,7 +114,9 @@ migration.
 
 Incremental files retained locally under `schema/updates/` are historical or
 operator-specific records. They are intentionally ignored by Git and are not
-release artifacts or a supported ordered migration chain. When a populated
+release artifacts or a supported ordered migration chain. The delivery-failure
+migration under `schema/migrations/` is a tracked, one-time release artifact,
+not a general schema repair. When a populated
 environment needs a future change, generate a narrowly scoped DBA-reviewed
 migration from the canonical desired state, back up the database, stop writers,
 apply it through the approved change process, verify it, and update both the

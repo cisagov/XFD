@@ -808,6 +808,312 @@ class WasOperatorMenuTests(unittest.TestCase):
             ]
         )
 
+    def test_delivery_failure_menu_is_appended_after_existing_actions(self) -> None:
+        """Preserve existing tracker menu choices while adding failure review."""
+        menu = self.build_menu(["11", "0"])
+        menu.review_delivery_failures = Mock()
+
+        menu.tracker_menu()
+
+        menu.review_delivery_failures.assert_called_once_with()
+
+    def test_delivery_detail_terminal_output_removes_control_characters(self) -> None:
+        """Keep SES-derived record text from controlling the operator terminal."""
+        menu = self.build_menu([])
+
+        menu._display_delivery_detail(
+            {"id": 42, "sanitized_diagnostic": "rejected\x1b[2J\nmailbox"}
+        )
+
+        output_text = "\n".join(
+            str(output_call.args[0]) for output_call in menu.output.call_args_list
+        )
+        self.assertNotIn("\x1b", output_text)
+        self.assertIn("rejected?[2J?mailbox", output_text)
+
+    @patch("was_reports.commands.menu_cli.delivery_service.get_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_delivery_failure_review_filters_and_displays_safe_history(
+        self,
+        authenticate_operator,
+        list_failures,
+        get_failure,
+    ) -> None:
+        """Review a filtered attempt without printing its S3 reference."""
+        authenticate_operator.return_value = "operator-123"
+        list_failures.return_value = [
+            {
+                "id": 42,
+                "stakeholder_tag": "TAG1",
+                "report_run_id": 123,
+                "status": "confirmed_failure",
+                "bounce_type": "Permanent",
+                "failure_occurred_at": "2026-11-18T12:00:00Z",
+            }
+        ]
+        get_failure.return_value = {
+            "id": 42,
+            "report_run_id": 123,
+            "stakeholder_tag": "TAG1",
+            "recipient_addresses": ["old@example.gov"],
+            "sanitized_diagnostic": "Mailbox unavailable",
+            "artifact_s3_uri": "s3://private/report.pdf",
+            "attempt_history": [{"id": 42, "status": "confirmed_failure"}],
+            "ses_events": [{"event_type": "Bounce", "bounce_type": "Permanent"}],
+        }
+        menu = self.build_menu(
+            [
+                "TAG1",
+                "",
+                "",
+                "2026-11-01",
+                "2026-11-18",
+                "Permanent",
+                "confirmed_failure",
+                "123",
+                "1",
+                "0",
+                "",
+            ]
+        )
+
+        menu.review_delivery_failures()
+
+        list_failures.assert_called_once_with(
+            filters={
+                "stakeholder_tag": "TAG1",
+                "date_from": "2026-11-01",
+                "date_to": "2026-11-18",
+                "bounce_type": "Permanent",
+                "delivery_status": "confirmed_failure",
+                "report_id": "123",
+            },
+            actor_id="operator-123",
+        )
+        get_failure.assert_called_once_with(attempt_id=42, actor_id="operator-123")
+        self.assertEqual(authenticate_operator.call_count, 2)
+        output_text = "\n".join(
+            str(output_call.args[0]) for output_call in menu.output.call_args_list
+        )
+        self.assertIn("Report run ID: 123", output_text)
+        self.assertIn("Mailbox unavailable", output_text)
+        self.assertIn("Failure time=2026-11-18T12:00:00Z", output_text)
+        self.assertNotIn("s3://", output_text)
+
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_delivery_failure_review_fails_closed_without_operator_identity(
+        self,
+        authenticate_operator,
+        list_failures,
+    ) -> None:
+        """Never query customer data when the operator cannot authenticate."""
+        authenticate_operator.side_effect = PermissionError("No identity")
+        menu = self.build_menu(["", "", "", "", "", "", "", "", ""])
+
+        menu.review_delivery_failures()
+
+        list_failures.assert_not_called()
+        menu.output.assert_any_call("Access denied for this delivery operation.")
+
+    @patch("was_reports.commands.menu_cli.uuid4", return_value="request-123")
+    @patch("was_reports.commands.menu_cli.delivery_service.retry_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.get_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_delivery_retry_confirms_corrected_destination_once(
+        self,
+        authenticate_operator,
+        list_failures,
+        get_failure,
+        retry_failure,
+        request_id,
+    ) -> None:
+        """Confirm one failed recipient and correction before claiming a retry."""
+        authenticate_operator.return_value = "operator-123"
+        list_failures.return_value = [{"id": 42}]
+        get_failure.return_value = {
+            "id": 42,
+            "status": "confirmed_failure",
+            "delivery_purpose": "customer",
+        }
+        retry_failure.return_value = {"id": 43, "status": "accepted"}
+        menu = self.build_menu(
+            [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "1",
+                "1",
+                "old@example.gov",
+                "new@example.gov",
+                menu_cli.CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION,
+                "",
+            ]
+        )
+
+        menu.review_delivery_failures()
+
+        retry_failure.assert_called_once_with(
+            attempt_id=42,
+            actor_id="operator-123",
+            idempotency_key="was-delivery-retry-request-123",
+            expected_failed_recipient="old@example.gov",
+            expected_recipient="new@example.gov",
+        )
+        self.assertEqual(authenticate_operator.call_count, 3)
+        request_id.assert_called_once_with()
+        menu.output.assert_any_call(
+            "Retry failed recipient old@example.gov to recipient " "new@example.gov."
+        )
+
+    @patch("was_reports.commands.menu_cli.uuid4", return_value="same-address")
+    @patch("was_reports.commands.menu_cli.delivery_service.retry_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.get_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_delivery_retry_defaults_to_the_confirmed_failed_address(
+        self,
+        authenticate_operator,
+        list_failures,
+        get_failure,
+        retry_failure,
+        request_id,
+    ) -> None:
+        """Let an operator explicitly resend when no address correction is needed."""
+        authenticate_operator.return_value = "operator-123"
+        list_failures.return_value = [{"id": 42}]
+        get_failure.return_value = {
+            "id": 42,
+            "status": "confirmed_failure",
+            "delivery_purpose": "customer",
+        }
+        retry_failure.return_value = {"id": 43, "status": "accepted"}
+        menu = self.build_menu(
+            [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "1",
+                "1",
+                "old@example.gov",
+                "",
+                menu_cli.CONFIRMED_FAILURE_RETRY_MENU_CONFIRMATION,
+                "",
+            ]
+        )
+
+        menu.review_delivery_failures()
+
+        retry_failure.assert_called_once_with(
+            attempt_id=42,
+            actor_id="operator-123",
+            idempotency_key="was-delivery-retry-same-address",
+            expected_failed_recipient="old@example.gov",
+            expected_recipient="old@example.gov",
+        )
+        request_id.assert_called_once_with()
+        menu.output.assert_any_call(
+            "Recipient unchanged; this resends a confirmed failure."
+        )
+
+    @patch("was_reports.commands.menu_cli.delivery_service.retry_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.get_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_delivery_retry_cancellation_sends_nothing(
+        self, authenticate_operator, list_failures, get_failure, retry_failure
+    ) -> None:
+        """Require typed confirmation for the exact correction and retry."""
+        authenticate_operator.return_value = "operator-123"
+        list_failures.return_value = [{"id": 42}]
+        get_failure.return_value = {
+            "id": 42,
+            "status": "confirmed_failure",
+            "delivery_purpose": "customer",
+        }
+        menu = self.build_menu(
+            [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "1",
+                "1",
+                "old@example.gov",
+                "new@example.gov",
+                "cancel",
+                "",
+            ]
+        )
+
+        menu.review_delivery_failures()
+
+        retry_failure.assert_not_called()
+        menu.output.assert_any_call("Delivery retry cancelled. No email was sent.")
+
+    @patch("was_reports.commands.menu_cli.delivery_service.retry_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.get_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_non_customer_failure_is_review_only(
+        self, authenticate_operator, list_failures, get_failure, retry_failure
+    ) -> None:
+        """Do not offer an unusable retry for an analyst delivery."""
+        authenticate_operator.return_value = "operator-123"
+        list_failures.return_value = [{"id": 42}]
+        get_failure.return_value = {
+            "id": 42,
+            "status": "confirmed_failure",
+            "delivery_purpose": "analyst",
+        }
+        menu = self.build_menu(["", "", "", "", "", "", "", "", "1", ""])
+
+        menu.review_delivery_failures()
+
+        retry_failure.assert_not_called()
+        menu.output.assert_any_call(
+            "This delivery can be reviewed but is not eligible for retry."
+        )
+
+    @patch("was_reports.commands.menu_cli.delivery_service.retry_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.get_failure")
+    @patch("was_reports.commands.menu_cli.delivery_service.list_failures")
+    @patch("was_reports.commands.menu_cli.delivery_service.authenticate_operator")
+    def test_expired_delivery_is_review_only(
+        self, authenticate_operator, list_failures, get_failure, retry_failure
+    ) -> None:
+        """Do not offer a retry after the approved recipient window closes."""
+        authenticate_operator.return_value = "operator-123"
+        list_failures.return_value = [{"id": 42}]
+        get_failure.return_value = {
+            "id": 42,
+            "status": "confirmed_failure",
+            "delivery_purpose": "customer",
+            "retry_window_open": False,
+        }
+        menu = self.build_menu(["", "", "", "", "", "", "", "", "1", ""])
+
+        menu.review_delivery_failures()
+
+        retry_failure.assert_not_called()
+        menu.output.assert_any_call("The 14-day delivery retry window has expired.")
+
     @patch("was_reports.commands.menu_cli.tracker_cli.main", return_value=0)
     def test_manual_sent_date_displays_manual_rows_before_id(
         self,

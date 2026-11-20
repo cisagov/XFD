@@ -35,6 +35,11 @@ if [ "${1:-}" = "was-menu" ]; then
   exec was-menu "$@"
 fi
 
+if [ "${1:-}" = "was-delivery-retention" ]; then
+  shift
+  exec was-delivery-retention "$@"
+fi
+
 if [ "${1:-}" = "was-admin" ]; then
   shift
   exec was-admin "$@"

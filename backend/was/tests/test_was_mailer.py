@@ -33,13 +33,33 @@ class WasMailerTests(unittest.TestCase):
     """Validate WAS mailer behavior."""
 
     def setUp(self) -> None:
-        """Keep lease checks isolated from the database."""
+        """Keep lease checks and attempt persistence isolated from the database."""
         heartbeat = patch(
             "was_mailer.email_reports.touch_report_email_claim_by_id",
             return_value=True,
         )
         heartbeat.start()
         self.addCleanup(heartbeat.stop)
+        for function_name in (
+            "create_initial_attempt",
+            "mark_sending",
+            "mark_accepted",
+            "mark_pre_send_failure",
+            "mark_uncertain",
+            "record_archive_sha256",
+        ):
+            attempt_patch = patch(
+                "was_mailer.email_reports.{}".format(function_name),
+                return_value=1 if function_name == "create_initial_attempt" else None,
+            )
+            attempt_patch.start()
+            self.addCleanup(attempt_patch.stop)
+        archive_validation_patch = patch(
+            "was_mailer.email_reports.validate_archived_pdf",
+            return_value="a" * 64,
+        )
+        archive_validation_patch.start()
+        self.addCleanup(archive_validation_patch.stop)
 
     def test_send_message_retries_one_confirmed_transient_nondelivery(self) -> None:
         """Retry once when SES explicitly rejects a transient request."""
@@ -72,6 +92,22 @@ class WasMailerTests(unittest.TestCase):
         self.assertEqual(ses_client.send_raw_email.call_count, 2)
         sleep_function.assert_called_once_with(
             email_reports.SES_CONFIRMED_NONDELIVERY_RETRY_DELAY_SECONDS
+        )
+
+    def test_send_message_uses_configured_event_publishing_set(self) -> None:
+        """Attach the configured SES event stream to a report send."""
+        ses_client = Mock()
+        ses_client.send_raw_email.return_value = {"MessageId": "message-id"}
+        message = Mock()
+        message.as_bytes.return_value = b"message"
+
+        with patch.dict(os.environ, {"WAS_SES_CONFIGURATION_SET": "was-report-events"}):
+            result = email_reports.send_message(ses_client, message)
+
+        self.assertEqual(result, "message-id")
+        ses_client.send_raw_email.assert_called_once_with(
+            RawMessage={"Data": b"message"},
+            ConfigurationSetName="was-report-events",
         )
 
     def test_send_message_does_not_retry_uncertain_or_permanent_failure(self) -> None:
@@ -766,6 +802,11 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message_id, "message-id")
         self.assertEqual(ses_client.send_raw_email.call_count, 1)
+        email_reports.create_initial_attempt.assert_called_once_with(
+            1, ["recipient@example.gov"], None, None
+        )
+        email_reports.mark_sending.assert_called_once_with(1)
+        email_reports.mark_accepted.assert_called_once_with(1, "message-id")
         mock_mark_emailed.assert_called_once_with(
             1, "message-id", email_claim_token=None
         )
@@ -870,6 +911,10 @@ class WasMailerTests(unittest.TestCase):
 
         self.assertEqual(message_id, "message-id")
         self.assertFalse(downloaded_paths[0].exists())
+        email_reports.validate_archived_pdf.assert_called_once_with(
+            downloaded_paths[0], "secret", require_password_match=True
+        )
+        email_reports.record_archive_sha256.assert_called_once_with(1, "a" * 64)
         mock_mark_failed.assert_not_called()
         mock_mark_emailed.assert_called_once_with(
             1, "message-id", email_claim_token=None
@@ -1275,6 +1320,22 @@ class WasMailerTests(unittest.TestCase):
 
 class DeliveryPolicyTests(unittest.TestCase):
     """Cover purpose enforcement and snapshot claim failure boundaries."""
+
+    def setUp(self) -> None:
+        """Isolate new delivery-attempt persistence from existing policy tests."""
+        for function_name in (
+            "create_initial_attempt",
+            "mark_sending",
+            "mark_accepted",
+            "mark_pre_send_failure",
+            "mark_uncertain",
+        ):
+            attempt_patch = patch(
+                "was_mailer.email_reports.{}".format(function_name),
+                return_value=1 if function_name == "create_initial_attempt" else None,
+            )
+            attempt_patch.start()
+            self.addCleanup(attempt_patch.stop)
 
     @patch("was_mailer.email_reports.mark_report_run_email_failed_by_id")
     @patch("was_mailer.email_reports.mark_report_run_emailed_by_id")
