@@ -35,6 +35,7 @@ def test_check_user_expiration_sends_30_once_and_deletes_at_45(monkeypatch):
         first_name="Twenty",
         last_name="Days",
         email="20@example.com",
+        date_approved=frozen_now - timedelta(days=20),
         last_logged_in=frozen_now - timedelta(days=20),
     )
 
@@ -43,6 +44,7 @@ def test_check_user_expiration_sends_30_once_and_deletes_at_45(monkeypatch):
         first_name="ThirtyFive",
         last_name="Days",
         email="35@example.com",
+        date_approved=frozen_now - timedelta(days=35),
         last_logged_in=frozen_now - timedelta(days=35),
         last_notified_30=None,
     )
@@ -52,6 +54,7 @@ def test_check_user_expiration_sends_30_once_and_deletes_at_45(monkeypatch):
         first_name="Sixty",
         last_name="Days",
         email="60@example.com",
+        date_approved=frozen_now - timedelta(days=60),
         last_logged_in=frozen_now - timedelta(days=60),
     )
 
@@ -106,6 +109,7 @@ def test_check_user_expiration_does_not_repeat_30_day_email(monkeypatch):
         first_name="Already",
         last_name="Notified",
         email="already@example.com",
+        date_approved=frozen_now - timedelta(days=35),
         last_logged_in=frozen_now - timedelta(days=35),
         last_notified_30=frozen_now - timedelta(days=1),
     )
@@ -253,6 +257,33 @@ def test_login_before_approval_does_not_start_inactivity_clock(monkeypatch):
     assert emails_sent == []
 
 
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_approval_date_takes_precedence_over_older_login(monkeypatch):
+    """Approval date prevents an older pre-approval login from starting the clock."""
+    frozen_now = timezone.now()
+    monkeypatch.setattr(checkUserExpiration, "now", lambda: frozen_now)
+    emails_sent = []
+    monkeypatch.setattr(
+        checkUserExpiration,
+        "send_email",
+        lambda *args, **kwargs: emails_sent.append(args),
+    )
+
+    user = User.objects.create(
+        first_name="Recently",
+        last_name="Approved",
+        email="recently-approved@example.com",
+        invite_pending=False,
+        date_approved=frozen_now - timedelta(days=5),
+        last_logged_in=frozen_now - timedelta(days=60),
+    )
+
+    checkUserExpiration.check_user_expiration()
+
+    assert User.objects.filter(id=user.id).exists()
+    assert emails_sent == []
+
+
 def test_handler_success(monkeypatch):
     """Test handler success."""
     called = {"count": 0}
@@ -326,6 +357,7 @@ def test_handler_test_mode_existing_email_raises(monkeypatch):
         first_name="Existing",
         last_name="User",
         email="uat@example.com",
+        date_approved=timezone.now(),
         last_logged_in=timezone.now(),
     )
 
@@ -385,6 +417,7 @@ def test_check_user_expiration_creates_audit_log_on_success(monkeypatch):
         first_name="Audit",
         last_name="Success",
         email="audit_success@example.com",
+        date_approved=frozen_now - timedelta(days=50),
         last_logged_in=frozen_now - timedelta(days=50),
     )
 
@@ -434,6 +467,7 @@ def test_check_user_expiration_audit_log_includes_organization(monkeypatch):
         last_name="Member",
         email="audit_org@example.com",
         user_type=UserType.STANDARD,
+        date_approved=frozen_now - timedelta(days=50),
         last_logged_in=frozen_now - timedelta(days=50),
     )
     Role.objects.create(user=expired_user, organization=organization, role="user")
@@ -462,6 +496,7 @@ def test_check_user_expiration_creates_audit_log_on_deletion_failure(monkeypatch
         first_name="Audit",
         last_name="Failure",
         email="audit_fail@example.com",
+        date_approved=frozen_now - timedelta(days=50),
         last_logged_in=frozen_now - timedelta(days=50),
     )
 
