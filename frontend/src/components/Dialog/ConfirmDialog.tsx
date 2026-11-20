@@ -37,6 +37,7 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
       fullWidth
       maxWidth={screenWidth}
       aria-labelledby={`dialog-title-${titleId}`}
+      sx={{ minWidth: 320 }}
     >
       <DialogTitle id={`dialog-title-${titleId}`}>{title}</DialogTitle>
       <DialogContent id={`dialog-content-${contentId}`}>

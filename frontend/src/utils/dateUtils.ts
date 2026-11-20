@@ -67,3 +67,19 @@ export function enrolledWithinTwoWeeks(timestamp?: string | null): boolean {
 
   return now.getTime() - enrolledDate.getTime() <= twoWeeksInMs;
 }
+
+// Helper: get UTC midnight string for X days ago
+export function getUTCDateMidnight(daysAgo: number): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() - daysAgo);
+  return date.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+}
+
+// Helper: get current UTC datetime trimmed to minutes for datetime-local max attribute
+export function getUTCNowString(): string {
+  const now = new Date();
+  // zero-out seconds & ms so it matches datetime-local precision
+  now.setUTCSeconds(0, 0);
+  return now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+}

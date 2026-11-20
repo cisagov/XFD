@@ -31,15 +31,9 @@ import type {
 // Local Components & Context
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from '@/components/DataGrid/CustomToolbar';
-import {
-  Scan,
-  Organization,
-  ScanSchema,
-  OrganizationTag,
-  OrganizationOption
-} from '@/types';
+import { Scan, Organization, ScanSchema, OrganizationOption } from '@/types';
 import { useAuthContext } from '@/context';
-import { ScanForm, ScanFormValues } from '@/components/ScanForm';
+import { ScanForm, ScanFormRef } from './ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
@@ -72,7 +66,8 @@ const ScansView: React.FC = () => {
   const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
   >([]);
-  const [tags, setTags] = useState<OrganizationTag[]>([]);
+  // Tag selection is currently unused. This code is retained for potential future restoration.
+  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
   const [deleteScanDialogOpen, setDeleteScanDialogOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -85,17 +80,21 @@ const ScansView: React.FC = () => {
     items: []
   });
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
+  const [isScanFormValid, setIsScanFormValid] = useState(false);
 
-  const [values] = useState<ScanFormValues>({
+  const scanFormRef = useRef<ScanFormRef>(null);
+
+  const [values] = useState<Scan>({
+    id: '',
     name: 'censys',
-    arguments: '{}',
+    arguments: { start_datetime: '', end_datetime: '' },
     organizations: [],
     frequency: 1,
     frequencyUnit: 'minute',
     is_granular: false,
-    is_user_modifiable: false,
     is_single_scan: false,
-    tags: [],
+    is_user_modifiable: false,
+    // tags: [],
     concurrent_tasks: 1,
     useDateRange: false
   });
@@ -108,15 +107,15 @@ const ScansView: React.FC = () => {
         organizations: Organization[];
         schema: ScanSchema;
       }>(ENDPOINTS.SCANS);
-      const tags = await apiGet<OrganizationTag[]>(
-        ENDPOINTS.ORGANIZATIONS_TAGS
-      );
+      // const tags = await apiGet<OrganizationTag[]>(
+      //   ENDPOINTS.ORGANIZATIONS_TAGS
+      // );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
         organizations.map((e) => ({ label: e.name, value: e.id }))
       );
-      setTags(tags);
+      // setTags(tags);
     } catch (e) {
       logger.error('ScansView.fetchScans failed:', { error: e });
     } finally {
@@ -139,26 +138,23 @@ const ScansView: React.FC = () => {
     }
   };
 
-  const setFrequency = async (body: ScanFormValues) => {
+  const setFrequency = async (body: Scan) => {
     if (body.is_single_scan) body.frequency = 1;
     if (body.frequencyUnit === 'minute') body.frequency *= 60;
     else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
     else body.frequency *= 60 * 60 * 24;
   };
 
-  const onSubmit = async (body: ScanFormValues) => {
+  const onSubmit = async (body: Scan) => {
     try {
-      // For now, parse the arguments as JSON. We'll want to add a GUI for this in the future
-      body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
       const scan = await apiPost<Scan>(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
-            ? body.organizations.map((e) => e.value)
-            : [],
-          tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
+            ? body.organizations.map((e: any) => e.value)
+            : []
         }
       });
 
@@ -237,7 +233,7 @@ const ScansView: React.FC = () => {
     return {
       id: scan.id,
       name: scan.name,
-      tags: scan.tags.map((tag) => tag.name).join(', '),
+      tags: scan.tags ? scan.tags.map((tag) => tag.name).join(', ') : '',
       mode:
         scanSchema[scan.name] && scanSchema[scan.name].is_passive
           ? 'Passive'
@@ -483,18 +479,21 @@ const ScansView: React.FC = () => {
     <ConfirmDialog
       isOpen={newScanDialogOpen}
       onCancel={() => setNewScanDialogOpen(false)}
+      onConfirm={() => scanFormRef.current?.submit()}
+      disabled={!isScanFormValid}
       title={'Add a Scan'}
       content={
         <ScanForm
+          ref={scanFormRef}
           organizationOption={organizationOptions}
-          tags={tags}
+          // tags={tags}
           propValues={values}
           onSubmit={onSubmit}
-          type="create"
+          onValidityChange={setIsScanFormValid}
           scanSchema={scanSchema}
         />
       }
-      screenWidth="xs"
+      screenWidth="sm"
     />
   );
   const addNewScan = (

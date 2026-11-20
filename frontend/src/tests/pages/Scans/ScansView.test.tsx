@@ -1,23 +1,16 @@
-// React
 import React from 'react';
-
 // Testing Library
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
-
 // Context
 import { useAuthContext } from '@/context';
-
 // Pages
 import ScansView from '@/pages/Scans/ScansView';
-
 // Utils
 import { logger } from '@/utils/logger';
-
 const apiGet = vi.fn();
 const apiPost = vi.fn();
 const apiDelete = vi.fn();
@@ -30,12 +23,8 @@ vi.mock('@/utils/logger', () => ({
   }
 }));
 /**
-The real DataGrid is tested separately. This mock renders:
-- Toolbar children, including "Add New Scan"
-- Each row's cell renderers
-
-It allows these tests to exercise the page's action-column callbacks
-without requiring MUI DataGrid virtualization support in jsdom.
+The real DataGrid is tested separately. This mock renders toolbar children
+and cell renderers without requiring DataGrid virtualization support in jsdom.
 **/
 vi.mock('@/components/DataGrid/CustomDataGrid', () => ({
   default: ({ rows, columns, slotProps }: any) => (
@@ -69,12 +58,8 @@ vi.mock('@/components/DataGrid/CustomToolbar', () => ({
   default: () => <div data-testid="custom-toolbar" />
 }));
 /**
-Simplified dialog implementation.
-
-ConfirmDialog is tested separately. This mock lets us verify ScansView:
-- opens the correct dialog
-- sends the appropriate API request after confirmation
-- closes dialogs after cancel/confirm actions
+ConfirmDialog is tested separately. This mock exposes the dialog actions
+needed to verify ScansView behavior.
 **/
 vi.mock('@/components/Dialog/ConfirmDialog', () => ({
   default: ({
@@ -82,13 +67,15 @@ vi.mock('@/components/Dialog/ConfirmDialog', () => ({
     title,
     content,
     onConfirm,
-    onCancel
+    onCancel,
+    disabled = false
   }: {
     isOpen: boolean;
     title: string;
     content: React.ReactNode;
     onConfirm?: () => void;
     onCancel: () => void;
+    disabled?: boolean;
   }) => {
     if (!isOpen) {
       return null;
@@ -98,7 +85,7 @@ vi.mock('@/components/Dialog/ConfirmDialog', () => ({
         <h2>{title}</h2>
         <div>{content}</div>
         {onConfirm && (
-          <button type="button" onClick={onConfirm}>
+          <button type="button" onClick={onConfirm} disabled={disabled}>
             Confirm
           </button>
         )}
@@ -110,38 +97,55 @@ vi.mock('@/components/Dialog/ConfirmDialog', () => ({
   }
 }));
 /**
-ScanForm has its own unit tests. Here, the mock provides a form with a
-representative valid submission payload and invokes ScansView.onSubmit.
+ScanForm is tested separately. This mock supports the ref-based submit()
+interface used by ScansView and reports a valid form to enable Confirm.
+
+Update this mock path if the production ScanForm import path differs.
 **/
-vi.mock('@/components/ScanForm', () => ({
-  ScanForm: ({
-    onSubmit
-  }: {
-    onSubmit: (values: Record<string, unknown>) => Promise<void>;
-  }) => (
-    <form
-      aria-label="create-scan-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void onSubmit({
-          name: 'new-scan',
-          arguments: '{"assetType":"domain"}',
-          organizations: [{ label: 'Organization One', value: 'org-1' }],
-          frequency: 2,
-          frequencyUnit: 'hour',
-          is_granular: false,
-          is_user_modifiable: false,
-          is_single_scan: false,
-          tags: [{ label: 'Production', value: 'tag-1' }],
-          concurrent_tasks: 3,
-          useDateRange: false
-        });
-      }}
-    >
-      <button type="submit">Create Scan</button>
-    </form>
-  )
-}));
+vi.mock('@/pages/Scans/ScanForm', async () => {
+  const React = await import('react');
+  return {
+    ScanForm: React.forwardRef(
+      (
+        {
+          onSubmit,
+          onValidityChange
+        }: {
+          onSubmit: (values: Record<string, unknown>) => Promise<void>;
+          onValidityChange?: (isValid: boolean) => void;
+        },
+        ref
+      ) => {
+        React.useEffect(() => {
+          onValidityChange?.(true);
+        }, [onValidityChange]);
+        React.useImperativeHandle(ref, () => ({
+          submit: async () => {
+            await onSubmit({
+              name: 'new-scan',
+              arguments: { start_datetime: '', end_datetime: '' },
+              organizations: [
+                {
+                  label: 'Organization One',
+                  value: 'org-1'
+                }
+              ],
+              frequency: 2,
+              frequencyUnit: 'hour',
+              is_granular: true,
+              is_single_scan: false,
+              concurrent_tasks: 3,
+              useDateRange: false,
+              end_datetime: '',
+              start_datetime: ''
+            });
+          }
+        }));
+        return <div aria-label="create-scan-form" role="form" />;
+      }
+    )
+  };
+});
 const scan = {
   id: 'scan-1',
   name: 'test-scan',
@@ -174,9 +178,6 @@ describe('ScansView', () => {
       if (endpoint === ENDPOINTS.SCANS) {
         return Promise.resolve(loadScansResponse);
       }
-      if (endpoint === ENDPOINTS.ORGANIZATIONS_TAGS) {
-        return Promise.resolve([{ id: 'tag-1', name: 'Production' }]);
-      }
       return Promise.resolve([]);
     });
     apiPost.mockResolvedValue({
@@ -194,7 +195,6 @@ describe('ScansView', () => {
     render(<ScansView />);
     expect(await screen.findByTestId('custom-data-grid')).toBeInTheDocument();
     expect(apiGet).toHaveBeenCalledWith(ENDPOINTS.SCANS);
-    expect(apiGet).toHaveBeenCalledWith(ENDPOINTS.ORGANIZATIONS_TAGS);
     expect(screen.getByLabelText('Scan name: test-scan')).toBeInTheDocument();
     expect(
       screen.getByLabelText('Tags for test-scan scan: Production')
@@ -214,11 +214,10 @@ describe('ScansView', () => {
     expect(
       screen.getByLabelText('Description for test-scan scan: A test scan')
     ).toBeInTheDocument();
-    expect(screen.getByTestId('has-active-filters').textContent).toBe('false');
+    expect(screen.getByTestId('has-active-filters')).toHaveTextContent('false');
   });
-  it('shows an empty-state message and allows a user to create a scan when no scans exist', async () => {
+  it('shows an empty-state message and allows a user to open the create dialog', async () => {
     const user = userEvent.setup();
-
     apiGet.mockImplementation((endpoint: string) => {
       if (endpoint === ENDPOINTS.SCANS) {
         return Promise.resolve({
@@ -226,9 +225,6 @@ describe('ScansView', () => {
           organizations: [],
           schema: {}
         });
-      }
-      if (endpoint === ENDPOINTS.ORGANIZATIONS_TAGS) {
-        return Promise.resolve([]);
       }
       return Promise.resolve([]);
     });
@@ -238,11 +234,9 @@ describe('ScansView', () => {
         'No scans found. Create a new scan with the "Add New Scan" button.'
       )
     ).toBeInTheDocument();
-    expect(screen.getByTestId('custom-data-grid')).toBeInTheDocument();
     const addNewScanButton = screen.getByRole('button', {
       name: 'Add New Scan'
     });
-    expect(addNewScanButton).toBeInTheDocument();
     await user.click(addNewScanButton);
     expect(
       screen.getByRole('dialog', { name: 'Add a Scan' })
@@ -262,10 +256,11 @@ describe('ScansView', () => {
   it('opens the run-scan confirmation dialog for the selected scan', async () => {
     const user = userEvent.setup();
     render(<ScansView />);
-    const runButton = await screen.findByRole('button', {
-      name: 'Run test-scan scan.'
-    });
-    await user.click(runButton);
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Run test-scan scan.'
+      })
+    );
     const dialog = screen.getByRole('dialog', { name: 'Run scan?' });
     expect(dialog).toBeInTheDocument();
     expect(
@@ -313,40 +308,32 @@ describe('ScansView', () => {
       screen.queryByRole('dialog', { name: 'Run scan?' })
     ).not.toBeInTheDocument();
   });
-
   it('logs an error and invokes the scheduler when running a scan fails', async () => {
     const user = userEvent.setup();
     const runError = new Error('Run failed');
-
     apiPost.mockRejectedValueOnce(runError).mockResolvedValueOnce(undefined);
-
     render(<ScansView />);
-
     await user.click(
       await screen.findByRole('button', {
         name: 'Run test-scan scan.'
       })
     );
-
     await user.click(
       within(screen.getByRole('dialog', { name: 'Run scan?' })).getByRole(
         'button',
         { name: 'Confirm' }
       )
     );
-
     await waitFor(() => {
       expect(logger.error).toHaveBeenCalledWith('ScansView.runScan failed:', {
         error: runError,
         scanId: 'scan-1'
       });
     });
-
     expect(apiPost).toHaveBeenCalledWith(
       ENDPOINTS.SCAN_RUN.replace('{scan_id}', 'scan-1'),
       { body: {} }
     );
-
     expect(apiPost).toHaveBeenCalledWith(ENDPOINTS.SCAN_SCHEDULER, {
       body: {}
     });
@@ -430,23 +417,25 @@ describe('ScansView', () => {
       screen.queryByRole('dialog', { name: 'Add a Scan' })
     ).not.toBeInTheDocument();
   });
-  it('submits a new scan with converted frequency, organization IDs, and tag IDs', async () => {
+  it('submits a new scan with converted frequency and organization IDs', async () => {
     const user = userEvent.setup();
     render(<ScansView />);
     await user.click(
       await screen.findByRole('button', { name: 'Add New Scan' })
     );
     const dialog = screen.getByRole('dialog', { name: 'Add a Scan' });
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create Scan' })
-    );
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole('button', { name: 'Confirm' })
+      ).toBeEnabled();
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm' }));
     await waitFor(() => {
       expect(apiPost).toHaveBeenCalledWith(ENDPOINTS.SCANS, {
         body: expect.objectContaining({
           name: 'new-scan',
-          arguments: { assetType: 'domain' },
+          arguments: { start_datetime: '', end_datetime: '' },
           organizations: ['org-1'],
-          tags: [{ id: 'tag-1' }],
           frequency: 7200,
           frequencyUnit: 'hour',
           concurrent_tasks: 3
@@ -469,9 +458,12 @@ describe('ScansView', () => {
       await screen.findByRole('button', { name: 'Add New Scan' })
     );
     const dialog = screen.getByRole('dialog', { name: 'Add a Scan' });
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create Scan' })
-    );
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole('button', { name: 'Confirm' })
+      ).toBeEnabled();
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm' }));
     expect(
       await screen.findByText('Scan creation failed: Unable to create scan')
     ).toBeInTheDocument();
