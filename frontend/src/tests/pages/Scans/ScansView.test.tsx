@@ -123,7 +123,7 @@ vi.mock('@/pages/Scans/ScanForm', async () => {
           submit: async () => {
             await onSubmit({
               name: 'new-scan',
-              arguments: '{"assetType":"domain"}',
+              arguments: { start_datetime: '', end_datetime: '' },
               organizations: [
                 {
                   label: 'Organization One',
@@ -132,10 +132,12 @@ vi.mock('@/pages/Scans/ScanForm', async () => {
               ],
               frequency: 2,
               frequencyUnit: 'hour',
-              is_granular: false,
+              is_granular: true,
               is_single_scan: false,
               concurrent_tasks: 3,
-              useDateRange: false
+              useDateRange: false,
+              end_datetime: '',
+              start_datetime: ''
             });
           }
         }));
@@ -432,7 +434,7 @@ describe('ScansView', () => {
       expect(apiPost).toHaveBeenCalledWith(ENDPOINTS.SCANS, {
         body: expect.objectContaining({
           name: 'new-scan',
-          arguments: { assetType: 'domain' },
+          arguments: { start_datetime: '', end_datetime: '' },
           organizations: ['org-1'],
           frequency: 7200,
           frequencyUnit: 'hour',

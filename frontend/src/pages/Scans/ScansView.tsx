@@ -33,7 +33,7 @@ import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from '@/components/DataGrid/CustomToolbar';
 import { Scan, Organization, ScanSchema, OrganizationOption } from '@/types';
 import { useAuthContext } from '@/context';
-import { ScanForm, ScanFormValues, ScanFormRef } from './ScanForm';
+import { ScanForm, ScanFormRef } from './ScanForm';
 import { ENDPOINTS } from '@/constants/endpoints';
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
@@ -84,14 +84,16 @@ const ScansView: React.FC = () => {
 
   const scanFormRef = useRef<ScanFormRef>(null);
 
-  const [values] = useState<ScanFormValues>({
+  const [values] = useState<Scan>({
+    id: '',
     name: 'censys',
-    arguments: '{}',
+    arguments: { start_datetime: '', end_datetime: '' },
     organizations: [],
     frequency: 1,
     frequencyUnit: 'minute',
     is_granular: false,
     is_single_scan: false,
+    is_user_modifiable: false,
     // tags: [],
     concurrent_tasks: 1,
     useDateRange: false
@@ -136,26 +138,23 @@ const ScansView: React.FC = () => {
     }
   };
 
-  const setFrequency = async (body: ScanFormValues) => {
+  const setFrequency = async (body: Scan) => {
     if (body.is_single_scan) body.frequency = 1;
     if (body.frequencyUnit === 'minute') body.frequency *= 60;
     else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
     else body.frequency *= 60 * 60 * 24;
   };
 
-  const onSubmit = async (body: ScanFormValues) => {
+  const onSubmit = async (body: Scan) => {
     try {
-      // For now, parse the arguments as JSON. We'll want to add a GUI for this in the future
-      body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
       const scan = await apiPost<Scan>(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
-            ? body.organizations.map((e) => e.value)
+            ? body.organizations.map((e: any) => e.value)
             : []
-          // tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
         }
       });
 
@@ -234,7 +233,7 @@ const ScansView: React.FC = () => {
     return {
       id: scan.id,
       name: scan.name,
-      tags: scan.tags.map((tag) => tag.name).join(', '),
+      tags: scan.tags ? scan.tags.map((tag) => tag.name).join(', ') : '',
       mode:
         scanSchema[scan.name] && scanSchema[scan.name].is_passive
           ? 'Passive'

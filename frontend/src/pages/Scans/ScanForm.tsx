@@ -173,7 +173,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
 
       await onSubmit({
         name: values.name,
-        arguments: JSON.stringify({
+        arguments: {
           ...values.arguments,
           ...(values.useDateRange && {
             start_datetime: values.startDate
@@ -183,7 +183,7 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
               ? new Date(values.endDate).toISOString()
               : null
           })
-        }),
+        },
         organizations: values.organizations,
         frequency: values.frequency,
         frequencyUnit: values.frequencyUnit,
@@ -266,8 +266,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                     onChange('useDateRange', e.target.checked);
 
                     if (e.target.checked) {
-                      onChange('is_single_scan', true);
-
                       // Default to 2 days ago → today (UTC midnight)
                       const defaultStart = getUTCDateMidnight(2);
                       const defaultEnd = getUTCDateMidnight(0);
@@ -367,7 +365,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 const isSingleScan = e.target.checked;
                 onChange('is_single_scan', isSingleScan);
                 if (isSingleScan) {
-                  onChange('is_single_scan', true);
                   onChange('frequency', 1);
                 }
               }}

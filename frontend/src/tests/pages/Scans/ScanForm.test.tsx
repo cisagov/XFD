@@ -126,10 +126,10 @@ describe('ScanForm', () => {
     await act(async () => {
       await ref.current?.submit();
     });
-
+    // console.log(onSubmit);
     expect(onSubmit).toHaveBeenCalledWith({
       name: 'censys',
-      arguments: JSON.stringify({ start_datetime: '', end_datetime: '' }),
+      arguments: { start_datetime: '', end_datetime: '' },
       organizations: [],
       frequency: 1,
       frequencyUnit: 'day',
@@ -349,10 +349,10 @@ describe('ScanForm', () => {
       expect.objectContaining({
         name: 'vulnScanningSync',
         is_single_scan: true,
-        arguments: JSON.stringify({
+        arguments: {
           start_datetime: new Date('2026-01-01T00:00').toISOString(),
           end_datetime: new Date('2026-01-02T00:00').toISOString()
-        })
+        }
       })
     );
   });

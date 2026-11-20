@@ -3,7 +3,11 @@ import { OrganizationOption, OrganizationTag } from './organization';
 export interface Scan {
   id: string;
   name: string;
-  arguments: { start_datetime: string; end_datetime: string };
+  arguments: {
+    start_datetime: string;
+    end_datetime: string;
+    [key: string]: unknown;
+  };
   frequency: number;
   frequencyUnit?: string;
   last_run?: string;
@@ -16,21 +20,6 @@ export interface Scan {
   startDate?: string;
   endDate?: string;
   organizations?: OrganizationOption[];
-}
-
-export interface ScanFormValues {
-  name: string;
-  organizations: OrganizationOption[];
-  // tags: OrganizationOption[];
-  arguments: any;
-  frequency: number;
-  frequencyUnit: string;
-  is_granular: boolean;
-  is_single_scan: boolean;
-  concurrent_tasks: number;
-  useDateRange: boolean;
-  startDate?: string;
-  endDate?: string;
 }
 
 // ScanSchema. TODO: synchronize this with the ScanSchema type in the backend.
