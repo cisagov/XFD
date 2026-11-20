@@ -12,7 +12,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 // Component and types
-import { ScanForm, ScanFormRef, ScanFormValues } from '@/pages';
+import { ScanForm, ScanFormRef } from '@/pages';
+import { Scan as ScanFormValues } from '@/types';
 
 import { OrganizationOption } from '@/types/organization';
 import { ScanSchema } from '@/types';
@@ -52,12 +53,14 @@ const scanSchema: ScanSchema = {
 };
 
 const propValues: ScanFormValues = {
+  id: '',
   name: 'censys',
-  arguments: {},
+  arguments: { start_datetime: '', end_datetime: '' },
   organizations: [],
   frequency: 1,
   frequencyUnit: 'day',
   is_granular: false,
+  is_user_modifiable: false,
   is_single_scan: false,
   concurrent_tasks: 1,
   useDateRange: false
@@ -126,7 +129,7 @@ describe('ScanForm', () => {
 
     expect(onSubmit).toHaveBeenCalledWith({
       name: 'censys',
-      arguments: JSON.stringify({}),
+      arguments: JSON.stringify({ start_datetime: '', end_datetime: '' }),
       organizations: [],
       frequency: 1,
       frequencyUnit: 'day',

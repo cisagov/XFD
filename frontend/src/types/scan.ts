@@ -1,17 +1,36 @@
-import { OrganizationTag } from './organization';
+import { OrganizationOption, OrganizationTag } from './organization';
 
 export interface Scan {
   id: string;
   name: string;
   arguments: { start_datetime: string; end_datetime: string };
   frequency: number;
-  last_run: string;
+  frequencyUnit?: string;
+  last_run?: string;
   is_granular: boolean;
   is_user_modifiable: boolean;
   is_single_scan: boolean;
-  organizations: [];
-  tags: OrganizationTag[];
+  tags?: OrganizationTag[];
   concurrent_tasks: number;
+  useDateRange?: boolean;
+  startDate?: string;
+  endDate?: string;
+  organizations?: OrganizationOption[];
+}
+
+export interface ScanFormValues {
+  name: string;
+  organizations: OrganizationOption[];
+  // tags: OrganizationOption[];
+  arguments: any;
+  frequency: number;
+  frequencyUnit: string;
+  is_granular: boolean;
+  is_single_scan: boolean;
+  concurrent_tasks: number;
+  useDateRange: boolean;
+  startDate?: string;
+  endDate?: string;
 }
 
 // ScanSchema. TODO: synchronize this with the ScanSchema type in the backend.
@@ -44,4 +63,10 @@ export interface ScanSchema {
     // Maximum number of tasks that can run in parallel.
     max_concurrent_tasks?: number;
   };
+}
+
+export interface ScanArguments {
+  start_datetime?: string;
+  end_datetime?: string;
+  [key: string]: any; // fallback for other dynamic args
 }

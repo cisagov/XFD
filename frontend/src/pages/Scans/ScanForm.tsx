@@ -1,4 +1,4 @@
-import React, {
+import {
   forwardRef,
   useImperativeHandle,
   useState,
@@ -18,37 +18,24 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-// Pages
-import { OrganizationOption } from '@/types/organization';
+// Constants
+import { getDefaultScanValues } from '@/constants/scanData';
 
 // Types
-import { Scan, ScanSchema } from '@/types';
+import { OrganizationOption } from '@/types/organization';
+import { Scan as ScanFormValues, ScanSchema } from '@/types/scan';
+
+// Utils
+import { getUTCNowString, getUTCDateMidnight } from '@/utils/dateUtils';
 
 export interface ScanFormProps {
   propValues: ScanFormValues;
   organizationOption: OrganizationOption[];
-  // Tag selection is currently unused. This code is retained for potential future restoration.
-  // tags: OrganizationTag[];
   global?: any;
   onSubmit: (values: any) => Promise<void>;
-  scan?: Scan;
+  scan?: ScanFormValues;
   scanSchema: ScanSchema;
   onValidityChange?: (isValid: boolean) => void;
-}
-
-export interface ScanFormValues {
-  name: string;
-  organizations: OrganizationOption[];
-  // tags: OrganizationOption[];
-  arguments: any;
-  frequency: number;
-  frequencyUnit: string;
-  is_granular: boolean;
-  is_single_scan: boolean;
-  concurrent_tasks: number;
-  useDateRange: boolean;
-  startDate?: string;
-  endDate?: string;
 }
 
 export interface ScanFormRef {
@@ -57,34 +44,11 @@ export interface ScanFormRef {
 
 const MAX_SCAN_DAYS = Number(import.meta.env.VITE_MAX_SCAN_DAYS || 365);
 
-export interface ScanArguments {
-  start_datetime?: string;
-  end_datetime?: string;
-  [key: string]: any; // fallback for other dynamic args
-}
-
-// Helper: get UTC midnight string for X days ago
-function getUTCDateMidnight(daysAgo: number): string {
-  const date = new Date();
-  date.setUTCHours(0, 0, 0, 0);
-  date.setUTCDate(date.getUTCDate() - daysAgo);
-  return date.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
-}
-
-// Helper: get current UTC datetime trimmed to minutes for datetime-local max attribute
-function getUTCNowString(): string {
-  const now = new Date();
-  // zero-out seconds & ms so it matches datetime-local precision
-  now.setUTCSeconds(0, 0);
-  return now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
-}
-
 export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
   (
     {
       propValues,
       organizationOption,
-      // tags,
       global,
       onSubmit,
       scan,
@@ -93,27 +57,11 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
     },
     ref
   ) => {
-    const setDefault = () => ({
-      name: scan ? scan.name : 'censys',
-      arguments: scan ? scan.arguments : {},
-      frequency: scan ? scan.frequency : 1,
-      frequencyUnit: scan ? propValues.frequencyUnit : 'day',
-      is_granular: scan ? scan.is_granular : false,
-      is_single_scan: scan ? scan.is_single_scan : false,
-      organizations: scan ? propValues.organizations : [],
-      // tags: scan ? propValues.tags : [],
-      concurrent_tasks: scan ? scan.concurrent_tasks : 1,
-      useDateRange: !!(
-        scan?.arguments?.start_datetime || scan?.arguments?.end_datetime
-      ),
-      startDate: scan?.arguments?.start_datetime || '',
-      endDate: scan?.arguments?.end_datetime || ''
-    });
-
     const [organizationOptions, setOrganizationOptions] =
       useState<OrganizationOption[]>(organizationOption);
-    // const [tagOptions, setTagOptions] = useState<OrganizationOption[]>([]);
-    const [values, setValues] = useState<ScanFormValues>(setDefault());
+    const [values, setValues] = useState<ScanFormValues>(() =>
+      getDefaultScanValues('censys')
+    );
     const [schemaUpdated, setSchemaUpdated] = useState<boolean>(false);
     const [dateRangeError, setDateRangeError] = useState<string>('');
     const scanSchemaEntry = scanSchema[values.name];
@@ -143,7 +91,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
 
     const setDefaultValues = useCallback(() => {
       setOrganizationOptions(organizationOption);
-      // setTagOptions(tags.map((tag) => ({ label: tag.name, value: tag.id })));
       if (scanSchema && scanSchema[values.name]) {
         setSchemaUpdated(true);
       }
@@ -158,7 +105,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
             scan.is_single_scan ||
             !!(scan.arguments?.start_datetime || scan.arguments?.end_datetime),
           organizations: propValues.organizations,
-          // tags: propValues.tags,
           concurrent_tasks: scan.concurrent_tasks,
           useDateRange: !!(
             scan.arguments?.start_datetime || scan.arguments?.end_datetime
@@ -172,8 +118,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
       propValues.frequency,
       propValues.frequencyUnit,
       propValues.organizations,
-      // propValues.tags,
-      // tags,
       scan,
       scanSchema,
       values.name
@@ -241,7 +185,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
           })
         }),
         organizations: values.organizations,
-        // tags: values.tags,
         frequency: values.frequency,
         frequencyUnit: values.frequencyUnit,
         is_granular: values.is_granular,
@@ -262,7 +205,10 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
           options={Object.keys(scanSchema).sort()}
           size="small"
           fullWidth
-          onChange={(_, newValue) => onChange('name', newValue)}
+          onChange={(_, newName) => {
+            setValues(getDefaultScanValues(newName));
+            setDateRangeError('');
+          }}
           renderInput={(params) => <TextField {...params} label="Scan Name" />}
         />
         <Box sx={{ m: 1 }}>
@@ -308,15 +254,6 @@ export const ScanForm = forwardRef<ScanFormRef, ScanFormProps>(
                 />
               )}
             />
-            {/* Tag selection is currently unused. This code is retained for potential future restoration. */}
-            {/* <Autocomplete
-                // value={values.tags}
-                options={tagOptions.sort()}
-                size="small"
-                fullWidth
-                isOptionEqualToValue={(option, value) => option.value === value.value}
-                renderInput={(params) => <TextField {...params} label="Enabled Organization Tags" />}
-              /> */}
           </Stack>
         )}
         {values.name === 'vulnScanningSync' && (
