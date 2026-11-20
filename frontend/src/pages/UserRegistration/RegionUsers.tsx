@@ -299,7 +299,7 @@ export const RegionUsers: React.FC = () => {
           email_sent: undefined
         };
       }
-    }, // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
     [apiPost, loggedInUser?.user_type]
   );
 
