@@ -50,11 +50,18 @@ def run_ip_status_refresh(orgs_list):
             ip = row["ip"]
             cidr = row["network"]
             ip_hash = row["ip_hash"]
-            if ipaddress.ip_address(ip) not in ipaddress.ip_network(cidr):
-                list_of_ips_to_update.append(ip)
-                LOGGER.info("IP %s is not in network %s, updating statuses", ip, cidr)
-                update_ip_statuses(ip_hash)
-                LOGGER.info("Updated IP statuses for %s", ip)
+            try:
+                if ipaddress.ip_address(ip) not in ipaddress.ip_network(cidr):
+                    list_of_ips_to_update.append(ip)
+                    LOGGER.info(
+                        "IP %s is not in network %s, updating statuses", ip, cidr
+                    )
+                    update_ip_statuses(ip_hash)
+                    LOGGER.info("Updated IP statuses for %s", ip)
+            except ValueError as e:
+                LOGGER.error("Invalid IP or network: %s, %s, error: %s", ip, cidr, e)
+                continue
+
         LOGGER.info(
             "IPs updated for org %s: %s",
             org["cyhy_db_name"],
