@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 // Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import MuiButton from '@mui/material/Button';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -101,6 +102,7 @@ const Log = ({ url, token }: { url: string; token: string }) => {
         caseInsensitive
         fetchOptions={{ headers: { Authorization: token } }}
         selectableLines={true}
+        loadingComponent={<CircularProgress aria-label="Loading…" />}
       />
       <IconButton
         aria-label="Refresh log"
@@ -497,7 +499,7 @@ export const ScanTasksView: React.FC = () => {
         />
       </Paper>
       {scanTasks?.length === 0 && !isLoading && (
-        <MuiButton
+        <Button
           aria-label="Reset scan table"
           onClick={resetScans}
           variant="contained"
@@ -505,7 +507,7 @@ export const ScanTasksView: React.FC = () => {
           sx={{ width: 'fit-content', mt: 2 }}
         >
           Refresh Scan History
-        </MuiButton>
+        </Button>
       )}
       <Dialog
         open={openDialog}
@@ -525,7 +527,7 @@ export const ScanTasksView: React.FC = () => {
               </Typography>
 
               {detailsParams?.row?.fargate_task_arn.match && (
-                <MuiButton
+                <Button
                   aria-label="View all on CloudWatch"
                   variant="text"
                   target="_blank"
@@ -540,7 +542,7 @@ export const ScanTasksView: React.FC = () => {
                 >
                   {' '}
                   View all on CloudWatch
-                </MuiButton>
+                </Button>
               )}
               <Log
                 token={token ?? ''}
@@ -597,10 +599,10 @@ export const ScanTasksView: React.FC = () => {
           {detailsParams?.row.status !== 'finished' &&
             detailsParams?.row.status !== 'failed' && (
               <>
-                <Typography variant="h6" component="div">
+                <Typography variant="h6" component="div" mt={2}>
                   Actions:
                 </Typography>
-                <MuiButton
+                <Button
                   aria-label="Kill scan task"
                   variant="contained"
                   href="# "
@@ -610,19 +612,19 @@ export const ScanTasksView: React.FC = () => {
                   }}
                 >
                   Kill Scan
-                </MuiButton>
+                </Button>
               </>
             )}
         </DialogContent>
         <DialogContent>
           <Stack spacing={2} direction="row" justifyContent="end">
-            <MuiButton
+            <Button
               variant="contained"
               aria-label="Close scan details"
               onClick={() => setOpenDialog(false)}
             >
               Close
-            </MuiButton>
+            </Button>
           </Stack>
         </DialogContent>
       </Dialog>
