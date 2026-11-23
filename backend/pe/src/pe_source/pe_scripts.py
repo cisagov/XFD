@@ -4,7 +4,7 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan", "flare_events", "flare_ident_prune", "flare_ident_refresh", "flare_creds.
+    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "flare_creds", "flare_events", "flare_ident_prune", "flare_ident_refresh", "ip_status_refresh", "shodan", "shodan_top_cves".
 
 Options:
     -h --help                       Show this message.

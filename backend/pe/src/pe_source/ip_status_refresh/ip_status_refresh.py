@@ -67,10 +67,5 @@ def run_ip_status_refresh(orgs_list):
             org["cyhy_db_name"],
             len(list_of_ips_to_update),
         )
-        LOGGER.info(
-            "List of IPs updated for org %s: %s",
-            org["cyhy_db_name"],
-            list_of_ips_to_update,
-        )
         LOGGER.info("%s out of %s orgs processed", org_index + 1, len(pe_orgs_final))
     LOGGER.info("IP status refresh completed for all orgs.")
