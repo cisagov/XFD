@@ -122,7 +122,7 @@ def test_check_user_expiration_does_not_repeat_30_day_email(monkeypatch):
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_inactivity_thresholds_are_strictly_greater_than_30_and_45_days(monkeypatch):
-    """Exactly 30 or 45 days inactive must not trigger either action."""
+    """Exactly 30 days does not notify and exactly 45 days does not remove."""
     frozen_now = timezone.now()
     monkeypatch.setattr(checkUserExpiration, "now", lambda: frozen_now)
     emails_sent = []
@@ -151,7 +151,9 @@ def test_inactivity_thresholds_are_strictly_greater_than_30_and_45_days(monkeypa
 
     assert User.objects.filter(id=user_at_warning_boundary.id).exists()
     assert User.objects.filter(id=user_at_removal_boundary.id).exists()
-    assert not emails_sent
+    assert len(emails_sent) == 1
+    assert emails_sent[0][0] == "removal-boundary@example.com"
+    assert emails_sent[0][1] == "Account Inactivity Notice"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

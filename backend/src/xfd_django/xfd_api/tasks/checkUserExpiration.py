@@ -190,7 +190,7 @@ def run_test_expiration_flow(email: str):
 
     - Only called when STAGE == 'staging'
     - Create a new user with the given email
-    - Simulate 30/45 day inactivity by updating last_logged_in and calling
+    - Simulate 30/45 day inactivity by updating the approval and login dates and calling
       check_user_expiration() two times
     - Ensure the user gets deleted; if not, try once more and then raise an error
     """
@@ -221,11 +221,12 @@ def run_test_expiration_flow(email: str):
 
     check_user_expiration()
 
-    # 2) If still exists, move them to ~45+ days inactive and run again
+    # 2) If still exists, move approval and login dates to ~45+ days inactive and run again
     if User.objects.filter(id=user.id).exists():
         user = User.objects.get(id=user.id)
+        user.date_approved = fortyfive_plus
         user.last_logged_in = fortyfive_plus
-        user.save(update_fields=["last_logged_in"])
+        user.save(update_fields=["date_approved", "last_logged_in"])
         check_user_expiration()
 
     # 4) Verify deletion – if still present, try once more then raise
