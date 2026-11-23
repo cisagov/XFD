@@ -103,16 +103,16 @@ const Log = ({ url, token }: { url: string; token: string }) => {
         fetchOptions={{ headers: { Authorization: token } }}
         selectableLines={true}
         loadingComponent={
-        <Box
-          sx={{
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          <CircularProgress aria-label="Loading…" />
-        </Box>
+          <Box
+            sx={{
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <CircularProgress aria-label="Loading…" />
+          </Box>
         }
       />
       <IconButton
