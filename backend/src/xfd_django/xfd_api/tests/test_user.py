@@ -9,6 +9,7 @@ from unittest.mock import patch
 import uuid
 
 # Third-Party Libraries
+from django.utils import timezone
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
@@ -267,8 +268,12 @@ def test_invite_existing_user_by_different_org_admin_should_not_modify_other_use
     )
 
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
+    approved_at = timezone.now()
     user = User.objects.create(
-        first_name="first name", last_name="last name", email=email
+        first_name="first name",
+        last_name="last name",
+        email=email,
+        date_approved=approved_at,
     )
     Role.objects.create(
         role="user", approved=False, organization=organization, user=user
@@ -317,6 +322,8 @@ def test_invite_existing_user_by_different_org_admin_should_not_modify_other_use
     assert role_for_org2, "No role found for organization {}".format(organization2.id)
     assert role_for_org2[0]["approved"] is True
     assert role_for_org2[0]["role"] == "user"
+    user.refresh_from_db()
+    assert user.date_approved == approved_at
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

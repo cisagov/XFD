@@ -121,6 +121,40 @@ def test_check_user_expiration_does_not_repeat_30_day_email(monkeypatch):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_inactivity_thresholds_are_strictly_greater_than_30_and_45_days(monkeypatch):
+    """Exactly 30 or 45 days inactive must not trigger either action."""
+    frozen_now = timezone.now()
+    monkeypatch.setattr(checkUserExpiration, "now", lambda: frozen_now)
+    emails_sent = []
+    monkeypatch.setattr(
+        checkUserExpiration,
+        "send_email",
+        lambda *args, **kwargs: emails_sent.append(args),
+    )
+
+    user_at_warning_boundary = User.objects.create(
+        first_name="Warning",
+        last_name="Boundary",
+        email="warning-boundary@example.com",
+        date_approved=frozen_now - timedelta(days=30),
+        last_logged_in=frozen_now - timedelta(days=30),
+    )
+    user_at_removal_boundary = User.objects.create(
+        first_name="Removal",
+        last_name="Boundary",
+        email="removal-boundary@example.com",
+        date_approved=frozen_now - timedelta(days=45),
+        last_logged_in=frozen_now - timedelta(days=45),
+    )
+
+    checkUserExpiration.check_user_expiration()
+
+    assert User.objects.filter(id=user_at_warning_boundary.id).exists()
+    assert User.objects.filter(id=user_at_removal_boundary.id).exists()
+    assert emails_sent == []
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_pending_user_with_stale_login_is_not_notified(monkeypatch):
     """Pending users must not receive inactivity warnings."""
     frozen_now = timezone.now()

@@ -7,6 +7,7 @@ from unittest.mock import patch
 import uuid
 
 # Third-Party Libraries
+from django.utils import timezone
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
@@ -1702,6 +1703,61 @@ def test_add_user_to_org_v2_returns_existing_role_when_already_assigned():
     assert data["organization"]["id"] == str(organization.id)
     assert data["user"]["id"] == str(user.id)
     assert Role.objects.filter(user=user, organization=organization).count() == 1
+    user.refresh_from_db()
+    assert user.date_approved is not None
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_add_user_to_org_v2_preserves_existing_date_approved():
+    """Reassigning an approved user must not reset the inactivity clock."""
+    admin = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    organization = Organization.objects.create(
+        name="Test Organization",
+        root_domains=["test.com"],
+        ip_blocks=[],
+        is_passive=False,
+        state="CA",
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    approved_at = timezone.now()
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="region-1",
+        date_approved=approved_at,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    Role.objects.create(
+        user=user,
+        organization=organization,
+        role="member",
+        approved=True,
+        approved_by=admin,
+        created_by=admin,
+    )
+
+    response = client.post(
+        "/v2/organizations/{}/users".format(str(organization.id)),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json={"user_id": str(user.id), "role": "member"},
+    )
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert user.date_approved == approved_at
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
