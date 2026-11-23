@@ -151,7 +151,7 @@ def test_inactivity_thresholds_are_strictly_greater_than_30_and_45_days(monkeypa
 
     assert User.objects.filter(id=user_at_warning_boundary.id).exists()
     assert User.objects.filter(id=user_at_removal_boundary.id).exists()
-    assert emails_sent == []
+    assert not emails_sent
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -178,7 +178,7 @@ def test_pending_user_with_stale_login_is_not_notified(monkeypatch):
     checkUserExpiration.check_user_expiration()
 
     assert User.objects.filter(id=user.id).exists()
-    assert emails_sent == []
+    assert not emails_sent
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -206,7 +206,7 @@ def test_pending_user_with_no_login_is_not_removed(monkeypatch):
     checkUserExpiration.check_user_expiration()
 
     assert User.objects.filter(id=user.id).exists()
-    assert emails_sent == []
+    assert not emails_sent
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -288,7 +288,7 @@ def test_login_before_approval_does_not_start_inactivity_clock(monkeypatch):
     checkUserExpiration.check_user_expiration()
 
     assert User.objects.filter(id=user.id).exists()
-    assert emails_sent == []
+    assert not emails_sent
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -315,7 +315,7 @@ def test_approval_date_takes_precedence_over_older_login(monkeypatch):
     checkUserExpiration.check_user_expiration()
 
     assert User.objects.filter(id=user.id).exists()
-    assert emails_sent == []
+    assert not emails_sent
 
 
 def test_handler_success(monkeypatch):
