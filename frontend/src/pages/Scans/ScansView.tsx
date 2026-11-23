@@ -554,7 +554,7 @@ const ScansView: React.FC = () => {
       >
         Manually run scheduler
       </Button>
-      {errors.scheduler && <Alert severity="error">{errors.scheduler}</Alert>}
+      {errors.scheduler && <Alert severity="error" sx={{ mb: 1 }}>{errors.scheduler}</Alert>}
       {errors.global && <Alert severity="error">{errors.global}</Alert>}
       {addNewScanDialog}
       {confirmDeleteScanDialog}

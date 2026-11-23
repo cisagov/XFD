@@ -102,7 +102,18 @@ const Log = ({ url, token }: { url: string; token: string }) => {
         caseInsensitive
         fetchOptions={{ headers: { Authorization: token } }}
         selectableLines={true}
-        loadingComponent={<CircularProgress aria-label="Loading…" />}
+        loadingComponent={
+        <Box
+          sx={{
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <CircularProgress aria-label="Loading…" />
+        </Box>
+        }
       />
       <IconButton
         aria-label="Refresh log"
