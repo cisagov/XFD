@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
+from django.utils.timezone import now
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import (
     Organization,
@@ -36,6 +37,14 @@ from ..tasks.es_client import ESClient
 from ..tools.serializers import serialize_role
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _mark_user_access_granted(user, approver):
+    """Record the first date a user receives approved dashboard access."""
+    if user.date_approved is None:
+        user.date_approved = now()
+        user.approved_by = approver
+        user.save(update_fields=["date_approved", "approved_by"])
 
 
 # GET: /organizations
@@ -860,6 +869,10 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
             user_id=user.id, organization_id=organization.id
         ).first()
         if existing_role:
+            if existing_role.approved:
+                _mark_user_access_granted(
+                    user, existing_role.approved_by or current_user
+                )
             LOGGER.info(
                 "User %s already has role %s for organization %s; returning existing role.",
                 user.id,
@@ -885,6 +898,10 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
                 user_id=user.id, organization_id=organization.id
             ).first()
             if existing_role:
+                if existing_role.approved:
+                    _mark_user_access_granted(
+                        user, existing_role.approved_by or current_user
+                    )
                 LOGGER.info(
                     "Concurrent duplicate role assignment for user %s and organization %s; "
                     "returning existing role %s.",
@@ -895,6 +912,7 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
                 return _build_add_user_to_org_v2_response(existing_role)
             raise
 
+        _mark_user_access_granted(user, current_user)
         return _build_add_user_to_org_v2_response(new_role)
 
     except HTTPException as http_exc:
@@ -936,6 +954,7 @@ def approve_role(organization_id: str, role_id, current_user):
             role.approved = True
             role.approved_by = current_user
             role.save()
+            _mark_user_access_granted(role.user, current_user)
 
             return {"status": "success", "message": "Role approved successfully"}
 

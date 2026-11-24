@@ -7,7 +7,8 @@ import os
 
 # Third-Party Libraries
 import django
-from django.db.models.query import Q
+from django.db.models import F
+from django.db.models.functions import Coalesce, Greatest
 from django.utils.timezone import now
 
 # Django setup
@@ -91,11 +92,22 @@ def check_user_expiration():
     cutoff_30_days = today - timedelta(days=30)
     cutoff_45_days = today - timedelta(days=45)
 
+    # Use the later of approval and last login so pre-approval activity cannot
+    # make a newly approved user appear inactive immediately.
+    inactivity_reference = Greatest(
+        Coalesce(F("last_logged_in"), F("date_approved")),
+        F("date_approved"),
+    )
+
     # Users to notify (30 days of inactivity)
-    users_to_notify = User.objects.filter(
-        last_logged_in__lt=cutoff_30_days,
-        last_logged_in__gte=cutoff_45_days,
-        last_notified_30__isnull=True,
+    users_to_notify = (
+        User.objects.filter(date_approved__isnull=False)
+        .annotate(inactivity_reference=inactivity_reference)
+        .filter(
+            inactivity_reference__lt=cutoff_30_days,
+            inactivity_reference__gte=cutoff_45_days,
+            last_notified_30__isnull=True,
+        )
     )
 
     # Notify users of inactivity (30 days)
@@ -121,10 +133,12 @@ def check_user_expiration():
         user.save(update_fields=["last_notified_30"])
 
     # Users to remove (45 days of inactivity)
-    users_to_remove = User.objects.filter(
-        Q(last_logged_in__lt=cutoff_45_days)
-        | Q(last_logged_in__isnull=True, created_at__lt=cutoff_45_days)
-    ).prefetch_related("roles__organization")
+    users_to_remove = (
+        User.objects.filter(date_approved__isnull=False)
+        .annotate(inactivity_reference=inactivity_reference)
+        .filter(inactivity_reference__lt=cutoff_45_days)
+        .prefetch_related("roles__organization")
+    )
 
     for user in users_to_remove:
         subject = "Account Removal Notice"
@@ -176,7 +190,7 @@ def run_test_expiration_flow(email: str):
 
     - Only called when STAGE == 'staging'
     - Create a new user with the given email
-    - Simulate 30/45 day inactivity by updating last_logged_in and calling
+    - Simulate 30/45 day inactivity by updating the approval and login dates and calling
       check_user_expiration() two times
     - Ensure the user gets deleted; if not, try once more and then raise an error
     """
@@ -201,16 +215,18 @@ def run_test_expiration_flow(email: str):
         first_name="Test",
         last_name="User",
         email=email,
+        date_approved=thirty_plus,
         last_logged_in=thirty_plus,
     )
 
     check_user_expiration()
 
-    # 2) If still exists, move them to ~45+ days inactive and run again
+    # 2) If still exists, move approval and login dates to ~45+ days inactive and run again
     if User.objects.filter(id=user.id).exists():
         user = User.objects.get(id=user.id)
+        user.date_approved = fortyfive_plus
         user.last_logged_in = fortyfive_plus
-        user.save(update_fields=["last_logged_in"])
+        user.save(update_fields=["date_approved", "last_logged_in"])
         check_user_expiration()
 
     # 4) Verify deletion – if still present, try once more then raise
