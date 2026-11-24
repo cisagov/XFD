@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 import json
 import os
+import re
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -162,6 +163,17 @@ class ReadQueryTests(unittest.TestCase):
         self.assertEqual(list(result.columns), ["domain", "organization"])
         self.assertTrue(result.empty)
 
+    @patch("pe_source.data.db_query_source.requests.get")
+    def test_get_current_ips_cidrs_by_org_returns_none_on_connection_error(
+        self, get_mock
+    ):
+        """Do not propagate API connection failures to scan callers."""
+        get_mock.side_effect = ConnectionError("offline")
+
+        self.assertRaises(
+            RuntimeError, db_query_source.get_current_ips_cidrs_by_org, "DHS"
+        )
+
 
 class WriteQueryTests(unittest.TestCase):
     """Verify API-backed database write helpers."""
@@ -215,6 +227,53 @@ class WriteQueryTests(unittest.TestCase):
         self.assertEqual(payload["insert_data"][0]["date"], "2026-02-03")
         self.assertEqual(payload["insert_data"][0]["previous_value"], "")
         self.assertTrue(pd.isna(frame.loc[0, "previous_value"]))
+
+    @patch("pe_source.data.db_query_source.connect")
+    def test_update_ip_statuses_updates_correct_columns(self, connect_mock):
+        """Update current, from_cidr, and origin_cidr fields."""
+        conn_mock = MagicMock()
+        cursor_mock = conn_mock.cursor.return_value.__enter__.return_value
+        connect_mock.return_value = conn_mock
+
+        db_query_source.update_ip_statuses("example_hash")
+
+        # Extract the SQL string and parameter tuple passed to cursor.execute()
+        query, params = cursor_mock.execute.call_args[0]
+
+        # Parse the SET columns and parameter into a payload dictionary
+        set_clauses = dict(re.findall(r"(\w+)\s*=\s*'?([^',\n]+)'?", query))
+        payload = {
+            "ip_hash": params[0],
+            "current": set_clauses["current"],
+            "from_cidr": set_clauses["from_cidr"],
+            "origin_cidr": set_clauses["origin_cidr"],
+        }
+
+        self.assertEqual(
+            payload,
+            {
+                "ip_hash": "example_hash",
+                "current": "false",
+                "from_cidr": "false",
+                "origin_cidr": "null",
+            },
+        )
+        conn_mock.commit.assert_called_once()
+        conn_mock.close.assert_called_once()
+
+    @patch("pe_source.data.db_query_source.LOGGER")
+    @patch("pe_source.data.db_query_source.connect")
+    def test_update_ip_statuses_connection_failure(self, connect_mock, logger_mock):
+        """Raise RuntimeError and log error when database connection fails."""
+        connect_mock.return_value = None
+
+        with self.assertRaises(RuntimeError) as context:
+            db_query_source.update_ip_statuses("example_hash")
+
+        self.assertEqual(str(context.exception), "PE database connection failed")
+        logger_mock.error.assert_called_once_with(
+            "update_ip_statuses: PE database connection failed"
+        )
 
 
 if __name__ == "__main__":

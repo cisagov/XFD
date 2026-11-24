@@ -75,6 +75,7 @@ SCAN_CATALOG = {
     "intelx": {"scan": "intelx", "count": 10},
     "shodan": {"scan": "shodan", "count": 3, "apiKeys": ""},
     "shodan_top_cves": {"scan": "shodan_top_cves", "count": 3, "apiKeys": ""},
+    "ip_status_refresh": {"scan": "ip_status_refresh", "count": 1},
 }
 
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})

@@ -843,3 +843,76 @@ def insert_shodan_top_cves(top_epss_cves_dict, failed):
         LOGGER.error(err)
         failed.append("Failed inserting shodan assets: {}".format(err))
     return failed
+
+
+def update_ip_statuses(ip_hash):
+    """
+    Update the current and from_cidr fields for the specified IP hash.
+
+    Args:
+        ip_hash: The hash of the IP to update.
+    """
+    query = """
+    update ips
+    set current = false,
+        from_cidr = 'false',
+        origin_cidr = null
+    where ip_hash = %s
+    """
+    conn = connect()
+    if conn is None:
+        LOGGER.error("update_ip_statuses: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (ip_hash,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("update_ip_statuses: Data update failed")
+        raise
+    finally:
+        conn.close()
+
+
+def get_current_ips_cidrs_by_org(org_abbrv):
+    """
+    Get all IPs that are marked as current for the specified org.
+
+    Args:
+        org_abbrv: The abbreviation of the organization.
+
+    Returns:
+        pd.DataFrame: All current IPs and their cidr for org as dataframe
+    """
+    query = """
+    with org_ips as (
+        select *
+        from ips i
+        inner join organizations o
+        on o.organizations_uid = i.organizations_uid
+        where i."current" = true and i.from_cidr = 'true' and o.cyhy_db_name = %s
+        )
+    select org_ips.ip_hash, org_ips.ip, org_ips.from_cidr , c.network, org_ips.cyhy_db_name
+    from org_ips
+    left join cidrs c
+    on c.cidr_uid = org_ips.origin_cidr
+    """
+    result = None
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_current_ips_cidrs_by_org: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_current_ips_cidrs_by_org: Querying current IPs for customer")
+        result = pd.read_sql(query, conn, params=(org_abbrv,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_current_ips_cidrs_by_org: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+    return result
