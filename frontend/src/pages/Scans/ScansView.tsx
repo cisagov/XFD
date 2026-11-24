@@ -10,7 +10,6 @@ import Add from '@mui/icons-material/Add';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 // Styles & Utils
-import classes from './Scans.module.scss';
 import { textFilterOperators } from '@/utils/transformTableData';
 import { logger } from '@/utils/logger';
 
@@ -28,18 +27,27 @@ import type {
   GridRenderCellParams
 } from '@mui/x-data-grid';
 
-// Local Components & Context
+// Components & Context
+import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
 import CustomDataGrid from '@/components/DataGrid/CustomDataGrid';
 import CustomToolbar from '@/components/DataGrid/CustomToolbar';
-import { Scan, Organization, ScanSchema, OrganizationOption } from '@/types';
-import { useAuthContext } from '@/context';
 import { ScanForm, ScanFormRef } from './ScanForm';
-import { ENDPOINTS } from '@/constants/endpoints';
+
+// Constants
 import {
   DATA_GRID_PAGE_SIZE_OPTIONS,
   DEFAULT_DATA_GRID_PAGE_SIZE
 } from '@/constants/dataGrid';
-import ConfirmDialog from '@/components/Dialog/ConfirmDialog';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { getDefaultScanValues } from '@/constants/scanData';
+
+// Context
+import { useAuthContext } from '@/context';
+
+// Types
+import { Scan, Organization, ScanSchema, OrganizationOption } from '@/types';
+
+// Utils
 import { cleanFilterModelItems, isFilterModelEmpty } from '@/utils/tableUtils';
 
 interface Errors extends Partial<Scan> {
@@ -66,8 +74,6 @@ const ScansView: React.FC = () => {
   const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
   >([]);
-  // Tag selection is currently unused. This code is retained for potential future restoration.
-  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
   const [deleteScanDialogOpen, setDeleteScanDialogOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -84,20 +90,7 @@ const ScansView: React.FC = () => {
 
   const scanFormRef = useRef<ScanFormRef>(null);
 
-  const [values] = useState<Scan>({
-    id: '',
-    name: 'censys',
-    arguments: { start_datetime: '', end_datetime: '' },
-    organizations: [],
-    frequency: 1,
-    frequencyUnit: 'minute',
-    is_granular: false,
-    is_single_scan: false,
-    is_user_modifiable: false,
-    // tags: [],
-    concurrent_tasks: 1,
-    useDateRange: false
-  });
+  const [values] = useState<Scan>(() => getDefaultScanValues('censys'));
 
   const fetchScans = useCallback(async () => {
     setIsLoading(true);
@@ -107,15 +100,11 @@ const ScansView: React.FC = () => {
         organizations: Organization[];
         schema: ScanSchema;
       }>(ENDPOINTS.SCANS);
-      // const tags = await apiGet<OrganizationTag[]>(
-      //   ENDPOINTS.ORGANIZATIONS_TAGS
-      // );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
         organizations.map((e) => ({ label: e.name, value: e.id }))
       );
-      // setTags(tags);
     } catch (e) {
       logger.error('ScansView.fetchScans failed:', { error: e });
     } finally {
@@ -486,7 +475,6 @@ const ScansView: React.FC = () => {
         <ScanForm
           ref={scanFormRef}
           organizationOption={organizationOptions}
-          // tags={tags}
           propValues={values}
           onSubmit={onSubmit}
           onValidityChange={setIsScanFormValid}
@@ -558,11 +546,20 @@ const ScansView: React.FC = () => {
           </Alert>
         )}
       </Box>
-      <Button variant="contained" color="primary" onClick={invokeScheduler}>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={invokeScheduler}
+        sx={{ mb: 1 }}
+      >
         Manually run scheduler
       </Button>
-      {errors.scheduler && <p className={classes.error}>{errors.scheduler}</p>}
-      {errors.global && <p className={classes.error}>{errors.global}</p>}
+      {errors.scheduler && (
+        <Alert severity="error" sx={{ mb: 1 }}>
+          {errors.scheduler}
+        </Alert>
+      )}
+      {errors.global && <Alert severity="error">{errors.global}</Alert>}
       {addNewScanDialog}
       {confirmDeleteScanDialog}
       <Snackbar
