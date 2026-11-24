@@ -8,6 +8,8 @@ import time
 from typing import Callable, Dict, Optional
 
 # Third-Party Libraries
+from defusedxml import ElementTree as DefusedElementTree
+
 # Qualys XML parsing below always supplies entity- and network-disabled parsers.
 from lxml import etree, objectify  # nosec B410
 
@@ -28,6 +30,7 @@ DETAIL_REPORT_TEMPLATE_ID = "2201149"
 CUSTOMER_PARENT_TAG = "WAS_CUSTOMERS"
 DEFAULT_CREATE_RECONCILE_TIMEOUT_SECONDS = 1800.0
 DEFAULT_CREATE_RECONCILE_POLL_SECONDS = 30.0
+FINDING_LOOKUP_BATCH_SIZE = 100
 LOGGER = logging.getLogger(__name__)
 
 
@@ -71,6 +74,61 @@ def xml_to_string(root) -> str:
     objectify.deannotate(root, xsi_nil=True, pytype=True, xsi=True)
     etree.cleanup_namespaces(root)
     return etree.tostring(root, encoding="unicode")
+
+
+def resolve_finding_applications(
+    client: QualysClient,
+    stakeholder_tag: str,
+    findings: dict[str, tuple[str, str]],
+) -> dict[str, tuple[str, str]]:
+    """Match exact finding IDs, QIDs and types to Qualys application names and URLs."""
+    finding_ids = list(findings)
+    applications = {}
+    for start in range(0, len(finding_ids), FINDING_LOOKUP_BATCH_SIZE):
+        requested = finding_ids[start : start + FINDING_LOOKUP_BATCH_SIZE]
+        payload = E.ServiceRequest(
+            E.preferences(E.limitResults(str(len(requested))), E.verbose("true")),
+            E.filters(
+                E.Criteria(", ".join(requested), field="id", operator="IN"),
+                E.Criteria(
+                    stakeholder_tag, field="webApp.tags.name", operator="EQUALS"
+                ),
+            ),
+        )
+        response = client.request(
+            QualysRequest(
+                endpoint="/search/was/finding",
+                payload=xml_to_string(payload),
+                http_method="POST",
+            )
+        )
+        root = DefusedElementTree.fromstring(response.encode(), forbid_dtd=True)
+        if (
+            root.tag != "ServiceResponse"
+            or root.findtext("responseCode") != "SUCCESS"
+            or root.findtext("hasMoreRecords", "false").lower() != "false"
+        ):
+            raise LookupError(
+                "Qualys finding ownership lookup failed or was truncated."
+            )
+        remaining = set(requested)
+        for record in root.findall("./data/Finding"):
+            finding_id = record.findtext("id", "")
+            identity = (record.findtext("qid"), record.findtext("type"))
+            app_name = record.findtext("./webApp/name", "")
+            app_url = record.findtext("./webApp/url", "")
+            if (
+                finding_id not in remaining
+                or identity != findings[finding_id]
+                or not app_name.strip()
+                or not app_url.strip()
+            ):
+                raise LookupError("Qualys returned conflicting finding ownership data.")
+            applications[finding_id] = (app_name, app_url)
+            remaining.remove(finding_id)
+        if remaining:
+            raise LookupError("Qualys did not identify every flat report finding.")
+    return applications
 
 
 def build_tag_lookup_payload(tag_name: str) -> str:

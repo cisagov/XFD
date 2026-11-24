@@ -1,0 +1,27 @@
+[Unit]
+Description=Apply WAS delivery-review database retention
+Documentation=file:///home/ubuntu/code/was_report/backend/was/docs/delivery-failure-review.md
+Wants=docker.service
+After=docker.service
+ConditionPathIsDirectory=/home/ubuntu/code/was_report/backend/was
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/code/was_report/backend/was
+Environment=HOME=/home/ubuntu
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/make delivery-retention-cleanup APPLY=1
+UMask=0077
+NoNewPrivileges=true
+PrivateDevices=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=read-only
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+RestrictSUIDSGID=true

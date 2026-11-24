@@ -15,6 +15,7 @@ from lxml import etree  # nosec B410
 
 # First-Party Libraries
 from was_reports.qualys.qualys_client import QualysClient
+from was_reports.qualys.report_data import resolve_finding_applications
 from was_reports.reporting.exceptions import ReportXmlUnsafeContentError
 from was_reports.reporting.report_artifacts import (
     EMAILS_FOUND_QID,
@@ -249,7 +250,7 @@ def _parse_vulnerability(element) -> VulnerabilityFinding:
         first_detected=_required_text(element, "FIRST_TIME_DETECTED"),
         last_detected=_required_text(element, "LAST_TIME_DETECTED"),
         potential=parse_potential(_required_text(element, "POTENTIAL")),
-        status=_required_text(element, "STATUS"),
+        status=_required_text(element, "STATUS").strip().upper(),
         payload_request=request_text,
         payload_response=(
             "".join(response_contents.itertext())
@@ -276,6 +277,37 @@ def _web_application_name(element) -> str:
     if parent is None:
         raise LookupError("Qualys finding is not within a web application.")
     return _required_text(parent, "NAME")
+
+
+def _collect_flat_finding(element, findings: dict[str, tuple[str, str]]) -> None:
+    """Collect exact identities only from finding lists directly under RESULTS."""
+    if _parent_name(element.getparent()) != "RESULTS":
+        return
+    finding_id = _required_text(element, "ID")
+    identity = (_required_text(element, "QID"), _local_name(element))
+    if (
+        not finding_id.isascii()
+        or not finding_id.isdecimal()
+        or findings.setdefault(finding_id, identity) != identity
+    ):
+        raise LookupError("Flat Qualys report contains an invalid finding identity.")
+
+
+def _finding_application(
+    element, finding_id: str, flat_applications: dict[str, tuple[str, str]]
+) -> tuple[str, str]:
+    """Use verified ownership for flat results and the parent for grouped results."""
+    if _parent_name(element.getparent()) == "RESULTS":
+        return flat_applications[finding_id]
+    return _web_application_name(element), ""
+
+
+def _write_application_heading(
+    writer: _LineWriter, heading: str, application_name: str
+) -> None:
+    """Start a labeled application section in an information attachment."""
+    writer.write("")
+    writer.write(csv_row(["{} {}:".format(heading, application_name)]))
 
 
 def _decoded_data_values(element) -> list[str]:
@@ -321,6 +353,9 @@ def process_report_xml(
     summary = None
     generation_datetime = None
     severity_totals = [0, 0, 0, 0, 0]
+    flat_findings: dict[str, tuple[str, str]] = {}
+    appendix_applications: Counter = Counter()
+    grouped_results = False
 
     with ExitStack() as stack:
         severity_writer = _open_writer(
@@ -359,21 +394,44 @@ def process_report_xml(
                     _clear_element(element)
                 elif name == "WEB_APPLICATION" and parent_name == "APPENDIX":
                     _write_overview_row(element, overview_writer)
+                    appendix_applications[
+                        (
+                            _required_text(element, "NAME"),
+                            _required_text(element, "URL"),
+                        )
+                    ] += 1
                     _clear_element(element)
                 elif name == "VULNERABILITY" and parent_name == "VULNERABILITY_LIST":
+                    _collect_flat_finding(element, flat_findings)
                     _clear_element(element)
                 elif (
                     name == "INFORMATION_GATHERED"
                     and parent_name == "INFORMATION_GATHERED_LIST"
                 ):
+                    _collect_flat_finding(element, flat_findings)
                     _clear_element(element)
                 elif name == "WEB_APPLICATION" and parent_name == "RESULTS":
+                    grouped_results = True
                     _clear_element(element)
 
     if not qid_definitions:
         raise LookupError("Qualys report does not contain a QID glossary.")
     if summary is None or generation_datetime is None:
         raise LookupError("Qualys report does not contain the required summary.")
+    flat_applications = {}
+    if flat_findings:
+        if grouped_results or not appendix_applications:
+            raise LookupError(
+                "Flat Qualys report has an unsupported application layout."
+            )
+        flat_applications = resolve_finding_applications(
+            client, stakeholder_tag, flat_findings
+        )
+        if any(
+            appendix_applications[application] != 1
+            for application in flat_applications.values()
+        ):
+            raise LookupError("Qualys finding application does not match the appendix.")
     summary = SummaryMetrics(
         start_date=generation_datetime[:11],
         security_risk=summary.security_risk,
@@ -419,6 +477,7 @@ def process_report_xml(
                 "Rejected Links found for web application",
             ),
         }
+        last_attachment_application: dict[str, tuple[str, str]] = {}
 
         with xml_path.open("rb") as xml_file:
             for event, element in _iter_report(xml_file):
@@ -432,9 +491,8 @@ def process_report_xml(
                     if container is not None and _local_name(container) == "RESULTS":
                         web_application = "".join(element.itertext())
                         for attachment_writer, heading in attachment_writers.values():
-                            attachment_writer.write("")
-                            attachment_writer.write(
-                                csv_row(["{} {}:".format(heading, web_application)])
+                            _write_application_heading(
+                                attachment_writer, heading, web_application
                             )
                 elif name == "VULNERABILITY" and parent_name == "VULNERABILITY_LIST":
                     finding = _parse_vulnerability(element)
@@ -445,7 +503,9 @@ def process_report_xml(
                         )
                     else:
                         definition = qid_definitions[finding.qid]
-                        web_application = _web_application_name(element)
+                        web_application, unused_url = _finding_application(
+                            element, finding.finding_id, flat_applications
+                        )
                         nonfixed_count += 1
                         if finding.status == "NEW":
                             new_count += 1
@@ -472,8 +532,11 @@ def process_report_xml(
                     and parent_name == "INFORMATION_GATHERED_LIST"
                 ):
                     qid = _required_text(element, "QID")
-                    web_application = _web_application_name(element)
                     information = _parse_information(element)
+                    application = _finding_application(
+                        element, information.finding_id, flat_applications
+                    )
+                    web_application, app_url = application
                     information_writer.write(
                         information_csv_row(
                             information,
@@ -483,7 +546,15 @@ def process_report_xml(
                     )
                     attachment = attachment_writers.get(qid)
                     if attachment is not None:
-                        attachment_writer, unused_heading = attachment
+                        attachment_writer, heading = attachment
+                        if (
+                            app_url
+                            and last_attachment_application.get(qid) != application
+                        ):
+                            _write_application_heading(
+                                attachment_writer, heading, web_application
+                            )
+                            last_attachment_application[qid] = application
                         for value in _decoded_data_values(element):
                             attachment_writer.write(csv_row([value]))
                     _clear_element(element)

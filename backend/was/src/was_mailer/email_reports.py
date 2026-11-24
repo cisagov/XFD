@@ -30,6 +30,14 @@ from was_reports.data.daily_report_tracker import (
     claim_assignee_digest_rows,
     finish_assignee_digest_rows,
 )
+from was_reports.data.delivery_attempts import (
+    create_initial_attempt,
+    mark_accepted,
+    mark_pre_send_failure,
+    mark_sending,
+    mark_uncertain,
+    record_archive_sha256,
+)
 from was_reports.data.report_runs import (
     claim_report_run_email_by_id,
     get_report_run_email_by_id,
@@ -39,7 +47,7 @@ from was_reports.data.report_runs import (
     recover_stale_report_operations_in_db,
     touch_report_email_claim_by_id,
 )
-from was_reports.storage.s3_reports import materialize_report
+from was_reports.storage.s3_reports import materialize_report, validate_archived_pdf
 from was_reports.utils.capacity_scope import capacity_tracker_ids
 from was_reports.utils.env import getenv, require_env
 from was_reports.utils.logging_config import (
@@ -114,11 +122,22 @@ def send_message(
 ) -> str:
     """Send through SES with an optional single retry for safe rejections."""
     attempt_limit = 2 if retry_confirmed_nondelivery else 1
+    configuration_set = (getenv("WAS_SES_CONFIGURATION_SET") or "").strip()
+    if configuration_set and (
+        len(configuration_set) > 64
+        or not all(
+            character.isalnum() or character in "_-" for character in configuration_set
+        )
+    ):
+        raise ValueError("WAS_SES_CONFIGURATION_SET is invalid.")
     for attempt_number in range(1, attempt_limit + 1):
         try:
-            response = ses_client.send_raw_email(
-                RawMessage={"Data": message.as_bytes()}
-            )
+            send_arguments: dict[str, object] = {
+                "RawMessage": {"Data": message.as_bytes()}
+            }
+            if configuration_set:
+                send_arguments["ConfigurationSetName"] = configuration_set
+            response = ses_client.send_raw_email(**send_arguments)
             return response["MessageId"]
         except ClientError as error:
             error_code = ses_confirmed_nondelivery_retry_code(error)
@@ -217,11 +236,26 @@ def send_report_run_email(
                 )
             )
     delivery_attempted = False
+    delivery_attempt_id = None
+    delivery_recorded_accepted = False
     try:
         recipients = recipient_addresses(
             report_run_email=report_run_email,
             override_recipients=override_recipients,
         )
+        archived_report_s3_uri = None
+        if delivery_claimed:
+            archived_report_s3_uri = report_run_email.output_path
+            if archived_report_s3_uri is None or not archived_report_s3_uri.startswith(
+                "s3://"
+            ):
+                archived_report_s3_uri = None
+            delivery_attempt_id = create_initial_attempt(
+                report_run_id,
+                recipients,
+                archived_report_s3_uri,
+                report_run_email.email_claim_token,
+            )
         analyst_delivery = (
             report_run_email.delivery_purpose in {"analyst", "standalone"}
             and not preserve_customer_template
@@ -256,6 +290,16 @@ def send_report_run_email(
                     ),
                 )
             with report_context as report_path:
+                if (
+                    archived_report_s3_uri is not None
+                    and delivery_attempt_id is not None
+                ):
+                    archive_sha256 = validate_archived_pdf(
+                        report_path,
+                        report_run_email.report_password,
+                        require_password_match=True,
+                    )
+                    record_archive_sha256(delivery_attempt_id, archive_sha256)
                 message = build_report_email(
                     source_email=source_email,
                     recipients=recipients,
@@ -296,6 +340,8 @@ def send_report_run_email(
             else:
                 client = create_ses_client()
             check_operation_ownership()
+            if delivery_attempt_id is not None:
+                mark_sending(delivery_attempt_id)
             delivery_attempted = True
             message_id = send_message(
                 client,
@@ -304,6 +350,9 @@ def send_report_run_email(
                     report_run_email.delivery_purpose == "customer"
                 ),
             )
+        if delivery_attempt_id is not None:
+            mark_accepted(delivery_attempt_id, message_id)
+            delivery_recorded_accepted = True
         mark_report_run_emailed_by_id(
             report_run_id,
             message_id,
@@ -311,6 +360,19 @@ def send_report_run_email(
         )
         return message_id
     except Exception as error:
+        if delivery_attempt_id is not None and not delivery_recorded_accepted:
+            try:
+                if delivery_attempted:
+                    mark_uncertain(delivery_attempt_id, "ses_outcome_uncertain")
+                else:
+                    mark_pre_send_failure(delivery_attempt_id, "pre_send_failure")
+            except Exception as persistence_error:
+                LOGGER.error(
+                    "Unable to persist WAS delivery attempt failure for run id %s: %s",
+                    report_run_id,
+                    exception_details(persistence_error),
+                    extra={"event": "delivery_attempt_persistence_failed"},
+                )
         if delivery_claimed:
             try:
                 mark_report_run_email_failed_by_id(
